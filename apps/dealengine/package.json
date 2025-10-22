@@ -1,0 +1,25 @@
+{
+  "name": "dealengine",
+  "version": "0.1.0",
+  "private": true,
+"scripts": {
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yaml}\"",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --cache",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --cache --fix"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "next": "16.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "16.0.0"
+  }
+}
