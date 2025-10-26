@@ -1,5 +1,6 @@
 "use client";
 
+import { demoDeal } from "./demo";
 import Link from "next/link";
 import React, {
   useMemo,

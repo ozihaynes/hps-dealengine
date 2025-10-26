@@ -16,9 +16,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "lint-staged": {
-    "*.{ts,tsx,js,jsx}": [
-      "eslint --cache --fix"
+"lint-staged": {
+  "*.{ts,tsx,js,jsx}": ["eslint --cache --fix"],
+  "*.{ts,tsx,js,jsx,json,css,md,yaml}": ["prettier --write"]
+}
     ],
     "*.{ts,tsx,js,jsx,json,md,yaml}": [
       "prettier --write"
