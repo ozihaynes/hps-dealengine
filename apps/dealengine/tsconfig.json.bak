@@ -1,0 +1,21 @@
+{
+  "extends": "../../packages/config/tsconfig.base.json", // Point to our shared base config
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }],
+    "allowJs": true, // Next.js specific
+    "incremental": true, // Next.js specific
+    "jsx": "preserve", // Next.js specific
+    "lib": ["dom", "dom.iterable", "esnext"], // Browser + modern JS
+    "module": "esnext", // Required by Next.js
+    "noEmit": true, // Next.js handles transpiling
+    "resolveJsonModule": true,
+    "target": "es5", // Next.js still targets es5 for broader compatibility
+    "baseUrl": ".", // Important for path aliases
+    "paths": {
+      "@/*": ["./src/*"] // Matches your create-next-app setting
+    },
+    "moduleResolution": "bundler" // Recommended for modern Node.js/TypeScript
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
