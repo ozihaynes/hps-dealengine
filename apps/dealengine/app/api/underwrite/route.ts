@@ -30,7 +30,7 @@ const EngineDealSchema = z.object({
     days_to_sale_manual: z.number().min(0),
     timeline_total_days: z.number().min(0).optional(),
   }),
-}).strict();
+}).passthrough();
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
@@ -73,4 +73,8 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json({ ok: false, error: err?.message ?? "Bad Request" }, { status: 400 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ ok: true, route: "underwrite" });
 }
