@@ -1,3 +1,6 @@
+// top of packages/engine/src/compute_underwriting.ts
+import { UNDERWRITE_POLICY as POLICY } from './policy-underwrite';
+
 /** Shared money row shape */
 export type MoneyRow = { label?: string; amount: number };
 
@@ -39,12 +42,7 @@ export type EngineDeal = {
   evidence?: unknown;
 };
 
-/** Policy placeholders (filled more in H3/H4) */
-export const POLICY = {
-  default_cash_close_add_days: 35,
-  carry_month_cap: 5,
-  mao_aiv_cap_pct: 0.97,
-};
+import { UNDERWRITE_POLICY as POLICY } from './policy-underwrite';
 
 const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
