@@ -3,7 +3,6 @@
   "name": "hps-internal-tools",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
     "dev": "pnpm --filter dealengine dev",
     "build": "pnpm -r build",
@@ -13,30 +12,23 @@
     "test": "echo \"(no tests yet)\"",
     "prepare": "husky"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-"lint-staged": {
-  "*.{ts,tsx,js,jsx}": ["eslint --cache --fix"],
-  "*.{ts,tsx,js,jsx,json,css,md,yaml}": ["prettier --write"]
-}
+  "lint-staged": {
+    "**/*.{ts,tsx,js,jsx}": [
+      "eslint --cache --fix"
     ],
-    "*.{ts,tsx,js,jsx,json,md,yaml}": [
+    "**/*.{ts,tsx,js,jsx,json,css,md,yaml}": [
       "prettier --write"
     ]
   },
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.16",
-    "@typescript-eslint/eslint-plugin": "^8.46.2",
-    "@typescript-eslint/parser": "^8.46.2",
-    "eslint": "^9.38.0",
-    "eslint-config-next": "16.0.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.2.5",
-    "prettier": "^3.6.2",
-    "tailwindcss": "^4.1.16"
+    "@types/node": "20.12.12",
+    "@typescript-eslint/eslint-plugin": "8.46.2",
+    "@typescript-eslint/parser": "8.46.2",
+    "eslint": "9.38.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.2.5",
+    "prettier": "3.6.2",
+    "typescript": "5.6.3"
   }
 }
