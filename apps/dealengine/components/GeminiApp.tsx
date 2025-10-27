@@ -899,7 +899,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   });
 
   const loadDemo = () => {
-  setDeal((prev) => ({
+  setDeal((prev: any) => ({
     ...prev,
     deal: {
       ...prev.deal,
@@ -1411,7 +1411,7 @@ const Overview = ({
                   {isFinite(calc.dealSpread) && (
                     <Badge color={health.color}>{health.label}</Badge>
                   )}
-                  <Badge color={urgencyColors[calc.urgencyBand] ?? "blue"}>
+                  <Badge color={urgencyColors[calc.urgencyBand as keyof typeof urgencyColors] ?? "blue"}>
                     {" "}
                     {calc.urgencyBand}{" "}
                     {calc.urgencyDays > 0 ? `(${calc.urgencyDays}d)` : ""}{" "}
@@ -2050,7 +2050,7 @@ function RepairsPro({
           section={estimatorSections[sectionKey]}
           costs={estimatorState.costs[sectionKey]}
           quantities={quantities}
-          onCostChange={onCostChange}
+          onCostChange={(itemKey, field, value) => onCostChange(sectionKey, itemKey, field, value)}
           onQuantityChange={onQuantityChange}
         />
       ))}
@@ -2100,7 +2100,7 @@ function EstimatorSection({
                   item={section.items[itemKey]}
                   value={costs[itemKey]}
                   quantity={quantities[itemKey]}
-                  onValueChange={(...args) => onCostChange(itemKey, ...(args as any))}
+                  onValueChange={(field, value) => onCostChange(itemKey, field as any, value)}
                   onQuantityChange={onQuantityChange}
                 />
               ))}

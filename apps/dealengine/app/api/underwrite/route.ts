@@ -78,9 +78,13 @@ function computeDealMath(deal: EngineDeal) {
 
   // Investor floors will be filled from ZIP dataset; scaffold now
   const investor: null | { p20_floor: number; typical_floor: number } = null;
-  const operational = Math.max(payoff_plus_essentials, investor?.typical_floor ?? 0);
-
-  return {
+  const investorFloor =
+  (typeof investor === "object" && investor &&
+   "typical_floor" in (investor as any) &&
+   typeof (investor as any).typical_floor === "number")
+    ? (investor as any).typical_floor
+    : 0;
+const operational = Math.max(payoff_plus_essentials, investorFloor);return {
     dtm,
     carry: { hold_monthly, hold_months, total_days },
     floors: { payoff_plus_essentials, investor, operational },

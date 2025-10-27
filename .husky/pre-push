@@ -1,2 +1,7 @@
-pnpm --filter @hps-internal/engine exec vitest run || exit 1
-pnpm --filter ./apps/dealengine build || exit 1
+#!/usr/bin/env sh
+
+echo "Husky pre-push: running workspace typecheck and tests?"
+pnpm -w typecheck || exit 1
+pnpm -w test || exit 1
+
+echo "OK ?"
