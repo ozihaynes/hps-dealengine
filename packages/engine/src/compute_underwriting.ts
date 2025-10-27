@@ -1,4 +1,3 @@
-// top of packages/engine/src/compute_underwriting.ts
 import { UNDERWRITE_POLICY as POLICY } from './policy-underwrite';
 
 /** Shared money row shape */
@@ -41,9 +40,6 @@ export type EngineDeal = {
   status?: unknown;
   evidence?: unknown;
 };
-
-import { UNDERWRITE_POLICY as POLICY } from './policy-underwrite';
-
 const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
