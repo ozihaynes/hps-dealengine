@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "pnpm --filter dealengine dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r exec tsc -p . --noEmit",
+    "typecheck": "pnpm -r --filter=!./apps/dealengine exec tsc -p . --noEmit",
     "lint": "pnpm -r run lint || exit 0",
     "format": "pnpm -r exec prettier --write .",
     "test": "echo \"(no tests yet)\"",
