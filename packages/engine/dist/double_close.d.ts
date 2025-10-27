@@ -1,5 +1,5 @@
-export type County = "MIAMI-DADE" | "OTHER";
-export type PropertyType = "SFR" | "OTHER";
+export type County = 'MIAMI-DADE' | 'OTHER';
+export type PropertyType = 'SFR' | 'OTHER';
 export interface DoubleCloseInput {
     ab_price: number;
     bc_price: number;
@@ -27,6 +27,6 @@ export interface DoubleCloseResult {
     dc_total_costs: number;
     dc_carry_cost: number;
     dc_net_spread: number;
-    comparison: "AssignmentBetter" | "DoubleCloseBetter";
+    comparison: 'AssignmentBetter' | 'DoubleCloseBetter';
 }
 export declare function computeDoubleClose(input: DoubleCloseInput): DoubleCloseResult;

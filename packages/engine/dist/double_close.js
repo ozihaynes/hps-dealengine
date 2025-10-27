@@ -5,8 +5,8 @@ function deedRate(county, prop) {
     // - Most counties: $0.70 per $100 => 0.007
     // - Miami-Dade SFR: $0.60 per $100 => 0.006
     // - Miami-Dade OTHER: $1.05 per $100 => 0.0105
-    if (county === "MIAMI-DADE") {
-        return prop === "SFR" ? 0.006 : 0.0105;
+    if (county === 'MIAMI-DADE') {
+        return prop === 'SFR' ? 0.006 : 0.0105;
     }
     return 0.007;
 }
@@ -51,7 +51,7 @@ function sideTotals(price, county, prop, noteAmount, pages) {
         intangible_tax: intang,
         title_premium: title,
         recording_fees: rec,
-        total
+        total,
     };
 }
 export function computeDoubleClose(input) {
@@ -66,7 +66,7 @@ export function computeDoubleClose(input) {
     // Carry: simple day-count using 30-day month convention (matches your baseline 3 days on $300/mo => $30)
     const dc_carry_cost = round2((monthlyCarry / 30) * holdDays);
     const dc_net_spread = round2(assignment_fee - dc_total_costs - dc_carry_cost);
-    const comparison = dc_net_spread < assignment_fee ? "AssignmentBetter" : "DoubleCloseBetter";
+    const comparison = dc_net_spread < assignment_fee ? 'AssignmentBetter' : 'DoubleCloseBetter';
     return {
         side_ab,
         side_bc,
@@ -74,6 +74,6 @@ export function computeDoubleClose(input) {
         dc_total_costs,
         dc_carry_cost,
         dc_net_spread,
-        comparison
+        comparison,
     };
 }
