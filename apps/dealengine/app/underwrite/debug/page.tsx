@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { postUnderwrite } from "@/lib/api";
+import { postUnderwrite } from "../../../lib/api";
 
 const sampleDeal = {
   market: { aiv: 300000, arv: 360000, dom_zip: 45, moi_zip: 2.3 },
@@ -54,3 +54,4 @@ export default function UnderwriteDebugPage() {
     </div>
   );
 }
+
