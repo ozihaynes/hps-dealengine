@@ -1,35 +1,20 @@
-/**
- * packages/engine/src/double_close.ts
- * Implements Double-Close cost math per spec:
- *  - compute_deed_doc_stamps
- *  - compute_note_doc_stamps
- *  - compute_intangible_tax
- *  - compute_title_premium (banded schedule)
- *  - compute_recording_fees
- *  - compute_dc_costs_side("AB"|"BC")
- *  - compute_double_close (net & comparison)
- * Spec refs in PDF deliverables.  // PDF  :contentReference[oaicite:3]{index=3} :contentReference[oaicite:4]{index=4}
- */
+export type County = 'MIAMI-DADE' | 'OTHER';
+export type PropertyType = 'SFR' | 'OTHER';
 
-import { dcPolicyDefaults, DCPolicy, CountyCode, PropertyType } from './policy-defaults';
-
-export type DCSide = 'AB' | 'BC';
-
-export interface DCInput {
-  ab_price: number; // A→B contract price
-  bc_price: number; // B→C contract price
-  county: CountyCode; // "MIAMI-DADE" | "OTHER"
-  property_type: PropertyType; // "SFR" | "OTHER"
-  ab_note_amount?: number; // financed note for AB side (if any)
-  bc_note_amount?: number; // financed note for BC side (if any)
-  ab_pages?: number; // pages to record (AB deed/mortgage)
-  bc_pages?: number; // pages to record (BC deed/mortgage)
-  hold_days?: number; // days between closings
-  daily_carry?: number; // explicit daily carry (preferred)
-  monthly_carry?: number; // fallback monthly carry (derive daily)
+export interface DoubleCloseInput {
+  ab_price: number;
+  bc_price: number;
+  county: County;
+  property_type: PropertyType;
+  hold_days?: number; // default 0
+  monthly_carry?: number; // default 0
+  ab_note_amount?: number; // default 0
+  bc_note_amount?: number; // default 0
+  ab_pages?: number; // default 1
+  bc_pages?: number; // default 1
 }
 
-export interface CostBreakdown {
+export interface SideCosts {
   deed_stamps: number;
   note_stamps: number;
   intangible_tax: number;
@@ -38,116 +23,116 @@ export interface CostBreakdown {
   total: number;
 }
 
-export interface DCResult {
-  side_ab: CostBreakdown;
-  side_bc: CostBreakdown;
+export interface DoubleCloseResult {
+  side_ab: SideCosts;
+  side_bc: SideCosts;
   assignment_fee: number;
   dc_total_costs: number;
   dc_carry_cost: number;
   dc_net_spread: number;
-  comparison: 'AssignmentBetter' | 'DoubleCloseBetter' | 'Tie';
+  comparison: 'AssignmentBetter' | 'DoubleCloseBetter';
 }
 
-/** Helpers */
-const money = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const round0 = (n: number) => Math.round(n);
 
-export function compute_deed_doc_stamps(
-  amount: number,
-  county: CountyCode,
-  property_type: PropertyType,
-  policy: DCPolicy = dcPolicyDefaults
-): number {
-  const rate =
-    county === 'MIAMI-DADE'
-      ? property_type === 'SFR'
-        ? policy.deedStampRateMiamiDadeSFR
-        : policy.deedStampRateMiamiDadeOther
-      : policy.deedStampRateDefault;
-  return money(rate * Math.max(0, amount));
-}
-
-export function compute_note_doc_stamps(
-  note_amount: number,
-  policy: DCPolicy = dcPolicyDefaults
-): number {
-  return money(policy.noteDocStampRate * Math.max(0, note_amount));
-}
-
-export function compute_intangible_tax(
-  note_amount: number,
-  policy: DCPolicy = dcPolicyDefaults
-): number {
-  return money(policy.intangibleTaxRate * Math.max(0, note_amount));
-}
-
-export function compute_title_premium(
-  purchase_price: number,
-  policy: DCPolicy = dcPolicyDefaults
-): number {
-  let remaining = Math.max(0, purchase_price);
-  let premium = 0;
-  let lower = 0;
-  for (const band of policy.titlePremiumBands) {
-    const upper = band.upto ?? remaining + lower; // if null → all remaining
-    const span = Math.max(0, Math.min(remaining, upper - lower));
-    if (span <= 0) break;
-    premium += (span / 1000) * band.ratePerThousand;
-    remaining -= span;
-    lower = upper;
+function deedRate(county: County, prop: PropertyType): number {
+  // FL doc stamps on deeds ($ per $100)
+  // - Most counties: $0.70 per $100 => 0.007
+  // - Miami-Dade SFR: $0.60 per $100 => 0.006
+  // - Miami-Dade OTHER: $1.05 per $100 => 0.0105
+  if (county === 'MIAMI-DADE') {
+    return prop === 'SFR' ? 0.006 : 0.0105;
   }
-  return money(premium);
+  return 0.007;
 }
 
-export function compute_recording_fees(pages = 1, policy: DCPolicy = dcPolicyDefaults): number {
-  const p = Math.max(1, Math.floor(pages));
+function deedStamps(price: number, county: County, prop: PropertyType): number {
+  return round0(price * deedRate(county, prop));
+}
+
+function noteDocStamps(noteAmount: number): number {
+  // FL doc stamps on notes: $0.35 per $100 => 0.0035
+  return round0(noteAmount * 0.0035);
+}
+
+function intangibleTax(noteAmount: number): number {
+  // FL non-recurring intangible tax on mortgages: 0.2% => 0.002
+  return round0(noteAmount * 0.002);
+}
+
+function titlePremium(amount: number): number {
+  // FL promulgated rate (basic owner’s policy)
+  // - First $100k: $5.75 per $1k
+  // - $100k–$1M: $5.00 per $1k (incremental)
+  const base100k = Math.min(amount, 100000);
+  const over100k = Math.max(amount - 100000, 0);
+  const p = (base100k / 1000) * 5.75 + (over100k / 1000) * 5.0;
+  return round0(p);
+}
+
+function recordingFees(pages: number): number {
+  // Common schedule: $10 first page + $8.50 each additional page
+  const p = Math.max(1, Math.floor(pages || 1));
   const extra = Math.max(0, p - 1);
-  return money(policy.recordingFeeBase + extra * policy.recordingFeePerPageAdditional);
+  const fees = 10 + 8.5 * extra;
+  // Keep cents when needed (e.g., 2 pages = 18.5); otherwise whole dollars
+  return round2(fees);
 }
 
-export function compute_dc_costs_side(
-  side: DCSide,
-  input: DCInput,
-  policy: DCPolicy = dcPolicyDefaults
-): CostBreakdown {
-  const price = side === 'AB' ? input.ab_price : input.bc_price;
-  const note = side === 'AB' ? (input.ab_note_amount ?? 0) : (input.bc_note_amount ?? 0);
-  const pages = side === 'AB' ? (input.ab_pages ?? 1) : (input.bc_pages ?? 1);
-
-  const deed_stamps = compute_deed_doc_stamps(price, input.county, input.property_type, policy);
-  const note_stamps = compute_note_doc_stamps(note, policy);
-  const intangible_tax = compute_intangible_tax(note, policy);
-  const title_premium = compute_title_premium(price, policy);
-  const recording_fees = compute_recording_fees(pages, policy);
-
-  const total = money(deed_stamps + note_stamps + intangible_tax + title_premium + recording_fees);
-
-  return { deed_stamps, note_stamps, intangible_tax, title_premium, recording_fees, total };
+function sideTotals(
+  price: number,
+  county: County,
+  prop: PropertyType,
+  noteAmount: number,
+  pages: number
+): SideCosts {
+  const deed = deedStamps(price, county, prop);
+  const note = noteDocStamps(noteAmount || 0);
+  const intang = intangibleTax(noteAmount || 0);
+  const title = titlePremium(price);
+  const rec = recordingFees(pages || 1);
+  const total = round2(deed + note + intang + title + rec);
+  return {
+    deed_stamps: deed,
+    note_stamps: note,
+    intangible_tax: intang,
+    title_premium: title,
+    recording_fees: rec,
+    total,
+  };
 }
 
-export function compute_double_close(
-  input: DCInput,
-  dealForCarry?: { monthly_carry?: number },
-  policy: DCPolicy = dcPolicyDefaults
-): DCResult {
-  const side_ab = compute_dc_costs_side('AB', input, policy);
-  const side_bc = compute_dc_costs_side('BC', input, policy);
+export function computeDoubleClose(input: DoubleCloseInput): DoubleCloseResult {
+  const county = input.county;
+  const prop = input.property_type;
+  const holdDays = input.hold_days ?? 0;
+  const monthlyCarry = input.monthly_carry ?? 0;
 
-  const assignment_fee = money(input.bc_price - input.ab_price);
-  const dc_total_costs = money(side_ab.total + side_bc.total);
+  const side_ab = sideTotals(
+    input.ab_price,
+    county,
+    prop,
+    input.ab_note_amount ?? 0,
+    input.ab_pages ?? 1
+  );
 
-  const daily = input.daily_carry ?? (input.monthly_carry ?? dealForCarry?.monthly_carry ?? 0) / 30;
+  const side_bc = sideTotals(
+    input.bc_price,
+    county,
+    prop,
+    input.bc_note_amount ?? 0,
+    input.bc_pages ?? 1
+  );
 
-  const hold_days = Math.max(0, Math.floor(input.hold_days ?? 0));
-  const dc_carry_cost = money((daily || 0) * hold_days);
+  const assignment_fee = round2(input.bc_price - input.ab_price);
+  const dc_total_costs = round2(side_ab.total + side_bc.total);
 
-  const dc_net_spread = money(assignment_fee - dc_total_costs - dc_carry_cost);
+  // Carry: simple day-count using 30-day month convention (matches your baseline 3 days on $300/mo => $30)
+  const dc_carry_cost = round2((monthlyCarry / 30) * holdDays);
 
-  const comparison =
-    dc_net_spread > assignment_fee
-      ? 'DoubleCloseBetter'
-      : dc_net_spread < assignment_fee
-        ? 'AssignmentBetter'
-        : 'Tie';
+  const dc_net_spread = round2(assignment_fee - dc_total_costs - dc_carry_cost);
+  const comparison = dc_net_spread < assignment_fee ? 'AssignmentBetter' : 'DoubleCloseBetter';
 
   return {
     side_ab,
