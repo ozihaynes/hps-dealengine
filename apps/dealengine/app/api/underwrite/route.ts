@@ -1,111 +1,85 @@
-/* apps/dealengine/app/api/underwrite/route.ts */
-import { NextResponse } from "next/server";
-import { z } from "zod";
-import { uiToEngine, type EngineDeal } from "../../../lib/contract-adapter";
+// apps/dealengine/app/api/underwrite/route.ts
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { computeUnderwriting } from '@hps-internal/engine';
+import { getDeal, getScenario } from '../../../lib/repos';
 
-const MoneyRow = z.object({ label: z.string().optional(), amount: z.number().finite() });
+// ---- helpers ----
 
-const EngineDealSchema = z.object({
-  market: z.object({
-    aiv: z.number().min(0),
-    arv: z.number().min(0),
-    dom_zip: z.number(),
-    moi_zip: z.number(),
-    "price-to-list-pct": z.number().min(0).max(1).optional(),
-  }),
-  costs: z.object({
-    repairs_base: z.number().min(0),
-    contingency_pct: z.number().min(0).max(1),
-    monthly: z.object({
-      taxes: z.number().min(0),
-      insurance: z.number().min(0),
-      hoa: z.number().min(0),
-      utilities: z.number().min(0),
-    }),
-    close_cost_items_seller: z.array(MoneyRow).optional(),
-    close_cost_items_buyer: z.array(MoneyRow).optional(),
-    essentials_moveout_cash: z.number().min(0).optional(),
-    concessions_pct: z.number().min(0).max(1).optional(),
-  }),
-  debt: z.object({
-    senior_principal: z.number().min(0),
-    senior_per_diem: z.number().min(0),
-    good_thru_date: z.string().nullable().optional(),
-    juniors: z.array(MoneyRow).optional(),
-  }),
-  timeline: z.object({
-    days_to_ready_list: z.number().min(0),
-    days_to_sale_manual: z.number().min(0),
-    timeline_total_days: z.number().min(0).optional(),
-  }),
-}).passthrough();
+function deepMerge<T>(base: T, patch: Partial<T>): T {
+  if (patch == null || typeof patch !== 'object') return (base ?? patch) as T;
+  if (base == null || typeof base !== 'object') return patch as T;
+  if (Array.isArray(base) || Array.isArray(patch)) return (patch as T) ?? base;
 
-const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-const n = (x: unknown) => (typeof x === "number" && Number.isFinite(x) ? x : 0);
-const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
-
-function computeDTM(deal: EngineDeal) {
-  const manual_days = Math.max(0, n(deal.timeline.days_to_sale_manual));
-  const default_cash_close_days = Math.max(0, Math.round(n(deal.market.dom_zip) + 35)); // SOT default
-  const useManual = manual_days > 0 && manual_days <= default_cash_close_days;
-
-  return {
-    manual_days,
-    default_cash_close_days,
-    chosen_days: useManual ? manual_days : default_cash_close_days,
-    reason: useManual ? "manual" as const : "dom+35" as const,
-  };
+  const out: any = { ...base };
+  for (const k of Object.keys(patch)) {
+    const pv: any = (patch as any)[k];
+    const bv: any = (base as any)[k];
+    out[k] = pv && typeof pv === 'object' && !Array.isArray(pv) ? deepMerge(bv, pv) : (pv ?? bv);
+  }
+  return out as T;
 }
 
-function computeDealMath(deal: EngineDeal) {
-  // DTM first (earliest-of)
-  const dtm = computeDTM(deal);
-
-  // Carry (cap 5.0 mo)
-  const hold_monthly =
-    n(deal.costs.monthly.taxes) +
-    n(deal.costs.monthly.insurance) +
-    n(deal.costs.monthly.hoa) +
-    n(deal.costs.monthly.utilities);
-
-  const total_days = n(deal.timeline.days_to_ready_list) + dtm.chosen_days;
-  const hold_months = clamp(total_days / 30, 0, 5);
-
-  // Respect Floor pieces
-  const juniors = sum((deal.debt.juniors ?? []).map((j) => n(j.amount)));
-  const payoff_plus_essentials =
-    n(deal.debt.senior_principal) + juniors + n(deal.costs.essentials_moveout_cash);
-
-  // Investor floors will be filled from ZIP dataset; scaffold now
-  const investor: null | { p20_floor: number; typical_floor: number } = null;
-  const investorFloor =
-  (typeof investor === "object" && investor &&
-   "typical_floor" in (investor as any) &&
-   typeof (investor as any).typical_floor === "number")
-    ? (investor as any).typical_floor
-    : 0;
-const operational = Math.max(payoff_plus_essentials, investorFloor);return {
-    dtm,
-    carry: { hold_monthly, hold_months, total_days },
-    floors: { payoff_plus_essentials, investor, operational },
-  };
-}
+// SOT-aligned input: either persistent ids or ad-hoc payload.
+const BodySchema = z.union([
+  z.object({
+    dealId: z.string().uuid(),
+    scenarioId: z.string().uuid().optional(),
+  }),
+  z.object({
+    deal: z.any(),
+    overrides: z.any().optional(),
+  }),
+]);
 
 export async function POST(req: Request) {
   try {
-    const raw = await req.json().catch(() => ({}));
-    const deal = uiToEngine(raw?.deal ?? raw ?? {});
-    const parsed = EngineDealSchema.safeParse(deal);
+    const body = await req.json().catch(() => null);
+    const parsed = BodySchema.safeParse(body);
+
     if (!parsed.success) {
-      return NextResponse.json({ ok: false, issues: parsed.error.format() }, { status: 400 });
+      return NextResponse.json(
+        { ok: false, error: 'bad request', issues: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
-    const math = computeDealMath(parsed.data);
-    return NextResponse.json({ ok: true, math, echoes: { deal: parsed.data } });
+
+    // Case A/B: dealId (+ optional scenarioId)
+    if ('dealId' in parsed.data) {
+      const { dealId, scenarioId } = parsed.data;
+
+      const dealRec = await getDeal(dealId);
+      if (!dealRec) {
+        return NextResponse.json({ ok: false, error: 'deal not found' }, { status: 404 });
+      }
+
+      let inputDeal = dealRec.deal;
+      if (scenarioId) {
+        const sc = await getScenario(dealId, scenarioId);
+        if (!sc) {
+          return NextResponse.json({ ok: false, error: 'scenario not found' }, { status: 404 });
+        }
+        inputDeal = deepMerge(inputDeal, sc.overrides ?? {});
+      }
+
+      const results = computeUnderwriting(inputDeal);
+      return NextResponse.json({ ok: true, dealId, results }, { status: 200 });
+    }
+
+    // Case C: ad-hoc deal (+ optional overrides)
+    const { deal, overrides } = parsed.data;
+    const inputDeal = overrides ? deepMerge(deal, overrides) : deal;
+
+    const results = computeUnderwriting(inputDeal);
+    return NextResponse.json({ ok: true, results }, { status: 200 });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: err?.message ?? "Bad Request" }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: err?.message ?? 'internal error' },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ ok: true, route: "underwrite" });
+  return NextResponse.json({ ok: false, error: 'Method Not Allowed' }, { status: 405 });
 }

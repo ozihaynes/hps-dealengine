@@ -1,18 +1,11 @@
-"use client";
+'use client';
 
-import { demoDeal } from "./demo";
-import Link from "next/link";
-import React, {
-  useMemo,
-  useState,
-  useEffect,
-  createContext,
-  useContext,
-  useCallback,
-} from "react";
+import { demoDeal } from './demo';
+import Link from 'next/link';
+import React, { useMemo, useState, useEffect, createContext, useContext, useCallback } from 'react';
 
 /* ===== Types & helpers to satisfy TS ===== */
-import type { ChangeEventHandler, ReactNode } from "react";
+import type { ChangeEventHandler, ReactNode } from 'react';
 
 /** Tabs context typing */
 type TabsContextType = {
@@ -36,10 +29,7 @@ type EstimatorSectionDef = {
   icon: keyof typeof Icons;
   items: Record<string, EstimatorItem>;
 };
-type EstimatorCosts = Record<
-  string,
-  { condition: string; cost: number; notes: string }
->;
+type EstimatorCosts = Record<string, { condition: string; cost: number; notes: string }>;
 type EstimatorState = {
   costs: Record<string, EstimatorCosts>;
   quantities: Record<string, number>;
@@ -82,14 +72,14 @@ type EngineResult = {
 type IconProps = { d: string; size?: number; className?: string };
 type CardProps = { children: ReactNode; className?: string };
 type BadgeProps = {
-  color?: "green" | "blue" | "orange" | "red";
+  color?: 'green' | 'blue' | 'orange' | 'red';
   children: ReactNode;
 };
 type ButtonProps = {
   children: ReactNode;
   onClick?: () => void;
-  size?: "sm" | "md";
-  variant?: "primary" | "danger" | "ghost" | "neutral";
+  size?: 'sm' | 'md';
+  variant?: 'primary' | 'danger' | 'ghost' | 'neutral';
   className?: string;
 };
 type SelectFieldProps = {
@@ -231,14 +221,14 @@ const GlobalStyles = () => (
 const fmt$ = (n: any, max = 0) =>
   isFinite(n)
     ? Number(n).toLocaleString(undefined, {
-        style: "currency",
-        currency: "USD",
+        style: 'currency',
+        currency: 'USD',
         maximumFractionDigits: max,
       })
-    : "—";
+    : '—';
 
 const num = (v: any, fallback = 0) => {
-  const x = parseFloat(String(v).replace(/[^0-9.-]+/g, ""));
+  const x = parseFloat(String(v).replace(/[^0-9.-]+/g, ''));
   return isFinite(x) ? x : fallback;
 };
 
@@ -252,7 +242,7 @@ const getMockCalcs = (): EngineCalculations => ({
   respectFloorPrice: NaN,
   buyerCeiling: NaN,
   dealSpread: NaN,
-  urgencyBand: "—",
+  urgencyBand: '—',
   urgencyDays: 0,
   listingAllowed: true,
   tenantBuffer: 0,
@@ -289,17 +279,17 @@ const HPSEngine = (() => {
         sellerNetRetail: calculations.sellerNetRetail,
       },
       flags: {
-        isListingAllowed: { active: false, message: "" },
-        firpta: { active: false, withholding: 0, message: "" } as any,
-        pace: { active: false, message: "" },
-        sirs: { active: false, message: "" },
-        flood50Rule: { active: false, message: "" },
-        insurance: { active: false, message: "" },
-        homestead: { active: false, message: "" },
-        foreclosureSale: { active: false, message: "" },
-        redemptionPeriod: { active: false, message: "" },
+        isListingAllowed: { active: false, message: '' },
+        firpta: { active: false, withholding: 0, message: '' } as any,
+        pace: { active: false, message: '' },
+        sirs: { active: false, message: '' },
+        flood50Rule: { active: false, message: '' },
+        insurance: { active: false, message: '' },
+        homestead: { active: false, message: '' },
+        foreclosureSale: { active: false, message: '' },
+        redemptionPeriod: { active: false, message: '' },
       } as Flags,
-      state: "ReadyForOffer",
+      state: 'ReadyForOffer',
       missingInfo: [],
     };
   };
@@ -326,29 +316,26 @@ const DoubleClose = (() => {
     Carry_Daily: 0,
     Carry_Total: 0,
     Fee_Target_Threshold: 0,
-    Fee_Target_Check: "—",
-    Seasoning_Flag: "OK",
-    notes: [
-      "County: Orange (deed rate 0.007)",
-      "Calculations stubbed for visual preview.",
-    ],
+    Fee_Target_Check: '—',
+    Seasoning_Flag: 'OK',
+    notes: ['County: Orange (deed rate 0.007)', 'Calculations stubbed for visual preview.'],
   };
 
   const computeDoubleClose = (_dc: any, _deal: any) => MOCK_DC_CALCS;
 
   const autofill = (dc: any, deal: any, _calc: any) => {
     const d = JSON.parse(JSON.stringify(dc || {}));
-    if (!d.county) d.county = deal?.deal?.property?.county || "Orange";
-    if (!d.carry_basis) d.carry_basis = "day";
+    if (!d.county) d.county = deal?.deal?.property?.county || 'Orange';
+    if (!d.carry_basis) d.carry_basis = 'day';
     if (d.using_tf && !isFinite(num(d.tf_points_rate))) d.tf_points_rate = 0.02;
 
-    if (!("pab" in d)) d.pab = NaN;
-    if (!("pbc" in d)) d.pbc = NaN;
+    if (!('pab' in d)) d.pab = NaN;
+    if (!('pbc' in d)) d.pbc = NaN;
 
-    if (!("title_ab" in d)) d.title_ab = 0;
-    if (!("title_bc" in d)) d.title_bc = 0;
-    if (!("other_ab" in d)) d.other_ab = 0;
-    if (!("other_bc" in d)) d.other_bc = 0;
+    if (!('title_ab' in d)) d.title_ab = 0;
+    if (!('title_bc' in d)) d.title_bc = 0;
+    if (!('other_ab' in d)) d.other_ab = 0;
+    if (!('other_bc' in d)) d.other_bc = 0;
 
     return d;
   };
@@ -357,23 +344,27 @@ const DoubleClose = (() => {
 })();
 
 const Icons = {
-  dollar: "M12 1v22m-6-10h12",
-  trending: "M23 6l-9.5 9.5-5-5L1 18",
-  home: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
-  shield: "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
-  wrench: "M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z",
-  calculator: "M19 12H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m14 0h-2m-2 0h-2m-2 0h-2m-2 0h-2m-2 0h-2",
-  alert: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01",
-  playbook: "M2 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6zM22 6s-1.5-2-5-2-5 2-5 2v14s1.5-1 5-1 5 1 5 1V6z",
-  lightbulb: "M9 18h6M12 22V18M9 14h6M9 11h6M12 2a5 5 0 0 1 3 9H9a5 5 0 0 1 3-9z",
-  check: "M20 6L9 17l-5-5",
-  briefcase: "M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16",
-  barChart: "M12 20V10m6 10V4M6 20v-4",
-  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7",
-  users: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2",
+  dollar: 'M12 1v22m-6-10h12',
+  trending: 'M23 6l-9.5 9.5-5-5L1 18',
+  home: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  wrench:
+    'M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z',
+  calculator:
+    'M19 12H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m14 0h-2m-2 0h-2m-2 0h-2m-2 0h-2m-2 0h-2',
+  alert:
+    'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01',
+  playbook:
+    'M2 6s1.5-2 5-2 5 2 5 2v14s-1.5-1-5-1-5 1-5 1V6zM22 6s-1.5-2-5-2-5 2-5 2v14s1.5-1 5-1 5 1 5 1V6z',
+  lightbulb: 'M9 18h6M12 22V18M9 14h6M9 11h6M12 2a5 5 0 0 1 3 9H9a5 5 0 0 1 3-9z',
+  check: 'M20 6L9 17l-5-5',
+  briefcase: 'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16',
+  barChart: 'M12 20V10m6 10V4M6 20v-4',
+  edit: 'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2',
 };
 
-const Icon = ({ d, size = 20, className = "" }: IconProps) => (
+const Icon = ({ d, size = 20, className = '' }: IconProps) => (
   <svg
     width={size}
     height={size}
@@ -389,23 +380,20 @@ const Icon = ({ d, size = 20, className = "" }: IconProps) => (
   </svg>
 );
 
-const GlassCard = ({ children, className = "" }: CardProps) => (
+const GlassCard = ({ children, className = '' }: CardProps) => (
   <div className={`card-icy ${className}`}>{children}</div>
 );
 
-const Badge = ({ color = "blue", children }: BadgeProps) => {
+const Badge = ({ color = 'blue', children }: BadgeProps) => {
   const colors: Record<string, string> = {
-    green: "bg-green-500/20 text-green-300 border border-green-500/30",
-    blue: "bg-blue-500/20 text-blue-300 border border-blue-500/30",
-    orange:
-      "bg-accent-orange-subtle text-accent-orange-light border border-accent-orange-subtle",
-    red: "bg-brand-red-subtle text-brand-red-light border border-brand-red-subtle",
+    green: 'bg-green-500/20 text-green-300 border border-green-500/30',
+    blue: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+    orange: 'bg-accent-orange-subtle text-accent-orange-light border border-accent-orange-subtle',
+    red: 'bg-brand-red-subtle text-brand-red-light border border-brand-red-subtle',
   };
   return (
     <span
-      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-        colors[color] || colors.blue
-      }`}
+      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colors[color] || colors.blue}`}
     >
       {children}
     </span>
@@ -415,16 +403,16 @@ const Badge = ({ color = "blue", children }: BadgeProps) => {
 const Button = ({
   children,
   onClick,
-  size = "md",
-  variant = "primary",
-  className = "",
+  size = 'md',
+  variant = 'primary',
+  className = '',
 }: ButtonProps) => {
-  const sizes = { sm: "px-2 py-1 text-xs", md: "px-4 py-2 text-sm" };
+  const sizes = { sm: 'px-2 py-1 text-xs', md: 'px-4 py-2 text-sm' };
   const variants: Record<string, string> = {
-    primary: "bg-accent-blue text-white hover:bg-blue-500",
-    danger: "bg-accent-red text-white hover:bg-red-500",
-    ghost: "text-blue-300 hover:bg-blue-500/10 hover:text-white",
-    neutral: "bg-gray-500/20 hover:bg-gray-500/30 text-white",
+    primary: 'bg-accent-blue text-white hover:bg-blue-500',
+    danger: 'bg-accent-red text-white hover:bg-red-500',
+    ghost: 'text-blue-300 hover:bg-blue-500/10 hover:text-white',
+    neutral: 'bg-gray-500/20 hover:bg-gray-500/30 text-white',
   };
   return (
     <button
@@ -439,33 +427,27 @@ const Button = ({
 
 /* ---------- Tabs (typed context with default) ---------- */
 const TabsContext = createContext<TabsContextType>({
-  activeTab: "market",
+  activeTab: 'market',
   setActiveTab: () => {},
 });
 
 const NestedTabs = ({ children }: { children: ReactNode }) => {
-  const [activeTab, setActiveTab] = useState("market");
+  const [activeTab, setActiveTab] = useState('market');
   return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
-      {children}
-    </TabsContext.Provider>
+    <TabsContext.Provider value={{ activeTab, setActiveTab }}>{children}</TabsContext.Provider>
   );
 };
 const NestedTabsList = ({
   children,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   className?: string;
-}) => (
-  <div className={`flex flex-wrap items-center gap-2 ${className}`}>
-    {children}
-  </div>
-);
+}) => <div className={`flex flex-wrap items-center gap-2 ${className}`}>{children}</div>;
 const NestedTabsTrigger = ({
   children,
   value,
-  className = "",
+  className = '',
 }: {
   children: ReactNode;
   value: string;
@@ -478,8 +460,8 @@ const NestedTabsTrigger = ({
       onClick={() => setActiveTab(value)}
       className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
         isActive
-          ? "bg-accent-blue text-white"
-          : "bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
+          ? 'bg-accent-blue text-white'
+          : 'bg-white/5 text-white/70 hover:bg-white/10 hover:text-white'
       } ${className}`}
       type="button"
     >
@@ -487,13 +469,7 @@ const NestedTabsTrigger = ({
     </button>
   );
 };
-const NestedTabsContent = ({
-  value,
-  children,
-}: {
-  value: string;
-  children: ReactNode;
-}) => {
+const NestedTabsContent = ({ value, children }: { value: string; children: ReactNode }) => {
   const { activeTab } = useContext(TabsContext);
   return activeTab === value ? <div>{children}</div> : null;
 };
@@ -501,182 +477,182 @@ const NestedTabsContent = ({
 /* ---------- Estimator sections (typed) ---------- */
 const estimatorSections: Record<string, EstimatorSectionDef> = {
   exterior: {
-    title: "Exterior & Structural",
-    icon: "wrench",
+    title: 'Exterior & Structural',
+    icon: 'wrench',
     items: {
       roof: {
-        label: "Roof (Replacement)",
+        label: 'Roof (Replacement)',
         isPerUnit: true,
-        unitName: "sq (100 sf)",
+        unitName: 'sq (100 sf)',
         options: {
-          "Good (0–15 yrs)": 0,
-          "Replace – Low ($525/sq)": 525,
-          "Replace – Mid ($600/sq)": 600,
-          "Replace – High ($675/sq)": 675,
+          'Good (0–15 yrs)': 0,
+          'Replace – Low ($525/sq)': 525,
+          'Replace – Mid ($600/sq)': 600,
+          'Replace – High ($675/sq)': 675,
         },
       },
       roofRepair: {
-        label: "Roof Repair",
+        label: 'Roof Repair',
         isPerUnit: true,
-        unitName: "repair",
-        options: { None: 0, "Minor Leak": 600, Moderate: 1700, Major: 3800 },
+        unitName: 'repair',
+        options: { None: 0, 'Minor Leak': 600, Moderate: 1700, Major: 3800 },
       },
       exteriorPaint: {
-        label: "Exterior Painting",
+        label: 'Exterior Painting',
         isPerUnit: true,
-        unitName: "sf",
+        unitName: 'sf',
         options: { None: 0, Low: 2.0, Mid: 3.2, High: 5.5 },
       },
       windows: {
-        label: "Window Replacement",
+        label: 'Window Replacement',
         isPerUnit: true,
-        unitName: "window",
+        unitName: 'window',
         options: {
-          "All Intact": 0,
-          "Replace – Low": 450,
-          "Replace – Mid": 850,
-          "Replace – High": 1400,
+          'All Intact': 0,
+          'Replace – Low': 450,
+          'Replace – Mid': 850,
+          'Replace – High': 1400,
         },
       },
       siding: {
-        label: "Exterior Siding Replacement",
+        label: 'Exterior Siding Replacement',
         isPerUnit: true,
-        unitName: "sf",
+        unitName: 'sf',
         options: { None: 0, Low: 5, Mid: 8, High: 12 },
       },
       landscaping: {
-        label: "Landscaping",
+        label: 'Landscaping',
         options: {
-          "Minimal Work": 0,
-          "Cleanup & Trimming": 1200,
-          "Full Sod/Clear": 3500,
+          'Minimal Work': 0,
+          'Cleanup & Trimming': 1200,
+          'Full Sod/Clear': 3500,
         },
       },
     },
   },
   interior: {
-    title: "Interior Rooms & Finishes",
-    icon: "home",
+    title: 'Interior Rooms & Finishes',
+    icon: 'home',
     items: {
       interiorPaint: {
-        label: "Interior Painting",
+        label: 'Interior Painting',
         isPerUnit: true,
-        unitName: "sf (wall)",
+        unitName: 'sf (wall)',
         options: { None: 0, Low: 2.0, Mid: 3.0, High: 4.5 },
       },
       floorVinylLaminate: {
-        label: "Vinyl/Laminate Installation",
+        label: 'Vinyl/Laminate Installation',
         isPerUnit: true,
-        unitName: "sf",
+        unitName: 'sf',
         options: { None: 0, Low: 3.5, Mid: 5.5, High: 8.5 },
       },
       floorHardwoodInstall: {
-        label: "Hardwood Installation",
+        label: 'Hardwood Installation',
         isPerUnit: true,
-        unitName: "sf",
+        unitName: 'sf',
         options: { None: 0, Low: 9, Mid: 13, High: 16 },
       },
       floorHardwoodRefinish: {
-        label: "Hardwood Refinishing",
+        label: 'Hardwood Refinishing',
         isPerUnit: true,
-        unitName: "sf",
+        unitName: 'sf',
         options: { None: 0, Low: 3.25, Mid: 4.25, High: 5.5 },
       },
       lightFixtures: {
-        label: "Lighting Fixtures",
+        label: 'Lighting Fixtures',
         isPerUnit: true,
-        unitName: "fixture",
+        unitName: 'fixture',
         options: {
-          "All Functional/Modern": 0,
-          "Replace – Std": 175,
-          "Replace – Mid": 275,
-          "Replace – Designer": 525,
+          'All Functional/Modern': 0,
+          'Replace – Std': 175,
+          'Replace – Mid': 275,
+          'Replace – Designer': 525,
         },
       },
     },
   },
   kitchenBath: {
-    title: "Kitchen & Bathrooms",
-    icon: "home",
+    title: 'Kitchen & Bathrooms',
+    icon: 'home',
     items: {
       kitchenFullRemodel: {
-        label: "Kitchen – Full Remodel",
+        label: 'Kitchen – Full Remodel',
         options: { None: 0, Low: 20000, Mid: 35000, High: 60000 },
       },
       kitchenCabinets: {
-        label: "Kitchen Cabinets",
+        label: 'Kitchen Cabinets',
         options: {
           None: 0,
           Good: 0,
-          "Refinish/Paint": 3000,
+          'Refinish/Paint': 3000,
           Replace: 12000,
         },
       },
       countertops: {
-        label: "Countertops",
-        options: { None: 0, Good: 0, Laminate: 2200, "Quartz/Granite": 5500 },
+        label: 'Countertops',
+        options: { None: 0, Good: 0, Laminate: 2200, 'Quartz/Granite': 5500 },
       },
       appliances: {
-        label: "Appliances",
-        options: { "None Needed": 0, "Provide Stainless Package": 5500 },
+        label: 'Appliances',
+        options: { 'None Needed': 0, 'Provide Stainless Package': 5500 },
       },
       bathrooms: {
-        label: "Bathrooms (Full Remodel)",
-        options: { "No Work": 0, "Minor Update": 2500, "Full Gut & Remodel": 8500 },
+        label: 'Bathrooms (Full Remodel)',
+        options: { 'No Work': 0, 'Minor Update': 2500, 'Full Gut & Remodel': 8500 },
         isPerUnit: true,
-        unitName: "each",
+        unitName: 'each',
       },
     },
   },
   systems: {
-    title: "Systems & Major Components",
-    icon: "wrench",
+    title: 'Systems & Major Components',
+    icon: 'wrench',
     items: {
       hvacAC: {
-        label: "AC Installation (Central)",
-        options: { "No Work": 0, Low: 7500, Mid: 11000, High: 15000 },
+        label: 'AC Installation (Central)',
+        options: { 'No Work': 0, Low: 7500, Mid: 11000, High: 15000 },
       },
       furnace: {
-        label: "Furnace Replacement",
-        options: { "No Work": 0, Low: 3500, Mid: 5500, High: 9000 },
+        label: 'Furnace Replacement',
+        options: { 'No Work': 0, Low: 3500, Mid: 5500, High: 9000 },
       },
       waterHeater: {
-        label: "Water Heater",
-        options: { "<10 Yrs Old": 0, "Replace (10+ Yrs)": 1700 },
+        label: 'Water Heater',
+        options: { '<10 Yrs Old': 0, 'Replace (10+ Yrs)': 1700 },
       },
       plumbingFixtures: {
-        label: "Plumbing – Fixture Replacement",
+        label: 'Plumbing – Fixture Replacement',
         isPerUnit: true,
-        unitName: "fixture",
+        unitName: 'fixture',
         options: { None: 0, Basic: 175, Mid: 400, High: 1100 },
       },
       plumbing: {
-        label: "Plumbing (Supply/Drain)",
-        options: { "No Issues": 0, "Leaks / Repairs Needed": 1500, "Full Repipe": 8500 },
+        label: 'Plumbing (Supply/Drain)',
+        options: { 'No Issues': 0, 'Leaks / Repairs Needed': 1500, 'Full Repipe': 8500 },
       },
       electricalRewire: {
-        label: "Electrical – Rewiring (Whole House)",
-        options: { "No Work": 0, Low: 7500, Mid: 12000, High: 17500 },
+        label: 'Electrical – Rewiring (Whole House)',
+        options: { 'No Work': 0, Low: 7500, Mid: 12000, High: 17500 },
       },
       electricalPanel: {
-        label: "Electrical Panel",
-        options: { "Modern Breakers": 0, "Update Needed (FPE/Zinsco)": 3500 },
+        label: 'Electrical Panel',
+        options: { 'Modern Breakers': 0, 'Update Needed (FPE/Zinsco)': 3500 },
       },
     },
   },
   structural: {
-    title: "Structural & Envelope",
-    icon: "wrench",
+    title: 'Structural & Envelope',
+    icon: 'wrench',
     items: {
       foundationRepair: {
-        label: "Foundation Repair",
+        label: 'Foundation Repair',
         options: { None: 0, Low: 6000, Mid: 18000, High: 45000 },
       },
       drywallRepair: {
-        label: "Wall Repair (Drywall)",
+        label: 'Wall Repair (Drywall)',
         isPerUnit: true,
-        unitName: "sf",
-        options: { None: 0, "Minor Patches": 2.5, Moderate: 4, Extensive: 7 },
+        unitName: 'sf',
+        options: { None: 0, 'Minor Patches': 2.5, Moderate: 4, Extensive: 7 },
       },
     },
   },
@@ -694,7 +670,7 @@ const createInitialEstimatorState = (): EstimatorState => {
       state.costs[sectionKey][itemKey] = {
         condition: firstCondition,
         cost: item.options[firstCondition] ?? 0,
-        notes: "",
+        notes: '',
       };
       if (item.isPerUnit) state.quantities[itemKey] = 0;
     });
@@ -703,13 +679,13 @@ const createInitialEstimatorState = (): EstimatorState => {
 };
 
 export default function GeminiApp({
-  activeTab = "overview",
+  activeTab = 'overview',
 }: {
-  activeTab?: "overview" | "repairs" | "underwrite";
+  activeTab?: 'overview' | 'repairs' | 'underwrite';
 }) {
   return (
     <div
-      style={{ backgroundColor: "#000F22" }}
+      style={{ backgroundColor: '#000F22' }}
       className="min-h-screen font-sans text-text-primary"
     >
       <GlobalStyles />
@@ -718,7 +694,7 @@ export default function GeminiApp({
   );
 }
 
-function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
+function AppInner({ initialTab = 'overview' }: { initialTab?: string }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   useEffect(() => setActiveTab(initialTab), [initialTab]);
 
@@ -729,11 +705,11 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   const [deal, setDeal] = useState<any>({
     deal: {
       market: {
-        arv: "",
-        as_is_value: "",
+        arv: '',
+        as_is_value: '',
         dom_zip: 30,
         moi_zip: 2.5,
-        "price-to-list-pct": 0.98,
+        'price-to-list-pct': 0.98,
         local_discount_20th_pct: 0.08,
         zip_discount_20pct: 0.08,
       },
@@ -751,40 +727,40 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
         concessions_pct: 0.02,
         list_commission_pct: null,
         double_close: {
-          county: "Orange",
-          property_type: "SFR",
-          association_present: "No",
-          type: "Same-day",
+          county: 'Orange',
+          property_type: 'SFR',
+          association_present: 'No',
+          type: 'Same-day',
           days_held: 0,
-          same_day_order: "No preference",
+          same_day_order: 'No preference',
           pab: 0,
           title_ab: 0,
           other_ab: 0,
-          owners_title_payer_ab: "Unknown",
+          owners_title_payer_ab: 'Unknown',
           pbc: 0,
           title_bc: 0,
           other_bc: 0,
-          owners_title_payer_bc: "Unknown",
-          buyer_funds: "Cash",
-          lender_known: "N/A",
+          owners_title_payer_bc: 'Unknown',
+          buyer_funds: 'Cash',
+          lender_known: 'N/A',
           using_tf: false,
           tf_principal: 0,
           tf_points_rate: 0,
-          tf_note_executed_fl: "No",
-          tf_secured: "No",
+          tf_note_executed_fl: 'No',
+          tf_secured: 'No',
           tf_extra_fees: 0,
-          association_type: "HOA",
+          association_type: 'HOA',
           estoppel_fee: 0,
-          rush_estoppel: "No",
+          rush_estoppel: 'No',
           transfer_fees: 0,
-          board_approval: "No",
+          board_approval: 'No',
           carry_amount: 0,
-          carry_basis: "day",
+          carry_basis: 'day',
           arv_for_fee_check: 0,
           min_net_spread: 0,
-          use_promulgated_estimates: "No",
-          assumed_owner_payer_ab: "Unknown",
-          assumed_owner_payer_bc: "Unknown",
+          use_promulgated_estimates: 'No',
+          assumed_owner_payer_ab: 'Unknown',
+          assumed_owner_payer_bc: 'Unknown',
           show_items_math: true,
           show_fee_target: true,
           show_90d_flag: true,
@@ -792,9 +768,9 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
         },
       },
       debt: {
-        senior_principal: "",
-        senior_per_diem: "",
-        good_thru_date: new Date().toISOString().split("T")[0],
+        senior_principal: '',
+        senior_per_diem: '',
+        good_thru_date: new Date().toISOString().split('T')[0],
         juniors: [],
         hoa_arrears: 0,
         muni_fines: 0,
@@ -806,12 +782,10 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
       timeline: {
         days_to_sale_manual: 0,
         days_to_ready_list: 0,
-        auction_date: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
+        auction_date: new Date(Date.now() + 35 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       },
       property: {
-        occupancy: "owner",
+        occupancy: 'owner',
         year_built: 1995,
         seller_is_foreign_person: false,
         stories: 2,
@@ -820,18 +794,18 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
         forms_current: true,
         flood_zone: false,
         old_roof_flag: false,
-        county: "Orange",
+        county: 'Orange',
         is_homestead: false,
         is_foreclosure_sale: false,
         is_redemption_period_sale: false,
       },
       status: {
-        insurability: "bindable",
+        insurability: 'bindable',
         open_permits_flag: false,
         major_system_failure_flag: false,
         structural_or_permit_risk_flag: false,
       },
-      confidence: { score: "A", notes: "", no_access_flag: false, reinstatement_proof_flag: true },
+      confidence: { score: 'A', notes: '', no_access_flag: false, reinstatement_proof_flag: true },
       title: { cure_cost: 0, risk_pct: 0 },
       policy: {
         safety_on_aiv_pct: 0.03,
@@ -841,7 +815,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
         manual_days_to_money: null,
         assignment_fee_target: 0,
       },
-      legal: { case_no: "2024-CA-012345", auction_date: "" },
+      legal: { case_no: '2024-CA-012345', auction_date: '' },
       cma: {
         subject: { sqft: 2000, beds: 4, baths: 2, garage: 2, pool: 1 },
         adjKey: {
@@ -856,7 +830,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
         comps: [
           {
             id: 1,
-            address: "",
+            address: '',
             price: 495000,
             monthsAgo: 2,
             sqft: 1950,
@@ -869,7 +843,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
           },
           {
             id: 2,
-            address: "",
+            address: '',
             price: 510000,
             monthsAgo: 3,
             sqft: 2100,
@@ -882,7 +856,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
           },
           {
             id: 3,
-            address: "",
+            address: '',
             price: 480000,
             monthsAgo: 1,
             sqft: 2050,
@@ -899,82 +873,82 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   });
 
   const loadDemo = () => {
-  setDeal((prev: any) => ({
-    ...prev,
-    deal: {
-      ...prev.deal,
-      market: {
-        ...prev.deal.market,
-        arv: 520000,
-        as_is_value: 420000,
+    setDeal((prev: any) => ({
+      ...prev,
+      deal: {
+        ...prev.deal,
+        market: {
+          ...prev.deal.market,
+          arv: 520000,
+          as_is_value: 420000,
+        },
+        costs: {
+          ...prev.deal.costs,
+          repairs_base: 28000,
+        },
+        debt: {
+          ...prev.deal.debt,
+          senior_principal: 350000,
+          senior_per_diem: 95,
+        },
       },
-      costs: {
-        ...prev.deal.costs,
-        repairs_base: 28000,
-      },
-      debt: {
-        ...prev.deal.debt,
-        senior_principal: 350000,
-        senior_per_diem: 95,
-      },
-    },
-  }));
-};
+    }));
+  };
 
   const setDealValue = useCallback((path: string, value: any) => {
     let validatedValue = value;
-    const keys = path.split(".");
+    const keys = path.split('.');
     const lastKey = keys[keys.length - 1];
 
     const rules = {
       nonNegative: [
-        "arv",
-        "as_is_value",
-        "repairs_base",
-        "senior_principal",
-        "senior_per_diem",
-        "protective_advances",
-        "cure_cost",
-        "hoa_estoppel_fee",
-        "min_spread",
-        "interest",
-        "loan_origination_fee",
-        "appraisal_fee",
-        "assignment_fee_target",
-        "title_policy_fee",
-        "other_fees",
-        "pab",
-        "title_ab",
-        "other_ab",
-        "pbc",
-        "title_bc",
-        "other_bc",
-        "tf_principal",
-        "tf_points_rate",
-        "tf_extra_fees",
-        "estoppel_fee",
-        "transfer_fees",
-        "carry_amount",
-        "arv_for_fee_check",
-        "min_net_spread",
+        'arv',
+        'as_is_value',
+        'repairs_base',
+        'senior_principal',
+        'senior_per_diem',
+        'protective_advances',
+        'cure_cost',
+        'hoa_estoppel_fee',
+        'min_spread',
+        'interest',
+        'loan_origination_fee',
+        'appraisal_fee',
+        'assignment_fee_target',
+        'title_policy_fee',
+        'other_fees',
+        'pab',
+        'title_ab',
+        'other_ab',
+        'pbc',
+        'title_bc',
+        'other_bc',
+        'tf_principal',
+        'tf_points_rate',
+        'tf_extra_fees',
+        'estoppel_fee',
+        'transfer_fees',
+        'carry_amount',
+        'arv_for_fee_check',
+        'min_net_spread',
       ],
       percentage: [
-        "price-to-list-pct",
-        "local_discount_20th_pct",
-        "sell_close_pct",
-        "concessions_pct",
-        "safety_on_aiv_pct",
-        "risk_pct",
-        "lender_points_pct",
+        'price-to-list-pct',
+        'local_discount_20th_pct',
+        'sell_close_pct',
+        'concessions_pct',
+        'safety_on_aiv_pct',
+        'risk_pct',
+        'lender_points_pct',
       ],
       days: [
-        "dom_zip",
-        "days_to_sale_manual",
-        "planned_close_days",
-        "days_held",
-        "manual_days_to_money",
+        'dom_zip',
+        'days_to_sale_manual',
+        'planned_close_days',
+        'days_held',
+        'manual_days_to_money',
       ],
-      months: ["moi_zip"],
+      months: ['moi_zip'],
     };
 
     if (rules.nonNegative.includes(lastKey)) {
@@ -983,16 +957,11 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
       validatedValue = clamp(num(value) / 100, 0, 1);
     } else if (rules.days.includes(lastKey)) {
       validatedValue =
-        value === null || value === ""
-          ? null
-          : clamp(Math.round(num(value)), 0, 9999);
+        value === null || value === '' ? null : clamp(Math.round(num(value)), 0, 9999);
     } else if (rules.months.includes(lastKey)) {
       validatedValue = clamp(num(value), 0, 120);
-    } else if (lastKey === "list_commission_pct") {
-      validatedValue =
-        value === null || value === ""
-          ? null
-          : clamp(num(value) / 100, 0, 1);
+    } else if (lastKey === 'list_commission_pct') {
+      validatedValue = value === null || value === '' ? null : clamp(num(value) / 100, 0, 1);
     }
 
     setDeal((prev: any) => {
@@ -1010,7 +979,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   const { calculations: calc, flags, missingInfo } = HPSEngine.useDealEngine(deal);
 
   const handleEstimatorCostChange = useCallback(
-    (sectionKey: string, itemKey: string, field: "condition" | "cost" | "notes", value: any) => {
+    (sectionKey: string, itemKey: string, field: 'condition' | 'cost' | 'notes', value: any) => {
       setEstimatorState((prev) => ({
         ...prev,
         costs: {
@@ -1019,7 +988,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
             ...prev.costs[sectionKey],
             [itemKey]: {
               ...prev.costs[sectionKey][itemKey],
-              [field]: field === "cost" ? num(value) : value,
+              [field]: field === 'cost' ? num(value) : value,
             },
           },
         },
@@ -1035,21 +1004,16 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
     }));
   }, []);
 
-  const resetEstimator = useCallback(
-    () => setEstimatorState(createInitialEstimatorState()),
-    []
-  );
+  const resetEstimator = useCallback(() => setEstimatorState(createInitialEstimatorState()), []);
 
   const totalRepairCostFromEstimator = useMemo(() => {
     let total = 0;
     Object.keys(estimatorSections).forEach((sectionKey) => {
-      Object.entries(estimatorState.costs[sectionKey] || {}).forEach(
-        ([itemKey, { cost }]) => {
-          const item = estimatorSections[sectionKey].items[itemKey];
-          const q = item.isPerUnit ? estimatorState.quantities[itemKey] ?? 0 : 1;
-          total += num(cost) * q;
-        }
-      );
+      Object.entries(estimatorState.costs[sectionKey] || {}).forEach(([itemKey, { cost }]) => {
+        const item = estimatorSections[sectionKey].items[itemKey];
+        const q = item.isPerUnit ? (estimatorState.quantities[itemKey] ?? 0) : 1;
+        total += num(cost) * q;
+      });
     });
     return total;
   }, [estimatorState]);
@@ -1057,90 +1021,91 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   // Sync estimator total to deal state
   useEffect(() => {
     if (deal.deal.costs.repairs_base !== totalRepairCostFromEstimator) {
-      setDealValue("costs.repairs_base", totalRepairCostFromEstimator);
+      setDealValue('costs.repairs_base', totalRepairCostFromEstimator);
     }
   }, [totalRepairCostFromEstimator, setDealValue, deal.deal.costs.repairs_base]);
 
   const hasUserInput = useMemo(() => {
     const d = deal.deal;
     return (
-      (d.market?.arv !== "" && isFinite(num(d.market?.arv))) ||
+      (d.market?.arv !== '' && isFinite(num(d.market?.arv))) ||
       (d.costs?.repairs_base !== 0 && isFinite(num(d.costs?.repairs_base))) ||
-      (d.debt?.senior_principal !== "" &&
-        isFinite(num(d.debt?.senior_principal))) ||
-      (d.debt?.senior_per_diem !== "" &&
-        isFinite(num(d.debt?.senior_per_diem)))
+      (d.debt?.senior_principal !== '' && isFinite(num(d.debt?.senior_principal))) ||
+      (d.debt?.senior_per_diem !== '' && isFinite(num(d.debt?.senior_per_diem)))
     );
   }, [deal]);
 
   const tabs = [
-    { id: "overview", label: "Overview", href: "/", icon: <Icon d={Icons.barChart} size={16} /> },
-    { id: "repairs", label: "Repairs", href: "/repairs", icon: <Icon d={Icons.wrench} size={16} /> },
-    { id: "underwrite", label: "Underwrite", href: "/underwrite", icon: <Icon d={Icons.edit} size={16} /> },
+    { id: 'overview', label: 'Overview', href: '/', icon: <Icon d={Icons.barChart} size={16} /> },
+    {
+      id: 'repairs',
+      label: 'Repairs',
+      href: '/repairs',
+      icon: <Icon d={Icons.wrench} size={16} />,
+    },
+    {
+      id: 'underwrite',
+      label: 'Underwrite',
+      href: '/underwrite',
+      icon: <Icon d={Icons.edit} size={16} />,
+    },
   ];
 
   return (
     <>
-<header className="px-4 sm:px-6 py-4 border-b border-white/10 sticky top-0 bg-bg-main/80 backdrop-blur-lg z-10">
-  <div className="max-w-7xl mx-auto flex items-center justify-between">
-    <div className="flex items-center gap-4">
-      <img
-        src="https://www.haynespropertysolutions.com/wp-content/uploads/sites/4064/2025/09/cropped-Gemini_Generated_Image_dlof39dlof39dlof-Edited-Edited.png"
-        alt="Haynes Property Solutions logo"
-        className="h-10 w-auto"
-      />
-      <h1 className="text-xl font-bold text-white tracking-tight">
-        HPS DealEngine™
-      </h1>
-    </div>
+      <header className="px-4 sm:px-6 py-4 border-b border-white/10 sticky top-0 bg-bg-main/80 backdrop-blur-lg z-10">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <img
+              src="https://www.haynespropertysolutions.com/wp-content/uploads/sites/4064/2025/09/cropped-Gemini_Generated_Image_dlof39dlof39dlof-Edited-Edited.png"
+              alt="Haynes Property Solutions logo"
+              className="h-10 w-auto"
+            />
+            <h1 className="text-xl font-bold text-white tracking-tight">HPS DealEngine™</h1>
+          </div>
 
-    <div className="flex items-center gap-4">
-      <Badge color="green">Compliant</Badge>
-      <Badge
-        color={
-          deal.deal.confidence.score === "A"
-            ? "green"
-            : deal.deal.confidence.score === "B"
-            ? "blue"
-            : "orange"
-        }
-      >
-        Confidence: {deal.deal.confidence.score || "N/A"}
-      </Badge>
+          <div className="flex items-center gap-4">
+            <Badge color="green">Compliant</Badge>
+            <Badge
+              color={
+                deal.deal.confidence.score === 'A'
+                  ? 'green'
+                  : deal.deal.confidence.score === 'B'
+                    ? 'blue'
+                    : 'orange'
+              }
+            >
+              Confidence: {deal.deal.confidence.score || 'N/A'}
+            </Badge>
 
-      {/* ADD THIS BUTTON */}
-      <Button size="sm" variant="neutral" onClick={loadDemo}>
-        Load Demo
-      </Button>
-    </div>
-  </div>
+            {/* ADD THIS BUTTON */}
+            <Button size="sm" variant="neutral" onClick={loadDemo}>
+              Load Demo
+            </Button>
+          </div>
+        </div>
 
-  <nav className="max-w-7xl mx-auto mt-4 flex items-center gap-2">
-    {tabs.map((tab) => (
-      <Link
-        key={tab.id}
-        href={tab.href}
-        className={`tab-trigger flex items-center gap-1.5 ${
-          activeTab === tab.id ? "active" : ""
-        }`}
-      >
-        {tab.icon} {tab.label}
-      </Link>
-    ))}
-  </nav>
-</header>
+        <nav className="max-w-7xl mx-auto mt-4 flex items-center gap-2">
+          {tabs.map((tab) => (
+            <Link
+              key={tab.id}
+              href={tab.href}
+              className={`tab-trigger flex items-center gap-1.5 ${
+                activeTab === tab.id ? 'active' : ''
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <ComplianceAlerts flags={flags} missingInfo={missingInfo} show={hasUserInput} />
-        <div className={activeTab === "overview" ? "block" : "hidden"}>
-          <Overview
-            deal={deal.deal}
-            calc={calc}
-            flags={flags}
-            hasUserInput={hasUserInput}
-          />
+        <div className={activeTab === 'overview' ? 'block' : 'hidden'}>
+          <Overview deal={deal.deal} calc={calc} flags={flags} hasUserInput={hasUserInput} />
         </div>
-        <div className={activeTab === "repairs" ? "block repairs-scope" : "hidden"}>
+        <div className={activeTab === 'repairs' ? 'block repairs-scope' : 'hidden'}>
           <RepairsPro
             deal={deal.deal}
             setDealValue={setDealValue}
@@ -1151,7 +1116,7 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
             onReset={resetEstimator}
           />
         </div>
-        <div className={activeTab === "underwrite" ? "block" : "hidden"}>
+        <div className={activeTab === 'underwrite' ? 'block' : 'hidden'}>
           <UnderwriteTab deal={deal.deal} calc={calc} setDealValue={setDealValue} />
         </div>
       </main>
@@ -1159,31 +1124,21 @@ function AppInner({ initialTab = "overview" }: { initialTab?: string }) {
   );
 }
 
-const StatCard = ({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: ReactNode;
-  icon: ReactNode;
-}) => (
+const StatCard = ({ label, value, icon }: { label: string; value: ReactNode; icon: ReactNode }) => (
   <div className="card-icy p-3">
     <div className="flex items-center gap-2 label-xs">
       {icon}
       <span>{label}</span>
     </div>
-    <div className="text-2xl font-bold text-white font-mono metric-glow mt-1">
-      {value}
-    </div>
+    <div className="text-2xl font-bold text-white font-mono metric-glow mt-1">{value}</div>
   </div>
 );
 
 const getDealHealth = (spread: number, minSpread: number) => {
-  if (!isFinite(spread)) return { label: "Enter Data", color: "blue" as const };
-  if (spread >= minSpread) return { label: "Healthy Spread", color: "green" as const };
-  if (spread >= 0) return { label: "Below Minimum", color: "orange" as const };
-  return { label: "Shortfall / Negative", color: "red" as const };
+  if (!isFinite(spread)) return { label: 'Enter Data', color: 'blue' as const };
+  if (spread >= minSpread) return { label: 'Healthy Spread', color: 'green' as const };
+  if (spread >= 0) return { label: 'Below Minimum', color: 'orange' as const };
+  return { label: 'Shortfall / Negative', color: 'red' as const };
 };
 
 const ComplianceAlerts = ({
@@ -1197,7 +1152,7 @@ const ComplianceAlerts = ({
 }) => {
   if (!show) return null;
   const activeFlags = Object.values(flags || {}).filter(
-    (flag) => typeof flag === "object" && !!(flag as any)?.active
+    (flag) => typeof flag === 'object' && !!(flag as any)?.active
   ) as Flag[];
   if (missingInfo.length === 0 && activeFlags.length === 0) return null;
 
@@ -1205,8 +1160,8 @@ const ComplianceAlerts = ({
     <div className="space-y-2 mb-4">
       {missingInfo.length > 0 && (
         <div className="p-3 rounded-lg bg-brand-red-subtle border border-brand-red-subtle text-brand-red-light text-sm font-semibold flex items-center gap-2">
-          <Icon d={Icons.alert} /> HOLD: Cannot generate a final offer. Missing
-          critical info: {missingInfo.join(", ")}.
+          <Icon d={Icons.alert} /> HOLD: Cannot generate a final offer. Missing critical info:{' '}
+          {missingInfo.join(', ')}.
         </div>
       )}
       {activeFlags.map((flag, i) => (
@@ -1225,14 +1180,14 @@ const MarketTempGauge = ({ deal }: { deal: any }) => {
   const temp = HPSEngine.useDealEngine(deal).calculations.marketTemp;
   const rotation = -90 + (temp / 100) * 180;
 
-  let label = "Balanced";
-  let color = "text-yellow-400";
+  let label = 'Balanced';
+  let color = 'text-yellow-400';
   if (temp <= 33) {
     label = "Buyer's Market";
-    color = "text-blue-400";
+    color = 'text-blue-400';
   } else if (temp >= 67) {
     label = "Seller's Market";
-    color = "text-accent-orange";
+    color = 'text-accent-orange';
   }
 
   return (
@@ -1272,11 +1227,9 @@ const MarketTempGauge = ({ deal }: { deal: any }) => {
         )}
       </div>
       <div className={`text-2xl font-bold font-mono metric-glow ${color}`}>
-        {isFinite(temp) ? temp : "—"}
+        {isFinite(temp) ? temp : '—'}
       </div>
-      <div className={`text-xs font-semibold ${color}`}>
-        {isFinite(temp) ? label : ""}
-      </div>
+      <div className={`text-xs font-semibold ${color}`}>{isFinite(temp) ? label : ''}</div>
     </div>
   );
 };
@@ -1295,23 +1248,22 @@ const Overview = ({
   const [isDoubleFlipped, setIsDoubleFlipped] = useState(false);
 
   const minSpread = num(deal.policy?.min_spread, 0);
-  const isCashShortfall =
-    hasUserInput && isFinite(calc.dealSpread) && calc.dealSpread < minSpread;
+  const isCashShortfall = hasUserInput && isFinite(calc.dealSpread) && calc.dealSpread < minSpread;
   const health = getDealHealth(calc.dealSpread, minSpread);
   const urgencyColors = {
-    Emergency: "red",
-    Critical: "orange",
-    High: "blue",
-    Low: "green",
-    "—": "blue",
+    Emergency: 'red',
+    Critical: 'orange',
+    High: 'blue',
+    Low: 'green',
+    '—': 'blue',
   } as const;
   const playbookPoints = [
     !calc.listingAllowed &&
-      "Property is currently uninsurable or has system failures, blocking a retail listing.",
+      'Property is currently uninsurable or has system failures, blocking a retail listing.',
     deal?.debt?.senior_per_diem > 0 &&
       calc.urgencyDays <= 30 &&
       `Seller burns ${fmt$(deal.debt.senior_per_diem)}/day — emphasize speed.`,
-    deal?.property?.occupancy === "tenant" &&
+    deal?.property?.occupancy === 'tenant' &&
       `Tenant occupancy adds risk/delay — buffer of ${fmt$(calc.tenantBuffer, 0)} applied.`,
   ].filter(Boolean) as string[];
 
@@ -1323,17 +1275,14 @@ const Overview = ({
     isFinite(calc.buyerCeiling) && isFinite(calc.respectFloorPrice)
       ? calc.buyerCeiling - calc.respectFloorPrice
       : NaN;
-  const wholesaleFeeWithDC = isFinite(wholesaleFee)
-    ? wholesaleFee - dcTotalCosts
-    : NaN;
+  const wholesaleFeeWithDC = isFinite(wholesaleFee) ? wholesaleFee - dcTotalCosts : NaN;
 
   return (
     <div className="space-y-4">
       {isCashShortfall && (
         <div className="card-orange p-3 text-white text-center font-semibold flex items-center justify-center gap-2 text-sm">
-          <Icon d={Icons.alert} /> Cash (Shortfall): Offer is below minimum
-          spread of {fmt$(minSpread, 0)}. Deficit:{" "}
-          {fmt$(minSpread - calc.dealSpread, 0)}.
+          <Icon d={Icons.alert} /> Cash (Shortfall): Offer is below minimum spread of{' '}
+          {fmt$(minSpread, 0)}. Deficit: {fmt$(minSpread - calc.dealSpread, 0)}.
         </div>
       )}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1367,16 +1316,12 @@ const Overview = ({
         />
 
         <div
-          className={`flip-card profit-flip ${
-            isDoubleFlipped ? "flipped" : ""
-          }`}
+          className={`flip-card profit-flip ${isDoubleFlipped ? 'flipped' : ''}`}
           onClick={() => setIsDoubleFlipped(!isDoubleFlipped)}
         >
           <div className="flip-card-inner">
             <div className="flip-card-front card-icy p-3">
-              <span className="label-xs uppercase">
-                Wholesale Fee w/ Double Close
-              </span>
+              <span className="label-xs uppercase">Wholesale Fee w/ Double Close</span>
               <span className="text-2xl font-bold text-white font-mono metric-glow mt-1">
                 {fmt$(wholesaleFeeWithDC, 0)}
               </span>
@@ -1401,20 +1346,14 @@ const Overview = ({
               <div className="lg:col-span-3">
                 <div className="flex flex-wrap items-center gap-3 mb-3">
                   <h2 className="text-white text-xl font-bold tracking-tight flex items-center gap-2">
-                    <Icon
-                      d={Icons.shield}
-                      size={20}
-                      className="text-[#0096FF]"
-                    />{" "}
-                    Deal Analysis
+                    <Icon d={Icons.shield} size={20} className="text-[#0096FF]" /> Deal Analysis
                   </h2>
-                  {isFinite(calc.dealSpread) && (
-                    <Badge color={health.color}>{health.label}</Badge>
-                  )}
-                  <Badge color={urgencyColors[calc.urgencyBand as keyof typeof urgencyColors] ?? "blue"}>
-                    {" "}
-                    {calc.urgencyBand}{" "}
-                    {calc.urgencyDays > 0 ? `(${calc.urgencyDays}d)` : ""}{" "}
+                  {isFinite(calc.dealSpread) && <Badge color={health.color}>{health.label}</Badge>}
+                  <Badge
+                    color={urgencyColors[calc.urgencyBand as keyof typeof urgencyColors] ?? 'blue'}
+                  >
+                    {' '}
+                    {calc.urgencyBand} {calc.urgencyDays > 0 ? `(${calc.urgencyDays}d)` : ''}{' '}
                   </Badge>
                   {!calc.listingAllowed && <Badge color="red">Listing Blocked</Badge>}
                 </div>
@@ -1424,27 +1363,25 @@ const Overview = ({
                   </h4>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-cyan-300/80">
                     <p>
-                      <strong>Buyer Margin:</strong>{" "}
+                      <strong>Buyer Margin:</strong>{' '}
                       <span className="text-white font-mono">
                         {(calc.displayMargin * 100).toFixed(1)}%
                       </span>
                     </p>
                     <p>
-                      <strong>Contingency:</strong>{" "}
+                      <strong>Contingency:</strong>{' '}
                       <span className="text-white font-mono">
                         {(calc.displayCont * 100).toFixed(0)}%
                       </span>
                     </p>
                     <p>
-                      <strong>Carry (calc):</strong>{" "}
+                      <strong>Carry (calc):</strong>{' '}
                       <span className="text-white font-mono">
-                        {calc.carryMonths > 0
-                          ? calc.carryMonths.toFixed(2) + " mos"
-                          : "—"}
+                        {calc.carryMonths > 0 ? calc.carryMonths.toFixed(2) + ' mos' : '—'}
                       </span>
                     </p>
                     <p>
-                      <strong>Assignment Fee (Observed):</strong>{" "}
+                      <strong>Assignment Fee (Observed):</strong>{' '}
                       <span className="text-white font-mono">
                         {fmt$(calc.maoFinal - calc.instantCashOffer, 0)}
                       </span>
@@ -1453,41 +1390,29 @@ const Overview = ({
                 </div>
               </div>
               <div className="lg:col-span-2 info-card space-y-2">
-                <h4 className="label-xs uppercase text-center">
-                  Cost & Debt Snapshot
-                </h4>
+                <h4 className="label-xs uppercase text-center">Cost & Debt Snapshot</h4>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-cyan-300">Repairs + Cont.</span>
-                    <span className="font-semibold text-white">
-                      {fmt$(calc.totalRepairs)}
-                    </span>
+                    <span className="font-semibold text-white">{fmt$(calc.totalRepairs)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-cyan-300">Carry Costs</span>
-                    <span className="font-semibold text-white">
-                      {fmt$(calc.carryCosts)}
-                    </span>
+                    <span className="font-semibold text-white">{fmt$(calc.carryCosts)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-cyan-300">Resale Costs</span>
-                    <span className="font-semibold text-white">
-                      {fmt$(calc.resaleCosts)}
-                    </span>
+                    <span className="font-semibold text-white">{fmt$(calc.resaleCosts)}</span>
                   </div>
                   <div className="border-t border-dashed border-white/20 my-1" />
                   <div className="flex justify-between text-brand-red">
                     <span>Projected Payoff</span>
-                    <span className="font-semibold">
-                      {fmt$(calc.projectedPayoffClose)}
-                    </span>
+                    <span className="font-semibold">{fmt$(calc.projectedPayoffClose)}</span>
                   </div>
-                  {deal.property?.occupancy === "tenant" && (
+                  {deal.property?.occupancy === 'tenant' && (
                     <div className="flex justify-between text-accent-orange">
                       <span>Tenant Buffer</span>
-                      <span className="font-semibold text-white">
-                        {fmt$(calc.tenantBuffer)}
-                      </span>
+                      <span className="font-semibold text-white">{fmt$(calc.tenantBuffer)}</span>
                     </div>
                   )}
                 </div>
@@ -1502,8 +1427,7 @@ const Overview = ({
       <DealStructureChart calc={calc} deal={deal} hasUserInput={hasUserInput} />
       <GlassCard>
         <h3 className="text-white font-semibold text-base mb-2 flex items-center gap-2">
-          <Icon d={Icons.playbook} size={18} className="text-[#0096FF]" />{" "}
-          Negotiation Playbook
+          <Icon d={Icons.playbook} size={18} className="text-[#0096FF]" /> Negotiation Playbook
         </h3>
         {playbookPoints.length > 0 && hasUserInput ? (
           <ul className="space-y-2 text-sm text-cyan-300/80 list-disc pl-5">
@@ -1512,9 +1436,7 @@ const Overview = ({
             ))}
           </ul>
         ) : (
-          <p className="muted text-sm">
-            Enter deal data to generate negotiation points.
-          </p>
+          <p className="muted text-sm">Enter deal data to generate negotiation points.</p>
         )}
       </GlassCard>
     </div>
@@ -1552,7 +1474,7 @@ const DealStructureChart = ({
   const toPct = (v: number) => {
     if (!isFinite(v) || max <= min) return 0;
     return Math.max(0, Math.min(100, ((v - min) / (max - min)) * 100));
-    };
+  };
 
   const belowFloor =
     isFinite(floor) && isFinite(offer) ? Math.max(0, (floor as number) - (offer as number)) : NaN;
@@ -1575,21 +1497,19 @@ const DealStructureChart = ({
   const gapToPayoff =
     isFinite(payoff) && isFinite(offer) ? (payoff as number) - (offer as number) : NaN;
   const window$ =
-    isFinite(offer) && isFinite(floor)
-      ? Math.max(0, (offer as number) - (floor as number))
-      : NaN;
+    isFinite(offer) && isFinite(floor) ? Math.max(0, (offer as number) - (floor as number)) : NaN;
   const headroom$ =
     isFinite(ceiling) && isFinite(offer)
       ? Math.max(0, (ceiling as number) - (offer as number))
       : NaN;
 
   const markers = [
-    { label: "Payoff", value: payoff, color: "text-brand-red" },
-    { label: "Floor", value: floor, color: "text-accent-orange" },
-    { label: `Offer`, value: offer, color: "text-yellow-300" },
-    { label: "As-Is", value: asIs, color: "text-cyan-300" },
-    { label: "Ceiling", value: ceiling, color: "text-blue-400" },
-    { label: "ARV", value: arv, color: "text-green-400" },
+    { label: 'Payoff', value: payoff, color: 'text-brand-red' },
+    { label: 'Floor', value: floor, color: 'text-accent-orange' },
+    { label: `Offer`, value: offer, color: 'text-yellow-300' },
+    { label: 'As-Is', value: asIs, color: 'text-cyan-300' },
+    { label: 'Ceiling', value: ceiling, color: 'text-blue-400' },
+    { label: 'ARV', value: arv, color: 'text-green-400' },
   ]
     .filter((m) => isFinite(m.value as number))
     .map((m) => ({ ...m, pos: toPct(m.value as number) }))
@@ -1597,7 +1517,7 @@ const DealStructureChart = ({
 
   const getStaggerLevel = (index: number) => {
     const level = index % 3;
-    return level === 0 ? "-top-16" : level === 1 ? "-top-22" : "-top-10";
+    return level === 0 ? '-top-16' : level === 1 ? '-top-22' : '-top-10';
   };
 
   const buildSellerScript = () => {
@@ -1618,32 +1538,35 @@ const DealStructureChart = ({
         `We’re short of payoff by ${fmt$(gapToPayoff, 0)}; moving the closing earlier (per-diem) or trimming credits/scope helps.`
       );
     } else if (isFinite(gapToPayoff)) {
-      parts.push(
-        `This clears payoff with ${fmt$(-(gapToPayoff as number), 0)} cushion at close.`
-      );
+      parts.push(`This clears payoff with ${fmt$(-(gapToPayoff as number), 0)} cushion at close.`);
     }
-    if (isFinite(calc.urgencyDays) && calc.urgencyDays <= 14 && isFinite(num(deal.debt.senior_per_diem)) && num(deal.debt.senior_per_diem) > 0) {
+    if (
+      isFinite(calc.urgencyDays) &&
+      calc.urgencyDays <= 14 &&
+      isFinite(num(deal.debt.senior_per_diem)) &&
+      num(deal.debt.senior_per_diem) > 0
+    ) {
       parts.push(
         `With the auction so close, every day matters. Closing quickly provides significant per-diem relief for you.`
       );
     }
-    return parts.join(" ");
+    return parts.join(' ');
   };
   const sellerScript = buildSellerScript();
 
   const copyScript = useCallback(() => {
-    const textArea = document.createElement("textarea");
+    const textArea = document.createElement('textarea');
     textArea.value = sellerScript;
-    textArea.style.position = "fixed";
+    textArea.style.position = 'fixed';
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
     try {
-      document.execCommand("copy");
+      document.execCommand('copy');
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch (err) {
-      console.error("Fallback: Oops, unable to copy", err);
+      console.error('Fallback: Oops, unable to copy', err);
     }
     document.body.removeChild(textArea);
   }, [sellerScript]);
@@ -1660,7 +1583,7 @@ const DealStructureChart = ({
         <h3 className="text-white font-semibold text-base">Deal Structure</h3>
         <Button size="sm" variant="ghost" onClick={copyScript} className="flex items-center gap-2">
           <Icon d={copied ? Icons.check : Icons.dollar} size={16} />
-          {copied ? "Copied!" : "Copy Seller Script"}
+          {copied ? 'Copied!' : 'Copy Seller Script'}
         </Button>
       </div>
 
@@ -1673,7 +1596,7 @@ const DealStructureChart = ({
           <div className="flex items-center gap-1.5">
             <div
               className="w-3 h-3 rounded"
-              style={{ backgroundColor: "rgba(255, 69, 0, 0.35)" }}
+              style={{ backgroundColor: 'rgba(255, 69, 0, 0.35)' }}
             />
             <span className="text-white/60">Negotiation Window</span>
           </div>
@@ -1683,7 +1606,7 @@ const DealStructureChart = ({
           </div>
         </div>
 
-        <div className="relative w-full h-10 rounded-full bg-gradient-to-r from-white/5 via-white/10 to-white/5 border border-white/15 shadow-inner overflow-hidden mb-16">
+        <div className="relative w-full h-10 rounded-full bg-linear-to-r from-white/5 via-white/10 to-white/5 border border-white/15 shadow-inner overflow-hidden mb-16">
           <div
             className="absolute inset-y-0 left-0 bg-brand-red-zone group cursor-help transition-all duration-300 ease-in-out"
             style={{ width: `${negotiationLeft}%` }}
@@ -1698,7 +1621,7 @@ const DealStructureChart = ({
             style={{
               left: `${negotiationLeft}%`,
               width: `${negotiationWidth}%`,
-              backgroundColor: "rgba(255, 69, 0, 0.35)",
+              backgroundColor: 'rgba(255, 69, 0, 0.35)',
             }}
           >
             <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-black/90 text-white text-xs rounded whitespace-nowrap z-50">
@@ -1717,8 +1640,8 @@ const DealStructureChart = ({
           </div>
 
           {markers.map((m, i) => {
-            const isOfferMarker = m.label.toLowerCase().includes("offer");
-            const baseChip = "backdrop-blur rounded";
+            const isOfferMarker = m.label.toLowerCase().includes('offer');
+            const baseChip = 'backdrop-blur rounded';
             const chipClass = isOfferMarker
               ? `${baseChip} text-base font-extrabold px-3 py-1.5 bg-yellow-500/20 border-2 border-yellow-400`
               : `${baseChip} text-[10px] sm:text-[11px] md:text-xs font-semibold px-2 py-1 bg-black/60`;
@@ -1734,7 +1657,7 @@ const DealStructureChart = ({
                 <div className={chipClass}>
                   {m.label} · {fmt$(m.value as number, 0)}
                 </div>
-                <div className="mt-1 h-8 w-[2px] bg-current rounded-full" />
+                <div className="mt-1 h-8 w-0.5 bg-current rounded-full" />
               </div>
             );
           })}
@@ -1748,9 +1671,7 @@ const DealStructureChart = ({
           </div>
           <div className="flex-1">
             <span className="label-xs block mb-0.5">Window (Floor→Offer)</span>
-            <span className="font-semibold text-lg text-white">
-              {fmt$(window$, 0)}
-            </span>
+            <span className="font-semibold text-lg text-white">{fmt$(window$, 0)}</span>
           </div>
         </div>
         <div className="info-card flex items-center gap-3">
@@ -1758,53 +1679,40 @@ const DealStructureChart = ({
             <Icon d={Icons.dollar} size={18} className="text-blue-400" />
           </div>
           <div className="flex-1">
-            <span className="label-xs block mb-0.5">
-              Headroom (Offer→Ceiling)
-            </span>
-            <span className="font-semibold text-lg text-white">
-              {fmt$(headroom$, 0)}
-            </span>
+            <span className="label-xs block mb-0.5">Headroom (Offer→Ceiling)</span>
+            <span className="font-semibold text-lg text-white">{fmt$(headroom$, 0)}</span>
           </div>
         </div>
         <div
           className={`info-card flex items-center gap-3 ${
-            isFinite(gapToPayoff) && (gapToPayoff as number) > 0
-              ? "animate-pulse"
-              : ""
+            isFinite(gapToPayoff) && (gapToPayoff as number) > 0 ? 'animate-pulse' : ''
           }`}
         >
           <div
             className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
               isFinite(gapToPayoff) && (gapToPayoff as number) > 0
-                ? "bg-accent-orange-subtle"
-                : "bg-green-500/20"
+                ? 'bg-accent-orange-subtle'
+                : 'bg-green-500/20'
             }`}
           >
             <Icon
-              d={
-                isFinite(gapToPayoff) && (gapToPayoff as number) > 0
-                  ? Icons.alert
-                  : Icons.check
-              }
+              d={isFinite(gapToPayoff) && (gapToPayoff as number) > 0 ? Icons.alert : Icons.check}
               size={18}
               className={
                 isFinite(gapToPayoff) && (gapToPayoff as number) > 0
-                  ? "text-accent-orange-light"
-                  : "text-green-400"
+                  ? 'text-accent-orange-light'
+                  : 'text-green-400'
               }
             />
           </div>
           <div className="flex-1">
             <span className="label-xs block mb-0.5">
               {isFinite(gapToPayoff) && (gapToPayoff as number) > 0
-                ? "Shortfall vs Payoff"
-                : "Cushion vs Payoff"}
+                ? 'Shortfall vs Payoff'
+                : 'Cushion vs Payoff'}
             </span>
             <span className="font-semibold text-lg text-white">
-              {fmt$(
-                isFinite(gapToPayoff) ? Math.abs(gapToPayoff as number) : NaN,
-                0
-              )}
+              {fmt$(isFinite(gapToPayoff) ? Math.abs(gapToPayoff as number) : NaN, 0)}
             </span>
           </div>
         </div>
@@ -1812,8 +1720,8 @@ const DealStructureChart = ({
 
       {hasUserInput && showBelowFloor && (
         <div className="mt-3 card-orange p-2 text-xs text-white text-center font-semibold">
-          Offer is {fmt$(belowFloor, 0)} below Respect Floor — use the Scenario
-          Modeler to move closing forward or trim credits/scope.
+          Offer is {fmt$(belowFloor, 0)} below Respect Floor — use the Scenario Modeler to move
+          closing forward or trim credits/scope.
         </div>
       )}
 
@@ -1835,20 +1743,17 @@ const DealStructureChart = ({
 
 const SelectField = ({ label, value, onChange, children }: SelectFieldProps) => (
   <div>
-    <label className="block text-xs font-medium text-white/60 mb-1">
-      {label}
-    </label>
+    <label className="block text-xs font-medium text-white/60 mb-1">{label}</label>
     <select value={value} onChange={onChange} className="dark-select">
       {children}
     </select>
   </div>
 );
 
-const RatesMetaBar = ({ asOf = "2025-10-18" }: { asOf?: string }) => (
+const RatesMetaBar = ({ asOf = '2025-10-18' }: { asOf?: string }) => (
   <div className="info-card flex items-center justify-between mb-2">
     <div className="label-xs">
-      Repair unit rates — last update:{" "}
-      <strong className="text-white/90">{asOf}</strong>
+      Repair unit rates — last update: <strong className="text-white/90">{asOf}</strong>
     </div>
     <div className="text-xs text-cyan-300/80">
       Sources: Homewyse (Oct 2025), plus current national guides.
@@ -1863,7 +1768,7 @@ const QuickEstimate = ({
   deal: any;
   setDealValue: (path: string, value: any) => void;
 }) => {
-  const [rehabLevel, setRehabLevel] = useState<"none" | "light" | "medium" | "heavy">("none");
+  const [rehabLevel, setRehabLevel] = useState<'none' | 'light' | 'medium' | 'heavy'>('none');
   const [big5, setBig5] = useState<Record<string, boolean>>({
     roof: false,
     hvac: false,
@@ -1901,9 +1806,7 @@ const QuickEstimate = ({
 
   return (
     <GlassCard>
-      <h3 className="text-lg font-bold text-white mb-2">
-        Quick Estimate Calculator
-      </h3>
+      <h3 className="text-lg font-bold text-white mb-2">Quick Estimate Calculator</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SelectField
           label="Rehab Level (PSF Tiers)"
@@ -1942,10 +1845,7 @@ const QuickEstimate = ({
           <div className="label-xs">Quick Estimate Total</div>
           <div className="text-xl font-bold">{fmt$(quickEstimateTotal)}</div>
         </div>
-        <Button
-          size="sm"
-          onClick={() => setDealValue("costs.repairs_base", quickEstimateTotal)}
-        >
+        <Button size="sm" onClick={() => setDealValue('costs.repairs_base', quickEstimateTotal)}>
           Apply as Repair Budget
         </Button>
       </div>
@@ -1969,14 +1869,14 @@ function RepairsPro({
   onCostChange: (
     sectionKey: string,
     itemKey: string,
-    field: "condition" | "cost" | "notes",
+    field: 'condition' | 'cost' | 'notes',
     value: any
   ) => void;
   onQuantityChange: (itemKey: string, value: number) => void;
   onReset: () => void;
 }) {
   const { costs, quantities } = estimatorState;
-  const ratesAsOf = "2025-10-18";
+  const ratesAsOf = '2025-10-18';
 
   const sectionTotals = useMemo(() => {
     const totals: Record<string, number> = {};
@@ -1984,7 +1884,7 @@ function RepairsPro({
       totals[sectionKey] = Object.entries(costs[sectionKey] || {}).reduce(
         (acc, [itemKey, { cost }]) => {
           const item = estimatorSections[sectionKey].items[itemKey];
-          const q = item.isPerUnit ? quantities[itemKey] ?? 0 : 1;
+          const q = item.isPerUnit ? (quantities[itemKey] ?? 0) : 1;
           return acc + num(cost) * q;
         },
         0
@@ -2004,8 +1904,8 @@ function RepairsPro({
       <GlassCard>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Icon d={Icons.wrench} size={18} className="text-[#0096FF]" />{" "}
-            Detailed Repairs Estimator
+            <Icon d={Icons.wrench} size={18} className="text-[#0096FF]" /> Detailed Repairs
+            Estimator
           </h2>
           <Button size="sm" variant="ghost" onClick={onReset}>
             Reset Detailed
@@ -2015,32 +1915,20 @@ function RepairsPro({
           {Object.keys(estimatorSections).map((key) => (
             <div key={key} className="info-card">
               <div className="flex items-center gap-2 label-sm mb-0.5">
-                <Icon
-                  d={Icons[estimatorSections[key].icon]}
-                  size={14}
-                  className="text-[#0096FF]"
-                />
+                <Icon d={Icons[estimatorSections[key].icon]} size={14} className="text-[#0096FF]" />
                 <span>{estimatorSections[key].title}</span>
               </div>
-              <div className="text-base font-semibold">
-                {fmt$(sectionTotals[key])}
-              </div>
+              <div className="text-base font-semibold">{fmt$(sectionTotals[key])}</div>
             </div>
           ))}
           <div className="highlight-card col-span-2 md:grid-cols-4 flex justify-between items-center">
-            <div className="text-sm text-cyan-300 font-bold">
-              DETAILED REPAIR SUBTOTAL
-            </div>
-            <div className="text-lg font-extrabold">
-              {fmt$(totalRepairCost)}
-            </div>
+            <div className="text-sm text-cyan-300 font-bold">DETAILED REPAIR SUBTOTAL</div>
+            <div className="text-lg font-extrabold">{fmt$(totalRepairCost)}</div>
           </div>
         </div>
         <div className="mt-3 text-xs text-cyan-300/80">
-          Contingency auto-sets from risk. Final Repairs w/ Contingency:{" "}
-          <span className="font-bold text-white">
-            {fmt$(calc.repairs_with_contingency)}
-          </span>
+          Contingency auto-sets from risk. Final Repairs w/ Contingency:{' '}
+          <span className="font-bold text-white">{fmt$(calc.repairs_with_contingency)}</span>
         </div>
       </GlassCard>
       {Object.keys(estimatorSections).map((sectionKey) => (
@@ -2070,11 +1958,7 @@ function EstimatorSection({
   section: EstimatorSectionDef;
   costs: EstimatorCosts;
   quantities: Record<string, number>;
-  onCostChange: (
-    itemKey: string,
-    field: "condition" | "cost" | "notes",
-    value: any
-  ) => void;
+  onCostChange: (itemKey: string, field: 'condition' | 'cost' | 'notes', value: any) => void;
   onQuantityChange: (itemKey: string, value: number) => void;
 }) {
   return (
@@ -2129,32 +2013,24 @@ function EstimatorRow({
       }
     | undefined;
   quantity: number | undefined;
-  onValueChange: (
-    itemKey: string,
-    field: "condition" | "cost" | "notes",
-    value: any
-  ) => void;
+  onValueChange: (itemKey: string, field: 'condition' | 'cost' | 'notes', value: any) => void;
   onQuantityChange: (itemKey: string, value: number) => void;
 }) {
   const currentCondition = value?.condition || Object.keys(item.options)[0];
   const currentCost = value?.cost ?? item.options[currentCondition] ?? 0;
-  const currentNotes = value?.notes || "";
+  const currentNotes = value?.notes || '';
 
   const handleOptionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selected = e.target.value;
     const cost = item.options[selected];
-    onValueChange(itemKey, "condition", selected);
-    onValueChange(itemKey, "cost", cost);
+    onValueChange(itemKey, 'condition', selected);
+    onValueChange(itemKey, 'cost', cost);
   };
   return (
     <tr className="border-b border-white/5 last:border-0">
       <td className="p-2 font-semibold">{item.label}</td>
       <td className="p-2">
-        <select
-          value={currentCondition}
-          onChange={handleOptionChange}
-          className="dark-select"
-        >
+        <select value={currentCondition} onChange={handleOptionChange} className="dark-select">
           {Object.keys(item.options).map((opt) => (
             <option key={opt} value={opt}>
               {opt}
@@ -2166,7 +2042,7 @@ function EstimatorRow({
         <input
           type="text"
           value={currentNotes}
-          onChange={(e) => onValueChange(itemKey, "notes", e.target.value)}
+          onChange={(e) => onValueChange(itemKey, 'notes', e.target.value)}
           placeholder="Specifics..."
           className="dark-input"
         />
@@ -2198,11 +2074,9 @@ function EstimatorRow({
           <input
             type="number"
             value={currentCost}
-            onChange={(e) =>
-              onValueChange(itemKey, "cost", Math.max(0, num(e.target.value)))
-            }
+            onChange={(e) => onValueChange(itemKey, 'cost', Math.max(0, num(e.target.value)))}
             className="dark-input pl-5 text-right font-semibold"
-            placeholder={item.isPerUnit ? "Unit $" : "Total $"}
+            placeholder={item.isPerUnit ? 'Unit $' : 'Total $'}
           />
         </div>
       </td>
@@ -2212,18 +2086,16 @@ function EstimatorRow({
 
 const InputField = ({
   label,
-  type = "text",
+  type = 'text',
   value,
   onChange,
   prefix,
   suffix,
-  className = "",
+  className = '',
   ...props
 }: InputFieldProps) => (
   <div>
-    <label className="block text-xs font-medium text-white/70 mb-1">
-      {label}
-    </label>
+    <label className="block text-xs font-medium text-white/70 mb-1">{label}</label>
     <div className="relative">
       {prefix && (
         <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-sm text-white/40">
@@ -2234,9 +2106,7 @@ const InputField = ({
         type={type}
         value={value}
         onChange={onChange}
-        className={`dark-input ${prefix ? "pl-7" : ""} ${
-          suffix ? "pr-12" : ""
-        } ${className}`}
+        className={`dark-input ${prefix ? 'pl-7' : ''} ${suffix ? 'pr-12' : ''} ${className}`}
         {...props}
       />
       {suffix && (
@@ -2253,10 +2123,12 @@ const ToggleSwitch = ({ label, checked, onChange }: ToggleSwitchProps) => (
     <span className="text-sm text-white">{label}</span>
     <div className="relative">
       <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
-      <div className={`block w-10 h-6 rounded-full ${checked ? "bg-accent-blue" : "bg-gray-600"}`} />
+      <div
+        className={`block w-10 h-6 rounded-full ${checked ? 'bg-accent-blue' : 'bg-gray-600'}`}
+      />
       <div
         className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
-          checked ? "transform translate-x-4" : ""
+          checked ? 'transform translate-x-4' : ''
         }`}
       />
     </div>
@@ -2264,7 +2136,7 @@ const ToggleSwitch = ({ label, checked, onChange }: ToggleSwitchProps) => (
 );
 
 const ScenarioModeler = ({ deal }: { deal: any }) => {
-  const [scenarioDays, setScenarioDays] = useState(deal.policy?.manual_days_to_money ?? "");
+  const [scenarioDays, setScenarioDays] = useState(deal.policy?.manual_days_to_money ?? '');
   const [scenarioRepairs, setScenarioRepairs] = useState(deal.costs?.repairs_base ?? 0);
   const [scenarioConcessions, setScenarioConcessions] = useState(
     (deal.costs?.concessions_pct ?? 0) * 100
@@ -2272,8 +2144,7 @@ const ScenarioModeler = ({ deal }: { deal: any }) => {
 
   const scenarioResult = useMemo(() => {
     const scenarioDealData = JSON.parse(JSON.stringify(deal));
-    scenarioDealData.policy.manual_days_to_money =
-      scenarioDays === "" ? null : num(scenarioDays);
+    scenarioDealData.policy.manual_days_to_money = scenarioDays === '' ? null : num(scenarioDays);
     scenarioDealData.costs.repairs_base = num(scenarioRepairs);
     scenarioDealData.costs.concessions_pct = num(scenarioConcessions) / 100;
     return HPSEngine.runEngine({ deal: scenarioDealData });
@@ -2287,14 +2158,17 @@ const ScenarioModeler = ({ deal }: { deal: any }) => {
     scenario: number,
     formatter: (v: number) => ReactNode = (v) => fmt$(v, 0)
   ) => {
-    const delta =
-      isFinite(scenario) && isFinite(original) ? scenario - original : NaN;
-    if (!isFinite(delta) || Math.abs(delta) < 0.01)
-      return <span className="text-white/70">—</span>;
+    const delta = isFinite(scenario) && isFinite(original) ? scenario - original : NaN;
+    if (!isFinite(delta) || Math.abs(delta) < 0.01) return <span className="text-white/70">—</span>;
 
-    const color = delta > 0 ? "text-accent-green" : "text-accent-orange";
-    const sign = delta > 0 ? "+" : "";
-    return <span className={color}>{sign}{formatter(delta)}</span>;
+    const color = delta > 0 ? 'text-accent-green' : 'text-accent-orange';
+    const sign = delta > 0 ? '+' : '';
+    return (
+      <span className={color}>
+        {sign}
+        {formatter(delta)}
+      </span>
+    );
   };
 
   return (
@@ -2325,9 +2199,7 @@ const ScenarioModeler = ({ deal }: { deal: any }) => {
         />
       </div>
       <div className="md:col-span-2 info-card p-4">
-        <h3 className="font-semibold text-white mb-3">
-          Scenario Outcome vs. Current
-        </h3>
+        <h3 className="font-semibold text-white mb-3">Scenario Outcome vs. Current</h3>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/10">
@@ -2347,17 +2219,12 @@ const ScenarioModeler = ({ deal }: { deal: any }) => {
                 {fmt$(scenarioCalc.instantCashOffer, 0)}
               </td>
               <td className="py-2 text-right font-mono">
-                {renderDelta(
-                  originalCalc.instantCashOffer,
-                  scenarioCalc.instantCashOffer
-                )}
+                {renderDelta(originalCalc.instantCashOffer, scenarioCalc.instantCashOffer)}
               </td>
             </tr>
             <tr className="border-t border-white/10">
               <td className="py-2 font-semibold">Net to Seller</td>
-              <td className="py-2 text-right font-mono">
-                {fmt$(originalCalc.netToSeller, 0)}
-              </td>
+              <td className="py-2 text-right font-mono">{fmt$(originalCalc.netToSeller, 0)}</td>
               <td className="py-2 text-right font-mono font-bold text-lg text-yellow-300">
                 {fmt$(scenarioCalc.netToSeller, 0)}
               </td>
@@ -2368,13 +2235,17 @@ const ScenarioModeler = ({ deal }: { deal: any }) => {
             <tr className="border-t border-white/10">
               <td className="py-2 font-semibold text-white/70">Days to Money</td>
               <td className="py-2 text-right font-mono text-white/70">
-                {originalCalc.urgencyDays > 0 ? `${originalCalc.urgencyDays}d` : "—"}
+                {originalCalc.urgencyDays > 0 ? `${originalCalc.urgencyDays}d` : '—'}
               </td>
               <td className="py-2 text-right font-mono text-white/70">
-                {scenarioCalc.urgencyDays > 0 ? `${scenarioCalc.urgencyDays}d` : "—"}
+                {scenarioCalc.urgencyDays > 0 ? `${scenarioCalc.urgencyDays}d` : '—'}
               </td>
               <td className="py-2 text-right font-mono">
-                {renderDelta(originalCalc.urgencyDays, scenarioCalc.urgencyDays, (v) => `${Math.round(v)}d`)}
+                {renderDelta(
+                  originalCalc.urgencyDays,
+                  scenarioCalc.urgencyDays,
+                  (v) => `${Math.round(v)}d`
+                )}
               </td>
             </tr>
           </tbody>
@@ -2396,22 +2267,22 @@ const UnderwriteTab = ({
   const addJuniorLien = () => {
     const newLien = {
       id: Date.now(),
-      type: "Judgment",
-      balance: "",
-      per_diem: "",
-      good_thru: "",
+      type: 'Judgment',
+      balance: '',
+      per_diem: '',
+      good_thru: '',
     };
-    setDealValue("debt.juniors", [...deal.debt.juniors, newLien]);
+    setDealValue('debt.juniors', [...deal.debt.juniors, newLien]);
   };
   const updateJuniorLien = (index: number, field: string, value: any) => {
     let validatedValue = value;
-    if (["balance", "per_diem"].includes(field)) {
-      validatedValue = value === "" ? "" : Math.max(0, num(value));
+    if (['balance', 'per_diem'].includes(field)) {
+      validatedValue = value === '' ? '' : Math.max(0, num(value));
     }
     const updatedJuniors = [...deal.debt.juniors];
     if (!updatedJuniors[index]) updatedJuniors[index] = {};
     updatedJuniors[index][field] = validatedValue;
-    setDealValue("debt.juniors", updatedJuniors);
+    setDealValue('debt.juniors', updatedJuniors);
   };
 
   return (
@@ -2425,9 +2296,7 @@ const UnderwriteTab = ({
           <NestedTabsTrigger value="policy">Policy & Fees</NestedTabsTrigger>
           <NestedTabsTrigger value="legal">Legal & Timeline</NestedTabsTrigger>
           <NestedTabsTrigger value="scenarios">Scenarios</NestedTabsTrigger>
-          <NestedTabsTrigger value="double_close">
-            HPS Double Closing Cost
-          </NestedTabsTrigger>
+          <NestedTabsTrigger value="double_close">HPS Double Closing Cost</NestedTabsTrigger>
         </NestedTabsList>
         <NestedTabsContent value="market">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
@@ -2435,43 +2304,43 @@ const UnderwriteTab = ({
               label="ARV"
               type="number"
               prefix="$"
-              value={deal.market.arv || ""}
-              onChange={(e) => setDealValue("market.arv", e.target.value)}
+              value={deal.market.arv || ''}
+              onChange={(e) => setDealValue('market.arv', e.target.value)}
             />
             <InputField
               label="As-Is Value"
               type="number"
               prefix="$"
-              value={deal.market.as_is_value || ""}
-              onChange={(e) => setDealValue("market.as_is_value", e.target.value)}
+              value={deal.market.as_is_value || ''}
+              onChange={(e) => setDealValue('market.as_is_value', e.target.value)}
             />
             <InputField
               label="DOM (Zip)"
               type="number"
               suffix="days"
-              value={deal.market.dom_zip || ""}
-              onChange={(e) => setDealValue("market.dom_zip", e.target.value)}
+              value={deal.market.dom_zip || ''}
+              onChange={(e) => setDealValue('market.dom_zip', e.target.value)}
             />
             <InputField
               label="MOI (Zip)"
               type="number"
               suffix="mos"
-              value={deal.market.moi_zip || ""}
-              onChange={(e) => setDealValue("market.moi_zip", e.target.value)}
+              value={deal.market.moi_zip || ''}
+              onChange={(e) => setDealValue('market.moi_zip', e.target.value)}
             />
             <InputField
               label="Price-to-List %"
               type="number"
               suffix="%"
-              value={(deal.market["price-to-list-pct"] ?? 0.98) * 100}
-              onChange={(e) => setDealValue("market.price-to-list-pct", e.target.value)}
+              value={(deal.market['price-to-list-pct'] ?? 0.98) * 100}
+              onChange={(e) => setDealValue('market.price-to-list-pct', e.target.value)}
             />
             <InputField
               label="Local Discount (20th %)"
               type="number"
               suffix="%"
               value={(deal.market.local_discount_20th_pct ?? 0.08) * 100}
-              onChange={(e) => setDealValue("market.local_discount_20th_pct", e.target.value)}
+              onChange={(e) => setDealValue('market.local_discount_20th_pct', e.target.value)}
             />
           </div>
         </NestedTabsContent>
@@ -2481,7 +2350,7 @@ const UnderwriteTab = ({
               <SelectField
                 label="Occupancy"
                 value={deal.property.occupancy}
-                onChange={(e) => setDealValue("property.occupancy", e.target.value)}
+                onChange={(e) => setDealValue('property.occupancy', e.target.value)}
               >
                 <option value="owner">Owner</option>
                 <option value="tenant">Tenant</option>
@@ -2490,7 +2359,7 @@ const UnderwriteTab = ({
               <SelectField
                 label="Insurance Bindability"
                 value={deal.status.insurability}
-                onChange={(e) => setDealValue("status.insurability", e.target.value)}
+                onChange={(e) => setDealValue('status.insurability', e.target.value)}
               >
                 <option value="bindable">Bindable</option>
                 <option value="conditional">Conditional</option>
@@ -2499,7 +2368,7 @@ const UnderwriteTab = ({
               <InputField
                 label="County"
                 value={deal.property.county}
-                onChange={(e) => setDealValue("property.county", e.target.value)}
+                onChange={(e) => setDealValue('property.county', e.target.value)}
               />
             </div>
             <div className="info-card space-y-3 p-4">
@@ -2507,7 +2376,7 @@ const UnderwriteTab = ({
                 label="No Interior Access"
                 checked={deal.confidence.no_access_flag}
                 onChange={() =>
-                  setDealValue("confidence.no_access_flag", !deal.confidence.no_access_flag)
+                  setDealValue('confidence.no_access_flag', !deal.confidence.no_access_flag)
                 }
               />
               <ToggleSwitch
@@ -2515,7 +2384,7 @@ const UnderwriteTab = ({
                 checked={deal.status.structural_or_permit_risk_flag}
                 onChange={() =>
                   setDealValue(
-                    "status.structural_or_permit_risk_flag",
+                    'status.structural_or_permit_risk_flag',
                     !deal.status.structural_or_permit_risk_flag
                   )
                 }
@@ -2523,7 +2392,9 @@ const UnderwriteTab = ({
               <ToggleSwitch
                 label="Old Roof (>20 years)"
                 checked={deal.property.old_roof_flag}
-                onChange={() => setDealValue("property.old_roof_flag", !deal.property.old_roof_flag)}
+                onChange={() =>
+                  setDealValue('property.old_roof_flag', !deal.property.old_roof_flag)
+                }
               />
             </div>
             <div className="info-card space-y-3 p-4">
@@ -2532,7 +2403,7 @@ const UnderwriteTab = ({
                 checked={deal.status.major_system_failure_flag}
                 onChange={() =>
                   setDealValue(
-                    "status.major_system_failure_flag",
+                    'status.major_system_failure_flag',
                     !deal.status.major_system_failure_flag
                   )
                 }
@@ -2542,7 +2413,7 @@ const UnderwriteTab = ({
                 checked={deal.confidence.reinstatement_proof_flag}
                 onChange={() =>
                   setDealValue(
-                    "confidence.reinstatement_proof_flag",
+                    'confidence.reinstatement_proof_flag',
                     !deal.confidence.reinstatement_proof_flag
                   )
                 }
@@ -2550,7 +2421,7 @@ const UnderwriteTab = ({
               <ToggleSwitch
                 label="Homestead Status"
                 checked={deal.property.is_homestead}
-                onChange={() => setDealValue("property.is_homestead", !deal.property.is_homestead)}
+                onChange={() => setDealValue('property.is_homestead', !deal.property.is_homestead)}
               />
             </div>
           </div>
@@ -2561,28 +2432,28 @@ const UnderwriteTab = ({
               label="Senior Principal"
               type="number"
               prefix="$"
-              value={deal.debt.senior_principal || ""}
-              onChange={(e) => setDealValue("debt.senior_principal", e.target.value)}
+              value={deal.debt.senior_principal || ''}
+              onChange={(e) => setDealValue('debt.senior_principal', e.target.value)}
             />
             <InputField
               label="Senior Per Diem"
               type="number"
               prefix="$"
               min={0}
-              value={deal.debt.senior_per_diem || ""}
-              onChange={(e) => setDealValue("debt.senior_per_diem", e.target.value)}
+              value={deal.debt.senior_per_diem || ''}
+              onChange={(e) => setDealValue('debt.senior_per_diem', e.target.value)}
             />
             <InputField
               label="Payoff Good-Thru"
               type="date"
               value={deal.debt.good_thru_date}
-              onChange={(e) => setDealValue("debt.good_thru_date", e.target.value)}
+              onChange={(e) => setDealValue('debt.good_thru_date', e.target.value)}
             />
             <ToggleSwitch
               label="Payoff Confirmed"
               checked={deal.debt.payoff_is_confirmed}
               onChange={() =>
-                setDealValue("debt.payoff_is_confirmed", !deal.debt.payoff_is_confirmed)
+                setDealValue('debt.payoff_is_confirmed', !deal.debt.payoff_is_confirmed)
               }
             />
             <InputField
@@ -2590,16 +2461,16 @@ const UnderwriteTab = ({
               type="number"
               prefix="$"
               min={0}
-              value={deal.debt.protective_advances || ""}
-              onChange={(e) => setDealValue("debt.protective_advances", e.target.value)}
+              value={deal.debt.protective_advances || ''}
+              onChange={(e) => setDealValue('debt.protective_advances', e.target.value)}
             />
             <InputField
               label="Title Cure Cost"
               type="number"
               prefix="$"
               min={0}
-              value={deal.title.cure_cost || ""}
-              onChange={(e) => setDealValue("title.cure_cost", e.target.value)}
+              value={deal.title.cure_cost || ''}
+              onChange={(e) => setDealValue('title.cure_cost', e.target.value)}
             />
             <InputField
               label="Title Risk %"
@@ -2608,15 +2479,15 @@ const UnderwriteTab = ({
               min={0}
               max={3}
               value={(deal.title.risk_pct || 0) * 100}
-              onChange={(e) => setDealValue("title.risk_pct", e.target.value)}
+              onChange={(e) => setDealValue('title.risk_pct', e.target.value)}
             />
             <InputField
               label="HOA Estoppel Fee"
               type="number"
               prefix="$"
               min={0}
-              value={deal.debt.hoa_estoppel_fee || ""}
-              onChange={(e) => setDealValue("debt.hoa_estoppel_fee", e.target.value)}
+              value={deal.debt.hoa_estoppel_fee || ''}
+              onChange={(e) => setDealValue('debt.hoa_estoppel_fee', e.target.value)}
             />
           </div>
           <div className="flex justify-between items-center mb-2">
@@ -2635,28 +2506,28 @@ const UnderwriteTab = ({
                   <InputField
                     label="Type"
                     placeholder="HELOC, etc"
-                    value={lien.type || ""}
-                    onChange={(e) => updateJuniorLien(index, "type", e.target.value)}
+                    value={lien.type || ''}
+                    onChange={(e) => updateJuniorLien(index, 'type', e.target.value)}
                   />
                   <InputField
                     label="Balance"
                     type="number"
                     prefix="$"
-                    value={lien.balance || ""}
-                    onChange={(e) => updateJuniorLien(index, "balance", e.target.value)}
+                    value={lien.balance || ''}
+                    onChange={(e) => updateJuniorLien(index, 'balance', e.target.value)}
                   />
                   <InputField
                     label="Per Diem"
                     type="number"
                     prefix="$"
-                    value={lien.per_diem || ""}
-                    onChange={(e) => updateJuniorLien(index, "per_diem", e.target.value)}
+                    value={lien.per_diem || ''}
+                    onChange={(e) => updateJuniorLien(index, 'per_diem', e.target.value)}
                   />
                   <InputField
                     label="Good-Thru"
                     type="date"
-                    value={lien.good_thru || ""}
-                    onChange={(e) => updateJuniorLien(index, "good_thru", e.target.value)}
+                    value={lien.good_thru || ''}
+                    onChange={(e) => updateJuniorLien(index, 'good_thru', e.target.value)}
                   />
                   <Button
                     size="sm"
@@ -2664,7 +2535,7 @@ const UnderwriteTab = ({
                     className="h-[38px] w-full"
                     onClick={() =>
                       setDealValue(
-                        "debt.juniors",
+                        'debt.juniors',
                         deal.debt.juniors.filter((_: any, i: number) => i !== index)
                       )
                     }
@@ -2681,8 +2552,8 @@ const UnderwriteTab = ({
               label="Assignment Fee Target"
               type="number"
               prefix="$"
-              value={deal.policy.assignment_fee_target || ""}
-              onChange={(e) => setDealValue("policy.assignment_fee_target", e.target.value)}
+              value={deal.policy.assignment_fee_target || ''}
+              onChange={(e) => setDealValue('policy.assignment_fee_target', e.target.value)}
               placeholder="Optional"
             />
             <InputField
@@ -2690,14 +2561,12 @@ const UnderwriteTab = ({
               type="number"
               suffix="%"
               value={
-                deal.costs.list_commission_pct != null
-                  ? deal.costs.list_commission_pct * 100
-                  : ""
+                deal.costs.list_commission_pct != null ? deal.costs.list_commission_pct * 100 : ''
               }
               onChange={(e) =>
                 setDealValue(
-                  "costs.list_commission_pct",
-                  e.target.value === "" ? null : e.target.value
+                  'costs.list_commission_pct',
+                  e.target.value === '' ? null : e.target.value
                 )
               }
               placeholder={String((calc.commissionPct * 100).toFixed(1))}
@@ -2707,7 +2576,7 @@ const UnderwriteTab = ({
               type="number"
               suffix="%"
               value={(deal.costs.sell_close_pct ?? 0.015) * 100}
-              onChange={(e) => setDealValue("costs.sell_close_pct", e.target.value)}
+              onChange={(e) => setDealValue('costs.sell_close_pct', e.target.value)}
               min={0}
               max={30}
               step={0.1}
@@ -2717,7 +2586,7 @@ const UnderwriteTab = ({
               type="number"
               suffix="%"
               value={(deal.costs.concessions_pct ?? 0.02) * 100}
-              onChange={(e) => setDealValue("costs.concessions_pct", e.target.value)}
+              onChange={(e) => setDealValue('costs.concessions_pct', e.target.value)}
               min={0}
               max={30}
               step={0.1}
@@ -2727,7 +2596,7 @@ const UnderwriteTab = ({
               type="number"
               suffix="%"
               value={(deal.policy.safety_on_aiv_pct ?? 0.03) * 100}
-              onChange={(e) => setDealValue("policy.safety_on_aiv_pct", e.target.value)}
+              onChange={(e) => setDealValue('policy.safety_on_aiv_pct', e.target.value)}
               min={0}
               max={10}
               step={0.1}
@@ -2736,22 +2605,22 @@ const UnderwriteTab = ({
               label="Min Spread"
               type="number"
               prefix="$"
-              value={deal.policy.min_spread || ""}
-              onChange={(e) => setDealValue("policy.min_spread", e.target.value)}
+              value={deal.policy.min_spread || ''}
+              onChange={(e) => setDealValue('policy.min_spread', e.target.value)}
             />
             <InputField
               label="Monthly Interest"
               type="number"
               prefix="$"
               min={0}
-              value={deal.costs.monthly.interest || ""}
-              onChange={(e) => setDealValue("costs.monthly.interest", e.target.value)}
+              value={deal.costs.monthly.interest || ''}
+              onChange={(e) => setDealValue('costs.monthly.interest', e.target.value)}
             />
             <ToggleSwitch
               label="Costs Are Annual"
               checked={deal.policy.costs_are_annual}
               onChange={() =>
-                setDealValue("policy.costs_are_annual", !deal.policy.costs_are_annual)
+                setDealValue('policy.costs_are_annual', !deal.policy.costs_are_annual)
               }
             />
           </div>
@@ -2761,13 +2630,13 @@ const UnderwriteTab = ({
             <InputField
               label="Case No."
               value={deal.legal.case_no}
-              onChange={(e) => setDealValue("legal.case_no", e.target.value)}
+              onChange={(e) => setDealValue('legal.case_no', e.target.value)}
             />
             <InputField
               label="Auction Date"
               type="date"
               value={deal.timeline.auction_date}
-              onChange={(e) => setDealValue("timeline.auction_date", e.target.value)}
+              onChange={(e) => setDealValue('timeline.auction_date', e.target.value)}
             />
             <InputField
               label="Manual Days to Money"
@@ -2775,11 +2644,11 @@ const UnderwriteTab = ({
               type="number"
               suffix="days"
               min={0}
-              value={deal.policy.manual_days_to_money ?? ""}
+              value={deal.policy.manual_days_to_money ?? ''}
               onChange={(e) =>
                 setDealValue(
-                  "policy.manual_days_to_money",
-                  e.target.value === "" ? null : e.target.value
+                  'policy.manual_days_to_money',
+                  e.target.value === '' ? null : e.target.value
                 )
               }
             />
@@ -2787,18 +2656,15 @@ const UnderwriteTab = ({
               label="Planned Close"
               type="number"
               suffix="days"
-              value={deal.policy.planned_close_days || ""}
-              onChange={(e) => setDealValue("policy.planned_close_days", e.target.value)}
+              value={deal.policy.planned_close_days || ''}
+              onChange={(e) => setDealValue('policy.planned_close_days', e.target.value)}
             />
             <div className="pt-4">
               <ToggleSwitch
                 label="Foreclosure Sale (Cert. of Title)"
                 checked={deal.property.is_foreclosure_sale}
                 onChange={() =>
-                  setDealValue(
-                    "property.is_foreclosure_sale",
-                    !deal.property.is_foreclosure_sale
-                  )
+                  setDealValue('property.is_foreclosure_sale', !deal.property.is_foreclosure_sale)
                 }
               />
             </div>
@@ -2808,7 +2674,7 @@ const UnderwriteTab = ({
                 checked={deal.property.is_redemption_period_sale}
                 onChange={() =>
                   setDealValue(
-                    "property.is_redemption_period_sale",
+                    'property.is_redemption_period_sale',
                     !deal.property.is_redemption_period_sale
                   )
                 }
@@ -2821,13 +2687,12 @@ const UnderwriteTab = ({
         </NestedTabsContent>
         <NestedTabsContent value="double_close">
           {(() => {
-            const setDC = (k: string, v: any) =>
-              setDealValue(`costs.double_close.${k}`, v);
+            const setDC = (k: string, v: any) => setDealValue(`costs.double_close.${k}`, v);
             const dc = deal.costs.double_close || {};
             const dcCalcs = DoubleClose.computeDoubleClose(dc, { deal: { ...deal } });
             const doAutofill = () => {
               const filled = DoubleClose.autofill(dc, { deal: { ...deal } }, calc);
-              setDealValue("costs.double_close", filled);
+              setDealValue('costs.double_close', filled);
             };
             const isSimple = !!dc.use_simple_mode;
 
@@ -2838,9 +2703,9 @@ const UnderwriteTab = ({
                     <div className="label-xs uppercase">Double Close Tools</div>
                     <div className="flex items-center gap-3">
                       <ToggleSwitch
-                        label={isSimple ? "Simple" : "Advanced"}
+                        label={isSimple ? 'Simple' : 'Advanced'}
                         checked={isSimple}
-                        onChange={() => setDC("use_simple_mode", !isSimple)}
+                        onChange={() => setDC('use_simple_mode', !isSimple)}
                       />
                       <Button size="sm" onClick={doAutofill}>
                         Autofill from deal
@@ -2851,14 +2716,12 @@ const UnderwriteTab = ({
 
                 {isSimple && (
                   <GlassCard>
-                    <h4 className="label-xs uppercase mb-2">
-                      Simple Mode — Core Inputs
-                    </h4>
+                    <h4 className="label-xs uppercase mb-2">Simple Mode — Core Inputs</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                       <SelectField
                         label="County"
-                        value={dc.county || "Orange"}
-                        onChange={(e) => setDC("county", e.target.value)}
+                        value={dc.county || 'Orange'}
+                        onChange={(e) => setDC('county', e.target.value)}
                       >
                         <option>Orange</option>
                         <option>Osceola</option>
@@ -2869,22 +2732,22 @@ const UnderwriteTab = ({
                         label="A→B Price (Pab)"
                         type="number"
                         prefix="$"
-                        value={isFinite(dc.pab) ? dc.pab : ""}
-                        onChange={(e) => setDC("pab", e.target.value)}
+                        value={isFinite(dc.pab) ? dc.pab : ''}
+                        onChange={(e) => setDC('pab', e.target.value)}
                         placeholder="Enter Price"
                       />
                       <InputField
                         label="B→C Price (Pbc)"
                         type="number"
                         prefix="$"
-                        value={isFinite(dc.pbc) ? dc.pbc : ""}
-                        onChange={(e) => setDC("pbc", e.target.value)}
+                        value={isFinite(dc.pbc) ? dc.pbc : ''}
+                        onChange={(e) => setDC('pbc', e.target.value)}
                         placeholder="Enter Price"
                       />
                       <SelectField
                         label="Structure"
-                        value={dc.type || "Same-day"}
-                        onChange={(e) => setDC("type", e.target.value)}
+                        value={dc.type || 'Same-day'}
+                        onChange={(e) => setDC('type', e.target.value)}
                       >
                         <option>Same-day</option>
                         <option>Held-days</option>
@@ -2892,14 +2755,14 @@ const UnderwriteTab = ({
                       <InputField
                         label="Days Held"
                         type="number"
-                        value={dc.type === "Same-day" ? 0 : dc.days_held || ""}
-                        onChange={(e) => setDC("days_held", e.target.value)}
-                        disabled={dc.type === "Same-day"}
+                        value={dc.type === 'Same-day' ? 0 : dc.days_held || ''}
+                        onChange={(e) => setDC('days_held', e.target.value)}
+                        disabled={dc.type === 'Same-day'}
                       />
                       <ToggleSwitch
                         label="Using Transactional Funding?"
                         checked={!!dc.using_tf}
-                        onChange={() => setDC("using_tf", !dc.using_tf)}
+                        onChange={() => setDC('using_tf', !dc.using_tf)}
                       />
                       {dc.using_tf && (
                         <>
@@ -2907,31 +2770,31 @@ const UnderwriteTab = ({
                             label="TF Principal"
                             type="number"
                             prefix="$"
-                            value={isFinite(dc.tf_principal) ? dc.tf_principal : ""}
-                            onChange={(e) => setDC("tf_principal", e.target.value)}
+                            value={isFinite(dc.tf_principal) ? dc.tf_principal : ''}
+                            onChange={(e) => setDC('tf_principal', e.target.value)}
                             placeholder="Enter Amount"
                           />
                           <InputField
                             label="TF Points (e.g., 0.02)"
-                            value={dc.tf_points_rate || ""}
-                            onChange={(e) => setDC("tf_points_rate", e.target.value)}
+                            value={dc.tf_points_rate || ''}
+                            onChange={(e) => setDC('tf_points_rate', e.target.value)}
                           />
                         </>
                       )}
                       <SelectField
                         label="HOA/Condo Present?"
-                        value={dc.association_present || "No"}
-                        onChange={(e) => setDC("association_present", e.target.value)}
+                        value={dc.association_present || 'No'}
+                        onChange={(e) => setDC('association_present', e.target.value)}
                       >
                         <option>No</option>
                         <option>Yes–HOA</option>
                         <option>Yes–Condo</option>
                       </SelectField>
-                      {dc.association_present !== "No" && (
+                      {dc.association_present !== 'No' && (
                         <SelectField
                           label="Rush Estoppel?"
-                          value={dc.rush_estoppel || "No"}
-                          onChange={(e) => setDC("rush_estoppel", e.target.value)}
+                          value={dc.rush_estoppel || 'No'}
+                          onChange={(e) => setDC('rush_estoppel', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
@@ -2944,14 +2807,12 @@ const UnderwriteTab = ({
                 {!isSimple && (
                   <>
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        A) Property & County
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">A) Property & County</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <SelectField
                           label="County"
-                          value={dc.county || "Orange"}
-                          onChange={(e) => setDC("county", e.target.value)}
+                          value={dc.county || 'Orange'}
+                          onChange={(e) => setDC('county', e.target.value)}
                         >
                           <option>Orange</option>
                           <option>Osceola</option>
@@ -2959,8 +2820,8 @@ const UnderwriteTab = ({
                         </SelectField>
                         <SelectField
                           label="Property Type"
-                          value={dc.property_type || "SFR"}
-                          onChange={(e) => setDC("property_type", e.target.value)}
+                          value={dc.property_type || 'SFR'}
+                          onChange={(e) => setDC('property_type', e.target.value)}
                         >
                           <option>SFR</option>
                           <option>Townhome</option>
@@ -2971,8 +2832,8 @@ const UnderwriteTab = ({
                         </SelectField>
                         <SelectField
                           label="HOA/Condo Present"
-                          value={dc.association_present || "No"}
-                          onChange={(e) => setDC("association_present", e.target.value)}
+                          value={dc.association_present || 'No'}
+                          onChange={(e) => setDC('association_present', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes–HOA</option>
@@ -2982,14 +2843,12 @@ const UnderwriteTab = ({
                     </GlassCard>
 
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        B) Structure & Timing
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">B) Structure & Timing</h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <SelectField
                           label="Double-close type"
-                          value={dc.type || "Same-day"}
-                          onChange={(e) => setDC("type", e.target.value)}
+                          value={dc.type || 'Same-day'}
+                          onChange={(e) => setDC('type', e.target.value)}
                         >
                           <option>Same-day</option>
                           <option>Held-days</option>
@@ -2997,13 +2856,13 @@ const UnderwriteTab = ({
                         <InputField
                           label="Days held (A–B → B–C)"
                           type="number"
-                          value={dc.days_held || ""}
-                          onChange={(e) => setDC("days_held", e.target.value)}
+                          value={dc.days_held || ''}
+                          onChange={(e) => setDC('days_held', e.target.value)}
                         />
                         <SelectField
                           label="Same-day order (if applicable)"
-                          value={dc.same_day_order || "No preference"}
-                          onChange={(e) => setDC("same_day_order", e.target.value)}
+                          value={dc.same_day_order || 'No preference'}
+                          onChange={(e) => setDC('same_day_order', e.target.value)}
                         >
                           <option>No preference</option>
                           <option>A–B AM / B–C PM</option>
@@ -3012,36 +2871,34 @@ const UnderwriteTab = ({
                     </GlassCard>
 
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        C) A–B (you BUY from seller)
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">C) A–B (you BUY from seller)</h4>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <InputField
                           label="Pab"
                           type="number"
                           prefix="$"
-                          value={isFinite(dc.pab) ? dc.pab : ""}
-                          onChange={(e) => setDC("pab", e.target.value)}
+                          value={isFinite(dc.pab) ? dc.pab : ''}
+                          onChange={(e) => setDC('pab', e.target.value)}
                           placeholder="Enter Price"
                         />
                         <InputField
                           label="Title/settlement A–B"
                           type="number"
                           prefix="$"
-                          value={dc.title_ab || ""}
-                          onChange={(e) => setDC("title_ab", e.target.value)}
+                          value={dc.title_ab || ''}
+                          onChange={(e) => setDC('title_ab', e.target.value)}
                         />
                         <InputField
                           label="Other fees A–B"
                           type="number"
                           prefix="$"
-                          value={dc.other_ab || ""}
-                          onChange={(e) => setDC("other_ab", e.target.value)}
+                          value={dc.other_ab || ''}
+                          onChange={(e) => setDC('other_ab', e.target.value)}
                         />
                         <SelectField
                           label="Owner’s title policy paid by (A–B)"
-                          value={dc.owners_title_payer_ab || "Unknown"}
-                          onChange={(e) => setDC("owners_title_payer_ab", e.target.value)}
+                          value={dc.owners_title_payer_ab || 'Unknown'}
+                          onChange={(e) => setDC('owners_title_payer_ab', e.target.value)}
                         >
                           <option>Seller</option>
                           <option>You</option>
@@ -3051,36 +2908,34 @@ const UnderwriteTab = ({
                     </GlassCard>
 
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        D) B–C (you SELL to end-buyer)
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">D) B–C (you SELL to end-buyer)</h4>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <InputField
                           label="Pbc"
                           type="number"
                           prefix="$"
-                          value={isFinite(dc.pbc) ? dc.pbc : ""}
-                          onChange={(e) => setDC("pbc", e.target.value)}
+                          value={isFinite(dc.pbc) ? dc.pbc : ''}
+                          onChange={(e) => setDC('pbc', e.target.value)}
                           placeholder="Enter Price"
                         />
                         <InputField
                           label="Title/settlement B–C"
                           type="number"
                           prefix="$"
-                          value={dc.title_bc || ""}
-                          onChange={(e) => setDC("title_bc", e.target.value)}
+                          value={dc.title_bc || ''}
+                          onChange={(e) => setDC('title_bc', e.target.value)}
                         />
                         <InputField
                           label="Other fees B–C"
                           type="number"
                           prefix="$"
-                          value={dc.other_bc || ""}
-                          onChange={(e) => setDC("other_bc", e.target.value)}
+                          value={dc.other_bc || ''}
+                          onChange={(e) => setDC('other_bc', e.target.value)}
                         />
                         <SelectField
                           label="Owner’s title policy paid by (B–C)"
-                          value={dc.owners_title_payer_bc || "Unknown"}
-                          onChange={(e) => setDC("owners_title_payer_bc", e.target.value)}
+                          value={dc.owners_title_payer_bc || 'Unknown'}
+                          onChange={(e) => setDC('owners_title_payer_bc', e.target.value)}
                         >
                           <option>You</option>
                           <option>End buyer</option>
@@ -3094,8 +2949,8 @@ const UnderwriteTab = ({
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <SelectField
                           label="Buyer funds"
-                          value={dc.buyer_funds || "Cash"}
-                          onChange={(e) => setDC("buyer_funds", e.target.value)}
+                          value={dc.buyer_funds || 'Cash'}
+                          onChange={(e) => setDC('buyer_funds', e.target.value)}
                         >
                           <option>Cash</option>
                           <option>Conventional</option>
@@ -3106,8 +2961,8 @@ const UnderwriteTab = ({
                         </SelectField>
                         <SelectField
                           label="Lender known"
-                          value={dc.lender_known || "N/A"}
-                          onChange={(e) => setDC("lender_known", e.target.value)}
+                          value={dc.lender_known || 'N/A'}
+                          onChange={(e) => setDC('lender_known', e.target.value)}
                         >
                           <option>N/A</option>
                           <option>Yes</option>
@@ -3117,41 +2972,39 @@ const UnderwriteTab = ({
                           label="ARV (for fee check)"
                           type="number"
                           prefix="$"
-                          value={dc.arv_for_fee_check || deal.market.arv || ""}
-                          onChange={(e) => setDC("arv_for_fee_check", e.target.value)}
+                          value={dc.arv_for_fee_check || deal.market.arv || ''}
+                          onChange={(e) => setDC('arv_for_fee_check', e.target.value)}
                         />
                       </div>
                     </GlassCard>
 
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        F) Transactional Funding (A–B)
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">F) Transactional Funding (A–B)</h4>
                       <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
                         <ToggleSwitch
                           label="Using Transactional Funding?"
                           checked={!!dc.using_tf}
-                          onChange={() => setDC("using_tf", !dc.using_tf)}
+                          onChange={() => setDC('using_tf', !dc.using_tf)}
                         />
                         <InputField
                           label="TF principal"
                           type="number"
                           prefix="$"
-                          value={isFinite(dc.tf_principal) ? dc.tf_principal : ""}
-                          onChange={(e) => setDC("tf_principal", e.target.value)}
+                          value={isFinite(dc.tf_principal) ? dc.tf_principal : ''}
+                          onChange={(e) => setDC('tf_principal', e.target.value)}
                           placeholder="Enter Amount"
                         />
                         <InputField
                           label="TF points rate"
                           type="number"
                           placeholder="e.g., 0.02"
-                          value={dc.tf_points_rate || ""}
-                          onChange={(e) => setDC("tf_points_rate", e.target.value)}
+                          value={dc.tf_points_rate || ''}
+                          onChange={(e) => setDC('tf_points_rate', e.target.value)}
                         />
                         <SelectField
                           label="Note executed in FL?"
-                          value={dc.tf_note_executed_fl || "No"}
-                          onChange={(e) => setDC("tf_note_executed_fl", e.target.value)}
+                          value={dc.tf_note_executed_fl || 'No'}
+                          onChange={(e) => setDC('tf_note_executed_fl', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
@@ -3159,8 +3012,8 @@ const UnderwriteTab = ({
                         </SelectField>
                         <SelectField
                           label="Note secured by property?"
-                          value={dc.tf_secured || "No"}
-                          onChange={(e) => setDC("tf_secured", e.target.value)}
+                          value={dc.tf_secured || 'No'}
+                          onChange={(e) => setDC('tf_secured', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
@@ -3170,21 +3023,19 @@ const UnderwriteTab = ({
                           label="TF extra fees"
                           type="number"
                           prefix="$"
-                          value={dc.tf_extra_fees || ""}
-                          onChange={(e) => setDC("tf_extra_fees", e.target.value)}
+                          value={dc.tf_extra_fees || ''}
+                          onChange={(e) => setDC('tf_extra_fees', e.target.value)}
                         />
                       </div>
                     </GlassCard>
 
                     <GlassCard>
-                      <h4 className="label-xs uppercase mb-2">
-                        G) HOA / Condo (if applicable)
-                      </h4>
+                      <h4 className="label-xs uppercase mb-2">G) HOA / Condo (if applicable)</h4>
                       <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                         <SelectField
                           label="Association type"
-                          value={dc.association_type || "HOA"}
-                          onChange={(e) => setDC("association_type", e.target.value)}
+                          value={dc.association_type || 'HOA'}
+                          onChange={(e) => setDC('association_type', e.target.value)}
                         >
                           <option>HOA</option>
                           <option>Condo</option>
@@ -3194,13 +3045,13 @@ const UnderwriteTab = ({
                           label="Estoppel fee"
                           type="number"
                           prefix="$"
-                          value={dc.estoppel_fee || ""}
-                          onChange={(e) => setDC("estoppel_fee", e.target.value)}
+                          value={dc.estoppel_fee || ''}
+                          onChange={(e) => setDC('estoppel_fee', e.target.value)}
                         />
                         <SelectField
                           label="Rush estoppel ordered"
-                          value={dc.rush_estoppel || "No"}
-                          onChange={(e) => setDC("rush_estoppel", e.target.value)}
+                          value={dc.rush_estoppel || 'No'}
+                          onChange={(e) => setDC('rush_estoppel', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
@@ -3209,13 +3060,13 @@ const UnderwriteTab = ({
                           label="Transfer/application fees"
                           type="number"
                           prefix="$"
-                          value={dc.transfer_fees || ""}
-                          onChange={(e) => setDC("transfer_fees", e.target.value)}
+                          value={dc.transfer_fees || ''}
+                          onChange={(e) => setDC('transfer_fees', e.target.value)}
                         />
                         <SelectField
                           label="Board approval pre-closing"
-                          value={dc.board_approval || "No"}
-                          onChange={(e) => setDC("board_approval", e.target.value)}
+                          value={dc.board_approval || 'No'}
+                          onChange={(e) => setDC('board_approval', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
@@ -3231,13 +3082,13 @@ const UnderwriteTab = ({
                           label="Carry / holding cost"
                           type="number"
                           prefix="$"
-                          value={dc.carry_amount || ""}
-                          onChange={(e) => setDC("carry_amount", e.target.value)}
+                          value={dc.carry_amount || ''}
+                          onChange={(e) => setDC('carry_amount', e.target.value)}
                         />
                         <SelectField
                           label="Carry basis"
-                          value={dc.carry_basis || "day"}
-                          onChange={(e) => setDC("carry_basis", e.target.value)}
+                          value={dc.carry_basis || 'day'}
+                          onChange={(e) => setDC('carry_basis', e.target.value)}
                         >
                           <option>day</option>
                           <option>month</option>
@@ -3245,8 +3096,8 @@ const UnderwriteTab = ({
                         <InputField
                           label="Days held (again)"
                           type="number"
-                          value={dc.days_held || ""}
-                          onChange={(e) => setDC("days_held", e.target.value)}
+                          value={dc.days_held || ''}
+                          onChange={(e) => setDC('days_held', e.target.value)}
                         />
                       </div>
                     </GlassCard>
@@ -3258,25 +3109,21 @@ const UnderwriteTab = ({
                           label="Minimum acceptable net spread (optional)"
                           type="number"
                           prefix="$"
-                          value={dc.min_net_spread || ""}
-                          onChange={(e) => setDC("min_net_spread", e.target.value)}
+                          value={dc.min_net_spread || ''}
+                          onChange={(e) => setDC('min_net_spread', e.target.value)}
                         />
                         <SelectField
                           label="Estimate with FL promulgated rates if missing?"
-                          value={dc.use_promulgated_estimates || "No"}
-                          onChange={(e) =>
-                            setDC("use_promulgated_estimates", e.target.value)
-                          }
+                          value={dc.use_promulgated_estimates || 'No'}
+                          onChange={(e) => setDC('use_promulgated_estimates', e.target.value)}
                         >
                           <option>No</option>
                           <option>Yes</option>
                         </SelectField>
                         <SelectField
                           label="Assume owner’s title payer A–B"
-                          value={dc.assumed_owner_payer_ab || "Unknown"}
-                          onChange={(e) =>
-                            setDC("assumed_owner_payer_ab", e.target.value)
-                          }
+                          value={dc.assumed_owner_payer_ab || 'Unknown'}
+                          onChange={(e) => setDC('assumed_owner_payer_ab', e.target.value)}
                         >
                           <option>Unknown</option>
                           <option>Seller</option>
@@ -3284,10 +3131,8 @@ const UnderwriteTab = ({
                         </SelectField>
                         <SelectField
                           label="Assume owner’s title payer B–C"
-                          value={dc.assumed_owner_payer_bc || "Unknown"}
-                          onChange={(e) =>
-                            setDC("assumed_owner_payer_bc", e.target.value)
-                          }
+                          value={dc.assumed_owner_payer_bc || 'Unknown'}
+                          onChange={(e) => setDC('assumed_owner_payer_bc', e.target.value)}
                         >
                           <option>Unknown</option>
                           <option>You</option>
@@ -3303,24 +3148,24 @@ const UnderwriteTab = ({
                           <ToggleSwitch
                             label="Show items 1–13 full math"
                             checked={dc.show_items_math === undefined ? true : !!dc.show_items_math}
-                            onChange={() => setDC("show_items_math", !dc.show_items_math)}
+                            onChange={() => setDC('show_items_math', !dc.show_items_math)}
                           />
                           <ToggleSwitch
                             label="Show fee target check"
                             checked={dc.show_fee_target === undefined ? true : !!dc.show_fee_target}
-                            onChange={() => setDC("show_fee_target", !dc.show_fee_target)}
+                            onChange={() => setDC('show_fee_target', !dc.show_fee_target)}
                           />
                         </div>
                         <div className="flex items-center justify-between">
                           <ToggleSwitch
                             label="Show FHA/VA 90-day flag"
                             checked={dc.show_90d_flag === undefined ? true : !!dc.show_90d_flag}
-                            onChange={() => setDC("show_90d_flag", !dc.show_90d_flag)}
+                            onChange={() => setDC('show_90d_flag', !dc.show_90d_flag)}
                           />
                           <ToggleSwitch
                             label="Show notes/assumptions"
                             checked={dc.show_notes === undefined ? true : !!dc.show_notes}
-                            onChange={() => setDC("show_notes", !dc.show_notes)}
+                            onChange={() => setDC('show_notes', !dc.show_notes)}
                           />
                         </div>
                       </div>
@@ -3329,9 +3174,7 @@ const UnderwriteTab = ({
                 )}
 
                 <GlassCard>
-                  <h3 className="text-white font-semibold text-base mb-2">
-                    Double-Close Results
-                  </h3>
+                  <h3 className="text-white font-semibold text-base mb-2">Double-Close Results</h3>
 
                   {(dc.show_items_math === undefined || dc.show_items_math) && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -3421,7 +3264,7 @@ const UnderwriteTab = ({
                         <div>
                           <div className="label-xs">Fee Target (≥ 3% of ARV)</div>
                           <div>
-                            Threshold:{" "}
+                            Threshold:{' '}
                             <span className="font-semibold">
                               {fmt$(dcCalcs.Fee_Target_Threshold)}
                             </span>
@@ -3429,11 +3272,11 @@ const UnderwriteTab = ({
                         </div>
                         <Badge
                           color={
-                            dcCalcs.Fee_Target_Check === "YES"
-                              ? "green"
-                              : dcCalcs.Fee_Target_Check === "NO"
-                              ? "orange"
-                              : "blue"
+                            dcCalcs.Fee_Target_Check === 'YES'
+                              ? 'green'
+                              : dcCalcs.Fee_Target_Check === 'NO'
+                                ? 'orange'
+                                : 'blue'
                           }
                         >
                           {dcCalcs.Fee_Target_Check}
@@ -3445,7 +3288,7 @@ const UnderwriteTab = ({
                         <div className="label-xs">FHA/VA 90-Day Seasoning</div>
                         <Badge
                           color={
-                            String(dcCalcs.Seasoning_Flag).startsWith("HIGH") ? "orange" : "green"
+                            String(dcCalcs.Seasoning_Flag).startsWith('HIGH') ? 'orange' : 'green'
                           }
                         >
                           {dcCalcs.Seasoning_Flag}
@@ -3473,4 +3316,3 @@ const UnderwriteTab = ({
     </GlassCard>
   );
 };
-

@@ -1,13 +1,16 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2020",
-    "module": "ESNext",
+    "outDir": "./dist",
     "declaration": true,
-    "outDir": "dist",
+    "emitDeclarationOnly": false,
+    "module": "ESNext",
+    "target": "ES2022",
     "moduleResolution": "Bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
+    "verbatimModuleSyntax": true,
+    "resolveJsonModule": true,
+    "sourceMap": false,
+    "stripInternal": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"]
 }

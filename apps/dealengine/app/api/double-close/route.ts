@@ -1,27 +1,46 @@
 import { NextResponse } from 'next/server';
-import { computeDoubleClose } from '@hps-internal/engine';
+import { z } from 'zod';
+import { doubleCloseSimple, computeDoubleClose } from '@hps-internal/engine';
 
-export async function GET() {
-  return NextResponse.json({ ok: true, route: '/api/double-close' });
-}
+// Accept either simple-math OR FL-detailed input
+const SimpleSchema = z.object({
+  sellerPrice: z.number(),
+  buyerPrice: z.number(),
+  aToBCloseCosts: z.number(),
+  bToCCloseCosts: z.number(),
+  holdingDays: z.number().nonnegative(),
+  carryPerDay: z.number().nonnegative(),
+});
+
+const FLDetailSchema = z.object({
+  ab_price: z.number(),
+  bc_price: z.number(),
+  hold_days: z.number().nonnegative().optional(),
+  monthly_carry: z.number().nonnegative().optional(),
+  county: z.string().optional(),
+  miami_dade: z.boolean().optional(),
+  property_type: z.enum(['SFR', 'OTHER']).optional(),
+  ab_pages: z.number().int().positive().optional(),
+  bc_pages: z.number().int().positive().optional(),
+});
+
+const BodySchema = z.union([SimpleSchema, FLDetailSchema]);
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const data = computeDoubleClose({
-      ab_price: Number(body.ab_price ?? 0),
-      bc_price: Number(body.bc_price ?? 0),
-      county: (body.county ?? 'OTHER') as 'MIAMI-DADE' | 'OTHER',
-      property_type: (body.property_type ?? 'SFR') as 'SFR' | 'OTHER',
-      hold_days: Number(body.hold_days ?? 0),
-      monthly_carry: Number(body.monthly_carry ?? 0),
-      ab_note_amount: Number(body.ab_note_amount ?? 0),
-      bc_note_amount: Number(body.bc_note_amount ?? 0),
-      ab_pages: Number(body.ab_pages ?? 1),
-      bc_pages: Number(body.bc_pages ?? 1),
-    });
-    return NextResponse.json({ ok: true, data });
+    const parsed = BodySchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ ok: false, error: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const data: any = parsed.data;
+    const isSimple = 'sellerPrice' in data && 'buyerPrice' in data;
+
+    const result = isSimple ? doubleCloseSimple(data) : computeDoubleClose(data);
+
+    return NextResponse.json({ ok: true, result });
   } catch (err: any) {
-    return NextResponse.json({ ok: false, error: String(err?.message ?? err) }, { status: 400 });
+    return NextResponse.json({ ok: false, error: String(err?.message ?? err) }, { status: 500 });
   }
 }

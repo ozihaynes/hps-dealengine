@@ -1,0 +1,4 @@
+app/api/double-close/route.ts(2,10): error TS2305: Module '"@hps-internal/engine"' has no exported member 'computeDoubleClose'.
+undefined
+C:\Users\oziha\Documents\hps-internal-tools\apps\dealengine:
+ΓÇëERR_PNPM_RECURSIVE_EXEC_FIRST_FAILΓÇë Command failed with exit code 1: tsc -p . --noEmit --pretty false

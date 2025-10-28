@@ -1,6 +1,17 @@
-export * from './double_close';
-export * from './compute_underwriting';
-export { POLICY } from './policy-defaults';
-export * from './compute_underwriting';
+// packages/engine/src/index.ts
 
-export type { Policy } from './policy-defaults';
+// Primary underwriting
+export { computeUnderwriting } from "./compute_underwriting.js";
+export { runUnderwrite, underwrite } from "./run_underwrite.js";
+
+// Double close (math + FL detailed)
+export {
+  doubleClose as doubleCloseSimple,
+  doubleCloseFL,
+  computeDoubleClose,
+} from "./double_close.js";
+
+// (Optional) Re-export types here if you have a central types file.
+// Example:
+// export type { Deal, UnderwritePolicy, UnderwriteOut } from "./types.js";
+

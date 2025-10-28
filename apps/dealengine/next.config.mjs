@@ -1,6 +1,6 @@
-/** @type {import("next").NextConfig} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true }
+  experimental: { esmExternals: "loose" },
+  transpilePackages: ["@hps-internal/engine"],
 };
 export default nextConfig;
