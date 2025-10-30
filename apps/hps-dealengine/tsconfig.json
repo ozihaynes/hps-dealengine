@@ -1,0 +1,30 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "jsx": "preserve",
+    "allowJs": false,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  },
+  "include": ["next-env.d.ts", "app/**/*", "components/**/*", "lib/**/*", ".next/types/**/*.ts"],
+  "exclude": [
+    ".next",
+    "node_modules",
+    "eslint.config.mjs",
+    "next.config.mjs",
+    "postcss.config.js",
+    "postcss.config.cjs",
+    "tailwind.config.js",
+    "tailwind.config.cjs",
+    "tailwind.config.ts",
+    "vercel.json"
+  ]
+}

@@ -1,65 +1,37 @@
-name: ci
+name: CI
 
 on:
-  pull_request:
-    branches: [ main ]
   push:
-    branches: [ main ]
-
-permissions:
-  contents: read
+    branches: [main, develop, feat/**]
+  pull_request:
 
 jobs:
-  setup:
-    name: setup
+  build-test:
     runs-on: ubuntu-latest
-    outputs:
-      pnpm_store: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: corepack enable
-      - id: pnpm-cache
-        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
-      - run: pnpm install --frozen-lockfile
 
-  typecheck:
-    name: typecheck
-    needs: setup
-    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: node-version: '20'
-      - run: corepack enable && pnpm install --frozen-lockfile
-      - run: pnpm -w typecheck
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  tests:
-    name: tests
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - run: corepack enable && pnpm install --frozen-lockfile
-      - run: pnpm --filter @hps-internal/engine exec vitest run
+          node-version: 20
+          cache: 'pnpm'
 
-  build:
-    name: build
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Setup PNPM
+        uses: pnpm/action-setup@v4
         with:
-          node-version: '20'
-      - run: corepack enable && pnpm install --frozen-lockfile
-      - run: pnpm --filter ./apps/dealengine build
+          version: 9
+
+      - name: Install deps
+        run: pnpm -w install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm -w typecheck
+
+      - name: Tests
+        run: pnpm -w test
+
+      - name: Build app
+        run: pnpm --filter hps-dealengine build

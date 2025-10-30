@@ -1,0 +1,34 @@
+{
+  "name": "hps-dealengine",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "dev:3010": "next dev -p 3010 -H 127.0.0.1",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc -p . --noEmit"
+  },
+  "dependencies": {
+    "@hps-internal/engine": "workspace:*",
+    "@supabase/supabase-js": "^2.76.1",
+    "classnames": "^2.5.1",
+    "next": "14.2.5",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.16",
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "eslint": "^9.11.1",
+    "eslint-config-next": "14.2.5",
+    "tailwindcss": "4.1.16",
+    "typescript": "^5.6.3"
+  }
+}

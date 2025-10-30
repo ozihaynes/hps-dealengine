@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "apps/hps-dealengine/package.json", "use": "@vercel/next" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "apps/hps-dealengine/$1" }
+  ]
+}

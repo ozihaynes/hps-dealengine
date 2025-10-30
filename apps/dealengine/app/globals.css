@@ -1,3 +1,0 @@
-@import "tailwindcss";
-:root { --bg: #030712; --fg: #e5e7eb; }
-html,body{background:var(--bg);color:var(--fg);min-height:100%;}
