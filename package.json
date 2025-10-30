@@ -5,7 +5,7 @@
   "description": "",
   "scripts": {
     "dev": "pnpm --filter hps-dealengine dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -w --filter @hps-internal/engine... build && pnpm -w --filter hps-dealengine build",
     "typecheck": "pnpm -r exec tsc -p . --noEmit",
     "lint": "pnpm -r run lint || exit 0",
     "format": "pnpm -r exec prettier --write .",
