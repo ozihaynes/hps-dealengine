@@ -1,31 +1,52 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 
-const USER = process.env.APP_BASIC_AUTH_USER || process.env.BASIC_AUTH_USER || '';
-const PASS = process.env.APP_BASIC_AUTH_PASS || process.env.BASIC_AUTH_PASS || '';
+// Allow health checks without auth (optional)
+const PUBLIC_PATHS = new Set<string>(['/api/health', '/api/version']);
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  // Skip static assets and public paths
+  if (
+    pathname.startsWith('/_next/') ||
+    pathname.startsWith('/favicon.ico') ||
+    PUBLIC_PATHS.has(pathname)
+  ) {
+    return NextResponse.next();
+  }
+
+  const user = process.env.APP_BASIC_AUTH_USER || process.env.BASIC_AUTH_USER;
+  const pass = process.env.APP_BASIC_AUTH_PASS || process.env.BASIC_AUTH_PASS;
+
+  // If not configured, allow through (dev-safe). In prod, keep these set in Vercel.
+  if (!user || !pass) {
+    return NextResponse.next();
+  }
+
+  const header = req.headers.get('authorization') || '';
+  if (!header.startsWith('Basic ')) {
+    return unauthorized();
+  }
+
+  try {
+    // Edge runtime supports atob()
+    const decoded = atob(header.slice(6)); // strip "Basic "
+    const [u, p] = decoded.split(':');
+    if (u === user && p === pass) return NextResponse.next();
+    return unauthorized();
+  } catch {
+    return unauthorized();
+  }
+}
 
 function unauthorized() {
-  return new NextResponse('Unauthorized', {
+  return new NextResponse('Authentication required', {
     status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
+    headers: { 'WWW-Authenticate': 'Basic realm="Protected"' },
   });
 }
 
-export function middleware(req: NextRequest) {
-  // If creds aren’t set, don’t block (handy for scaffolding)
-  if (!USER || !PASS) return NextResponse.next();
-
-  const auth = req.headers.get('authorization');
-  if (!auth?.startsWith('Basic ')) return unauthorized();
-
-  const base64 = auth.split(' ')[1] || '';
-  const [u, p] = atob(base64).split(':');
-
-  if (u !== USER || p !== PASS) return unauthorized();
-  return NextResponse.next();
-}
-
-// Protect everything except Next static assets & favicon
+// Apply everywhere except static
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

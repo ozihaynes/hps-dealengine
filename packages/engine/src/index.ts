@@ -1,17 +1,15 @@
 // packages/engine/src/index.ts
+// ESM entrypoint for the deterministic underwriting engine (SOT-aligned).
 
-// Primary underwriting
-export { computeUnderwriting } from "./compute_underwriting.js";
-export { runUnderwrite, underwrite } from "./run_underwrite.js";
+import { computeUnderwriting } from './compute_underwriting';
+export { computeUnderwriting };
 
-// Double close (math + FL detailed)
-export {
-  doubleClose as doubleCloseSimple,
-  doubleCloseFL,
-  computeDoubleClose,
-} from "./double_close.js";
+// Stable aliases so callers/tests can choose their preferred name.
+export const underwrite = computeUnderwriting;
+export const run = computeUnderwriting;
 
-// (Optional) Re-export types here if you have a central types file.
-// Example:
-// export type { Deal, UnderwritePolicy, UnderwriteOut } from "./types.js";
+// Double-close exports (both names for compatibility).
+export { doubleClose, computeDoubleClose } from './double_close';
 
+// If you already export types elsewhere, keep them there.
+// (Do NOT import types from app; the app imports types from engine, not vice versa.)

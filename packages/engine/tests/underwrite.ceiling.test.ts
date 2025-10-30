@@ -30,14 +30,14 @@ describe('buyer ceiling + clamp + headlines', () => {
     expect(out.floors.payoff_plus_essentials).toBe(192000);
 
     // Candidates present
-    const flip = out.ceilings.candidates.find(c => c.label === 'flip')!;
-    const wt   = out.ceilings.candidates.find(c => c.label === 'wholetail')!;
+    const flip = out.ceilings.candidates.find((c) => c.label === 'flip')!;
+    const wt = out.ceilings.candidates.find((c) => c.label === 'wholetail')!;
     expect(flip.value).toBeCloseTo(225366.6667, 2);
     expect(wt.value).toBeCloseTo(258166.6667, 2);
 
     // Winner label from candidates by chosen value (works if chosen is a number)
     const chosenVal = out.ceilings.chosen!;
-    const chosen = out.ceilings.candidates.find(c => c.value === chosenVal);
+    const chosen = out.ceilings.candidates.find((c) => c.value === chosenVal);
     expect(chosen?.label).toBe('wholetail');
 
     // Clamp should not trigger here (cap = 0.97 * 300k = 291k)
@@ -53,7 +53,7 @@ describe('buyer ceiling + clamp + headlines', () => {
 
     const out = runUnderwrite(rich, UNDERWRITE_POLICY);
     const cap = 0.97 * rich.market!.aiv!;
-    expect(out.ceilings.candidates.every(c => c.value <= cap)).toBe(true);
+    expect(out.ceilings.candidates.every((c) => c.value <= cap)).toBe(true);
 
     if (out.headlines.instant_cash_offer !== null) {
       expect(out.headlines.instant_cash_offer).toBeLessThanOrEqual(cap);

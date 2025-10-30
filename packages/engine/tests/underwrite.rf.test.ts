@@ -21,7 +21,7 @@ describe('Respect Floor + DTM/Carry (sanity)', () => {
     expect(out.dtm.reason).toBe('manual');
     expect(out.dtm.chosen_days).toBe(28);
     expect(out.carry.hold_monthly).toBe(6250);
-    expect(Math.abs(out.carry.hold_months - (28 / 30))).toBeLessThan(1e-9);
+    expect(Math.abs(out.carry.hold_months - 28 / 30)).toBeLessThan(1e-9);
   });
 
   it('Respect Floor operational = max(investor typical, payoff+essentials)', () => {
@@ -32,7 +32,10 @@ describe('Respect Floor + DTM/Carry (sanity)', () => {
     expect(out1.floors.operational).toBe(192000);
 
     // With investor typical 22% + p20 28%: typical floor 234,000
-    const policy2 = { ...UNDERWRITE_POLICY, investor_discounts: { typical_zip: 0.22, p20_zip: 0.28 } };
+    const policy2 = {
+      ...UNDERWRITE_POLICY,
+      investor_discounts: { typical_zip: 0.22, p20_zip: 0.28 },
+    };
     const out2 = runUnderwrite(base, policy2);
     expect(out2.floors.investor).not.toBeNull();
     expect(out2.floors.investor?.typical_floor).toBeCloseTo(300000 * (1 - 0.22), 6); // 234,000

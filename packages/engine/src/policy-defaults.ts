@@ -36,7 +36,7 @@ export type UnderwritePolicy = {
   mao_aiv_cap_pct: number;
   investor_floor_p20_zip_pct?: number;
   investor_floor_typical_zip_pct?: number;
-  annual_cost_keys: Array<"taxes" | "insurance">;
+  annual_cost_keys: Array<'taxes' | 'insurance'>;
 };
 
 export const UNDERWRITE_POLICY: UnderwritePolicy = {
@@ -47,4 +47,3 @@ export const UNDERWRITE_POLICY: UnderwritePolicy = {
   investor_floor_typical_zip_pct: undefined,
   annual_cost_keys: [],
 };
-

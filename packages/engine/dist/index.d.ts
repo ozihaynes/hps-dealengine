@@ -1,3 +1,5 @@
-export { computeUnderwriting } from "./compute_underwriting.js";
-export { runUnderwrite, underwrite } from "./run_underwrite.js";
-export { doubleClose as doubleCloseSimple, doubleCloseFL, computeDoubleClose, } from "./double_close.js";
+import { computeUnderwriting } from "./compute_underwriting";
+export { computeUnderwriting };
+export declare const underwrite: typeof computeUnderwriting;
+export declare const run: typeof computeUnderwriting;
+export { doubleClose, computeDoubleClose } from "./double_close";

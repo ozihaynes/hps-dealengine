@@ -2,44 +2,36 @@ name: CI
 
 on:
   push:
-    branches: [ main, feature/**, fix/**, chore/** ]
+    branches: [main, develop, feat/**]
   pull_request:
-    branches: [ main ]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
-  build_test:
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ?? Checkout
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: ?? Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'pnpm'
 
-      - name: ?? pnpm
+      - name: Setup PNPM
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 9
 
-      - name: ?? Install (workspace)
+      - name: Install deps
         run: pnpm -w install --frozen-lockfile
 
-      - name: ?? Lint (best-effort)
-        run: pnpm -w run lint || true
-
-      - name: ?? Typecheck
+      - name: Typecheck
         run: pnpm -w typecheck
 
-      - name: ? Tests
+      - name: Tests
         run: pnpm -w test
 
-      - name: ??? Build DealEngine app (Next.js)
-        run: pnpm --filter ./apps/dealengine build
+      - name: Build app
+        run: pnpm --filter hps-dealengine build

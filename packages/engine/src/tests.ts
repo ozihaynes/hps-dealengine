@@ -15,7 +15,7 @@ export type EngineDeal = {
 
 export type DTMOut = {
   days: number;
-  method: "manual" | "dom+add" | "unknown";
+  method: 'manual' | 'dom+add' | 'unknown';
   dom_zip?: number;
   add_days?: number;
   manual?: number;
@@ -53,11 +53,10 @@ export type HeadlinesOut = {
 
 export type UnderwriteResult = {
   inputs: { deal: EngineDeal };
-  policy: import("./policy-defaults").UnderwritePolicy;
+  policy: import('./policy-defaults').UnderwritePolicy;
   dtm: DTMOut;
   carry: CarryOut;
   floors: FloorsOut;
   ceilings: CeilingsOut;
   headlines: HeadlinesOut;
 };
-

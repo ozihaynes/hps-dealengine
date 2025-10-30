@@ -25,7 +25,10 @@ const baseDeal: EngineDeal = {
 
 describe('Respect Floor', () => {
   it('falls back to payoff_plus_essentials when investor_discounts are undefined', () => {
-    const rf = computeRespectFloor(baseDeal, { ...UNDERWRITE_POLICY, investor_discounts: undefined });
+    const rf = computeRespectFloor(baseDeal, {
+      ...UNDERWRITE_POLICY,
+      investor_discounts: undefined,
+    });
     expect(rf.investor).toBeNull();
     expect(rf.payoff_plus_essentials).toBe(192_000); // 180,000 + 10,000 + 2,000
     expect(rf.operational).toBe(192_000);

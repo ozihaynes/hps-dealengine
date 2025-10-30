@@ -3,11 +3,25 @@ import { z } from 'zod';
 import { computeUnderwriting } from '@hps-internal/engine';
 import { checkRateLimit } from '@/lib/rateLimit';
 
+const HEADER = 'x-internal-key';
 const BodySchema = z.object({ deal: z.unknown() });
 
 export async function POST(req: Request) {
-  // Rate limit: 60/min per IP
-  const rl = checkRateLimit(req, 'api:run-underwrite', 60, 60_000);
+  // Require internal key
+  const requiredKey = process.env.INTERNAL_API_KEY;
+  if (!requiredKey) {
+    return NextResponse.json(
+      { ok: false, error: { code: 'CONFIG', message: 'INTERNAL_API_KEY not set' } },
+      { status: 500 }
+    );
+  }
+  const gotKey = req.headers.get(HEADER);
+  if (gotKey !== requiredKey) {
+    return NextResponse.json({ ok: false, error: { code: 'UNAUTHORIZED' } }, { status: 401 });
+  }
+
+  // Rate limit (separate bucket for internal)
+  const rl = checkRateLimit(req, 'api:underwrite', 120, 60_000);
   if (!rl.allowed) {
     return NextResponse.json(
       { ok: false, error: { code: 'RATE_LIMIT', message: 'Too many requests' } },

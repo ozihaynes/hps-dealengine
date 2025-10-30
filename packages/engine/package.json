@@ -9,11 +9,25 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./run_underwrite": {
+      "types": "./dist/run_underwrite.d.ts",
+      "import": "./dist/run_underwrite.js"
+    },
+    "./policy-defaults": {
+      "types": "./dist/policy-defaults.d.ts",
+      "import": "./dist/policy-defaults.js"
     }
   },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+    "test": "vitest run",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepublishOnly": "tsc -p tsconfig.build.json && vitest run"
   }
 }

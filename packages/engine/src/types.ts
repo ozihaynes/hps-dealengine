@@ -15,7 +15,7 @@ export type EngineDeal = {
 
 export type DTMOut = {
   days: number;
-  method: "manual" | "dom+add" | "unknown";
+  method: 'manual' | 'dom+add' | 'unknown';
   dom_zip?: number;
   add_days?: number;
   manual?: number;
@@ -32,14 +32,12 @@ export type CarryOut = {
 
 export type FloorsOut = {
   payoff_plus_essentials: number;
-  investor:
-    | {
-        p20?: number | null;
-        typical?: number | null;
-        p20_floor?: number;
-        typical_floor?: number;
-      }
-    | null; // <-- allow null (tests expect .toBeNull() when discounts missing)
+  investor: {
+    p20?: number | null;
+    typical?: number | null;
+    p20_floor?: number;
+    typical_floor?: number;
+  } | null; // <-- allow null (tests expect .toBeNull() when discounts missing)
   operational: number;
   notes: string[];
 };
@@ -60,11 +58,10 @@ export type HeadlinesOut = {
 
 export type UnderwriteResult = {
   inputs: { deal: EngineDeal };
-  policy: import("./policy-defaults").UnderwritePolicy;
+  policy: import('./policy-defaults').UnderwritePolicy;
   dtm: DTMOut;
   carry: CarryOut;
   floors: FloorsOut;
   ceilings: CeilingsOut;
   headlines: HeadlinesOut;
 };
-

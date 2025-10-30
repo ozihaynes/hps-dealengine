@@ -4,12 +4,12 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "dev": "pnpm --filter dealengine dev",
+    "dev": "pnpm --filter hps-dealengine dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r exec tsc -p . --noEmit",
     "lint": "pnpm -r run lint || exit 0",
     "format": "pnpm -r exec prettier --write .",
-    "test": "pnpm --filter @hps-internal/engine build && vitest run",
+    "test": "vitest run",
     "test:watch": "vitest",
     "prepare": "husky"
   },
@@ -23,16 +23,23 @@
   },
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
-    "@types/node": "20.12.12",
+    "@hps-internal/engine": "workspace:*",
+    "@types/node": "20.19.0",
     "@typescript-eslint/eslint-plugin": "8.46.2",
     "@typescript-eslint/parser": "8.46.2",
-    "@vitest/coverage-v8": "^4.0.4",
-    "eslint": "9.38.0",
+    "@vitest/coverage-v8": "4.0.4",
+    "eslint": "8.57.0",
     "husky": "9.1.7",
     "lint-staged": "16.2.5",
     "prettier": "3.6.2",
-    "tsx": "^4.20.6",
+    "tsx": "4.20.6",
     "typescript": "5.6.3",
-    "vitest": "^4.0.4"
+    "vitest": "4.0.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/node": "20.19.0",
+      "eslint": "8.57.0"
+    }
   }
 }
