@@ -1,0 +1,25 @@
+{
+  "aiv": {
+    "hardCapPct": null,
+    "softMaxAgeDays": null,
+    "overrideRole": null,
+    "overrideNeedsBindableInsurance": null
+  },
+  "arv": {
+    "minComps": null,
+    "softMaxAgeDays": null
+  },
+  "carry": {
+    "domToMonthsRule": "dom/30",
+    "monthsHardCap": 2
+  },
+  "gates": {
+    "greenLightSpreadOverPayoff": null,
+    "borderlineBand": null
+  },
+  "fees": {},
+  "floorsCeilings": {},
+  "annual_cost_keys": ["taxes", "insurance"],
+  "sources": {},
+  "evidence": {}
+}

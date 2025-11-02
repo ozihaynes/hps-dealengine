@@ -1,0 +1,240 @@
+openapi: 3.1.0
+info:
+  title: HPS DealEngine Public API
+  version: 1.0.0
+  description: >
+    Versioned HTTP API for HPS DealEngine (v1). Client is a pure UI; all business logic lives in Edge Functions.
+    Contracts mirror Zod schemas in @hps-internal/contracts.
+  license:
+    name: Proprietary
+servers:
+  - url: /functions/v1
+
+# Global security (JWT bearer)
+security:
+  - bearerAuth: []
+
+paths:
+  /analyze:
+    post:
+      operationId: analyze_v1
+      summary: Run deterministic underwriting analysis
+      tags: [analyze]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deal]
+              properties:
+                deal:
+                  $ref: "#/components/schemas/DealContract"
+                policy_version_id:
+                  type:
+                    - string
+                    - 'null'
+            examples:
+              basic:
+                value:
+                  deal:
+                    org_id: "org_123"
+                    deal_id: "deal_001"
+                    address: { line1: "123 Main St", city: "Orlando", state: "FL", postal_code: "32801" }
+                    inputs:
+                      AIV: 300000
+                      DOM: 46
+                      ZIP: "32801"
+                  policy_version_id: null
+      responses:
+        "200":
+          description: Deterministic output with trace and hashes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunOutput"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401": { description: Unauthenticated }
+        "403": { description: Forbidden (RLS/Org) }
+
+  /policy:
+    get:
+      operationId: policy_get_v1
+      summary: Get active policy for the caller's org and posture
+      tags: [policy]
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: posture
+          schema: { $ref: "#/components/schemas/PolicyPosture" }
+          required: true
+      responses:
+        "200":
+          description: Active policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Policy"
+        "401": { description: Unauthenticated }
+        "403": { description: Forbidden (RLS/Org) }
+        "404": { description: No active policy found }
+    put:
+      operationId: policy_put_v1
+      summary: Upsert policy & create a new version row
+      tags: [policy]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Policy" }
+            examples:
+              baseTokens:
+                value:
+                  posture: base
+                  tokens:
+                    AIV_CAP_PCT: "<AIV_CAP_PCT>"
+                    AIV_SOFT_MAX_AGE_DAYS: "<AIV_SOFT_MAX_AGE_DAYS>"
+                    DOM_TO_MONTHS_RULE: "<DOM_TO_MONTHS_RULE>"
+                    CARRY_MONTHS_CAP: "<CARRY_MONTHS_CAP>"
+                    LIST_COMM_PCT: "<LIST_COMM_PCT>"
+                    CONCESSIONS_PCT: "<CONCESSIONS_PCT>"
+                    SELL_CLOSE_PCT: "<SELL_CLOSE_PCT>"
+                  metadata:
+                    version_label: "v1.0.0"
+                    notes: "Initial baseline"
+      responses:
+        "200":
+          description: Saved with version id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_version_id: { type: string }
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "401": { description: Unauthenticated }
+        "403": { description: Forbidden (RLS/Org) }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    TokenString:
+      type: string
+      pattern: "^<[^<>]+>$"
+      example: "<AIV_CAP_PCT>"
+
+    PolicyPosture:
+      type: string
+      enum: [conservative, base, aggressive]
+
+    PolicyTokens:
+      type: object
+      additionalProperties:
+        $ref: "#/components/schemas/TokenString"
+      properties:
+        AIV_CAP_PCT: { $ref: "#/components/schemas/TokenString" }
+        AIV_SOFT_MAX_AGE_DAYS: { $ref: "#/components/schemas/TokenString" }
+        DOM_TO_MONTHS_RULE: { $ref: "#/components/schemas/TokenString" }
+        CARRY_MONTHS_CAP: { $ref: "#/components/schemas/TokenString" }
+        LIST_COMM_PCT: { $ref: "#/components/schemas/TokenString" }
+        CONCESSIONS_PCT: { $ref: "#/components/schemas/TokenString" }
+        SELL_CLOSE_PCT: { $ref: "#/components/schemas/TokenString" }
+
+    Policy:
+      type: object
+      required: [posture, tokens]
+      properties:
+        posture: { $ref: "#/components/schemas/PolicyPosture" }
+        tokens:  { $ref: "#/components/schemas/PolicyTokens" }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    DealContract:
+      type: object
+      required: [org_id, deal_id, address, inputs]
+      properties:
+        org_id: { type: string }
+        deal_id: { type: string }
+        address:
+          type: object
+          required: [line1, city, state, postal_code]
+          properties:
+            line1: { type: string }
+            city: { type: string }
+            state: { type: string, minLength: 2, maxLength: 2 }
+            postal_code: { type: string }
+        inputs:
+          type: object
+          additionalProperties: true
+
+    TraceItem:
+      type: object
+      required: [id, message]
+      properties:
+        id: { type: string }
+        stage: { type: string }
+        message: { type: string }
+        refs:
+          type: array
+          items: { type: string }
+        tokens:
+          type: array
+          items: { $ref: "#/components/schemas/TokenString" }
+
+    RunOutput:
+      type: object
+      required: [deal_id, outputs, infoNeeded, trace, hashes]
+      properties:
+        deal_id: { type: string }
+        policy_version_id: { type: string }
+        outputs:
+          type: object
+          additionalProperties: true
+        infoNeeded:
+          type: array
+          items: { type: string }
+        trace:
+          type: array
+          items: { $ref: "#/components/schemas/TraceItem" }
+        hashes:
+          type: object
+          required: [inputs, policy, outputs]
+          properties:
+            inputs: { type: string }
+            policy: { type: string }
+            outputs: { type: string }
+
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        ok: { type: boolean, default: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+        infoNeeded:
+          type: array
+          items: { type: string }

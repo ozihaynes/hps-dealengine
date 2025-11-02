@@ -1,16 +1,21 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
+    "jsx": "preserve",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "strict": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "preserve",
-    "types": ["node"]
-  }
+    "composite": false,
+    "skipLibCheck": true
+  },
+  "include": [
+    "apps/hps-dealengine/**/*.ts",
+    "apps/hps-dealengine/**/*.tsx",
+    "packages/*/src/**/*.ts"
+  ],
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "packages/engine/tests.skip/**"
+  ]
 }

@@ -1,67 +1,54 @@
-export type Money = number;
+export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
 
-export type EngineDeal = {
-  market?: { aiv?: number; arv?: number; dom_zip?: number; moi_zip?: number };
-  costs?: {
-    repairs_base?: number;
-    contingency_pct?: number;
-    essentials_moveout_cash?: number;
-    monthly?: { taxes?: number; insurance?: number; hoa?: number; utilities?: number };
+export interface DealInput {
+  market?: {
+    aiv?: number | null;
+    arv?: number | null;
+    dom_zip?: number | null;
+    moi_zip?: number | null;
+    price_to_list_pct?: number | null;
   };
-  debt?: { senior_principal?: number; juniors?: Array<{ label?: string; amount?: number }> };
-  timeline?: { days_to_ready_list?: number; days_to_sale_manual?: number };
-  status?: { insurance_bindable?: boolean };
-};
+  costs?: {
+    monthly?: {
+      taxes?: number | null;
+      insurance?: number | null;
+      hoa?: number | null;
+      utilities?: number | null;
+    };
+  };
+  debt?: {
+    payoff?: number | null;
+  };
+}
 
-export type DTMOut = {
-  days: number;
-  method: 'manual' | 'dom+add' | 'unknown';
-  dom_zip?: number;
-  add_days?: number;
-  manual?: number;
-};
+export interface InfoNeeded {
+  path: string; // e.g., "aiv.safety_cap_pct_token"
+  token?: string | null; // e.g., "<AIV_CAP_PCT>"
+  reason: string; // why this is needed
+  source_of_truth?: 'investor_set' | 'team_policy_set' | 'external_feed' | 'unknown';
+}
 
-export type CarryOut = {
-  months: number;
-  capped_months: number;
-  cap: number;
-  amount_monthly: Money;
-  total: Money;
-  note?: string;
-};
+export interface TraceEntry {
+  rule: string; // e.g., "aiv.cap"
+  used: string[]; // list of policy paths referenced
+  details?: Record<string, unknown>;
+}
 
-export type FloorsOut = {
-  payoff_plus_essentials: number;
-  investor: {
-    p20?: number | null;
-    typical?: number | null;
-    p20_floor?: number;
-    typical_floor?: number;
-  } | null; // <-- allow null (tests expect .toBeNull() when discounts missing)
-  operational: number;
-  notes: string[];
-};
+export interface UnderwriteOutputs {
+  caps: {
+    aivCapApplied: boolean;
+    aivCapValue: number | null; // null when unresolved due to missing policy
+  };
+  summaryNotes: string[];
+}
 
-export type CeilingsOut = {
-  chosen: Money | null;
-  reason: string;
-  mao_aiv_cap: Money;
-  candidates: Array<{ label: string; value: Money; eligible: boolean; reason?: string }>;
-  notes?: string[];
-};
+export interface UnderwriteResult {
+  ok: true;
+  infoNeeded: InfoNeeded[];
+  trace: TraceEntry[];
+  outputs: UnderwriteOutputs;
+}
 
-export type HeadlinesOut = {
-  instant_cash_offer: Money | null;
-  net_to_seller: Money | null;
-  notes?: string[];
-};
-
-export type UnderwriteResult = {
-  inputs: { deal: EngineDeal };
-  policy: import('./policy-defaults').UnderwritePolicy;
-  dtm: DTMOut;
-  carry: CarryOut;
-  floors: FloorsOut;
-  ceilings: CeilingsOut;
-  headlines: HeadlinesOut;
-};
+export interface ComputeOptions {
+  provenance?: boolean; // reserved for later use
+}

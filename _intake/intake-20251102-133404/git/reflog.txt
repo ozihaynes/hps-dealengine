@@ -1,0 +1,107 @@
+cfd7a71 HEAD@{2025-10-31 22:11:52 -0400}: checkout: moving from main to intake/gemini-app-review
+cfd7a71 HEAD@{2025-10-30 00:04:44 -0400}: commit: ci(pnpm): allow postinstall scripts in CI (esbuild/unrs-resolver)
+32543b6 HEAD@{2025-10-30 00:02:05 -0400}: commit: build(vercel): deterministic workspace build (engine -> app)
+611e4ee HEAD@{2025-10-29 23:38:26 -0400}: commit: ci(vercel): trigger prod deploy from main with /api/health+version
+8b8ed3a HEAD@{2025-10-29 23:38:25 -0400}: checkout: moving from main to main
+8b8ed3a HEAD@{2025-10-29 22:31:24 -0400}: commit: feat(api): force-dynamic health/version; whitelist in middleware
+04e0783 HEAD@{2025-10-29 22:13:53 -0400}: commit: chore(vercel): remove root-level vercel.json; let Next handle /api
+35b46ce HEAD@{2025-10-29 21:52:23 -0400}: pull --ff-only: Fast-forward
+0163d2b HEAD@{2025-10-29 21:52:21 -0400}: checkout: moving from main to main
+0163d2b HEAD@{2025-10-29 21:52:21 -0400}: reset: moving to HEAD
+0163d2b HEAD@{2025-10-29 21:51:08 -0400}: checkout: moving from feat/launch-exports to main
+fe2d6ca HEAD@{2025-10-29 21:51:08 -0400}: reset: moving to HEAD
+fe2d6ca HEAD@{2025-10-29 20:39:56 -0400}: commit: feat(engine): stable double-close (FL) + exports; green tests
+61630bd HEAD@{2025-10-29 15:25:05 -0400}: commit: feat(app): unify run-underwrite with engine compute + add /playground runner; basic-auth envs supported
+43224b1 HEAD@{2025-10-29 14:55:26 -0400}: checkout: moving from fixes/20251027_122214 to feat/launch-exports
+43224b1 HEAD@{2025-10-28 19:36:07 -0400}: commit: chore: remove stray debug file
+6297777 HEAD@{2025-10-28 19:30:54 -0400}: commit: engine: normalize ceilings; add ESM .js specifiers; runtime probe OK; tests green
+fa322dd HEAD@{2025-10-27 20:03:10 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 20:03:09 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:52:30 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:52:30 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:50:06 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:50:06 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:45:51 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 19:45:51 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 18:02:56 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 18:02:56 -0400}: reset: moving to HEAD
+fa322dd HEAD@{2025-10-27 17:11:50 -0400}: commit: feat(engine): Respect Floor operational with investor floors scaffolding + tests; fix /underwrite/run page
+98deba0 HEAD@{2025-10-27 17:08:46 -0400}: commit: fix(engine): dedupe POLICY import; externalize policy cleanly
+b8506ad HEAD@{2025-10-27 17:04:53 -0400}: commit: refactor(engine): externalize underwriting POLICY to policy-underwrite.ts (no functional change)
+387e0ff HEAD@{2025-10-27 16:39:45 -0400}: commit: chore(engine): export UnderwriteOut type
+8dc3f23 HEAD@{2025-10-27 16:34:52 -0400}: commit: chore: add /underwrite/debug viewer for engine math
+e1c3263 HEAD@{2025-10-27 12:47:27 -0400}: commit: chore(husky): add lightweight pre-commit (lint-staged)
+37a7211 HEAD@{2025-10-27 12:47:19 -0400}: commit: chore: normalize line endings via .gitattributes
+61ea0d5 HEAD@{2025-10-27 12:43:52 -0400}: commit: fix: replace spread handler in onValueChange with explicit (field, value)
+1825972 HEAD@{2025-10-27 12:22:14 -0400}: checkout: moving from feature/underwrite-api to fixes/20251027_122214
+1825972 HEAD@{2025-10-27 04:21:16 -0400}: commit: feat(api): add DTM earliest-of and use it to compute capped carry
+3b0662b HEAD@{2025-10-27 04:10:51 -0400}: commit: fix(debug): resolve api import; add tsconfig paths for @/*
+06b514f HEAD@{2025-10-27 04:07:30 -0400}: commit: chore: add /underwrite/debug page + client api helper
+06c2802 HEAD@{2025-10-27 04:04:44 -0400}: commit: feat(ui): add postUnderwrite helper
+2fcb463 HEAD@{2025-10-27 03:54:10 -0400}: commit: fix(api): accept extra payload keys via .passthrough() + GET health check
+3e0862a HEAD@{2025-10-27 03:44:30 -0400}: commit: feat(api): /api/underwrite + UIΓåÆEngine adapter (stub math)
+0163d2b HEAD@{2025-10-27 03:43:28 -0400}: checkout: moving from feature/dealengine-phase2 to feature/underwrite-api
+0163d2b HEAD@{2025-10-27 03:27:47 -0400}: checkout: moving from main to feature/dealengine-phase2
+0163d2b HEAD@{2025-10-27 03:27:19 -0400}: commit: chore: ignore dist outputs
+b0af46b HEAD@{2025-10-27 03:27:12 -0400}: checkout: moving from main to main
+b0af46b HEAD@{2025-10-27 03:26:52 -0400}: checkout: moving from protection-proof to main
+fa0f9e9 HEAD@{2025-10-27 03:26:33 -0400}: commit: test: protection proof
+b0af46b HEAD@{2025-10-27 03:26:33 -0400}: checkout: moving from main to protection-proof
+b0af46b HEAD@{2025-10-27 03:25:48 -0400}: commit: chore: normalize line endings (LF)
+93ac36f HEAD@{2025-10-27 03:22:15 -0400}: checkout: moving from main to main
+93ac36f HEAD@{2025-10-27 03:17:23 -0400}: pull --ff-only: Fast-forward
+cf1da47 HEAD@{2025-10-27 03:17:22 -0400}: checkout: moving from test-protection to main
+4fc18d9 HEAD@{2025-10-27 03:02:31 -0400}: commit: chore: branch protection check
+920db42 HEAD@{2025-10-27 03:02:31 -0400}: checkout: moving from feature/dealengine-phase2 to test-protection
+920db42 HEAD@{2025-10-27 03:02:06 -0400}: commit: ci: add typecheck, tests, build
+877a08b HEAD@{2025-10-27 02:45:21 -0400}: commit: feat(api): add scenarios routes (stub)
+cf1da47 HEAD@{2025-10-27 02:44:59 -0400}: checkout: moving from main to feature/dealengine-phase2
+cf1da47 HEAD@{2025-10-27 02:44:37 -0400}: checkout: moving from main to main
+cf1da47 HEAD@{2025-10-27 01:58:29 -0400}: checkout: moving from feature/dealengine-rewrite-phase1 to main
+cf1da47 HEAD@{2025-10-27 01:47:32 -0400}: commit: chore(husky): remove v10 deprecated lines
+9631cdd HEAD@{2025-10-27 00:32:05 -0400}: commit: chore: lock-in DC engine + tests; helpers sanitized; endpoints verified
+8f9af41 HEAD@{2025-10-27 00:20:33 -0400}: commit: feat(engine): add @hps-internal/engine (double-close math + UW stub) and wire APIs; tests passing
+ad94a71 HEAD@{2025-10-26 23:25:08 -0400}: commit: feat(api): implement /api/double-close via engine.compute_double_close
+07d83ac HEAD@{2025-10-26 23:17:07 -0400}: commit: chore(supabase): add minimal server admin client (env-based scaffold)
+7e188b7 HEAD@{2025-10-26 23:14:38 -0400}: commit: feat(engine): add Double-Close compute + policy defaults; export public surface
+c751eca HEAD@{2025-10-26 23:12:20 -0400}: commit: feat(underwrite): contract adapter + temporary /api/underwrite using stub engine
+90d1d38 HEAD@{2025-10-26 23:09:01 -0400}: commit: chore(api): scaffold Next Route Handlers (underwrite, double-close, deals, scenarios)
+34e3ed3 HEAD@{2025-10-26 23:07:54 -0400}: commit: chore: stabilize Phase 1 (engine-only typecheck; Next ignores type/ESLint during build)
+e6f47a1 HEAD@{2025-10-26 23:04:46 -0400}: commit: chore: stabilize workspace (root TS base, engine tsconfig) + tailwind v4 plugin for Next build
+e7b3da6 HEAD@{2025-10-26 23:01:28 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 23:01:28 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 23:01:24 -0400}: checkout: moving from rescue/20251026_220238 to feature/dealengine-rewrite-phase1
+e7b3da6 HEAD@{2025-10-26 22:02:38 -0400}: checkout: moving from phase-2-app-shell to rescue/20251026_220238
+e7b3da6 HEAD@{2025-10-26 18:46:56 -0400}: checkout: moving from rescue/20251026_184656 to phase-2-app-shell
+e7b3da6 HEAD@{2025-10-26 18:46:56 -0400}: checkout: moving from phase-2-app-shell to rescue/20251026_184656
+e7b3da6 HEAD@{2025-10-26 18:46:16 -0400}: reset: moving to dealengine-stable
+e7b3da6 HEAD@{2025-10-26 18:46:16 -0400}: checkout: moving from rescue/20251026_184614 to phase-2-app-shell
+f67bd1f HEAD@{2025-10-26 18:46:16 -0400}: checkout: moving from rescue_20251026_182852 to rescue/20251026_184614
+f67bd1f HEAD@{2025-10-26 18:42:03 -0400}: reset: moving to HEAD
+f67bd1f HEAD@{2025-10-26 18:42:03 -0400}: reset: moving to HEAD
+f67bd1f HEAD@{2025-10-26 18:39:24 -0400}: reset: moving to HEAD
+f67bd1f HEAD@{2025-10-26 18:39:24 -0400}: reset: moving to HEAD
+f67bd1f HEAD@{2025-10-26 18:30:15 -0400}: commit: rescue: restore pre-migration config and app/api routes
+e7b3da6 HEAD@{2025-10-26 18:28:55 -0400}: checkout: moving from rescue/20251026_181955 to rescue_20251026_182852
+e7b3da6 HEAD@{2025-10-26 18:19:55 -0400}: checkout: moving from rescue/20251026_181734 to rescue/20251026_181955
+e7b3da6 HEAD@{2025-10-26 18:17:34 -0400}: checkout: moving from rescue/20251026_181244 to rescue/20251026_181734
+e7b3da6 HEAD@{2025-10-26 18:12:44 -0400}: checkout: moving from rescue/20251026_175418 to rescue/20251026_181244
+e7b3da6 HEAD@{2025-10-26 17:54:18 -0400}: checkout: moving from phase-2-app-shell to rescue/20251026_175418
+e7b3da6 HEAD@{2025-10-26 17:39:58 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 17:39:58 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 17:32:18 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 17:32:18 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 17:27:04 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 17:27:03 -0400}: reset: moving to HEAD
+e7b3da6 HEAD@{2025-10-26 02:03:15 -0400}: commit: DealEngine: demo loader + stable hooks (prettier-only)
+8c0a7c6 HEAD@{2025-10-26 00:30:45 -0400}: commit: DealEngine: restore working app router + configs (stable)
+08c12a6 HEAD@{2025-10-26 00:25:16 -0400}: reset: moving to HEAD
+08c12a6 HEAD@{2025-10-26 00:25:16 -0400}: reset: moving to HEAD
+08c12a6 HEAD@{2025-10-26 00:11:14 -0400}: reset: moving to HEAD
+08c12a6 HEAD@{2025-10-25 23:50:21 -0400}: commit: Cleanup: single App Router, Tailwind v4 PostCSS, TS fixes, layout canonical
+af20d10 HEAD@{2025-10-25 23:48:16 -0400}: reset: moving to HEAD
+af20d10 HEAD@{2025-10-25 23:48:15 -0400}: reset: moving to HEAD
+af20d10 HEAD@{2025-10-25 01:22:21 -0400}: commit: chore: add pnpm workspace file
+5056618 HEAD@{2025-10-25 01:20:07 -0400}: commit: chore: align eslint/next + tailwind v4 plugin; regen lockfile
+7b9827d HEAD@{2025-10-23 03:32:48 -0400}: checkout: moving from master to phase-2-app-shell
+7b9827d HEAD@{2025-10-22 01:53:21 -0400}: commit (initial): Initial commit: Setup monorepo, Next.js app, and tooling

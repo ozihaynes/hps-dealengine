@@ -1,4 +1,4 @@
-import GeminiApp from '../components/GeminiApp';
+import { redirect } from 'next/navigation';
 export default function Page() {
-  return <GeminiApp activeTab="overview" />;
+  redirect('/underwrite');
 }

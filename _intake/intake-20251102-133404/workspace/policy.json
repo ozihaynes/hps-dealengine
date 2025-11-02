@@ -1,0 +1,23 @@
+{
+  "aiv": {
+    "safety_cap_pct_token": "<AIV_CAP_PCT>",
+    "soft_max_comps_age_days_token": "<AIV_SOFT_MAX_AGE_DAYS>",
+    "cap_override": {
+      "approval_role": "Owner",
+      "requires_bindable_insurance": true
+    }
+  },
+  "carry": {
+    "dom_add_days_default_token": "<DOM_TO_MONTHS_RULE>",
+    "months_cap_token": "<CARRY_MONTHS_CAP>"
+  },
+  "floors": {
+    "respect_floor_enabled": true
+  },
+  "fees": {
+    "list_commission_pct_token": "<LIST_COMM_PCT>",
+    "concessions_pct_token": "<CONCESSIONS_PCT>",
+    "sell_close_pct_token": "<SELL_CLOSE_PCT>"
+  },
+  "evidence": {}
+}

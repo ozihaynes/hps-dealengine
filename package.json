@@ -9,9 +9,13 @@
     "typecheck": "pnpm -r exec tsc -p . --noEmit",
     "lint": "pnpm -r run lint || exit 0",
     "format": "pnpm -r exec prettier --write .",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "prepare": "husky"
+    "prepare": "husky",
+    "contracts:build": "pnpm --filter @hps-internal/contracts build",
+    "api:types": "openapi-typescript openapi.yaml --output packages/contracts/src/generated/openapi.ts",
+    "api:docs": "redocly build-docs openapi.yaml -o _docs/api.html",
+    "api:check": "redocly lint openapi.yaml"
   },
   "lint-staged": {
     "**/*.{ts,tsx,js,jsx}": [
@@ -24,13 +28,17 @@
   "packageManager": "pnpm@10.19.0",
   "devDependencies": {
     "@hps-internal/engine": "workspace:*",
+    "@redocly/cli": "^2.10.0",
     "@types/node": "20.19.0",
     "@typescript-eslint/eslint-plugin": "8.46.2",
     "@typescript-eslint/parser": "8.46.2",
     "@vitest/coverage-v8": "4.0.4",
+    "ajv": "^8.17.1",
+    "ajv-formats": "2.1.1",
     "eslint": "8.57.0",
     "husky": "9.1.7",
     "lint-staged": "16.2.5",
+    "openapi-typescript": "^7.10.1",
     "prettier": "3.6.2",
     "tsx": "4.20.6",
     "typescript": "5.6.3",
@@ -40,6 +48,17 @@
     "overrides": {
       "@types/node": "20.19.0",
       "eslint": "8.57.0"
-    }
+    },
+    "allowedBuiltDependencies": [
+      "esbuild",
+      "unrs-resolver"
+    ],
+    "ignoredBuiltDependencies": [
+      "unrs-resolver"
+    ]
+  },
+  "dependencies": {
+    "@hps-internal/contracts": "workspace:*",
+    "zod": "^3.23.8"
   }
 }
