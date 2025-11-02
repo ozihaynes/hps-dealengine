@@ -31,7 +31,7 @@ paths:
               required: [deal]
               properties:
                 deal:
-                  $ref: "#/components/schemas/DealContract"
+                  $ref: '#/components/schemas/DealContract'
                 policy_version_id:
                   type:
                     - string
@@ -40,29 +40,30 @@ paths:
               basic:
                 value:
                   deal:
-                    org_id: "org_123"
-                    deal_id: "deal_001"
-                    address: { line1: "123 Main St", city: "Orlando", state: "FL", postal_code: "32801" }
+                    org_id: 'org_123'
+                    deal_id: 'deal_001'
+                    address:
+                      { line1: '123 Main St', city: 'Orlando', state: 'FL', postal_code: '32801' }
                     inputs:
                       AIV: 300000
                       DOM: 46
-                      ZIP: "32801"
+                      ZIP: '32801'
                   policy_version_id: null
       responses:
-        "200":
+        '200':
           description: Deterministic output with trace and hashes
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RunOutput"
-        "400":
+                $ref: '#/components/schemas/RunOutput'
+        '400':
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ApiError"
-        "401": { description: Unauthenticated }
-        "403": { description: Forbidden (RLS/Org) }
+                $ref: '#/components/schemas/ApiError'
+        '401': { description: Unauthenticated }
+        '403': { description: Forbidden (RLS/Org) }
 
   /policy:
     get:
@@ -74,18 +75,18 @@ paths:
       parameters:
         - in: query
           name: posture
-          schema: { $ref: "#/components/schemas/PolicyPosture" }
+          schema: { $ref: '#/components/schemas/PolicyPosture' }
           required: true
       responses:
-        "200":
+        '200':
           description: Active policy
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Policy"
-        "401": { description: Unauthenticated }
-        "403": { description: Forbidden (RLS/Org) }
-        "404": { description: No active policy found }
+                $ref: '#/components/schemas/Policy'
+        '401': { description: Unauthenticated }
+        '403': { description: Forbidden (RLS/Org) }
+        '404': { description: No active policy found }
     put:
       operationId: policy_put_v1
       summary: Upsert policy & create a new version row
@@ -96,24 +97,24 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/Policy" }
+            schema: { $ref: '#/components/schemas/Policy' }
             examples:
               baseTokens:
                 value:
                   posture: base
                   tokens:
-                    AIV_CAP_PCT: "<AIV_CAP_PCT>"
-                    AIV_SOFT_MAX_AGE_DAYS: "<AIV_SOFT_MAX_AGE_DAYS>"
-                    DOM_TO_MONTHS_RULE: "<DOM_TO_MONTHS_RULE>"
-                    CARRY_MONTHS_CAP: "<CARRY_MONTHS_CAP>"
-                    LIST_COMM_PCT: "<LIST_COMM_PCT>"
-                    CONCESSIONS_PCT: "<CONCESSIONS_PCT>"
-                    SELL_CLOSE_PCT: "<SELL_CLOSE_PCT>"
+                    AIV_CAP_PCT: '<AIV_CAP_PCT>'
+                    AIV_SOFT_MAX_AGE_DAYS: '<AIV_SOFT_MAX_AGE_DAYS>'
+                    DOM_TO_MONTHS_RULE: '<DOM_TO_MONTHS_RULE>'
+                    CARRY_MONTHS_CAP: '<CARRY_MONTHS_CAP>'
+                    LIST_COMM_PCT: '<LIST_COMM_PCT>'
+                    CONCESSIONS_PCT: '<CONCESSIONS_PCT>'
+                    SELL_CLOSE_PCT: '<SELL_CLOSE_PCT>'
                   metadata:
-                    version_label: "v1.0.0"
-                    notes: "Initial baseline"
+                    version_label: 'v1.0.0'
+                    notes: 'Initial baseline'
       responses:
-        "200":
+        '200':
           description: Saved with version id
           content:
             application/json:
@@ -121,13 +122,13 @@ paths:
                 type: object
                 properties:
                   policy_version_id: { type: string }
-        "400":
+        '400':
           description: Validation error
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ApiError" }
-        "401": { description: Unauthenticated }
-        "403": { description: Forbidden (RLS/Org) }
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { description: Unauthenticated }
+        '403': { description: Forbidden (RLS/Org) }
 
 components:
   securitySchemes:
@@ -139,8 +140,8 @@ components:
   schemas:
     TokenString:
       type: string
-      pattern: "^<[^<>]+>$"
-      example: "<AIV_CAP_PCT>"
+      pattern: '^<[^<>]+>$'
+      example: '<AIV_CAP_PCT>'
 
     PolicyPosture:
       type: string
@@ -149,22 +150,22 @@ components:
     PolicyTokens:
       type: object
       additionalProperties:
-        $ref: "#/components/schemas/TokenString"
+        $ref: '#/components/schemas/TokenString'
       properties:
-        AIV_CAP_PCT: { $ref: "#/components/schemas/TokenString" }
-        AIV_SOFT_MAX_AGE_DAYS: { $ref: "#/components/schemas/TokenString" }
-        DOM_TO_MONTHS_RULE: { $ref: "#/components/schemas/TokenString" }
-        CARRY_MONTHS_CAP: { $ref: "#/components/schemas/TokenString" }
-        LIST_COMM_PCT: { $ref: "#/components/schemas/TokenString" }
-        CONCESSIONS_PCT: { $ref: "#/components/schemas/TokenString" }
-        SELL_CLOSE_PCT: { $ref: "#/components/schemas/TokenString" }
+        AIV_CAP_PCT: { $ref: '#/components/schemas/TokenString' }
+        AIV_SOFT_MAX_AGE_DAYS: { $ref: '#/components/schemas/TokenString' }
+        DOM_TO_MONTHS_RULE: { $ref: '#/components/schemas/TokenString' }
+        CARRY_MONTHS_CAP: { $ref: '#/components/schemas/TokenString' }
+        LIST_COMM_PCT: { $ref: '#/components/schemas/TokenString' }
+        CONCESSIONS_PCT: { $ref: '#/components/schemas/TokenString' }
+        SELL_CLOSE_PCT: { $ref: '#/components/schemas/TokenString' }
 
     Policy:
       type: object
       required: [posture, tokens]
       properties:
-        posture: { $ref: "#/components/schemas/PolicyPosture" }
-        tokens:  { $ref: "#/components/schemas/PolicyTokens" }
+        posture: { $ref: '#/components/schemas/PolicyPosture' }
+        tokens: { $ref: '#/components/schemas/PolicyTokens' }
         metadata:
           type: object
           additionalProperties: true
@@ -199,7 +200,7 @@ components:
           items: { type: string }
         tokens:
           type: array
-          items: { $ref: "#/components/schemas/TokenString" }
+          items: { $ref: '#/components/schemas/TokenString' }
 
     RunOutput:
       type: object
@@ -215,7 +216,7 @@ components:
           items: { type: string }
         trace:
           type: array
-          items: { $ref: "#/components/schemas/TraceItem" }
+          items: { $ref: '#/components/schemas/TraceItem' }
         hashes:
           type: object
           required: [inputs, policy, outputs]
