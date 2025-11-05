@@ -1,7 +1,4 @@
-_snapshots
-_tmp
-.tmp
-*.zip
-*.7z
-**/*.zip
-**/*.7z
+_snapshots/**
+.tmp/**
+**/*.log
+apps/hps-dealengine/tsc-error.log
