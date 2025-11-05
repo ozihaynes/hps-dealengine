@@ -1,100 +1,81 @@
-/**
- * v1-policy (Deno / Supabase Edge Function)
- * - Requires Authorization: Bearer <user_jwt>
- * - GET  ?posture=base|conservative|aggressive  -> latest policy row for caller
- * - PUT  same query, body { tokens: {...}, metadata?: {...} } -> insert new row
- */
-import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+// v1-policy — GET active policy for the caller's org + posture
+// RLS is enforced by forwarding the user's Authorization header to supabase-js.
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
-};
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
-function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders, ...extra },
-  });
+const PolicySchema = z.object({
+  posture: z.enum(["conservative", "base", "aggressive"]),
+  tokens: z.record(z.string()),
+  metadata: z.record(z.any()).optional().default({})
+});
+
+function json(
+  body: unknown,
+  init: ResponseInit = {}
+): Response {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  headers.set("Access-Control-Allow-Origin", "*"); // dev convenience
+  return new Response(JSON.stringify(body), { ...init, headers });
 }
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+Deno.serve(async (req: Request) => {
+  // Basic JWT gate (edge gateway also verifies when verify_jwt=true)
+  const auth = req.headers.get("Authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) {
+    return json({ code: "unauthorized", message: "Missing/invalid Authorization" }, { status: 401 });
+  }
 
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer '))
-    return json({ error: { code: '401', message: 'Missing Authorization bearer token' } }, 401);
+  // Accept posture from query (?posture=base) or JSON body { posture: "base" }
+  const url = new URL(req.url);
+  let posture = url.searchParams.get("posture") ?? undefined;
+  if (!posture) {
+    try {
+      const body = await req.json();
+      if (typeof body?.posture === "string") posture = body.posture;
+    } catch {
+      // ignore (no body / not JSON)
+    }
+  }
+  if (!posture) posture = "base";
 
-  // Forward caller JWT so RLS applies in DB (official pattern)
-  // https://supabase.com/docs/guides/functions/auth#using-supabase-auth-within-edge-functions
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: authHeader } },
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: auth } }
   });
 
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !auth?.user)
-    return json({ error: { code: '401', message: 'Invalid or expired token' } }, 401);
+  // Query is org-scoped via RLS; we don't need to pass org_id explicitly.
+  // Expect a single active policy per (org, posture).
+  const { data, error } = await sb
+    .from("policies")
+    .select("posture,tokens,metadata,is_active")
+    .eq("posture", posture)
+    .eq("is_active", true)
+    .maybeSingle();
 
-  const userId = auth.user.id;
-  const url = new URL(req.url);
-  const posture = (url.searchParams.get('posture') ?? 'base').toLowerCase();
-
-  if (req.method === 'GET') {
-    const { data, error } = await supabase
-      .from('policies')
-      .select('id, org_id, posture, tokens, metadata, created_at')
-      .eq('org_id', userId)
-      .eq('posture', posture)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) return json({ error: { code: '500', message: error.message } }, 500);
-    if (!data) {
-      return json(
-        {
-          error: { code: '404', message: 'No policy found' },
-          infoNeeded: ['PUT /v1-policy?posture=... with a { tokens: {...} } body to create one'],
-        },
-        404
-      );
-    }
-    return json({ version: 'v1', policy: data }, 200);
+  if (error) {
+    // 403 when RLS blocks; 404 when not found
+    const status = error.code === "PGRST116" ? 404 : (error.message?.includes("Denied") ? 403 : 400);
+    return json({ code: "policy_fetch_failed", message: error.message }, { status });
+  }
+  if (!data) {
+    return json({ code: "not_found", message: "No active policy for posture" }, { status: 404 });
   }
 
-  if (req.method === 'PUT') {
-    let body: { tokens?: unknown; metadata?: unknown } | null = null;
-    try {
-      body = await req.json();
-    } catch (_) {}
-    if (!body?.tokens || typeof body.tokens !== 'object') {
-      return json(
-        {
-          error: { code: '400', message: 'Body must include tokens object' },
-          infoNeeded: ['tokens'],
-        },
-        400
-      );
-    }
-
-    const row = {
-      org_id: userId,
-      posture,
-      tokens: body.tokens as Record<string, unknown>,
-      metadata: (body.metadata ?? null) as Record<string, unknown> | null,
-    };
-
-    const { data, error } = await supabase
-      .from('policies')
-      .insert(row)
-      .select('id, org_id, posture, tokens, metadata, created_at')
-      .single();
-
-    if (error) return json({ error: { code: '500', message: error.message } }, 500);
-    return json({ version: 'v1', policy: data }, 201);
+  const parsed = PolicySchema.safeParse({
+    posture: data.posture,
+    tokens: data.tokens ?? {},
+    metadata: data.metadata ?? {}
+  });
+  if (!parsed.success) {
+    return json({
+      code: "policy_invalid",
+      message: "Policy failed validation",
+      issues: parsed.error.issues
+    }, { status: 422 });
   }
 
-  return json({ error: { code: '405', message: 'Method Not Allowed' } }, 405);
+  return json(parsed.data, { status: 200 });
 });

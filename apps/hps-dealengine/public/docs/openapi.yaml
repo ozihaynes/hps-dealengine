@@ -1,0 +1,222 @@
+openapi: 3.1.0
+info:
+  title: HPS DealEngine API (v1)
+  version: "1.0.0"
+  description: >
+    Versioned API contract for the multi-tenant, RLS-guarded underwriting platform.
+    All business logic runs on Edge Functions; the Next.js app is a pure client.
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: localhost
+paths:
+  /v1/policy:
+    get:
+      summary: Get active policy for an org and posture
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: posture
+          schema: { type: string, enum: [conservative, base, aggressive], default: base }
+      responses:
+        "200":
+          description: Policy JSON
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Policy" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      summary: Upsert policy (creates a new version)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Policy" }
+      responses:
+        "200":
+          description: Version created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_version_id: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooMany" }
+
+  /v1/analyze:
+    post:
+      summary: Run deterministic underwriting
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deal: { $ref: "#/components/schemas/DealContract" }
+                policy_version_id:
+                  type: string
+                  description: Use a specific frozen policy version; if omitted, use the active policy for the caller's org/posture.
+      responses:
+        "200":
+          description: Deterministic run output
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  result: { $ref: "#/components/schemas/RunOutput" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/UnprocessableEntity" }
+        "429": { $ref: "#/components/responses/TooMany" }
+        "5XX": { $ref: "#/components/responses/ServerError" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request (schema violation)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Unauthorized:
+      description: Missing/invalid auth
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Forbidden:
+      description: Authenticated but lacks org/role permissions
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    UnprocessableEntity:
+      description: Payload failed validation
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    TooMany:
+      description: Rate limited
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    ServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+
+  schemas:
+    Policy:
+      type: object
+      required: [posture, tokens, metadata]
+      properties:
+        posture:
+          type: string
+          enum: [conservative, base, aggressive]
+        tokens:
+          type: object
+          additionalProperties: { type: string }
+        metadata:
+          type: object
+          additionalProperties: true
+
+    DealContract:
+      type: object
+      properties:
+        address: { type: string }
+        market:
+          type: object
+          properties:
+            aiv: { type: number, nullable: true }
+            arv: { type: number, nullable: true }
+            dom_zip: { type: number, nullable: true }
+          additionalProperties: true
+      additionalProperties: true
+
+    RunOutput:
+      type: object
+      required: [ok, infoNeeded, trace]
+      properties:
+        ok: { type: boolean }
+        infoNeeded:
+          type: array
+          items:
+            type: object
+            properties:
+              path: { type: string }
+              token: { type: string, nullable: true }
+              reason: { type: string }
+              source_of_truth:
+                type: string
+                enum: [investor_set, team_policy_set, external_feed]
+        trace:
+          type: array
+          items:
+            type: object
+            properties:
+              rule: { type: string }
+              used: { type: array, items: { type: string } }
+              details: {}
+        outputs:
+          type: object
+          properties:
+            caps:
+              type: object
+              properties:
+                aivCapApplied: { type: boolean }
+                aivCapValue: { type: number, nullable: true }
+            carry:
+              type: object
+              properties:
+                monthsRule: { type: string, nullable: true }
+                monthsCap: { type: number, nullable: true }
+                rawMonths: { type: number, nullable: true }
+                carryMonths: { type: number, nullable: true }
+            fees:
+              type: object
+              properties:
+                rates:
+                  type: object
+                  properties:
+                    list_commission_pct: { type: number }
+                    concessions_pct: { type: number }
+                    sell_close_pct: { type: number }
+                preview:
+                  type: object
+                  properties:
+                    base_price: { type: number }
+                    list_commission_amount: { type: number }
+                    concessions_amount: { type: number }
+                    sell_close_amount: { type: number }
+                    total_seller_side_costs: { type: number }
+            summaryNotes:
+              type: array
+              items: { type: string }
+
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }

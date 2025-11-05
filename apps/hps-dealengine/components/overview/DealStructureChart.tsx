@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useCallback } from 'react';
 import { GlassCard, Button, Icon } from '../ui';
 import { Icons } from '../../constants';

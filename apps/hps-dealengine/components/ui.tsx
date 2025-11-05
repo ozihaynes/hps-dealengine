@@ -1,3 +1,4 @@
+"use client";
 import React, { useContext, createContext } from 'react';
 import type { ReactNode } from 'react';
 import type {
@@ -390,3 +391,4 @@ export const DynamicBandEditor = ({
     </div>
   );
 };
+

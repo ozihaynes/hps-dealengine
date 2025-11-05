@@ -1,9 +1,0 @@
-{
-  "theme": "dark",
-  "density": "cozy",
-  "autorun_debounce_ms": 300,
-  "default_tab": "underwrite",
-  "timezone_str": "America/New_York",
-  "currency_code": "USD",
-  "date_format": "YYYY-MM-DD"
-}

@@ -1,92 +1,70 @@
-import { z } from 'zod';
+import { z } from "zod";
 
-/** Strict token placeholder like <AIV_CAP_PCT> — never concrete numbers here. */
-export const TokenString = z.string().regex(/^<[^<>]+>$/, 'Use token form like <AIV_CAP_PCT>');
+/** -------- Core API Shapes (Zod) -------- */
 
-/** Minimal, forward-compatible Deal contract:
- *  - org_id ties to RLS scoping downstream.
- *  - deal_id stable across runs.
- *  - address typed; inputs is an extensible bag aligned to SOT.
- */
-export const DealContract = z.object({
-  org_id: z.string().min(1),
-  deal_id: z.string().min(1),
-  address: z.object({
-    line1: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(2).max(2),
-    postal_code: z.string().min(3),
-  }),
-  /** Flexible payload; engine will read specific fields per SOT.
-   *  Keep it open here to avoid accidental “policy invention”.
-   */
-  inputs: z.record(z.string(), z.unknown()),
+export const InfoNeededItemSchema = z.object({
+  path: z.string(),
+  token: z.string().nullable().optional(),
+  reason: z.string(),
+  source_of_truth: z.enum(["investor_set", "team_policy_set", "external_feed"]).optional(),
 });
+export type InfoNeededItem = z.infer<typeof InfoNeededItemSchema>;
 
-/** Policy posture maps to your SOT postures */
-export const PolicyPosture = z.enum(['conservative', 'base', 'aggressive']);
-
-/** Tokens registry — include known keys + allow others as you expand */
-export const PolicyTokens = z
-  .object({
-    AIV_CAP_PCT: TokenString.optional(),
-    AIV_SOFT_MAX_AGE_DAYS: TokenString.optional(),
-    DOM_TO_MONTHS_RULE: TokenString.optional(),
-    CARRY_MONTHS_CAP: TokenString.optional(),
-    LIST_COMM_PCT: TokenString.optional(),
-    CONCESSIONS_PCT: TokenString.optional(),
-    SELL_CLOSE_PCT: TokenString.optional(),
-  })
-  .catchall(TokenString);
-
-/** Versioned Policy object */
-export const Policy = z.object({
-  posture: PolicyPosture,
-  tokens: PolicyTokens,
-  metadata: z
-    .object({
-      version_label: z.string().min(1).optional(),
-      notes: z.string().optional(),
-    })
-    .partial(),
+export const TraceItemSchema = z.object({
+  rule: z.string(),
+  used: z.array(z.string()).optional(),
+  details: z.unknown().optional(),
 });
+export type TraceItem = z.infer<typeof TraceItemSchema>;
 
-/** Trace entries emitted by the engine for auditability */
-export const TraceItem = z.object({
-  id: z.string(),
-  stage: z.string().optional(),
+/** DealContract — minimal, forward-compatible (accepts additional fields) */
+export const DealContractSchema = z.object({
+  address: z.string().optional(),
+  market: z.object({
+    aiv: z.number().nullable().optional(),
+    arv: z.number().nullable().optional(),
+    dom_zip: z.number().nullable().optional(),
+  }).partial().optional(),
+}).passthrough();
+export type DealContract = z.infer<typeof DealContractSchema>;
+
+/** RunOutput — matches your /api/analyze shape today */
+export const RunOutputSchema = z.object({
+  ok: z.boolean(),
+  infoNeeded: z.array(InfoNeededItemSchema).default([]),
+  trace: z.array(TraceItemSchema).default([]),
+  outputs: z.object({
+    caps: z.object({
+      aivCapApplied: z.boolean().optional(),
+      aivCapValue: z.number().nullable().optional(),
+    }).optional(),
+    carry: z.object({
+      monthsRule: z.string().nullable().optional(),
+      monthsCap: z.number().nullable().optional(),
+      rawMonths: z.number().nullable().optional(),
+      carryMonths: z.number().nullable().optional(),
+    }).optional(),
+    fees: z.object({
+      rates: z.object({
+        list_commission_pct: z.number().optional(),
+        concessions_pct: z.number().optional(),
+        sell_close_pct: z.number().optional(),
+      }).optional(),
+      preview: z.object({
+        base_price: z.number().optional(),
+        list_commission_amount: z.number().optional(),
+        concessions_amount: z.number().optional(),
+        sell_close_amount: z.number().optional(),
+        total_seller_side_costs: z.number().optional(),
+      }).optional(),
+    }).optional(),
+    summaryNotes: z.array(z.string()).optional(),
+  }).optional(),
+});
+export type RunOutput = z.infer<typeof RunOutputSchema>;
+
+export const ApiErrorSchema = z.object({
+  code: z.string(),
   message: z.string(),
-  /** tokens or trace refs that justify the numeric results */
-  refs: z.array(z.string()).optional(),
-  tokens: z.array(TokenString).optional(),
 });
-
-/** Engine output envelope */
-export const RunOutput = z.object({
-  deal_id: z.string(),
-  policy_version_id: z.string().optional(),
-  outputs: z.record(z.string(), z.unknown()),
-  infoNeeded: z.array(z.string()).default([]),
-  trace: z.array(TraceItem),
-  hashes: z.object({
-    inputs: z.string(),
-    policy: z.string(),
-    outputs: z.string(),
-  }),
-});
-
-/** Standard error envelope for functions */
-export const ApiError = z.object({
-  ok: z.literal(false).optional(),
-  error: z.object({
-    code: z.string(),
-    message: z.string(),
-  }),
-  infoNeeded: z.array(z.string()).optional(),
-});
-
-export type TDealContract = z.infer<typeof DealContract>;
-export type TPolicy = z.infer<typeof Policy>;
-export type TRunOutput = z.infer<typeof RunOutput>;
-export type TTraceItem = z.infer<typeof TraceItem>;
-export type TApiError = z.infer<typeof ApiError>;
+export type ApiError = z.infer<typeof ApiErrorSchema>;

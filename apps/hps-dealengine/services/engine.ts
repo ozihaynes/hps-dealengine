@@ -1,211 +1,158 @@
-import React from 'react';
-import type {
-  DealWrapper,
-  EngineResult,
-  EngineCalculations,
-  SandboxSettings,
-  Deal,
-} from '../types';
-import { num } from '../utils/helpers';
+/**
+ * Minimal, synchronous engine wrapper so the UI always has numbers.
+ * This is a local stub; next slice will flip to Edge Function v1-analyze.
+ */
 
-const getEmptyCalcs = (): EngineCalculations => ({
-  instantCashOffer: NaN,
-  projectedPayoffClose: NaN,
-  netToSeller: NaN,
-  respectFloorPrice: NaN,
-  buyerCeiling: NaN,
-  dealSpread: NaN,
-  urgencyBand: '—',
-  urgencyDays: 0,
-  listingAllowed: true,
-  tenantBuffer: 0,
-  displayMargin: 0,
-  displayCont: 0,
-  carryMonths: 0,
-  maoFinal: NaN,
-  totalRepairs: 0,
-  carryCosts: 0,
-  resaleCosts: 0,
-  repairs_with_contingency: 0,
-  resale_costs_total: 0,
-  commissionPct: 0,
-  capAIV: NaN,
-  sellerNetRetail: NaN,
-  marketTemp: 72,
-});
+export class HPSEngine {
+  static runEngine(params: { deal: any }, sandbox: any) {
+    const deal   = params?.deal ?? {};
+    const market = deal.market ?? {};
+    const costs  = deal.costs ?? {};
+    const policy = deal.policy ?? {};
 
-export const HPSEngine = (() => {
-  const runEngine = (dealWrapper: DealWrapper, sandbox: SandboxSettings): EngineResult => {
-    const { deal } = dealWrapper;
-    const calculations = getEmptyCalcs();
-    const flags: any = {};
-    const missingInfo: string[] = [];
+    const asIs       = Number(market.as_is_value ?? 0) || 0;
+    const repairs    = Number(costs.repairs_base ?? 0) || 0;
+    const concessPct = Number(costs.concessions_pct ?? 0) || 0; // 0..1
+    const capPct =
+      typeof sandbox?.aivSafetyCapPercentage === "number"
+        ? sandbox.aivSafetyCapPercentage / 100
+        : 1;
 
-    const hasCoreInput =
-      String(deal.market.arv).trim() !== '' ||
-      String(deal.market.as_is_value).trim() !== '' ||
-      String(deal.debt.senior_principal).trim() !== '';
-
-    // Validation
-    const arv = num(deal.market.arv);
-    const aiv = num(deal.market.as_is_value);
-    const senior_principal = num(deal.debt.senior_principal);
-
-    if (hasCoreInput) {
-      if (arv === 0) missingInfo.push('ARV');
-      if (senior_principal === 0) missingInfo.push('Senior Principal');
-      if (aiv === 0) missingInfo.push('As-Is Value');
-    }
-
-    // --- CORE CALCULATIONS ---
-    const repairs_base = num(deal.costs.repairs_base);
-    const contingencyBands: any[] = sandbox.repairsContingencyPercentageByClass || [];
-    const contingencyPct =
-      (contingencyBands.find((b) => b.repairClass === 'Medium')?.contingency || 15) / 100;
-    calculations.repairs_with_contingency = repairs_base * (1 + contingencyPct);
-    calculations.totalRepairs = calculations.repairs_with_contingency;
-    calculations.displayCont = contingencyPct;
-
-    const dom_zip = num(deal.market.dom_zip);
-    // Formula: (({DOM_zip} * 1.5) + 30) / 30
-    const calculatedCarryMonths = (dom_zip * 1.5 + 30) / 30;
-    calculations.carryMonths = Math.min(calculatedCarryMonths, sandbox.carryMonthsMaximumCap || 12);
-
-    const monthlyTaxes = deal.policy.costs_are_annual
-      ? num(deal.costs.monthly.taxes) / 12
-      : num(deal.costs.monthly.taxes);
-    const monthlyInsurance = deal.policy.costs_are_annual
-      ? num(deal.costs.monthly.insurance) / 12
-      : num(deal.costs.monthly.insurance);
-    const monthlyCarryTotal =
-      monthlyTaxes +
-      monthlyInsurance +
-      num(deal.costs.monthly.hoa) +
-      num(deal.costs.monthly.utilities) +
-      num(deal.costs.monthly.interest);
-    calculations.carryCosts = monthlyCarryTotal * calculations.carryMonths;
-
-    const commissionItems: any[] = sandbox.listingCostModelSellerCostLineItems || [];
-    const commissionBasePct =
-      commissionItems.find((i) => i.item === 'Commissions')?.defaultPct ?? 6;
-    const concessionsBasePct =
-      commissionItems.find((i) => i.item === 'Seller Concessions')?.defaultPct ?? 2;
-    const sellCloseBasePct =
-      commissionItems.find((i) => i.item === 'Title & Stamps')?.defaultPct ?? 1.5;
-    const commissionPct = deal.costs.list_commission_pct ?? commissionBasePct / 100;
-    const concessionsPct = deal.costs.concessions_pct ?? concessionsBasePct / 100;
-    const sellClosePct = deal.costs.sell_close_pct ?? sellCloseBasePct / 100;
-    calculations.commissionPct = commissionPct;
-    calculations.resaleCosts = arv * (commissionPct + concessionsPct + sellClosePct);
-    calculations.resale_costs_total = calculations.resaleCosts;
-
-    const margin = (sandbox.buyerTargetMarginFlipBaselinePolicy || 15) / 100;
-    calculations.displayMargin = margin;
-    calculations.buyerCeiling =
-      arv * (1 - margin) -
-      calculations.repairs_with_contingency -
-      (calculations.carryCosts + calculations.resaleCosts);
-
-    const daysToClose = num(deal.policy.planned_close_days);
-    calculations.projectedPayoffClose =
-      senior_principal + num(deal.debt.senior_per_diem) * daysToClose;
-
-    const investorDiscount = (sandbox.floorInvestorAivDiscountTypicalZip || 15) / 100;
-    const investorFloor = aiv * (1 - investorDiscount);
-    const payoffFloor =
-      calculations.projectedPayoffClose +
-      num(deal.title.cure_cost) +
-      num(sandbox.floorPayoffMoveOutCashDefault);
-    calculations.respectFloorPrice = Math.max(investorFloor, payoffFloor);
-
-    calculations.instantCashOffer =
-      calculations.respectFloorPrice +
-      (calculations.buyerCeiling - calculations.respectFloorPrice) *
-        (sandbox.initialOfferSpreadMultiplier || 0.5);
-
-    calculations.dealSpread =
-      arv -
-      calculations.resaleCosts -
-      calculations.carryCosts -
-      calculations.repairs_with_contingency -
-      calculations.instantCashOffer;
-
-    calculations.netToSeller =
-      calculations.instantCashOffer - calculations.projectedPayoffClose - num(deal.title.cure_cost);
-
-    const auctionDate = new Date(deal.timeline.auction_date);
-    const today = new Date();
-    calculations.urgencyDays = Math.max(
-      0,
-      Math.ceil((auctionDate.getTime() - today.getTime()) / (1000 * 3600 * 24))
-    );
-    const urgencyBands: any[] = sandbox.dispositionRecommendationLogicDtmThresholds || [];
-    const urgencyBand = urgencyBands.find((b) => calculations.urgencyDays <= b.maxDtm) || {
-      label: 'Low',
-    };
-    calculations.urgencyBand = urgencyBand.label;
+    const cappedAIV = asIs * capPct;
+    const offer = Math.max(0, cappedAIV - repairs - cappedAIV * concessPct);
 
     return {
-      calculations,
-      flags,
-      state: 'ReadyForOffer',
-      missingInfo,
+      calculations: {
+        instantCashOffer: offer,
+        netToSeller: offer,
+        urgencyDays: Number(policy.manual_days_to_money ?? 0) || 0,
+      },
     };
-  };
+  }
+}
 
-  const useDealEngine = (deal: DealWrapper, sandbox: SandboxSettings) =>
-    React.useMemo(() => runEngine(deal, sandbox), [deal, sandbox]);
-  return { runEngine, useDealEngine };
-})();
+/** Types for the Double Close calculator (UI expects these exact keys) */
+export type DoubleCloseInput = {
+  offer?: number;          // buy price in the A->B leg
+  resale?: number;         // sell price in the B->C leg
+  buySideCosts?: number;   // title, stamps, etc. on buy side
+  sellSideCosts?: number;  // title, stamps, etc. on sell side
+  assignmentFee?: number;  // explicit modeling if fee overlaps
+};
 
-/* VISUAL-ONLY STUB */
-export const DoubleClose = (() => {
-  const MOCK_DC_CALCS = {
-    // Use benign placeholders consistent with empty state
-    Deed_Stamps_AB: 0,
-    Deed_Stamps_BC: 0,
-    Title_AB: 0,
-    Title_BC: 0,
-    Other_AB: 0,
-    Other_BC: 0,
-    TF_Points_$: 0,
-    DocStamps_Note: 0,
-    Intangible_Tax: 0,
-    Extra_Closing_Load: 0,
-    Gross_Spread: NaN,
-    Net_Spread_Before_Carry: NaN,
-    Net_Spread_After_Carry: NaN,
-    Carry_Daily: 0,
-    Carry_Total: 0,
-    Fee_Target_Threshold: 0,
-    Fee_Target_Check: '—',
-    Seasoning_Flag: 'OK',
-    notes: ['County: Orange (deed rate 0.007)', 'Calculations stubbed for visual preview.'],
-  };
+export type DoubleCloseCalcs = {
+  // Canonical snake/label-style keys expected by OverviewTab & DoubleCloseCalculator
+  Deed_Stamps_AB: number;
+  Deed_Stamps_BC: number;
+  Title_AB: number;
+  Title_BC: number;
+  Other_AB: number;
+  Other_BC: number;
+  TF_Points_$: number;
+  DocStamps_Note: number;
+  Intangible_Tax: number;
+  Carry_Daily: number;
+  Carry_Total: number;
+  Extra_Closing_Load: number;
 
-  const computeDoubleClose = (dc: any, deal: any) => {
-    /* VISUAL-ONLY STUB */
-    return MOCK_DC_CALCS;
-  };
+  Gross_Spread: number;
+  Net_Spread_Before_Carry: number;
+  Net_Spread_After_Carry: number;
 
-  const autofill = (dc: any, deal: DealWrapper, calc: any) => {
-    /* VISUAL-ONLY STUB - Autofill only non-calculated fields */
-    const d = JSON.parse(JSON.stringify(dc || {}));
-    if (!d.county) d.county = deal?.deal?.property?.county || 'Orange';
-    if (!d.carry_basis) d.carry_basis = 'day';
-    if (d.using_tf && !isFinite(num(d.tf_points_rate))) d.tf_points_rate = 0.02;
+  Fee_Target_Threshold: number;
+  Fee_Target_Check: "YES" | "NO" | "REVIEW";
+  Seasoning_Flag: string;
 
-    if (!('pab' in d)) d.pab = NaN;
-    if (!('pbc' in d)) d.pbc = NaN;
-    if (d.using_tf && !('tf_principal' in d)) d.tf_principal = NaN;
+  // Also provide camelCase fields some components may read
+  grossSpread: number;
+  assignmentFee: number;
+  buySideCosts: number;
+  sellSideCosts: number;
+  transactionCosts: number;
 
-    if (!('title_ab' in d)) d.title_ab = 0;
-    if (!('title_bc' in d)) d.title_bc = 0;
-    if (!('other_ab' in d)) d.other_ab = 0;
-    if (!('other_bc' in d)) d.other_bc = 0;
+  notes: string[];
+};
 
-    return d;
-  };
+/**
+ * Minimal DoubleClose API to satisfy OverviewTab and DoubleCloseCalculator.
+ * We provide legacy aliases that your components call: computeDoubleClose() and autofill().
+ */
+export const DoubleClose = {
+  calculate(input: DoubleCloseInput): DoubleCloseCalcs {
+    const offer      = Number(input?.offer ?? 0) || 0;
+    const resale     = Number(input?.resale ?? 0) || 0;
+    const buyCosts   = Number(input?.buySideCosts ?? 0) || 0;
+    const sellCosts  = Number(input?.sellSideCosts ?? 0) || 0;
+    const assignment = Number(input?.assignmentFee ?? 0) || 0;
 
-  return { computeDoubleClose, autofill };
-})();
+    const grossSpread      = resale - offer;
+    const transactionCosts = buyCosts + sellCosts;
+
+    // Stub carry until policy-driven carry math is wired
+    const Carry_Daily = 0;
+    const Carry_Total = 0;
+
+    // Map UI-expected composite values
+    const Extra_Closing_Load       = transactionCosts;
+    const Net_Spread_Before_Carry  = grossSpread - transactionCosts - assignment;
+    const Net_Spread_After_Carry   = Net_Spread_Before_Carry - Carry_Total;
+
+    const notes: string[] = [];
+    if (!isFinite(Net_Spread_After_Carry)) notes.push("Inputs incomplete; showing zeroed math.");
+
+    return {
+      // Itemized taxes/fees (zero-safe placeholders for now)
+      Deed_Stamps_AB: 0,
+      Deed_Stamps_BC: 0,
+      Title_AB: 0,
+      Title_BC: 0,
+      Other_AB: 0,
+      Other_BC: 0,
+      TF_Points_$: 0,
+      DocStamps_Note: 0,
+      Intangible_Tax: 0,
+
+      // Carry & loads
+      Carry_Daily,
+      Carry_Total,
+      Extra_Closing_Load,
+
+      // Spread rollups
+      Gross_Spread: grossSpread,
+      Net_Spread_Before_Carry,
+      Net_Spread_After_Carry,
+
+      // Policy gates (placeholder)
+      Fee_Target_Threshold: 0,
+      Fee_Target_Check: "REVIEW",
+      Seasoning_Flag: "OK",
+
+      // Also expose camelCase used elsewhere
+      grossSpread,
+      assignmentFee: assignment,
+      buySideCosts: buyCosts,
+      sellSideCosts: sellCosts,
+      transactionCosts,
+
+      notes,
+    };
+  },
+
+  // Modern alias
+  compute(input: DoubleCloseInput) {
+    return this.calculate(input);
+  },
+  analyze(input: DoubleCloseInput) {
+    return this.calculate(input);
+  },
+
+  // Back-compat aliases used by your components
+  computeDoubleClose(input: DoubleCloseInput, _ctx?: { deal?: any }) {
+    return this.calculate(input);
+  },
+
+  // Back-compat no-op autofill (returns user input unchanged)
+  autofill(input: DoubleCloseInput, _ctx?: { deal?: any }, _calc?: any) {
+    return input;
+  },
+};

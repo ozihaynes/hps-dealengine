@@ -1,24 +1,5 @@
-@import 'tailwindcss';
-:root {
-  --bg: #030712;
-  --fg: #e5e7eb;
-}
-html,
-body {
-  background: var(--bg);
-  color: var(--fg);
-  min-height: 100%;
-}
-/* Pixel clarity additions */
-html,
-body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-.metric,
-.card,
-.panel {
-  -webkit-font-smoothing: antialiased;
-  text-rendering: geometricPrecision;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* project-wide tokens/hooks can be added here */

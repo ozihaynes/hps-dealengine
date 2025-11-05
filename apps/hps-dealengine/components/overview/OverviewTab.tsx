@@ -1,3 +1,4 @@
+'use client';
 import React from 'react';
 import type { Deal, EngineCalculations, Flags } from '../../types';
 import { fmt$, num, roundHeadline, getDealHealth } from '../../utils/helpers';
@@ -61,7 +62,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="After-Repair Value (ARV)"
-          value={effectiveHasInput ? fmt$(roundHeadline(deal.market.arv)) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline((deal.market?.arv ?? 0))) : '—'}
           icon={<Icon d={Icons.home} size={20} />}
         />
         <StatCard
@@ -79,7 +80,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="As-Is Value (AIV)"
-          value={effectiveHasInput ? fmt$(roundHeadline(deal.market.as_is_value)) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline((deal.market?.as_is_value ?? 0))) : '—'}
           icon={<Icon d={Icons.shield} size={20} />}
         />
         <StatCard
@@ -229,3 +230,4 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
+

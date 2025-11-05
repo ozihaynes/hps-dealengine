@@ -1,8 +1,0 @@
-# pnpm-workspace.yaml  (minimal safe example)
-packages:
-  - 'packages/*'
-  - 'apps/*'
-
-onlyBuiltDependencies:
-  - esbuild
-  - unrs-resolver

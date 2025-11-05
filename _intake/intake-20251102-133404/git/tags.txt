@@ -1,3 +1,0 @@
-dealengine-gemini-baseline
-v0.1.0
-dealengine-stable

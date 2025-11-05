@@ -1,6 +1,0 @@
-stash@{0}: On main: WIP before switching to main
-stash@{1}: On feat/launch-exports: WIP before switching to main
-stash@{2}: lint-staged automatic backup
-stash@{3}: lint-staged automatic backup
-stash@{4}: On phase-2-app-shell: temp before revert apps/dealengine
-stash@{5}: lint-staged automatic backup

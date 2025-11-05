@@ -1,76 +1,44 @@
-import { z } from 'zod';
+import { z } from "zod";
+import { Postures } from "./posture";
 
-/**
- * Token helper: accepts strings like "<AIV_CAP_PCT>" but doesn't hard-require the angle brackets.
- * We keep it permissive to avoid blocking UI while tokens are being wired.
- */
-const token = z.string().min(1).describe('placeholder token string, e.g., <AIV_CAP_PCT>');
-
+// Minimal schema to satisfy current UI reads in UnderwriteTab.
+// We will expand this in P02 when we migrate settings to Supabase.
 export const SettingsSchema = z.object({
-  aiv: z
-    .object({
-      hard_max_token: token.optional(),
-      hard_min_token: token.optional(),
-      safety_cap_pct_token: token.optional(),
-      soft_max_vs_arv_multiplier_token: token.optional(),
-      soft_max_comps_age_days_token: token.optional(),
-      soft_min_comps_token: token.optional(),
-      soft_min_radius_miles_token: token.optional(),
-      cap_override: z
-        .object({
-          approval_role: z.string().default('Owner'),
-          requires_bindable_insurance: z.boolean().default(true),
-        })
-        .partial()
-        .optional(),
-    })
-    .partial()
-    .default({}),
+  version: z.string().default("v1"),
 
-  arv: z
-    .object({
-      // reserved for future knobs (tokens for ARV rules)
-    })
-    .partial()
-    .default({}),
+  // Used for placeholders in UnderwriteTab (Safety on AIV)
+  aivSafetyCapPercentage: z.number().optional(),
 
-  carry: z
-    .object({
-      dom_add_days_default_token: token.optional(),
-      months_cap_token: token.optional(),
+  // Used for policy-driven min spread by ARV band (currently optional in UI)
+  minSpreadByArvBand: z.array(
+    z.object({
+      maxArv: z.number(),
+      minSpread: z.number()
     })
-    .partial()
-    .default({}),
+  ).default([]),
 
-  floors: z
-    .object({
-      respect_floor_enabled: z.boolean().default(true),
+  // Used to compute default % placeholders for commissions/sell-close/concessions
+  listingCostModelSellerCostLineItems: z.array(
+    z.object({
+      item: z.string(),
+      defaultPct: z.number().optional()
     })
-    .partial()
-    .default({}),
+  ).default([]),
 
-  fees: z
-    .object({
-      list_commission_pct_token: token.optional(),
-      concessions_pct_token: token.optional(),
-      sell_close_pct_token: token.optional(),
-    })
-    .partial()
-    .default({}),
+  // Future-proofing: where tokenized knobs live (<AIV_CAP_PCT>, etc.)
+  tokens: z.record(z.string(), z.unknown()).default({}),
 
-  evidence: z.record(z.string(), z.any()).default({}),
-  sources: z.record(z.string(), z.any()).default({}),
+  // Optional: a posture tag we can expand on later
+  posture: z.enum(Postures).default("base")
 });
 
 export type Settings = z.infer<typeof SettingsSchema>;
 
-/** No numbers; only structure + booleans and empty tokens. */
+// Keep defaults minimal—UI has its own numeric fallbacks.
+// This ensures nothing crashes even if you haven't authored sandboxSettings yet.
 export const policyDefaults: Settings = SettingsSchema.parse({
-  aiv: {},
-  arv: {},
-  carry: {},
-  floors: { respect_floor_enabled: true },
-  fees: {},
-  evidence: {},
-  sources: {},
+  version: "v1",
+  minSpreadByArvBand: [],
+  listingCostModelSellerCostLineItems: [],
+  tokens: {}
 });
