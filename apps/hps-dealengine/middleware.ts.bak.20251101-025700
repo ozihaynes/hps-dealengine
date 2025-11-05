@@ -1,0 +1,53 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+function unauthorized() {
+  return new NextResponse('Authentication required.', {
+    status: 401,
+    headers: { 'WWW-Authenticate': 'Basic realm="Secure Area", charset="UTF-8"' },
+  });
+}
+
+export function middleware(req: NextRequest) {
+  // dev bypass for local API writes
+  if (request.nextUrl && request.nextUrl.pathname.startsWith('/api/policy')) {
+    return NextResponse.next();
+  }
+
+  const user = process.env.APP_BASIC_AUTH_USER || process.env.BASIC_AUTH_USER;
+  const pass = process.env.APP_BASIC_AUTH_PASS || process.env.BASIC_AUTH_PASS;
+
+  // If creds aren’t set, fail closed (more secure)
+  if (!user || !pass) return unauthorized();
+
+  const auth = req.headers.get('authorization');
+  if (!auth) return unauthorized();
+
+  const [scheme, encoded] = auth.split(' ');
+  if (scheme !== 'Basic' || !encoded) return unauthorized();
+
+  // Edge-safe base64 decode (middleware runs on the edge runtime)
+  let decoded = '';
+  try {
+    decoded = atob(encoded);
+  } catch {
+    return unauthorized();
+  }
+
+  const sep = decoded.indexOf(':');
+  if (sep < 0) return unauthorized();
+
+  const username = decoded.slice(0, sep);
+  const password = decoded.slice(sep + 1);
+
+  if (username !== user || password !== pass) return unauthorized();
+
+  return NextResponse.next();
+}
+
+// Protect everything except Next internals/static
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|assets/|public/).*)',
+  ],
+};
+

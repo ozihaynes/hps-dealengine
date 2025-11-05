@@ -2,3 +2,7 @@ node_modules
 
 packages/**/dist
 .vercel
+
+# local sandbox data
+apps/hps-dealengine/app/data/
+

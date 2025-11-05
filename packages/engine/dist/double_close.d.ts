@@ -27,7 +27,7 @@ export type DCInput = {
     ab_pages?: number;
     bc_pages?: number;
     county?: string;
-    property_type?: "SFR" | "OTHER";
+    property_type?: 'SFR' | 'OTHER';
     hold_days?: number;
     monthly_carry?: number | string;
 };
@@ -43,6 +43,6 @@ export type DCDetailed = {
     dc_total_costs: number;
     dc_carry_cost: number;
     dc_net_spread: number;
-    comparison: "AssignmentBetter" | "DoubleCloseBetter" | "Equal";
+    comparison: 'AssignmentBetter' | 'DoubleCloseBetter' | 'Equal';
 };
 export declare function computeDoubleClose(input: DCInput): DCDetailed;

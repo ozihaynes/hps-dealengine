@@ -1,12 +1,14 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "preserve",
     "baseUrl": ".",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "paths": {
       "@/*": ["./*"]
     },
-    "jsx": "preserve",
-    "allowJs": false,
+    "allowJs": true,
     "incremental": true,
     "plugins": [
       {
@@ -14,17 +16,6 @@
       }
     ]
   },
-  "include": ["next-env.d.ts", "app/**/*", "components/**/*", "lib/**/*", ".next/types/**/*.ts"],
-  "exclude": [
-    ".next",
-    "node_modules",
-    "eslint.config.mjs",
-    "next.config.mjs",
-    "postcss.config.js",
-    "postcss.config.cjs",
-    "tailwind.config.js",
-    "tailwind.config.cjs",
-    "tailwind.config.ts",
-    "vercel.json"
-  ]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
 }

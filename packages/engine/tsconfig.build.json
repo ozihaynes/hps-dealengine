@@ -1,16 +1,15 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist",
-    "declaration": true,
-    "emitDeclarationOnly": false,
-    "module": "ESNext",
-    "target": "ES2022",
-    "moduleResolution": "Bundler",
-    "verbatimModuleSyntax": true,
-    "resolveJsonModule": true,
-    "sourceMap": false,
-    "stripInternal": true
+    "noEmitOnError": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/compute_underwriting_with_trace.ts",
+    "src/run_underwrite.ts",
+    "src/utils/trace.ts"
+  ]
 }

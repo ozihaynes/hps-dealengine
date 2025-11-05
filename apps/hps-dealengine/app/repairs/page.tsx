@@ -1,4 +1,7 @@
-import GeminiApp from '../../components/GeminiApp';
 export default function Page() {
-  return <GeminiApp activeTab="repairs" />;
+  return (
+    <div className="text-slate-300">
+      <p className="opacity-80">Repairs module placeholder — hook your Repairs UI here.</p>
+    </div>
+  );
 }

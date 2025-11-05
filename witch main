@@ -1,0 +1,21 @@
+  feat/launch-exports                     [m fe2d6ca [[34morigin/feat/launch-exports[m] feat(engine): stable double-close (FL) + exports; green tests
+  feature/dealengine-phase2               [m 0163d2b [[34morigin/feature/dealengine-phase2[m] chore: ignore dist outputs
+  feature/underwrite-api                  [m 1825972 [[34morigin/feature/underwrite-api[m] feat(api): add DTM earliest-of and use it to compute capped carry
+  fixes/20251027_122214                   [m 43224b1 [[34morigin/fixes/20251027_122214[m: ahead 3] chore: remove stray debug file
+* [32mmain                                    [m 8b8ed3a [[34morigin/main[m] feat(api): force-dynamic health/version; whitelist in middleware
+  master                                  [m 7b9827d Initial commit: Setup monorepo, Next.js app, and tooling
+  phase-2-app-shell                       [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_175418                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_181244                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_181734                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_181955                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_184614                  [m f67bd1f rescue: restore pre-migration config and app/api routes
+  rescue/20251026_184656                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue/20251026_220238                  [m e7b3da6 DealEngine: demo loader + stable hooks (prettier-only)
+  rescue_20251026_182852                  [m f67bd1f rescue: restore pre-migration config and app/api routes
+  [31mremotes/origin/HEAD                     [m -> origin/main
+  [31mremotes/origin/feat/launch-exports      [m fe2d6ca feat(engine): stable double-close (FL) + exports; green tests
+  [31mremotes/origin/feature/dealengine-phase2[m 0163d2b chore: ignore dist outputs
+  [31mremotes/origin/feature/underwrite-api   [m 1825972 feat(api): add DTM earliest-of and use it to compute capped carry
+  [31mremotes/origin/fixes/20251027_122214    [m 98deba0 fix(engine): dedupe POLICY import; externalize policy cleanly
+  [31mremotes/origin/main                     [m 8b8ed3a feat(api): force-dynamic health/version; whitelist in middleware

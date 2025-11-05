@@ -16,11 +16,11 @@ export function computeDoubleClose(input) {
     const priceAB = coalesceNumber(input.sellerPrice, input.a_price, input.price_ab, input.ab_price, input.a_to_b_price);
     const priceBC = coalesceNumber(input.buyerPrice, input.b_price, input.price_bc, input.bc_price, input.b_to_c_price);
     if (priceAB == null || priceBC == null) {
-        throw new Error("computeDoubleClose requires A->B and B->C prices");
+        throw new Error('computeDoubleClose requires A->B and B->C prices');
     }
-    const county = (input.county ?? "").toLowerCase();
-    const isMiami = county.includes("miami") || county.includes("dade") || county.includes("mdc");
-    const ptype = input.property_type ?? "SFR";
+    const county = (input.county ?? '').toLowerCase();
+    const isMiami = county.includes('miami') || county.includes('dade') || county.includes('mdc');
+    const ptype = input.property_type ?? 'SFR';
     const deedRateAB = deedRate(isMiami, ptype);
     const deedRateBC = deedRate(isMiami, ptype);
     const ab_pages = Math.max(1, Math.floor(input.ab_pages ?? 1));
@@ -49,13 +49,21 @@ export function computeDoubleClose(input) {
     const dc_carry_cost = carrying_costs; // keep 2-decimal precision
     const gross_spread = priceBC - priceAB;
     const dc_net_spread = round0(gross_spread - (dc_total_costs + dc_carry_cost));
-    let comparison = "Equal";
+    let comparison = 'Equal';
     const assignment_net = round0(gross_spread); // simple baseline: no closing costs
     if (assignment_net > dc_net_spread)
-        comparison = "AssignmentBetter";
+        comparison = 'AssignmentBetter';
     else if (assignment_net < dc_net_spread)
-        comparison = "DoubleCloseBetter";
-    return { side_ab, side_bc, carrying_costs, dc_total_costs, dc_carry_cost, dc_net_spread, comparison };
+        comparison = 'DoubleCloseBetter';
+    return {
+        side_ab,
+        side_bc,
+        carrying_costs,
+        dc_total_costs,
+        dc_carry_cost,
+        dc_net_spread,
+        comparison,
+    };
 }
 // ----------------------------
 // Helpers (policy-calibrated)
@@ -64,7 +72,7 @@ export function computeDoubleClose(input) {
 // FL default 0.007; Miami-Dade SFR 0.006; Miami-Dade OTHER 0.0105 (surtax).
 function deedRate(isMiami, property) {
     if (isMiami) {
-        return property === "SFR" ? 0.006 : 0.0105;
+        return property === 'SFR' ? 0.006 : 0.0105;
     }
     return 0.007;
 }
@@ -86,17 +94,22 @@ function titlePremium(amount) {
 }
 // number utils (accept number or numeric string)
 function asNumber(x) {
-    const n = typeof x === "string" ? Number(x.trim()) : Number(x);
+    const n = typeof x === 'string' ? Number(x.trim()) : Number(x);
     return Number.isFinite(n) ? n : 0;
 }
 function coalesceNumber(...vals) {
     for (const v of vals) {
         const n = asNumber(v);
-        if (Number.isFinite(n) && !(v === undefined || v === null || (typeof v === "string" && v.trim() === ""))) {
+        if (Number.isFinite(n) &&
+            !(v === undefined || v === null || (typeof v === 'string' && v.trim() === ''))) {
             return n;
         }
     }
     return undefined;
 }
-function round2(n) { return Math.round(n * 100) / 100; }
-function round0(n) { return Math.round(n); }
+function round2(n) {
+    return Math.round(n * 100) / 100;
+}
+function round0(n) {
+    return Math.round(n);
+}

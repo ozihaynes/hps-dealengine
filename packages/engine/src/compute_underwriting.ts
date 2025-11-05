@@ -1,186 +1,304 @@
-// packages/engine/src/compute_underwriting.ts
-import { UNDERWRITE_POLICY, type UnderwritePolicy } from './policy-defaults.js';
-import type {
-  EngineDeal,
-  DTMOut,
-  CarryOut,
-  FloorsOut,
-  CeilingsOut,
-  HeadlinesOut,
-  UnderwriteResult,
-  Money,
-} from './types.js';
-
-const n = (v: unknown, d = 0): number => {
-  const x = Number(v);
-  return Number.isFinite(x) ? x : d;
-};
-const sum = (arr: Array<number>) => arr.reduce((a, b) => a + b, 0);
-
-export function computeDTM(deal: EngineDeal, policy: UnderwritePolicy = UNDERWRITE_POLICY): DTMOut {
-  const dom = n(deal.market?.dom_zip, NaN);
-  const add = n(policy.default_cash_close_add_days, 35);
-  const manual = n(deal.timeline?.days_to_sale_manual, NaN);
-  const domBased = Number.isFinite(dom) ? Math.max(0, Math.round(dom + add)) : Infinity;
-  const manualBased = Number.isFinite(manual) && manual > 0 ? manual : Infinity;
-
-  if (!Number.isFinite(domBased) && !Number.isFinite(manualBased)) {
-    return { days: 0, method: 'unknown' };
-  }
-  if (manualBased <= domBased) {
-    return { days: manualBased, method: 'manual', manual };
-  }
-  return { days: domBased, method: 'dom+add', dom_zip: dom, add_days: add };
-}
-
-export function computeCarry(
-  deal: EngineDeal,
-  dtm: DTMOut,
-  policy: UnderwritePolicy = UNDERWRITE_POLICY
-): CarryOut {
-  const m = deal.costs?.monthly ?? {};
-  const taxesMonthly = policy.annual_cost_keys.includes('taxes') ? n(m.taxes) / 12 : n(m.taxes);
-  const insMonthly = policy.annual_cost_keys.includes('insurance')
-    ? n(m.insurance) / 12
-    : n(m.insurance);
-  const amountMonthly = Math.max(0, taxesMonthly + insMonthly + n(m.hoa) + n(m.utilities));
-
-  const monthsRaw = Math.max(0, dtm.days / 30);
-  const cap = n(policy.carry_month_cap, 5);
-  const cappedMonths = Math.min(monthsRaw, cap);
-  const total = +(amountMonthly * cappedMonths).toFixed(2);
-
-  return {
-    months: +monthsRaw.toFixed(3),
-    capped_months: +cappedMonths.toFixed(3),
-    cap,
-    amount_monthly: +amountMonthly.toFixed(2),
-    total,
-    note: 'Carry = monthly sum × min(DTM/30, cap). Taxes/insurance treated as annual ÷ 12.',
-  };
-}
-
 /**
- * Respect Floor:
- * - payoff_plus_essentials = senior + Σ juniors + essentials_moveout_cash
- * - investor:
- *    • null when NO discounts present in policy (tests expect this)
- *    • otherwise { p20, typical, p20_floor?, typical_floor? } where floors are AIV*(1 - pct)
- * - operational = max(payoff_plus_essentials, max(investor floors)) if investor present, else payoff_plus_essentials
+ * Deterministic underwriting core (MVP).
+ * - Resolves AIV cap and fee rates from an already-token-resolved policy.
+ * - Adds Carry Months (DOM→months with cap) using tokens.
+ * - Returns caps + fee rates + fee preview + carry, with round-to-cents math.
+ * - Adds a provenance trace and infoNeeded for any missing policy inputs.
  */
-export function computeRespectFloor(
-  deal: EngineDeal,
-  policy: UnderwritePolicy = UNDERWRITE_POLICY
-): FloorsOut {
-  // Payoff + essentials (include juniors exactly like your prior version)
-  const senior = n(deal.debt?.senior_principal);
-  const juniors = (deal.debt?.juniors ?? []).map((j) => n((j as any)?.amount));
-  const essentials = n(deal.costs?.essentials_moveout_cash);
-  const payoff_plus_essentials = Math.round(senior + sum(juniors) + essentials);
 
-  // AIV and optional investor discounts drawn from policy
-  const aiv = n(deal.market?.aiv);
+type Json = any;
 
-  // Accept both the new nested shape and any legacy direct pct fields via a safe cast
-  const inv = (policy as any)?.investor_discounts as
-    | { p20_zip?: number; typical_zip?: number }
-    | undefined;
+type InfoNeeded = {
+  path: string;
+  token?: string | null;
+  reason: string;
+  source_of_truth?: 'investor_set' | 'team_policy_set' | 'external_feed' | 'unknown';
+};
 
-  const p20Pct: number | null = typeof inv?.p20_zip === 'number' ? inv!.p20_zip : null;
-  const typicalPct: number | null = typeof inv?.typical_zip === 'number' ? inv!.typical_zip : null;
+type TraceEntry = {
+  rule: string;
+  used: string[];
+  details?: Record<string, unknown>;
+};
 
-  // If we have no discounts at all → investor must be null (to satisfy tests)
-  let investor: FloorsOut['investor'] = null;
-
-  let p20_floor: number | null = null;
-  let typical_floor: number | null = null;
-
-  if (Number.isFinite(aiv) && (p20Pct != null || typicalPct != null)) {
-    if (p20Pct != null) p20_floor = Math.round(aiv * (1 - p20Pct));
-    if (typicalPct != null) typical_floor = Math.round(aiv * (1 - typicalPct));
-
-    // Build investor object including available pct(s) and floor(s)
-    investor = {
-      p20: p20Pct,
-      typical: typicalPct,
-      ...(p20_floor != null ? { p20_floor } : {}),
-      ...(typical_floor != null ? { typical_floor } : {}),
+export type UnderwriteOutputs = {
+  caps: { aivCapApplied: boolean; aivCapValue: number | null };
+  carry: {
+    monthsRule: string | null;
+    monthsCap: number | null;
+    rawMonths: number | null;
+    carryMonths: number | null;
+  };
+  fees: {
+    rates: {
+      list_commission_pct: number;
+      concessions_pct: number;
+      sell_close_pct: number;
     };
+    preview: {
+      base_price: number;
+      list_commission_amount: number;
+      concessions_amount: number;
+      sell_close_amount: number;
+      total_seller_side_costs: number;
+    };
+  };
+  summaryNotes: string[];
+};
+
+export type AnalyzeResult = {
+  ok: true;
+  infoNeeded: InfoNeeded[];
+  trace: TraceEntry[];
+  outputs: UnderwriteOutputs;
+};
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function getNumber(obj: any, path: string[], fallback: number | null = null): number | null {
+  let cur = obj;
+  for (const k of path) {
+    if (cur == null) return fallback;
+    cur = cur[k];
+  }
+  if (typeof cur === 'number' && Number.isFinite(cur)) return cur;
+  return fallback;
+}
+
+function getString(obj: any, path: string[], fallback: string | null = null): string | null {
+  let cur = obj;
+  for (const k of path) {
+    if (cur == null) return fallback;
+    cur = cur[k];
+  }
+  if (typeof cur === 'string' && cur.length > 0) return cur;
+  return fallback;
+}
+
+/** Parse a simple DOM→months rule like "DOM/30". Unknown patterns fall back to DOM/30. */
+function monthsFromDom(dom: number, rule: string | null): number {
+  const r = (rule ?? 'DOM/30').trim().toUpperCase();
+  const m = r.match(/^DOM\s*\/\s*(\d+(\.\d+)?)$/);
+  const divisor = m ? Number(m[1]) : 30;
+  if (!Number.isFinite(divisor) || divisor <= 0) return dom / 30;
+  return dom / divisor;
+}
+
+export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
+  const infoNeeded: InfoNeeded[] = [];
+  const trace: TraceEntry[] = [];
+  const summaryNotes: string[] = [];
+
+  // ---- Inputs from deal
+  const aiv = getNumber(deal, ['market', 'aiv'], null);
+  const domZip = getNumber(deal, ['market', 'dom_zip'], null);
+
+  if (aiv == null) {
+    infoNeeded.push({
+      path: 'deal.market.aiv',
+      token: null,
+      reason: 'AIV (as-is value) required to compute caps and fee preview.',
+      source_of_truth: 'investor_set',
+    });
   }
 
-  // Choose operational
-  const floorsAvailable = [p20_floor, typical_floor].filter(
-    (x): x is number => typeof x === 'number'
-  );
-  const investorMax = floorsAvailable.length > 0 ? Math.max(...floorsAvailable) : null;
+  // ---- Policy tokens (already resolved by API)
 
-  const operational =
-    investorMax == null ? payoff_plus_essentials : Math.max(payoff_plus_essentials, investorMax);
+  // AIV safety cap percent (e.g., 0.97)
+  const aivCapPct =
+    getNumber(policy, ['aiv', 'safety_cap_pct_token'], null) ??
+    getNumber(policy, ['aiv', 'safety_cap_pct'], null);
 
-  // Notes: only add dataset note when investor is null
-  const notes: string[] =
-    investor == null
-      ? [
-          '[INFO NEEDED] ZIP investor discount dataset not wired; RF uses payoff+essentials if higher.',
-        ]
-      : [];
+  if (aivCapPct == null) {
+    infoNeeded.push({
+      path: 'policy.aiv.safety_cap_pct_token',
+      token: '<AIV_CAP_PCT>',
+      reason: 'Missing AIV safety cap percentage.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
 
-  return {
-    payoff_plus_essentials,
-    investor,
-    operational: Math.round(operational),
-    notes,
-  };
-}
+  // Carry: rule + hard cap
+  const carryRule =
+    getString(policy, ['carry', 'dom_to_months_rule_token'], null) ??
+    getString(policy, ['carry', 'dom_to_months_rule'], null);
 
-export function computeBuyerCeiling(
-  deal: EngineDeal,
-  policy: UnderwritePolicy = UNDERWRITE_POLICY
-): CeilingsOut {
-  const aiv = n(deal.market?.aiv);
-  const maoAivCap = +(aiv * n(policy.mao_aiv_cap_pct, 0.97)).toFixed(2);
-  const candidates = [
-    {
-      label: 'AIV cap',
-      value: maoAivCap,
-      eligible: Number.isFinite(maoAivCap),
-      reason: 'Presentation clamp (≤ cap × AIV).',
+  const carryCap =
+    getNumber(policy, ['carry', 'months_cap_token'], null) ??
+    getNumber(policy, ['carry', 'months_cap'], null);
+
+  if (carryRule == null) {
+    infoNeeded.push({
+      path: 'policy.carry.dom_to_months_rule_token',
+      token: '<DOM_TO_MONTHS_RULE>',
+      reason: 'Missing DOM→months rule.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+  if (carryCap == null) {
+    infoNeeded.push({
+      path: 'policy.carry.months_cap_token',
+      token: '<CARRY_MONTHS_CAP>',
+      reason: 'Missing hard cap on carry months.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+
+  // Fee rates (percent as decimal)
+  const listPct =
+    getNumber(policy, ['fees', 'list_commission_pct_token'], null) ??
+    getNumber(policy, ['fees', 'list_commission_pct'], null);
+  const concessionsPct =
+    getNumber(policy, ['fees', 'concessions_pct_token'], null) ??
+    getNumber(policy, ['fees', 'concessions_pct'], null);
+  const sellClosePct =
+    getNumber(policy, ['fees', 'sell_close_pct_token'], null) ??
+    getNumber(policy, ['fees', 'sell_close_pct'], null);
+
+  if (listPct == null) {
+    infoNeeded.push({
+      path: 'policy.fees.list_commission_pct_token',
+      token: '<LIST_COMM_PCT>',
+      reason: 'Missing list commission percentage.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+  if (concessionsPct == null) {
+    infoNeeded.push({
+      path: 'policy.fees.concessions_pct_token',
+      token: '<CONCESSIONS_PCT>',
+      reason: 'Missing concessions percentage.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+  if (sellClosePct == null) {
+    infoNeeded.push({
+      path: 'policy.fees.sell_close_pct_token',
+      token: '<SELL_CLOSE_PCT>',
+      reason: 'Missing seller-side closing cost percentage.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+
+  // ---- Caps
+  let aivCapApplied = false;
+  let aivCapValue: number | null = null;
+
+  if (aiv != null && aivCapPct != null) {
+    const capped = round2(aiv * aivCapPct);
+    aivCapValue = capped;
+    aivCapApplied = capped < aiv;
+    trace.push({
+      rule: 'AIV_CAP',
+      used: ['deal.market.aiv', 'policy.aiv.safety_cap_pct_token'],
+      details: { aiv, cap_pct: aivCapPct, cap_value: capped, applied: aivCapApplied },
+    });
+    summaryNotes.push(
+      aivCapApplied
+        ? `AIV safety cap applied at ${aivCapPct}; capped AIV = ${capped.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}.`
+        : `AIV safety cap not binding; cap = ${round2(aivCapPct * 100).toFixed(0)}% of AIV.`
+    );
+  } else {
+    trace.push({
+      rule: 'AIV_CAP',
+      used: ['deal.market.aiv', 'policy.aiv.safety_cap_pct_token'],
+      details: { aiv, cap_pct: aivCapPct, message: 'Insufficient inputs for cap.' },
+    });
+  }
+
+  const basePrice = aivCapValue ?? aiv ?? 0;
+
+  // ---- Carry Months (DOM → months, clamped)
+  let rawMonths: number | null = null;
+  let carryMonths: number | null = null;
+
+  if (domZip != null) {
+    rawMonths = monthsFromDom(domZip, carryRule);
+  }
+  if (rawMonths != null) {
+    carryMonths = carryCap != null ? Math.min(rawMonths, carryCap) : rawMonths;
+  }
+
+  trace.push({
+    rule: 'CARRY_MONTHS',
+    used: [
+      'deal.market.dom_zip',
+      'policy.carry.dom_to_months_rule_token',
+      'policy.carry.months_cap_token',
+    ],
+    details: {
+      dom_zip: domZip,
+      rule: carryRule ?? null,
+      raw_months: rawMonths,
+      months_cap: carryCap ?? null,
+      carry_months: carryMonths,
     },
-  ];
-  const chosen: Money | null = candidates.find((c) => c.eligible)?.value ?? null;
-  return {
-    chosen,
-    reason: 'cap_only',
-    mao_aiv_cap: maoAivCap,
-    candidates,
-    notes: ['[INFO NEEDED] Full ceilings & gates to follow SOT.'],
+  });
+
+  if (domZip != null) {
+    summaryNotes.push(
+      carryMonths != null
+        ? `Carry months = ${carryMonths.toFixed(2)} (rule ${carryRule ?? 'DOM/30'}, raw ${rawMonths?.toFixed(2)}).`
+        : `DOM provided (${domZip}) but carry months not computed due to missing rule/cap.`
+    );
+  }
+
+  // ---- Fees preview
+  const lp = listPct ?? 0;
+  const cp = concessionsPct ?? 0;
+  const sp = sellClosePct ?? 0;
+
+  const listAmt = round2(basePrice * lp);
+  const consAmt = round2(basePrice * cp);
+  const sellCloseAmt = round2(basePrice * sp);
+  const totalSellerSide = round2(listAmt + consAmt + sellCloseAmt);
+
+  trace.push({
+    rule: 'FEES_PREVIEW',
+    used: [
+      'policy.fees.list_commission_pct_token',
+      'policy.fees.concessions_pct_token',
+      'policy.fees.sell_close_pct_token',
+      'basePrice',
+    ],
+    details: {
+      basePrice,
+      list_commission_pct: lp,
+      concessions_pct: cp,
+      sell_close_pct: sp,
+      list_commission_amount: listAmt,
+      concessions_amount: consAmt,
+      sell_close_amount: sellCloseAmt,
+      total_seller_side_costs: totalSellerSide,
+    },
+  });
+
+  const outputs: UnderwriteOutputs = {
+    caps: { aivCapApplied, aivCapValue },
+    carry: {
+      monthsRule: carryRule ?? null,
+      monthsCap: carryCap ?? null,
+      rawMonths,
+      carryMonths,
+    },
+    fees: {
+      rates: {
+        list_commission_pct: lp,
+        concessions_pct: cp,
+        sell_close_pct: sp,
+      },
+      preview: {
+        base_price: basePrice,
+        list_commission_amount: listAmt,
+        concessions_amount: consAmt,
+        sell_close_amount: sellCloseAmt,
+        total_seller_side_costs: totalSellerSide,
+      },
+    },
+    summaryNotes,
   };
-}
 
-export function composeHeadlines(
-  deal: EngineDeal,
-  floors: FloorsOut,
-  ceilings: CeilingsOut,
-  _carry: CarryOut
-): HeadlinesOut {
-  const instant = ceilings.chosen ?? null;
-  const net: Money | null = floors.operational ?? null;
-  const notes = [
-    'Net to seller currently reflects Respect-Floor operational (payoff+essentials or investor floor).',
-  ];
-  if (instant == null)
-    notes.unshift('[INFO NEEDED] Ceiling not determined; instant_cash_offer unavailable.');
-  return { instant_cash_offer: instant, net_to_seller: net, notes };
-}
-
-export function computeUnderwriting(
-  deal: EngineDeal,
-  policy: UnderwritePolicy = UNDERWRITE_POLICY
-): UnderwriteResult {
-  const dtm = computeDTM(deal, policy);
-  const carry = computeCarry(deal, dtm, policy);
-  const floors = computeRespectFloor(deal, policy);
-  const ceilings = computeBuyerCeiling(deal, policy);
-  const headlines = composeHeadlines(deal, floors, ceilings, carry);
-  return { inputs: { deal }, policy, dtm, carry, floors, ceilings, headlines };
+  return { ok: true, infoNeeded, trace, outputs };
 }

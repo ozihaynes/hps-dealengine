@@ -1,43 +1,40 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-const PUBLIC_PREFIXES = ['/api/health', '/api/version'];
-
+/**
+ * Dev: skip auth entirely.
+ * Prod: enforce Basic Auth for app pages; exclude /api, /_next, static assets, and common file types.
+ */
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  if (
-    pathname.startsWith('/_next/') ||
-    pathname === '/favicon.ico' ||
-    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))
-  ) {
+  if (process.env.NODE_ENV !== 'production') {
     return NextResponse.next();
   }
 
-  const user = process.env.APP_BASIC_AUTH_USER || process.env.BASIC_AUTH_USER;
-  const pass = process.env.APP_BASIC_AUTH_PASS || process.env.BASIC_AUTH_PASS;
+  const auth = req.headers.get('authorization') || '';
+  const [scheme, encoded] = auth.split(' ');
 
-  if (!user || !pass) return NextResponse.next();
-
-  const header = req.headers.get('authorization') || '';
-  if (!header.startsWith('Basic ')) return unauthorized();
-
-  try {
-    const decoded = atob(header.slice(6));
-    const [u, p] = decoded.split(':');
-    if (u === user && p === pass) return NextResponse.next();
-    return unauthorized();
-  } catch {
-    return unauthorized();
+  if (scheme !== 'Basic' || !encoded) {
+    return new NextResponse('Authentication required.', {
+      status: 401,
+      headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
+    });
   }
-}
 
-function unauthorized() {
-  return new NextResponse('Authentication required', {
-    status: 401,
-    headers: { 'WWW-Authenticate': 'Basic realm="Protected"' },
-  });
+  const [user, pass] = Buffer.from(encoded, 'base64').toString().split(':');
+
+  const USER = process.env.BASIC_AUTH_USER || 'ozi';
+  const PASS = process.env.BASIC_AUTH_PASS || 'Password';
+
+  if (user !== USER || pass !== PASS) {
+    return new NextResponse('Access denied.', { status: 401 });
+  }
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    // Everything except /api, Next assets, static files, and common file types
+    '/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map)).*)',
+  ],
 };

@@ -1,13 +1,31 @@
-// apps/hps-dealengine/lib/api.ts
+import type { Settings } from '@hps-internal/contracts';
 
-export type RunUnderwriteResult = { ok: boolean; results?: any; error?: string };
+export async function fetchPolicy(): Promise<Settings> {
+  const res = await fetch('/api/policy', { method: 'GET' });
+  const data = await res.json();
+  if (!data?.ok) throw new Error('Failed to load policy');
+  return data.policy as Settings;
+}
 
-export async function runUnderwrite(deal: any): Promise<RunUnderwriteResult> {
-  const res = await fetch('/api/run-underwrite', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ deal }),
+export async function putPolicy(policy: Settings): Promise<Settings> {
+  const res = await fetch('/api/policy', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ policy }),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return (await res.json()) as RunUnderwriteResult;
+  const data = await res.json();
+  if (!data?.ok) throw new Error('Failed to save policy');
+  return data.policy as Settings;
+}
+
+/** Post to /api/analyze and normalize the response shape */
+export async function analyze(deal: any, policy?: Settings | null): Promise<any> {
+  const res = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deal, policy: policy ?? undefined }),
+  });
+  const data = await res.json();
+  // Our route returns { ok, result }, but tolerate direct objects too.
+  return data && typeof data === 'object' && 'result' in data ? (data.result ?? null) : data;
 }

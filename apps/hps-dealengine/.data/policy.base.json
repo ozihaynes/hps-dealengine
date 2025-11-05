@@ -1,0 +1,13 @@
+{
+  "posture": "base",
+  "tokens": {
+    "SELL_CLOSE_PCT": "<SELL_CLOSE_PCT>",
+    "CONCESSIONS_PCT": "<CONCESSIONS_PCT>",
+    "CARRY_MONTHS_CAP": "<CARRY_MONTHS_CAP>",
+    "LIST_COMM_PCT": "<LIST_COMM_PCT>",
+    "AIV_CAP_PCT": "<AIV_CAP_PCT>"
+  },
+  "metadata": {
+    "note": "saved from PowerShell smoke test"
+  }
+}
