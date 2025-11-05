@@ -1,5 +1,7 @@
-**/.next/cache
-**/node_modules
-**/.turbo
-**/.pnpm-store
-**/*.log
+_snapshots
+_tmp
+.tmp
+*.zip
+*.7z
+**/*.zip
+**/*.7z
