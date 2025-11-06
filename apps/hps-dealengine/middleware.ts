@@ -1,40 +1,34 @@
-import { NextResponse } from 'next/server';
+// apps/hps-dealengine/middleware.ts
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
-/**
- * Dev: skip auth entirely.
- * Prod: enforce Basic Auth for app pages; exclude /api, /_next, static assets, and common file types.
- */
+export const config = {
+  // Protect “pages” only; let assets/api pass through.
+  matcher: ['/((?!_next|static|favicon.ico|api).*)'],
+};
+
 export function middleware(req: NextRequest) {
-  if (process.env.NODE_ENV !== 'production') {
+  const enabled = process.env.BASIC_AUTH_ENABLED === 'true';
+  const vercelEnv = process.env.VERCEL_ENV || process.env.NODE_ENV; // 'development' | 'preview' | 'production'
+
+  // Skip Basic Auth on Vercel Preview/Production so reviewers can browse
+  if (!enabled || vercelEnv === 'preview' || vercelEnv === 'production') {
     return NextResponse.next();
   }
 
+  const user = process.env.BASIC_AUTH_USER || '';
+  const pass = process.env.BASIC_AUTH_PASS || '';
   const auth = req.headers.get('authorization') || '';
-  const [scheme, encoded] = auth.split(' ');
-
-  if (scheme !== 'Basic' || !encoded) {
-    return new NextResponse('Authentication required.', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="Secure Area"' },
-    });
+  const basic = auth.startsWith('Basic ') ? auth.slice(6) : '';
+  try {
+    const [u, p] = atob(basic).split(':');
+    if (u === user && p === pass) return NextResponse.next();
+  } catch {
+    /* fall through to 401 */
   }
 
-  const [user, pass] = Buffer.from(encoded, 'base64').toString().split(':');
-
-  const USER = process.env.BASIC_AUTH_USER || 'ozi';
-  const PASS = process.env.BASIC_AUTH_PASS || 'Password';
-
-  if (user !== USER || pass !== PASS) {
-    return new NextResponse('Access denied.', { status: 401 });
-  }
-
-  return NextResponse.next();
+  return new NextResponse('Unauthorized', {
+    status: 401,
+    headers: { 'WWW-Authenticate': 'Basic realm="HPS DealEngine"' },
+  });
 }
-
-export const config = {
-  matcher: [
-    // Everything except /api, Next assets, static files, and common file types
-    '/((?!api|_next|static|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map)).*)',
-  ],
-};
