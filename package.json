@@ -57,6 +57,9 @@
   "dependencies": {
     "@hps-internal/contracts": "workspace:*",
     "@supabase/supabase-js": "^2.76.1",
+    "next": "^14.2.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "zod": "^3.23.8"
   },
   "engines": {

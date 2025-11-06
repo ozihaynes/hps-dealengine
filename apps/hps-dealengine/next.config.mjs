@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: { esmExternals: "loose" },
-  transpilePackages: ["@hps-internal/engine"],
+  reactStrictMode: true,
+  transpilePackages: [\"@hps-internal/engine\", \"@hps-internal/contracts\"]
 };
 export default nextConfig;
