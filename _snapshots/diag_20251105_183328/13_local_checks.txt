@@ -1,0 +1,78 @@
+=== pnpm -w typecheck ===
+
+> hps-internal-tools@1.0.0 typecheck C:\Users\oziha\Documents\hps-dealengine
+> pnpm -r exec tsc -p . --noEmit
+
+
+=== engine build (filter) ===
+Scope: 3 of 4 workspace projects
+packages/contracts build$ tsc -p tsconfig.json
+packages/contracts build: Done
+packages/engine build$ tsc -p tsconfig.build.json
+packages/engine build: Done
+. build$ pnpm -w --filter @hps-internal/engine... build && pnpm -w --filter hps-dealengine build
+. build: Scope: 3 of 4 workspace projects
+. build: packages/contracts build$ tsc -p tsconfig.json
+. build: packages/contracts build: Done
+. build: packages/engine build$ tsc -p tsconfig.build.json
+. build: packages/engine build: Done
+. build: Scope: 2 of 4 workspace projects
+. build: apps/hps-dealengine build$ next build
+. build: apps/hps-dealengine build:   Γû▓ Next.js 14.2.5
+. build: apps/hps-dealengine build:   - Environments: .env.local
+. build: apps/hps-dealengine build:   - Experiments (use with caution):
+. build: apps/hps-dealengine build:     ┬╖ esmExternals
+. build: apps/hps-dealengine build:    Creating an optimized production build ...
+. build: apps/hps-dealengine build:  Γ£ô Compiled successfully
+. build: apps/hps-dealengine build:    Linting and checking validity of types ...
+. build: apps/hps-dealengine build:    Collecting page data ...
+. build: apps/hps-dealengine build:    Generating static pages (0/22) ...
+. build: apps/hps-dealengine build:    Generating static pages (5/22) 
+. build: apps/hps-dealengine build:    Generating static pages (10/22) 
+. build: apps/hps-dealengine build:    Generating static pages (16/22) 
+. build: apps/hps-dealengine build:  Γ£ô Generating static pages (22/22)
+. build: apps/hps-dealengine build:    Finalizing page optimization ...
+. build: apps/hps-dealengine build:    Collecting build traces ...
+. build: apps/hps-dealengine build: Route (app)                              Size     First Load JS
+. build: apps/hps-dealengine build: Γöî Γùï /                                    156 B          87.3 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /_not-found                          872 B          88.1 kB
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/analyze                         0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/deals                           0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/deals/[id]                      0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/health                          0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/policy                          0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/scenarios                       0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/scenarios/[id]                  0 B                0 B
+. build: apps/hps-dealengine build: Γö£ Γùï /api/tokens                          0 B                0 B
+. build: apps/hps-dealengine build: Γö£ Γùï /api/user-prefs                      0 B                0 B
+. build: apps/hps-dealengine build: Γö£ ╞Æ /api/version                         0 B                0 B
+. build: apps/hps-dealengine build: Γö£ Γùï /debug/ping                          1.08 kB         138 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /debug/ping/policy                   1.18 kB         138 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /login                               1.24 kB         138 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /overview                            3.29 kB         105 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /repairs                             156 B          87.3 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /sandbox                             156 B          87.3 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /settings                            156 B          87.3 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /settings/policy                     14.7 kB         120 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /sources                             351 B          87.5 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /trace                               156 B          87.3 kB
+. build: apps/hps-dealengine build: Γö£ Γùï /underwrite                          10.9 kB         166 kB
+. build: apps/hps-dealengine build: Γöö ╞Æ /underwrite/debug                    156 B          87.3 kB
+. build: apps/hps-dealengine build: + First Load JS shared by all            87.2 kB
+. build: apps/hps-dealengine build:   Γö£ chunks/233f96c7-6423ad25d260bc55.js  53.6 kB
+. build: apps/hps-dealengine build:   Γö£ chunks/789-b38bf1ad112d36a8.js       31.5 kB
+. build: apps/hps-dealengine build:   Γöö other shared chunks (total)          2.02 kB
+. build: apps/hps-dealengine build: ╞Æ Middleware                             26.6 kB
+. build: apps/hps-dealengine build: Γùï  (Static)   prerendered as static content
+. build: apps/hps-dealengine build: ╞Æ  (Dynamic)  server-rendered on demand
+. build: apps/hps-dealengine build: Done
+. build: Done
+
+=== engine tests (filter) ===
+Scope: 3 of 4 workspace projects
+. test$ vitest run --passWithNoTests
+. test: [1m[46m RUN [49m[22m [36mv4.0.4 [39m[90mC:/Users/oziha/Documents/hps-dealengine[39m
+. test: No test files found, exiting with code 0
+. test: [2minclude: [22m[33mpackages/**/tests/**/*.test.ts[2m, [22mapps/**/tests/**/*.test.ts[39m
+. test: [2mexclude:  [22m[33m**/node_modules/**[2m, [22m**/.git/**[39m
+. test: Done

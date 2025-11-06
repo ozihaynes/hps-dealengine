@@ -1,0 +1,211 @@
+=== OS / PowerShell ===
+
+Platform ServicePack Version      VersionString
+-------- ----------- -------      -------------
+ Win32NT             10.0.26200.0 Microsoft Windows NT 10.0.26200.0
+                                  
+                                  
+                                  
+                                  
+                                  
+                                  
+                                  
+                                  
+                                  
+
+=== Binaries ===
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Program Files\nodejs\node.exe
+                     InternalName:     node
+                     OriginalFilename: node.exe
+                     FileVersion:      20.19.5
+                     FileDescription:  Node.js JavaScript Runtime
+                     Product:          Node.js
+                     ProductVersion:   20.19.5
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         English (United States)
+                     
+Path               : C:\Program Files\nodejs\node.exe
+Extension          : .exe
+Definition         : C:\Program Files\nodejs\node.exe
+Source             : C:\Program Files\nodejs\node.exe
+Version            : 20.19.5.0
+Visibility         : Public
+OutputType         : {System.String}
+Name               : node.exe
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Users\oziha\AppData\Local\pnpm\pnpm.CMD
+                     InternalName:     
+                     OriginalFilename: 
+                     FileVersion:      
+                     FileDescription:  
+                     Product:          
+                     ProductVersion:   
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         
+                     
+Path               : C:\Users\oziha\AppData\Local\pnpm\pnpm.CMD
+Extension          : .CMD
+Definition         : C:\Users\oziha\AppData\Local\pnpm\pnpm.CMD
+Source             : C:\Users\oziha\AppData\Local\pnpm\pnpm.CMD
+Version            : 0.0.0.0
+Visibility         : Public
+OutputType         : {System.String}
+Name               : pnpm.CMD
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Program Files\nodejs\npm.cmd
+                     InternalName:     
+                     OriginalFilename: 
+                     FileVersion:      
+                     FileDescription:  
+                     Product:          
+                     ProductVersion:   
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         
+                     
+Path               : C:\Program Files\nodejs\npm.cmd
+Extension          : .cmd
+Definition         : C:\Program Files\nodejs\npm.cmd
+Source             : C:\Program Files\nodejs\npm.cmd
+Version            : 0.0.0.0
+Visibility         : Public
+OutputType         : {System.String}
+Name               : npm.cmd
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Program Files\nodejs\corepack.cmd
+                     InternalName:     
+                     OriginalFilename: 
+                     FileVersion:      
+                     FileDescription:  
+                     Product:          
+                     ProductVersion:   
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         
+                     
+Path               : C:\Program Files\nodejs\corepack.cmd
+Extension          : .cmd
+Definition         : C:\Program Files\nodejs\corepack.cmd
+Source             : C:\Program Files\nodejs\corepack.cmd
+Version            : 0.0.0.0
+Visibility         : Public
+OutputType         : {System.String}
+Name               : corepack.cmd
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Program Files\Git\cmd\git.exe
+                     InternalName:     git
+                     OriginalFilename: git.exe
+                     FileVersion:      2.51.2.windows.1
+                     FileDescription:  Git for Windows
+                     Product:          Git
+                     ProductVersion:   2.51.2.windows.1
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         English (United States)
+                     
+Path               : C:\Program Files\Git\cmd\git.exe
+Extension          : .exe
+Definition         : C:\Program Files\Git\cmd\git.exe
+Source             : C:\Program Files\Git\cmd\git.exe
+Version            : 2.51.2.1
+Visibility         : Public
+OutputType         : {System.String}
+Name               : git.exe
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+HelpUri            : 
+FileVersionInfo    : File:             C:\Users\oziha\scoop\shims\supabase.exe
+                     InternalName:     
+                     OriginalFilename: 
+                     FileVersion:      
+                     FileDescription:  
+                     Product:          
+                     ProductVersion:   
+                     Debug:            False
+                     Patched:          False
+                     PreRelease:       False
+                     PrivateBuild:     False
+                     SpecialBuild:     False
+                     Language:         
+                     
+Path               : C:\Users\oziha\scoop\shims\supabase.exe
+Extension          : .exe
+Definition         : C:\Users\oziha\scoop\shims\supabase.exe
+Source             : C:\Users\oziha\scoop\shims\supabase.exe
+Version            : 0.0.0.0
+Visibility         : Public
+OutputType         : {System.String}
+Name               : supabase.exe
+CommandType        : Application
+ModuleName         : 
+Module             : 
+RemotingCapability : PowerShell
+Parameters         : 
+ParameterSets      : 
+
+
+=== Versions ===
+node: v20.19.5
+pnpm: 9.12.3
+npm: 10.8.2
+corepack: 0.33.0
+git: git version 2.51.2.windows.1
+supabase: 2.54.11

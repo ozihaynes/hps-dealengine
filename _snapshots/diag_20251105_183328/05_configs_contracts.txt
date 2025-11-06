@@ -1,0 +1,20 @@
+--- .nvmrc ---
+20
+
+--- .vercelignore ---
+_snapshots/**
+.tmp/**
+**/*.log
+apps/hps-dealengine/tsc-error.log
+
+--- .gitignore ---
+node_modules
+
+packages/**/dist
+.vercel
+
+# local sandbox data
+apps/hps-dealengine/app/data/
+
+
+--- openapi.yaml (first 200 lines) ---
