@@ -1,0 +1,80 @@
+## main...origin/main
+ D _snapshots/diag_20251105_180552.zip
+ D _snapshots/diag_20251105_180552/01_env_toolchain.txt
+ D _snapshots/diag_20251105_180552/02_git_state.txt
+ D _snapshots/diag_20251105_180552/03_workspace_topology.txt
+ D _snapshots/diag_20251105_180552/04_packages_json.txt
+ D _snapshots/diag_20251105_180552/05_configs_contracts.txt
+ D _snapshots/diag_20251105_180552/06_vercel_meta.txt
+ D _snapshots/diag_20251105_180552/07_supabase.txt
+ D _snapshots/diag_20251105_180552/08_app_tree.txt
+ D _snapshots/diag_20251105_180552/09_api_routes.txt
+ D _snapshots/diag_20251105_180552/10_local_data.txt
+ D _snapshots/diag_20251105_180552/11_tsconfigs.txt
+ D _snapshots/diag_20251105_180552/12_env_redacted.txt
+ D _snapshots/diag_20251105_180552/13_local_checks.txt
+ D _snapshots/diag_20251105_180552/14_lock_suspects.txt
+ D _snapshots/diag_20251105_183328.zip
+ D _snapshots/diag_20251105_183328/01_env_toolchain.txt
+ D _snapshots/diag_20251105_183328/02_git_state.txt
+ D _snapshots/diag_20251105_183328/03_workspace_topology.txt
+ D _snapshots/diag_20251105_183328/04_packages_json.txt
+ D _snapshots/diag_20251105_183328/05_configs_contracts.txt
+ D _snapshots/diag_20251105_183328/06_vercel_meta.txt
+ D _snapshots/diag_20251105_183328/07_supabase.txt
+ D _snapshots/diag_20251105_183328/08_app_tree.txt
+ D _snapshots/diag_20251105_183328/09_api_routes.txt
+ D _snapshots/diag_20251105_183328/10_local_data.txt
+ D _snapshots/diag_20251105_183328/11_tsconfigs.txt
+ D _snapshots/diag_20251105_183328/12_env_redacted.txt
+ D _snapshots/diag_20251105_183328/13_local_checks.txt
+ D _snapshots/diag_20251105_183328/14_lock_suspects.txt
+ D _snapshots/diag_20251105_183328/README.txt
+ D _snapshots/diag_20251105_185112.zip
+ D _snapshots/diag_20251105_185112/01_env_toolchain.txt
+ D _snapshots/diag_20251105_185112/02_git_state.txt
+ D _snapshots/diag_20251105_185112/03_workspace_topology.txt
+ D _snapshots/diag_20251105_185112/04_packages_json.txt
+ D _snapshots/diag_20251105_185112/05_configs_contracts.txt
+ D _snapshots/diag_20251105_185112/06_vercel_meta.txt
+ D _snapshots/diag_20251105_185112/07_supabase.txt
+ D _snapshots/diag_20251105_185112/08_app_tree.txt
+ D _snapshots/diag_20251105_185112/09_api_routes.txt
+ D _snapshots/diag_20251105_185112/10_local_data.txt
+ D _snapshots/diag_20251105_185112/11_tsconfigs.txt
+ D _snapshots/diag_20251105_185112/12_env_redacted.txt
+ D _snapshots/diag_20251105_185112/13_local_checks.txt
+ D _snapshots/diag_20251105_185112/14_lock_suspects.txt
+ D _snapshots/diag_20251105_185112/README.txt
+ D apps/hps-dealengine/app/api/analyze/route.ts
+ D apps/hps-dealengine/app/api/policy/route.ts
+ M apps/hps-dealengine/app/overview/page.tsx
+ M apps/hps-dealengine/app/sandbox/page.tsx
+ M apps/hps-dealengine/app/settings/page.tsx
+ M apps/hps-dealengine/app/underwrite/debug/page.tsx
+ M apps/hps-dealengine/app/underwrite/page.tsx
+ M apps/hps-dealengine/lib/api.ts
+ M apps/hps-dealengine/lib/supabaseClient.ts
+ M apps/hps-dealengine/middleware.ts
+ M apps/hps-dealengine/next.config.cjs
+ M apps/hps-dealengine/tsconfig.json
+ M apps/hps-dealengine/tsconfig.json.bak
+ M packages/engine/dist/index.d.ts
+ M packages/engine/dist/index.js
+ M packages/engine/src/index.ts
+ M supabase/config.toml
+ M supabase/functions/v1-analyze/index.ts
+?? _intel_20251106_181329/
+?? apps/hps-dealengine/app/overview/ClientOverview.tsx
+?? apps/hps-dealengine/components/AuthGate.tsx
+?? apps/hps-dealengine/components/PolicyRibbon.tsx
+?? apps/hps-dealengine/lib/eventBus.ts
+?? packages/engine/src/slices/
+?? packages/engine/tests/
+?? scripts/get-jwt.mjs
+?? supabase/deno.json
+?? supabase/functions/_shared/
+?? supabase/functions/deno.json
+?? supabase/functions/v1-policy-get/
+?? supabase/functions/v1-policy-put/
+?? supabase/migrations/20251106_150103_policy_versions_api.sql

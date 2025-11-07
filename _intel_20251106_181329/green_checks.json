@@ -1,0 +1,17 @@
+[
+  {
+    "cmd": "pnpm -w typecheck",
+    "exit": 0,
+    "ms": 6109
+  },
+  {
+    "cmd": "pnpm -w test",
+    "exit": 0,
+    "ms": 1617
+  },
+  {
+    "cmd": "pnpm -w build",
+    "exit": 0,
+    "ms": 24063
+  }
+]

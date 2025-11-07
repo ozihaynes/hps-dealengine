@@ -1,3 +1,7 @@
 {
-  "compilerOptions": { "lib": ["deno.ns"] }
+  "imports": {
+    "@hps-internal/engine": "../_vendor/engine/index.js",
+    "@hps-internal/engine/": "../_vendor/engine/"
+  },
+  "compilerOptions": { "lib": ["deno.window","dom","dom.iterable"] }
 }

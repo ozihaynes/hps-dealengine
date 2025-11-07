@@ -1,0 +1,4 @@
+
+> hps-internal-tools@1.0.0 typecheck C:\Users\oziha\Documents\hps-dealengine
+> pnpm -r exec tsc -p . --noEmit
+

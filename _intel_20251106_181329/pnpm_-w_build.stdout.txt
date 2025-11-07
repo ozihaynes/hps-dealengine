@@ -1,0 +1,55 @@
+
+> hps-internal-tools@1.0.0 build C:\Users\oziha\Documents\hps-dealengine
+> pnpm -w --filter @hps-internal/engine... build && pnpm -w --filter hps-dealengine build
+
+Scope: 3 of 4 workspace projects
+packages/contracts build$ tsc -p tsconfig.json
+packages/contracts build: Done
+packages/engine build$ tsc -p tsconfig.build.json
+packages/engine build: Done
+Scope: 2 of 4 workspace projects
+apps/hps-dealengine build$ next build
+apps/hps-dealengine build:   ▲ Next.js 14.2.5
+apps/hps-dealengine build:   - Environments: .env.local
+apps/hps-dealengine build:    Creating an optimized production build ...
+apps/hps-dealengine build:  ✓ Compiled successfully
+apps/hps-dealengine build:    Linting and checking validity of types ...
+apps/hps-dealengine build:    Collecting page data ...
+apps/hps-dealengine build:    Generating static pages (0/20) ...
+apps/hps-dealengine build:    Generating static pages (5/20) 
+apps/hps-dealengine build:    Generating static pages (10/20) 
+apps/hps-dealengine build:    Generating static pages (15/20) 
+apps/hps-dealengine build:  ✓ Generating static pages (20/20)
+apps/hps-dealengine build:    Finalizing page optimization ...
+apps/hps-dealengine build:    Collecting build traces ...
+apps/hps-dealengine build: Route (app)                              Size     First Load JS
+apps/hps-dealengine build: ┌ ○ /                                    146 B          87.2 kB
+apps/hps-dealengine build: ├ ○ /_not-found                          872 B            88 kB
+apps/hps-dealengine build: ├ ƒ /api/deals                           0 B                0 B
+apps/hps-dealengine build: ├ ƒ /api/deals/[id]                      0 B                0 B
+apps/hps-dealengine build: ├ ƒ /api/health                          0 B                0 B
+apps/hps-dealengine build: ├ ƒ /api/scenarios                       0 B                0 B
+apps/hps-dealengine build: ├ ƒ /api/scenarios/[id]                  0 B                0 B
+apps/hps-dealengine build: ├ ○ /api/tokens                          0 B                0 B
+apps/hps-dealengine build: ├ ○ /api/user-prefs                      0 B                0 B
+apps/hps-dealengine build: ├ ƒ /api/version                         0 B                0 B
+apps/hps-dealengine build: ├ ○ /debug/ping                          939 B           138 kB
+apps/hps-dealengine build: ├ ○ /debug/ping/policy                   1.04 kB         138 kB
+apps/hps-dealengine build: ├ ○ /login                               1.1 kB          138 kB
+apps/hps-dealengine build: ├ ƒ /overview                            2.09 kB         139 kB
+apps/hps-dealengine build: ├ ○ /repairs                             146 B          87.2 kB
+apps/hps-dealengine build: ├ ○ /sandbox                             2.19 kB         139 kB
+apps/hps-dealengine build: ├ ○ /settings                            2.13 kB         139 kB
+apps/hps-dealengine build: ├ ○ /settings/policy                     31.3 kB         118 kB
+apps/hps-dealengine build: ├ ○ /sources                             351 B          87.4 kB
+apps/hps-dealengine build: ├ ○ /trace                               146 B          87.2 kB
+apps/hps-dealengine build: ├ ○ /underwrite                          2.25 kB         139 kB
+apps/hps-dealengine build: └ ○ /underwrite/debug                    1.33 kB         138 kB
+apps/hps-dealengine build: + First Load JS shared by all            87.1 kB
+apps/hps-dealengine build:   ├ chunks/233f96c7-92c75a9152de84e0.js  53.6 kB
+apps/hps-dealengine build:   ├ chunks/789-74ca6b362a635fbc.js       31.5 kB
+apps/hps-dealengine build:   └ other shared chunks (total)          1.93 kB
+apps/hps-dealengine build: ƒ Middleware                             26.5 kB
+apps/hps-dealengine build: ○  (Static)   prerendered as static content
+apps/hps-dealengine build: ƒ  (Dynamic)  server-rendered on demand
+apps/hps-dealengine build: Done

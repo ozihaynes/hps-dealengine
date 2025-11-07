@@ -1,189 +1,152 @@
-"use client";
-export const dynamic = "force-dynamic";
+'use client';
+import React from 'react';
+import AuthGate from '@/components/AuthGate';
+import { supabase } from '@/lib/supabaseClient';
+import PolicyRibbon from '@/components/PolicyRibbon';
 
-import React, { useEffect, useState } from "react";
-import type { Deal, EngineCalculations } from "@/types";
-import UnderwriteTab from "@/components/underwrite/UnderwriteTab";
-import sandboxDefaults from "@/constants/sandboxDefaults";
-import { supabase } from "@/lib/supabaseClient";
-import AnalyzeNowListener from "@/components/AnalyzeNowListener";
-import AppTopNav from "@/components/AppTopNav";
-import CalcKpis from "@/components/underwrite/CalcKpis";
-
-/** Minimal initial Deal shape */
-const initialDeal: Deal = {
-  market: {
-    arv: "",
-    as_is_value: "",
-    dom_zip: 0,
-    moi_zip: 0,
-    "price-to-list-pct": 1,
-    local_discount_20th_pct: 0,
-    zip_discount_20pct: 0,
-  },
-  costs: {
-    repairs_base: 0,
-    contingency_pct: 0,
-    monthly: { taxes: 0, insurance: 0, hoa: 0, utilities: 0, interest: 0 },
-    sell_close_pct: 0,
-    concessions_pct: 0,
-    list_commission_pct: null,
-    double_close: {},
-  },
-  debt: {
-    senior_principal: "",
-    senior_per_diem: "",
-    good_thru_date: "",
-    juniors: [],
-    hoa_arrears: 0,
-    muni_fines: 0,
-    payoff_is_confirmed: false,
-    protective_advances: 0,
-    hoa_estoppel_fee: 0,
-    pending_special_assessment: 0,
-  },
-  timeline: { days_to_sale_manual: 0, days_to_ready_list: 0, auction_date: "" },
-  property: {
-    occupancy: "owner",
-    year_built: 0,
-    seller_is_foreign_person: false,
-    stories: 1,
-    is_coastal: false,
-    system_failures: { roof: false },
-    forms_current: false,
-    flood_zone: false,
-    old_roof_flag: false,
-    county: "",
-    is_homestead: false,
-    is_foreclosure_sale: false,
-    is_redemption_period_sale: false,
-  },
-  status: {
-    insurability: "bindable",
-    open_permits_flag: false,
-    major_system_failure_flag: false,
-    structural_or_permit_risk_flag: false,
-  },
-  confidence: {
-    score: "",
-    notes: "",
-    no_access_flag: false,
-    reinstatement_proof_flag: false,
-  },
-  title: { cure_cost: 0, risk_pct: 0 },
-  policy: {
-    safety_on_aiv_pct: 0,
-    min_spread: 0,
-    planned_close_days: 0,
-    costs_are_annual: false,
-    manual_days_to_money: null,
-    assignment_fee_target: 0,
-  },
-  legal: { case_no: "", auction_date: "" },
-  cma: {
-    subject: { sqft: 0, beds: 0, baths: 0, garage: 0, pool: 0 },
-    adjKey: { perSqft: 0, perBed: 0, perBath: 0, perGarage: 0, perCond: 0, perPool: 0, perMonth: 0 },
-    comps: [],
-  },
+type AnalyzeBody = {
+  posture?: 'conservative' | 'base' | 'aggressive';
+  deal?: { aiv?: number; dom_zip?: number };
+};
+type TraceItem = {
+  id: string;
+  label: string;
+  formula?: string;
+  inputs?: Record<string, unknown>;
+  output?: unknown;
+  tokens?: Record<string, unknown>;
+};
+type AnalyzeResp = {
+  ok: boolean;
+  posture: string;
+  outputs: { carryMonths: number | null; aivSafetyCap: number | null };
+  infoNeeded: string[];
+  trace: TraceItem[];
+  tokens_used: Record<string, number>;
 };
 
-/** Zero-safe initial calculations */
-const initialCalc: EngineCalculations = {
-  instantCashOffer: 0,
-  projectedPayoffClose: 0,
-  netToSeller: 0,
-  respectFloorPrice: 0,
-  buyerCeiling: 0,
-  dealSpread: 0,
-  urgencyBand: "",
-  urgencyDays: 0,
-  listingAllowed: false,
-  tenantBuffer: 0,
-  displayMargin: 0,
-  displayCont: 0,
-  carryMonths: 0,
-  maoFinal: 0,
-  totalRepairs: 0,
-  carryCosts: 0,
-  resaleCosts: 0,
-  repairs_with_contingency: 0,
-  resale_costs_total: 0,
-  commissionPct: 0,
-  capAIV: 0,
-  sellerNetRetail: 0,
-  marketTemp: 0,
-};
+export default function Page() {
+  const [posture, setPosture] = React.useState<'conservative' | 'base' | 'aggressive'>('base');
+  const [aiv, setAiv] = React.useState<string>('300000');
+  const [domZip, setDomZip] = React.useState<string>('45');
+  const [resp, setResp] = React.useState<AnalyzeResp | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(false);
 
-/** Deep immutable setter for "a.b.c" paths */
-function setByPath<T extends object>(obj: T, path: string, value: any): T {
-  const keys = path.split(".");
-  const next: any = Array.isArray(obj) ? [...(obj as any)] : { ...(obj as any) };
-  let cur: any = next;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i]!;
-    const prev = cur[k];
-    cur[k] = prev && typeof prev === "object" ? (Array.isArray(prev) ? [...prev] : { ...prev }) : {};
-    cur = cur[k];
-  }
-  cur[keys[keys.length - 1]!] = value;
-  return next;
-}
-
-export default function UnderwritePage() {
-  const [hydrated, setHydrated] = useState(false);
-  const [deal, setDeal] = useState<Deal>(initialDeal);
-  const [calc, setCalc] = useState<EngineCalculations>(initialCalc);
-  const [ping, setPing] = useState<{ status: "idle" | "ok" | "error"; user_id?: string; message?: string }>({ status: "idle" });
-
-  useEffect(() => setHydrated(true), []);
-
-  // Auto dev sign-in & authenticated ping (Edge Functions will get JWT automatically)
-  useEffect(() => {
-    const run = async () => {
-      if (!hydrated) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      let jwt = session?.access_token;
-      if (!jwt) {
-        const email = process.env.NEXT_PUBLIC_DEV_EMAIL!;
-        const password = process.env.NEXT_PUBLIC_DEV_PASSWORD!;
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) { setPing({ status: "error", message: `sign-in failed: ${error.message}` }); return; }
-        jwt = data.session?.access_token ?? undefined;
-      }
-      try {
-        const { data } = await supabase.functions.invoke("v1-ping", { method: "GET" });
-        setPing({ status: "ok", user_id: String((data as any)?.user_id ?? "") });
-      } catch (e: any) {
-        setPing({ status: "error", message: String(e?.message ?? e) });
-      }
+  async function run() {
+    setLoading(true);
+    setErr(null);
+    setResp(null);
+    const body: AnalyzeBody = {
+      posture,
+      deal: {
+        aiv: Number.isFinite(Number(aiv)) ? Number(aiv) : undefined,
+        dom_zip: Number.isFinite(Number(domZip)) ? Number(domZip) : undefined,
+      },
     };
-    run();
-  }, [hydrated]);
-
-  if (!hydrated) return null;
-
-  const sandbox: any = sandboxDefaults;
-  const setDealValue = (path: string, value: any) => setDeal(prev => setByPath(prev, path, value));
+    const { data, error } = await supabase.functions.invoke('v1-analyze', { body });
+    if (error) setErr(error.message ?? 'invoke_error');
+    setResp((data ?? null) as AnalyzeResp | null);
+    setLoading(false);
+  }
 
   return (
-    <div className="p-4 space-y-3">
-      <AppTopNav />
+    <AuthGate>
+      <main className="mx-auto max-w-5xl p-6 space-y-6">
+        <h1 className="text-2xl font-semibold">Underwrite</h1>
 
-      <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-        {ping.status === "idle" && <span>Connecting to Supabase…</span>}
-        {ping.status === "ok" && <span className="text-green-400">Authenticated via Edge Functions · user_id: {ping.user_id}</span>}
-        {ping.status === "error" && <span className="text-orange-400">Edge auth error: {ping.message}</span>}
-      </div>
+        <PolicyRibbon posture={posture} />
 
-      <AnalyzeNowListener
-        deal={deal}
-        sandbox={sandbox}
-        onResult={(o) => setCalc(prev => ({ ...prev, ...o.calculations }))}
-      />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">Posture</span>
+            <select
+              value={posture}
+              onChange={(e) => setPosture(e.target.value as any)}
+              className="border rounded p-2"
+            >
+              <option value="conservative">conservative</option>
+              <option value="base">base</option>
+              <option value="aggressive">aggressive</option>
+            </select>
+          </label>
 
-      <UnderwriteTab deal={deal} sandbox={sandbox} calc={calc} setDealValue={setDealValue} />
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">AIV</span>
+            <input
+              type="number"
+              value={aiv}
+              onChange={(e) => setAiv(e.target.value)}
+              className="border rounded p-2"
+              placeholder="300000"
+            />
+          </label>
 
-      <CalcKpis calc={calc} />
-    </div>
+          <label className="flex flex-col gap-1">
+            <span className="text-sm">DOM (ZIP)</span>
+            <input
+              type="number"
+              value={domZip}
+              onChange={(e) => setDomZip(e.target.value)}
+              className="border rounded p-2"
+              placeholder="45"
+            />
+          </label>
+
+          <button
+            onClick={run}
+            disabled={loading}
+            className="rounded px-4 py-2 border md:col-span-3"
+          >
+            {loading ? 'Analyzing…' : 'Analyze'}
+          </button>
+        </div>
+
+        {err ? <pre className="text-red-600 whitespace-pre-wrap">{err}</pre> : null}
+
+        {resp && (
+          <div className="space-y-4">
+            <section>
+              <h2 className="font-semibold">Outputs</h2>
+              <pre className="bg-gray-950 text-gray-200 p-3 rounded overflow-auto">
+                {JSON.stringify(resp.outputs, null, 2)}
+              </pre>
+            </section>
+
+            <section>
+              <h2 className="font-semibold">Trace</h2>
+              <div className="space-y-2">
+                {resp.trace.map((t, i) => (
+                  <details key={i} className="rounded border p-2">
+                    <summary className="cursor-pointer">
+                      {t.label} <span className="opacity-60 text-xs">({t.id})</span>
+                    </summary>
+                    <pre className="bg-gray-950 text-gray-200 p-3 rounded overflow-auto">
+                      {JSON.stringify(t, null, 2)}
+                    </pre>
+                  </details>
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <h2 className="font-semibold">Tokens Used</h2>
+              <pre className="bg-gray-950 text-gray-200 p-3 rounded overflow-auto">
+                {JSON.stringify(resp.tokens_used, null, 2)}
+              </pre>
+            </section>
+
+            {resp.infoNeeded?.length ? (
+              <section>
+                <h2 className="font-semibold">Info Needed</h2>
+                <pre className="bg-gray-950 text-gray-200 p-3 rounded overflow-auto">
+                  {JSON.stringify(resp.infoNeeded, null, 2)}
+                </pre>
+              </section>
+            ) : null}
+          </div>
+        )}
+      </main>
+    </AuthGate>
   );
 }

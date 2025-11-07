@@ -1,8 +1,0 @@
-=== Processes ===
-
-=== .next folders ===
-
-FullName                                                          LastWriteTime
---------                                                          -------------
-C:\Users\oziha\Documents\hps-dealengine\apps\hps-dealengine\.next 11/5/2025 6:33:58 PM
-

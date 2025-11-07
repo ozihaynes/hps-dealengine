@@ -1,0 +1,17 @@
+apps\hps-dealengine\app\api\deals
+apps\hps-dealengine\app\api\health
+apps\hps-dealengine\app\api\scenarios
+apps\hps-dealengine\app\api\tokens
+apps\hps-dealengine\app\api\user-prefs
+apps\hps-dealengine\app\api\version
+apps\hps-dealengine\app\api\tokens.ts
+apps\hps-dealengine\app\api\deals\[id]
+apps\hps-dealengine\app\api\deals\route.ts
+apps\hps-dealengine\app\api\deals\[id]\route.ts
+apps\hps-dealengine\app\api\health\route.ts
+apps\hps-dealengine\app\api\scenarios\[id]
+apps\hps-dealengine\app\api\scenarios\route.ts
+apps\hps-dealengine\app\api\scenarios\[id]\route.ts
+apps\hps-dealengine\app\api\tokens\route.ts
+apps\hps-dealengine\app\api\user-prefs\route.ts
+apps\hps-dealengine\app\api\version\route.ts

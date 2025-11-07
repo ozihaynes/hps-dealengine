@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "@hps-internal/engine": "./_vendor/engine/index.js",
+    "@hps-internal/engine/": "./_vendor/engine/"
+  }
+}

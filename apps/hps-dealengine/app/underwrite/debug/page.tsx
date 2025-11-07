@@ -1,94 +1,144 @@
-/* apps/dealengine/app/underwrite/debug/page.tsx */
-function fmt(n: unknown) {
-  return typeof n === 'number' && Number.isFinite(n) ? n.toLocaleString('en-US') : String(n ?? '');
-}
+// apps/hps-dealengine/app/underwrite/debug/page.tsx
+'use client';
 
-export default async function UnderwriteDebugPage() {
-  const body = {
-    deal: {
-      market: { aiv: 300000, arv: 360000, dom_zip: 45, moi_zip: 2.3 },
-      costs: {
-        repairs_base: 40000,
-        contingency_pct: 0.15,
-        monthly: { taxes: 3600, insurance: 2400, hoa: 0, utilities: 250 },
-        close_cost_items_seller: [{ label: 'doc stamps (seller)', amount: 2100 }],
-        close_cost_items_buyer: [{ label: 'lender/title/buyer items', amount: 18000 }],
-        essentials_moveout_cash: 2000,
-      },
-      debt: {
-        senior_principal: 180000,
-        senior_per_diem: 45,
-        good_thru_date: '2025-10-01',
-        juniors: [{ label: 'HELOC', amount: 10000 }],
-      },
-      timeline: { days_to_ready_list: 0, days_to_sale_manual: 28 },
-    },
-  };
+import React from 'react';
+import { analyze, saveRun, type AnalyzeInput } from '@/lib/edge';
 
-  const res = await fetch('http://localhost:3000/api/underwrite', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
-  const data = await res.json();
+export default function UnderwriteDebugPage() {
+  const [aiv, setAiv] = React.useState<number>(300000);
+  const [dom, setDom] = React.useState<number>(45);
+  const [domZip, setDomZip] = React.useState<number>(45);
 
-  const { dtm, carry, floors, ceilings } = data?.math ?? {};
+  const [resp, setResp] = React.useState<any>(null);
+  const [saved, setSaved] = React.useState<any>(null);
+
+  const [pending, setPending] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const org_id = '6f3f2b0e-7f24-4f9d-a9e1-7c6e2e7160a2';
+
+  async function onAnalyze() {
+    setPending(true);
+    setError(null);
+    setSaved(null);
+    try {
+      const input: AnalyzeInput = {
+        org_id,
+        deal: { aiv: Number(aiv), dom: Number(dom), dom_zip: Number(domZip) },
+        options: { trace: true },
+      };
+      const r = await analyze(input);
+      setResp(r);
+    } catch (e: any) {
+      setError(e?.message ?? 'Analyze failed');
+      setResp(null);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function onSave() {
+    if (!resp) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const input: AnalyzeInput = {
+        org_id,
+        deal: { aiv: Number(aiv), dom: Number(dom), dom_zip: Number(domZip) },
+        options: { trace: true },
+      };
+      const row = await saveRun(org_id, input, resp);
+      setSaved(row);
+    } catch (e: any) {
+      setError(e?.message ?? 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <main className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold">Underwrite Debug</h1>
+    <div className="p-6 max-w-3xl mx-auto space-y-6">
+      <h1 className="text-2xl font-bold">Underwrite / Debug</h1>
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">Deal → API Echo</h2>
-        <pre className="text-xs whitespace-pre-wrap">
-          {JSON.stringify(data?.echoes?.deal ?? {}, null, 2)}
-        </pre>
-      </section>
+      <div className="grid grid-cols-3 gap-4">
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-gray-500">AIV</span>
+          <input
+            className="border rounded p-2"
+            type="number"
+            value={aiv}
+            onChange={(e) => setAiv(Number(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-gray-500">DOM</span>
+          <input
+            className="border rounded p-2"
+            type="number"
+            value={dom}
+            onChange={(e) => setDom(Number(e.target.value))}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm text-gray-500">DOM (ZIP)</span>
+          <input
+            className="border rounded p-2"
+            type="number"
+            value={domZip}
+            onChange={(e) => setDomZip(Number(e.target.value))}
+          />
+        </label>
+      </div>
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">DTM</h2>
-        <ul className="text-sm space-y-1">
-          <li>manual_days: {fmt(dtm?.manual_days)}</li>
-          <li>default_cash_close_days: {fmt(dtm?.default_cash_close_days)}</li>
-          <li>chosen_days: {fmt(dtm?.chosen_days)}</li>
-          <li>reason: {String(dtm?.reason ?? '')}</li>
-        </ul>
-      </section>
+      <div className="flex gap-3">
+        <button
+          onClick={onAnalyze}
+          disabled={pending}
+          className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
+        >
+          {pending ? 'Analyzing…' : 'Analyze'}
+        </button>
+        <button
+          onClick={onSave}
+          disabled={!resp || saving}
+          className="px-4 py-2 rounded bg-gray-900 text-white disabled:opacity-50"
+        >
+          {saving ? 'Saving…' : 'Save run'}
+        </button>
+      </div>
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">Carry</h2>
-        <ul className="text-sm space-y-1">
-          <li>hold_monthly: {fmt(carry?.hold_monthly)}</li>
-          <li>hold_months: {fmt(carry?.hold_months)}</li>
-          <li>total_days: {fmt(carry?.total_days)}</li>
-        </ul>
-      </section>
+      {error && <pre className="text-red-600 whitespace-pre-wrap">{error}</pre>}
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">Respect Floor</h2>
-        <ul className="text-sm space-y-1">
-          <li>payoff_plus_essentials: {fmt(floors?.payoff_plus_essentials)}</li>
-          <li>investor.typical_floor: {fmt(floors?.investor?.typical_floor ?? null)}</li>
-          <li>operational: {fmt(floors?.operational)}</li>
-        </ul>
-      </section>
+      {resp && (
+        <div className="space-y-4">
+          <div className="rounded border p-4">
+            <h2 className="font-semibold mb-2">Outputs</h2>
+            <pre className="text-sm whitespace-pre-wrap">
+              {JSON.stringify(resp.outputs, null, 2)}
+            </pre>
+          </div>
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">Buyer Ceiling</h2>
-        <ul className="text-sm space-y-1">
-          <li>
-            chosen: {fmt(ceilings?.chosen?.value ?? null)}{' '}
-            {ceilings?.chosen?.label ? `(${ceilings.chosen.label})` : ''}
-          </li>
-          <li>candidates: {ceilings?.candidates?.length ?? 0} rows</li>
-          <li>reasons: {Array.isArray(ceilings?.reasons) ? ceilings.reasons.join(', ') : ''}</li>
-        </ul>
-      </section>
+          <div className="rounded border p-4">
+            <h2 className="font-semibold mb-2">Trace</h2>
+            <ul className="list-disc pl-5">
+              {resp.trace?.map((t: any) => (
+                <li key={t.id} className="mb-2">
+                  <div className="font-mono text-sm">{t.id}</div>
+                  {t.formula && <div className="text-xs text-gray-500">{t.formula}</div>}
+                </li>
+              ))}
+            </ul>
+          </div>
 
-      <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="text-lg font-semibold mb-2">Raw JSON</h2>
-        <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(data, null, 2)}</pre>
-      </section>
-    </main>
+          {saved && (
+            <div className="rounded border p-4">
+              <h2 className="font-semibold mb-2">Saved Run</h2>
+              <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(saved, null, 2)}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

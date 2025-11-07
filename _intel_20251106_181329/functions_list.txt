@@ -1,0 +1,9 @@
+
+  
+   ID                                   | NAME          | SLUG          | STATUS | VERSION | UPDATED_AT (UTC)    
+  --------------------------------------|---------------|---------------|--------|---------|---------------------
+   0b9fc4b1-424a-47d8-a87a-220eb4bb28b2 | v1-ping       | v1-ping       | ACTIVE | 1       | 2025-11-02 23:52:30 
+   f2f6f360-c9a5-4973-ab92-ee46710867b6 | v1-analyze    | v1-analyze    | ACTIVE | 5       | 2025-11-06 20:42:50 
+   6d391f90-d6f2-4127-ada7-924315f4eea8 | v1-policy-get | v1-policy-get | ACTIVE | 8       | 2025-11-06 20:25:30 
+   1e4367c8-bbdc-4999-93df-85f2a28f4108 | v1-policy-put | v1-policy-put | ACTIVE | 8       | 2025-11-06 22:06:42 
+

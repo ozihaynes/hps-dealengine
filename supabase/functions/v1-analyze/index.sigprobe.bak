@@ -1,0 +1,10 @@
+import * as engine from "../_vendor/engine/index.js";
+
+Deno.serve(async (req) => {
+  const body = await req.json().catch(() => ({}));
+  const names = Object.getOwnPropertyNames(engine);
+  const sig = Object.fromEntries(names.map(k => [k, typeof (engine as any)[k]]));
+  return new Response(JSON.stringify({ ok: true, engine: sig, echo: body }, null, 2), {
+    headers: { "content-type": "application/json" }
+  });
+});
