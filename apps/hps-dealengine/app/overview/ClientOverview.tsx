@@ -100,3 +100,11 @@ export default function ClientOverview() {
     </AuthGate>
   );
 }
+{
+  /* Dev utility link */
+}
+<div className="mt-3">
+  <a href="/runs" className="text-blue-600 underline text-sm">
+    Runs
+  </a>
+</div>;

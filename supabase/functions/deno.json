@@ -1,6 +1,6 @@
 {
   "importMap": "import_map.json",
   "compilerOptions": {
-    "lib": ["deno.window","dom","dom.iterable"]
+    "lib": ["deno.window", "dom", "dom.iterable"]
   }
 }

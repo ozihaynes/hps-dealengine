@@ -1,27 +1,35 @@
-// apps/hps-dealengine/app/underwrite/debug/page.tsx
 'use client';
-
 import React from 'react';
-import { analyze, saveRun, type AnalyzeInput } from '@/lib/edge';
+import { analyze, saveRun, type AnalyzeInput } from '@/app/../lib/edge';
+import { getSupabase } from '@/app/../lib/supabaseClient';
 
 export default function UnderwriteDebugPage() {
   const [aiv, setAiv] = React.useState<number>(300000);
   const [dom, setDom] = React.useState<number>(45);
   const [domZip, setDomZip] = React.useState<number>(45);
-
   const [resp, setResp] = React.useState<any>(null);
-  const [saved, setSaved] = React.useState<any>(null);
-
-  const [pending, setPending] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState<any>(null);
   const [error, setError] = React.useState<string | null>(null);
+
+  // Dev-only bootstrap using NEXT_PUBLIC_DEV_EMAIL/PASSWORD if no session
+  React.useEffect(() => {
+    (async () => {
+      const supabase = getSupabase();
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        const email = process.env.NEXT_PUBLIC_DEV_EMAIL!;
+        const password = process.env.NEXT_PUBLIC_DEV_PASSWORD!;
+        if (email && password) await supabase.auth.signInWithPassword({ email, password });
+      }
+    })();
+  }, []);
 
   const org_id = '6f3f2b0e-7f24-4f9d-a9e1-7c6e2e7160a2';
 
   async function onAnalyze() {
-    setPending(true);
     setError(null);
-    setSaved(null);
+    setResp(null);
     try {
       const input: AnalyzeInput = {
         org_id,
@@ -32,9 +40,6 @@ export default function UnderwriteDebugPage() {
       setResp(r);
     } catch (e: any) {
       setError(e?.message ?? 'Analyze failed');
-      setResp(null);
-    } finally {
-      setPending(false);
     }
   }
 
@@ -42,6 +47,7 @@ export default function UnderwriteDebugPage() {
     if (!resp) return;
     setSaving(true);
     setError(null);
+    setSaved(null);
     try {
       const input: AnalyzeInput = {
         org_id,
@@ -92,12 +98,8 @@ export default function UnderwriteDebugPage() {
       </div>
 
       <div className="flex gap-3">
-        <button
-          onClick={onAnalyze}
-          disabled={pending}
-          className="px-4 py-2 rounded bg-black text-white disabled:opacity-50"
-        >
-          {pending ? 'Analyzing…' : 'Analyze'}
+        <button onClick={onAnalyze} className="px-4 py-2 rounded bg-black text-white">
+          Analyze
         </button>
         <button
           onClick={onSave}
@@ -118,23 +120,29 @@ export default function UnderwriteDebugPage() {
               {JSON.stringify(resp.outputs, null, 2)}
             </pre>
           </div>
-
           <div className="rounded border p-4">
             <h2 className="font-semibold mb-2">Trace</h2>
             <ul className="list-disc pl-5">
               {resp.trace?.map((t: any) => (
                 <li key={t.id} className="mb-2">
                   <div className="font-mono text-sm">{t.id}</div>
-                  {t.formula && <div className="text-xs text-gray-500">{t.formula}</div>}
+                  <div className="text-xs text-gray-500">{t.formula}</div>
                 </li>
               ))}
             </ul>
           </div>
-
           {saved && (
             <div className="rounded border p-4">
               <h2 className="font-semibold mb-2">Saved Run</h2>
-              <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(saved, null, 2)}</pre>
+              <div className="text-sm">
+                ID: <code>{saved.id}</code>
+              </div>
+              <a href={`/runs/${saved.id}`} className="text-blue-600 underline text-sm">
+                View run detail
+              </a>
+              <pre className="text-sm whitespace-pre-wrap mt-3">
+                {JSON.stringify(saved, null, 2)}
+              </pre>
             </div>
           )}
         </div>
