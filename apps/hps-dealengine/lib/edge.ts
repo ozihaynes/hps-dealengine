@@ -14,28 +14,34 @@ export type AnalyzeInput = {
   options?: { trace?: boolean };
 };
 
-export async function analyze(input: AnalyzeInput) {
+type AnalyzeResp = {
+  ok: boolean;
+  posture: 'conservative' | 'base' | 'aggressive';
+  outputs: Record<string, unknown>;
+  trace: Array<{
+    id: string;
+    label: string;
+    formula: string;
+    inputs: any;
+    tokens: any;
+    output: any;
+  }>;
+  tokens_used?: Record<string, unknown>;
+  infoNeeded?: string[];
+};
+
+export async function analyze(input: AnalyzeInput): Promise<AnalyzeResp> {
   const supabase = getSupabase();
   const { data, error } = await supabase.functions.invoke('v1-analyze', { body: input });
   if (error) throw error;
-  return data as {
-    ok: boolean;
-    posture: 'conservative' | 'base' | 'aggressive';
-    outputs: Record<string, unknown>;
-    trace: Array<{
-      id: string;
-      label: string;
-      formula: string;
-      inputs: any;
-      tokens: any;
-      output: any;
-    }>;
-    tokens_used?: Record<string, unknown>;
-    infoNeeded?: string[];
-  };
+  return data as AnalyzeResp;
 }
 
-export async function saveRun(org_id: string, analyzeInput: AnalyzeInput, analyzeResp: any) {
+export async function saveRun(
+  org_id: string,
+  analyzeInput: AnalyzeInput,
+  analyzeResp: AnalyzeResp
+) {
   const supabase = getSupabase();
 
   const { data: userRes, error: userErr } = await supabase.auth.getUser();
@@ -50,16 +56,20 @@ export async function saveRun(org_id: string, analyzeInput: AnalyzeInput, analyz
   const input_hash = await sha256Hex(inputJson);
   const output_hash = await sha256Hex(outputsJson);
 
-  // Fetch latest policy version id for this org/posture (most recent snapshot)
+  // Fetch latest policy snapshot driving this posture
   const { data: vers, error: vErr } = await supabase
     .from('policy_versions')
-    .select('id')
+    .select('id, policy_json')
     .eq('org_id', org_id)
     .eq('posture', analyzeResp.posture)
     .order('created_at', { ascending: false })
     .limit(1);
+
   if (vErr) throw vErr;
+
   const policy_version_id = vers?.[0]?.id ?? null;
+  const policy_json_str = vers?.[0]?.policy_json ? JSON.stringify(vers[0].policy_json) : '{}';
+  const policy_hash = await sha256Hex(policy_json_str);
 
   const payload = {
     org_id,
@@ -71,6 +81,7 @@ export async function saveRun(org_id: string, analyzeInput: AnalyzeInput, analyz
     trace: JSON.parse(traceJson),
     input_hash,
     output_hash,
+    policy_hash,
   };
 
   const { data, error } = await supabase.from('runs').insert([payload]).select().single();
