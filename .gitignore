@@ -6,3 +6,9 @@ packages/**/dist
 # local sandbox data
 apps/hps-dealengine/app/data/
 
+
+.vercel
+
+.env.local
+
+.env.local
