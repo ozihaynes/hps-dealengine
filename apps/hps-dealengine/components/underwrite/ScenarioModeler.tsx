@@ -1,7 +1,7 @@
 // apps/hps-dealengine/components/underwrite/ScenarioModeler.tsx
 
 import React, { useState, useMemo } from "react";
-import type { Deal, EngineCalculations, SandboxSettings } from "@ui-v2/types";
+import type { Deal, EngineCalculations, SandboxSettings } from "../../types";
 import { InputField } from "../ui";
 import { fmt$, num } from "../../utils/helpers";
 import { HPSEngine } from "../../services/engine";

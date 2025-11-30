@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from "react";
-import type { Deal, EngineCalculations } from "@ui-v2/types";
+import type { Deal, EngineCalculations } from "../../types";
 import { fmt$, num } from "../../utils/helpers";
 import { Icons } from "../../constants";
 import { GlassCard, Button, Icon } from "../ui";

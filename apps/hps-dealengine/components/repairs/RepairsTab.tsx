@@ -5,7 +5,7 @@ import type {
   EngineCalculations,
   EstimatorItem,
   EstimatorState,
-} from "@ui-v2/types";
+} from "../../types";
 import { fmt$, num } from "../../utils/helpers";
 import { estimatorSections, Icons } from "../../constants";
 import { GlassCard, Button, Icon, SelectField } from "../ui";

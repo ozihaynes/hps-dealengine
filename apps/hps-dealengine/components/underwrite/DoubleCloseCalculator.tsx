@@ -2,7 +2,7 @@ import React from 'react';
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Badge } from '../ui';
 import { DoubleClose } from '../../services/engine';
 import { fmt$ } from '../../utils/helpers';
-import type { Deal, EngineCalculations } from '@ui-v2/types';
+import type { Deal, EngineCalculations } from '../../types';
 
 interface DoubleCloseCalculatorProps {
   deal: Deal;

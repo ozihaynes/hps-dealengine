@@ -7,7 +7,7 @@ import UnderwriteTab from "@/components/underwrite/UnderwriteTab";
 import { Button } from "@/components/ui";
 import RequestOverrideModal from "@/components/underwrite/RequestOverrideModal";
 import { useDealSession } from "@/lib/dealSessionContext";
-import type { Deal } from "@ui-v2/types";
+import type { Deal } from "../../../types";
 
 import { HPSEngine } from "../../../services/engine";
 import { getSupabase } from "@/lib/supabaseClient";

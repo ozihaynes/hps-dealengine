@@ -1,5 +1,5 @@
 import React from "react";
-import type { Deal, EngineCalculations, SandboxSettings } from "@ui-v2/types";
+import type { Deal, EngineCalculations, SandboxSettings } from "../../types";
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon } from "../ui";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";

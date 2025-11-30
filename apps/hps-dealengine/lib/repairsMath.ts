@@ -1,4 +1,4 @@
-import type { EstimatorState } from "@ui-v2/types";
+import type { EstimatorState } from "../types";
 import { estimatorSections } from "./ui-v2-constants";
 import { num } from "../utils/helpers";
 

@@ -13,7 +13,7 @@ import type {
   Deal,
   EngineCalculations,
   EstimatorState,
-} from "@ui-v2/types";
+} from "../../../types";
 import RepairsTab from "@/components/repairs/RepairsTab";
 import { useDealSession } from "@/lib/dealSessionContext";
 import { HPSEngine } from "@/services/engine";

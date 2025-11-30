@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Deal, EngineCalculations } from "@ui-v2/types";
+import type { Deal, EngineCalculations } from "../../types";
 import type { Flags } from '../../types';
 import { fmt$, num, roundHeadline, getDealHealth } from '../../utils/helpers';
 import { GlassCard, Badge, Icon } from '../ui';

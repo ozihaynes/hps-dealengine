@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 
 import { createInitialEstimatorState } from "./ui-v2-constants";
 import { createInitialSandboxState } from "./ui-v2-constants";
-import type { Deal, SandboxSettings } from "@ui-v2/types";
+import type { Deal, SandboxSettings } from "../types";
 import type { AnalyzeResult } from "@hps-internal/contracts";
 
 import { HPSEngine } from "../services/engine";

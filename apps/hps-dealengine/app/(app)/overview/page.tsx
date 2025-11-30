@@ -7,7 +7,7 @@ import OverviewTab from "@/components/overview/OverviewTab";
 import { Button } from "@/components/ui";
 
 import { createInitialEstimatorState } from "../../../lib/ui-v2-constants";
-import type { Deal } from "@ui-v2/types";
+import type { Deal } from "../../../types";
 
 import {
   HPSEngine,
