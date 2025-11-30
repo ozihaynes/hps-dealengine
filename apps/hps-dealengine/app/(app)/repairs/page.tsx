@@ -17,7 +17,7 @@ import type {
 import RepairsTab from "@/components/repairs/RepairsTab";
 import { useDealSession } from "@/lib/dealSessionContext";
 import { HPSEngine } from "@/services/engine";
-import { estimatorSections } from "@ui-v2/constants";
+import { estimatorSections } from "../../../../../.tmp/ui-v2/constants";
 import {
   useRepairRates,
   type RepairRates,

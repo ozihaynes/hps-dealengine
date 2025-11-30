@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React from "react";
 import { Icon } from "./ui";
-import { Icons } from "@ui-v2/constants";
+import { Icons } from "../../../.tmp/ui-v2/constants";
 
 /**
  * Top application header:
