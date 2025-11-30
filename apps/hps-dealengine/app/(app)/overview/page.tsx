@@ -6,7 +6,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import OverviewTab from "@/components/overview/OverviewTab";
 import { Button } from "@/components/ui";
 
-import { createInitialEstimatorState } from "../../../../../.tmp/ui-v2/constants";
+import { createInitialEstimatorState } from "../../../lib/ui-v2-constants";
 import type { Deal } from "@ui-v2/types";
 
 import {

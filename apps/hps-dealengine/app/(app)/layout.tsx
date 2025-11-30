@@ -10,7 +10,7 @@ import AppTopNav from "@/components/AppTopNav";
 import MobileBottomNav from "@/components/shared/MobileBottomNav";
 import { Icon } from "@/components/ui";
 import { useDealSession } from "../../lib/dealSessionContext";
-import { Icons } from "../../../../.tmp/ui-v2/constants";
+import { Icons } from "../../lib/ui-v2-constants";
 
 const APP_TABS = [
   { href: "/overview", label: "Overview", icon: Icons.barChart },
