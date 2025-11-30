@@ -1,1 +1,3 @@
-# pnpm-workspace.yaml  (minimal safe example)packages:  - 'packages/*'  - 'apps/*'  - esbuild  - unrs-resolver
+packages:
+  - "packages/*"
+  - "apps/*"

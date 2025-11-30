@@ -1,24 +1,15 @@
 // apps/hps-dealengine/middleware.ts
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+// Pass-through middleware: auth is handled client-side via AuthGate + Supabase JS.
+// This avoids redirect loops in dev when Supabase sessions live in localStorage (not cookies).
 
-// Skip auth on Vercel (Preview/Prod). Keep Basic Auth only for local dev.
-export function middleware(req: NextRequest) {
-  if (process.env.VERCEL) return NextResponse.next();
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-  const user = process.env.BASIC_AUTH_USER;
-  const pass = process.env.BASIC_AUTH_PASS;
-  if (!user || !pass) return NextResponse.next();
-
-  const auth = req.headers.get('authorization');
-  const expected = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64');
-  if (auth !== expected) {
-    return new NextResponse('Unauthorized', {
-      status: 401,
-      headers: { 'WWW-Authenticate': 'Basic realm="HPS DealEngine"' },
-    });
-  }
+export function middleware(_req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };
+// Only run middleware for actual app routes (not assets, api, etc.)
+export const config = {
+  matcher: ["/((?!_next|api|.*\\..*).*)"],
+};

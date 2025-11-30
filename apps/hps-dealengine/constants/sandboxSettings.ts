@@ -1,109 +1,109 @@
-import type { Settings } from "@hps-internal/contracts";
+import { Postures } from "@hps-internal/contracts";
+import type { SandboxConfig } from "@hps-internal/contracts";
+import {
+  SANDBOX_ALL_SETTING_DEFS,
+  SANDBOX_PAGES_CONFIG as RAW_SANDBOX_PAGES_CONFIG,
+  createInitialSandboxState,
+  type SandboxSettingDef,
+} from "./sandboxSettingsSource";
 
-/**
- * Default sandbox settings for local dev.
- * The app falls back to @hps-internal/contracts.policyDefaults when this is empty.
- */
-const settings: Partial<Settings> = {};
-export default settings;
-
-/** Types used by the Settings UI to render controls */
-export type SandboxSetting = {
-  key: string;                   // unique key (for React lists)
-  label: string;                 // human-readable label
-  path: string;                  // Settings path this control binds to
-  input: "number" | "percent" | "currency" | "toggle" | "text" | "select";
-  description: string;           // REQUIRED so UI filter code is safe
-  min?: number;
-  max?: number;
-  step?: number;
-  token?: string;                // e.g., "<AIV_CAP_PCT>"
-  source_of_truth?: "investor_set" | "team_policy_set" | "external_feed";
-
-  // REQUIRED so componentMap[setting.component] never sees undefined
-  component: "InputField" | "ToggleSwitch" | "SelectField" | "MultiSelectChecklist" | "DynamicBandEditor";
-  props?: Record<string, unknown>;
-};
+export type SandboxSettingItem = SandboxSettingDef;
 
 export type SandboxPage = {
-  id: string;
   title: string;
-  description: string;           // REQUIRED so no optional chaining needed in the UI
-  settings: ReadonlyArray<SandboxSetting>;
+  icon?: string;
+  description: string;
+  settings: SandboxSettingItem[];
 };
 
-/**
- * Minimal, typed pages config to keep the app compiling cleanly.
- */
-export const SANDBOX_PAGES_CONFIG: ReadonlyArray<SandboxPage> = [
-  {
-    id: "policy",
-    title: "Policy & Caps",
-    description: "Core guardrails and safety caps.",
-    settings: [
-      {
-        key: "aivSafetyCapPercentage",
-        label: "Safety Margin on AIV %",
-        path: "aivSafetyCapPercentage",
-        input: "percent",
-        description: "Cap applied to AIV before offer math.",
-        token: "<AIV_CAP_PCT>",
-        source_of_truth: "team_policy_set",
-        min: 0,
-        max: 10,
-        step: 0.1,
-        component: "InputField",
-        props: { suffix: "%", placeholder: "Policy default" }
-      }
-    ]
+const LEGACY_SANDBOX_DEFAULTS: SandboxConfig = {
+  arvRange: { min: 150000, max: 450000 },
+  repairBudgetRange: { min: 0, max: 80000 },
+  discountRange: { min: 0, max: 0.3 },
+  flags: {
+    enableAggressiveUpside: false,
+    showRiskWarnings: true,
   },
-  {
-    id: "fees",
-    title: "Seller Costs (Policy Defaults)",
-    description: "Default resale-side cost assumptions.",
-    settings: [
-      {
-        key: "list_commission_pct",
-        label: "List Commission %",
-        path: "listingCostModelSellerCostLineItems[].defaultPct",
-        input: "percent",
-        description: "Default list agent commission percentage.",
-        token: "<LIST_COMM_PCT>",
-        source_of_truth: "team_policy_set",
-        min: 0,
-        max: 20,
-        step: 0.1,
-        component: "InputField",
-        props: { suffix: "%", placeholder: "Policy default" }
-      },
-      {
-        key: "concessions_pct",
-        label: "Seller Concessions %",
-        path: "listingCostModelSellerCostLineItems[].defaultPct",
-        input: "percent",
-        description: "Default seller concessions percentage.",
-        token: "<CONCESSIONS_PCT>",
-        source_of_truth: "team_policy_set",
-        min: 0,
-        max: 20,
-        step: 0.1,
-        component: "InputField",
-        props: { suffix: "%", placeholder: "Policy default" }
-      },
-      {
-        key: "sell_close_pct",
-        label: "Sell Close Costs %",
-        path: "listingCostModelSellerCostLineItems[].defaultPct",
-        input: "percent",
-        description: "Title & stamps on resale.",
-        token: "<SELL_CLOSE_PCT>",
-        source_of_truth: "team_policy_set",
-        min: 0,
-        max: 30,
-        step: 0.1,
-        component: "InputField",
-        props: { suffix: "%", placeholder: "Policy default" }
-      }
-    ]
-  }
+};
+
+export const SANDBOX_PAGES_CONFIG: SandboxPage[] = RAW_SANDBOX_PAGES_CONFIG;
+
+export const DEFAULT_SANDBOX_CONFIG: SandboxConfig = {
+  ...createInitialSandboxState(),
+  ...LEGACY_SANDBOX_DEFAULTS,
+};
+
+// Posture-aware keys (vary by posture)
+export const POSTURE_AWARE_KEYS: string[] = [
+  "arvRange",
+  "repairBudgetRange",
+  "discountRange",
+  "flags",
+  "aivSafetyCapPercentage",
+  "buyerTargetMarginFlipBaselinePolicy",
+  "minSpreadByArvBand",
+  "initialOfferSpreadMultiplier",
+  "carryMonthsMaximumCap",
+  "floorInvestorAivDiscountTypicalZip",
+  "floorPayoffMoveOutCashDefault",
 ];
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+/** Build a complete settings object with defaults for every key */
+export function buildDefaultSandboxSettings(): SandboxConfig {
+  return { ...DEFAULT_SANDBOX_CONFIG };
+}
+
+/** Merge fetched config with defaults to guarantee required keys exist */
+export function mergeSandboxConfig(config?: Record<string, any>): SandboxConfig {
+  const base = { ...DEFAULT_SANDBOX_CONFIG, ...(config ?? {}) } as SandboxConfig;
+  const existingPostureConfigs = (config as any)?.postureConfigs ?? {};
+
+  const postureConfigs: Record<(typeof Postures)[number], Record<string, any>> =
+    {} as Record<(typeof Postures)[number], Record<string, any>>;
+
+  for (const posture of Postures) {
+    postureConfigs[posture] = { ...(existingPostureConfigs?.[posture] ?? {}) };
+    for (const key of POSTURE_AWARE_KEYS) {
+      const fallback =
+        existingPostureConfigs?.[posture]?.[key] ??
+        (config as any)?.[key] ??
+        (DEFAULT_SANDBOX_CONFIG as any)[key];
+      if (fallback !== undefined) {
+        postureConfigs[posture][key] = clone(fallback);
+      }
+    }
+  }
+
+  // Keep root posture-aware fields aligned with base posture for compatibility
+  for (const key of POSTURE_AWARE_KEYS) {
+    (base as any)[key] =
+      postureConfigs.base?.[key] ??
+      (base as any)[key] ??
+      (DEFAULT_SANDBOX_CONFIG as any)[key];
+  }
+
+  return {
+    ...base,
+    postureConfigs,
+  };
+}
+
+export function prepareSandboxConfigForSave(config: SandboxConfig): SandboxConfig {
+  const next = { ...config };
+  // ensure root posture-aware fields mirror base posture for compatibility
+  const baseOverrides = (config.postureConfigs as any)?.base ?? {};
+  for (const key of POSTURE_AWARE_KEYS) {
+    if (baseOverrides[key] !== undefined) {
+      (next as any)[key] = clone(baseOverrides[key]);
+    }
+  }
+  return next;
+}
+
+export function isPostureAwareKey(key: string) {
+  return POSTURE_AWARE_KEYS.includes(key);
+}
+
+export const ALL_SANDBOX_SETTING_DEFS = SANDBOX_ALL_SETTING_DEFS;

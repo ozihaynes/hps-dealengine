@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from "react";
@@ -33,3 +34,5 @@ export default function AnalyzeNowListener({ deal, sandbox, onResult }: Props) {
 
   return null;
 }
+
+

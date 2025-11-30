@@ -1,61 +1,116 @@
-/* v1-policy-get: returns active policy for caller's org/posture
-   Methods: GET ?posture=..., POST { posture?: "conservative"|"base"|"aggressive" }
-   Auth: Authorization: Bearer <user JWT> is forwarded so RLS evaluates as caller.
-*/
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 
-const corsHeaders = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization, apikey, content-type',
-  'access-control-allow-methods': 'GET,POST,OPTIONS',
-};
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-Deno.serve(async (req: Request): Promise<Response> => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-
-  const auth = req.headers.get('Authorization') ?? '';
-  if (!auth.startsWith('Bearer ')) return json({ error: 'missing_bearer' }, 401);
-
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: auth } },
-  });
-
-  // posture from query or body; default base
-  let posture: string | null = new URL(req.url).searchParams.get('posture');
-  if (!posture) {
-    try {
-      const b = await req.json();
-      if (typeof b?.posture === 'string') posture = b.posture;
-    } catch {}
-  }
-  posture = posture ?? 'base';
-
-  // resolve caller org via memberships (RLS enforces auth.uid())
-  const mRes = await supabase.from('memberships').select('org_id').limit(1);
-  if (mRes.error) return json({ error: 'membership_error', details: mRes.error.message }, 403);
-  const org = (mRes.data && mRes.data[0]?.org_id) || null;
-  if (!org) return json({ error: 'no_membership' }, 403);
-
-  // newest active policy (no .single(); tolerate future dup protections)
-  const pRes = await supabase
-    .from('policies')
-    .select('id, org_id, posture, is_active, policy_json, tokens, metadata, created_at')
-    .eq('org_id', org)
-    .eq('posture', posture)
-    .eq('is_active', true)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (pRes.error) return json({ error: 'policy_query_error', details: pRes.error.message }, 500);
-  const policy = pRes.data && pRes.data[0];
-  if (!policy) return json({ error: 'policy_not_found' }, 404);
-
-  return json({ ok: true, policy }, 200);
-});
-
-function json(body: unknown, status = 200): Response {
+// Simple JSON responder
+function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json', ...corsHeaders },
+    headers: {
+      "Content-Type": "application/json",
+    },
   });
 }
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Missing SUPABASE_URL or SUPABASE_ANON_KEY in env for v1-policy-get");
+}
+
+serve(async (req: Request): Promise<Response> => {
+  if (req.method !== "POST") {
+    return jsonResponse(
+      { ok: false, error: "method_not_allowed", detail: "Use POST" },
+      405,
+    );
+  }
+
+  let body: any;
+  try {
+    body = await req.json();
+  } catch (_err) {
+    return jsonResponse(
+      { ok: false, error: "invalid_json", detail: "Body must be valid JSON" },
+      400,
+    );
+  }
+
+  const posture =
+    typeof body?.posture === "string" && body.posture.trim().length > 0
+      ? body.posture.trim()
+      : "default";
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "server_misconfigured",
+        detail: "Missing Supabase env vars",
+      },
+      500,
+    );
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "missing_auth",
+        detail: "Authorization header (Bearer <jwt>) is required",
+      },
+      401,
+    );
+  }
+
+  // Caller-scoped client: uses anon key but forwards the caller JWT for RLS
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  const { data, error } = await supabase
+    .from("policies")
+    .select("id, org_id, posture, policy_json, is_active")
+    .eq("posture", posture)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error("v1-policy-get: Supabase query error", error);
+    return jsonResponse(
+      {
+        ok: false,
+        error: "db_error",
+        detail: error.message ?? "Unexpected database error",
+      },
+      500,
+    );
+  }
+
+  if (!data) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "policy_not_found",
+        detail: `No active policy found for posture='${posture}' in caller's org`,
+      },
+      404,
+    );
+  }
+
+  return jsonResponse(
+    {
+      ok: true,
+      posture: data.posture,
+      org_id: data.org_id,
+      policy: data.policy_json,
+      policy_id: data.id,
+    },
+    200,
+  );
+});

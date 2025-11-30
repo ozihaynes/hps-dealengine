@@ -1,4 +1,3 @@
-"use client";
 import React, { useContext, createContext } from 'react';
 import type { ReactNode } from 'react';
 import type {
@@ -153,13 +152,20 @@ export const ToggleSwitch = ({ label, checked, onChange, description }: ToggleSw
       <span className="text-sm text-text-primary">{label}</span>
       {description && <p className="text-xs text-text-secondary/70 mt-1">{description}</p>}
     </div>
-    <div className="relative flex-shrink-0 mt-1">
-      <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
+    <div className="relative shrink-0 mt-1">
+      <input
+        type="checkbox"
+        className="sr-only"
+        checked={checked}
+        onChange={(e) => onChange?.(e.target.checked)}
+      />
       <div
         className={`block w-10 h-6 rounded-full ${checked ? 'bg-accent-blue' : 'bg-gray-600'}`}
       ></div>
       <div
-        className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${checked ? 'transform translate-x-4' : ''}`}
+        className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+          checked ? 'transform translate-x-4' : ''
+        }`}
       ></div>
     </div>
   </label>
@@ -167,7 +173,7 @@ export const ToggleSwitch = ({ label, checked, onChange, description }: ToggleSw
 
 const TabsContext = createContext<TabsContextType>({ activeTab: '', setActiveTab: () => {} });
 
-// FIX: Made children optional to resolve a TypeScript error that appears to be from a configuration issue.
+// children optional to avoid TS noise in your config
 export const NestedTabs = ({
   children,
   initialTab,
@@ -180,7 +186,7 @@ export const NestedTabs = ({
     <TabsContext.Provider value={{ activeTab, setActiveTab }}>{children}</TabsContext.Provider>
   );
 };
-// FIX: Made children optional to resolve a TypeScript error that appears to be from a configuration issue.
+
 export const NestedTabsList = ({
   children,
   className,
@@ -188,7 +194,7 @@ export const NestedTabsList = ({
   children?: ReactNode;
   className?: string;
 }) => <div className={`flex flex-wrap items-center gap-2 ${className}`}>{children}</div>;
-// FIX: Made children optional to resolve a TypeScript error that appears to be from a configuration issue.
+
 export const NestedTabsTrigger = ({
   children,
   value,
@@ -202,7 +208,7 @@ export const NestedTabsTrigger = ({
   const isActive = activeTab === value;
   return (
     <button
-      onClick={() => setActiveTab(value)}
+      onClick={() => setActiveTab && setActiveTab(value)}
       className={`px-4 py-2 text-sm font-semibold transition-all duration-200 border-b-2 ${
         isActive
           ? 'text-text-primary border-accent-blue shadow-[0_4px_12px_-4px_var(--accent-blue)]'
@@ -213,13 +219,15 @@ export const NestedTabsTrigger = ({
     </button>
   );
 };
-// FIX: Made children optional to resolve a TypeScript error that appears to be from a configuration issue.
+
 export const NestedTabsContent = ({ value, children }: { value: string; children?: ReactNode }) => {
   const { activeTab } = useContext(TabsContext);
   const isActive = activeTab === value;
   return (
     <div
-      className={`transition-opacity duration-300 ease-in-out ${isActive ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'}`}
+      className={`transition-opacity duration-300 ease-in-out ${
+        isActive ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
+      }`}
     >
       {children}
     </div>
@@ -234,7 +242,8 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
   };
-  const titleId = title.replace(/\s+/g, '-').toLowerCase();
+  const safeTitle = title ?? '';
+  const titleId = safeTitle.replace(/\s+/g, '-').toLowerCase();
 
   return (
     <div
@@ -362,7 +371,6 @@ export const DynamicBandEditor = ({
                         ))}
                       </select>
                     ) : (
-                      // FIX: The second argument to `num` must be a number. Changed `num(e.target.value, '')` to `num(e.target.value)` to use the default fallback.
                       <input
                         type={col.type}
                         value={row[col.key] || ''}
@@ -391,4 +399,3 @@ export const DynamicBandEditor = ({
     </div>
   );
 };
-

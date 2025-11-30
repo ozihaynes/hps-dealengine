@@ -12,8 +12,10 @@
     "typecheck": "tsc -p . --noEmit"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@hps-internal/contracts": "workspace:*",
     "@hps-internal/engine": "workspace:*",
+    "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.76.1",
     "classnames": "^2.5.1",
     "next": "14.2.5",

@@ -1,4 +1,5 @@
-import { redirect } from 'next/navigation';
-export default function Page() {
-  redirect('/underwrite');
+import { redirect } from "next/navigation";
+
+export default function RootPage() {
+  redirect("/login");
 }

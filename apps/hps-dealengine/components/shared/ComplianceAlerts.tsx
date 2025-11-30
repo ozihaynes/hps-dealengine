@@ -1,3 +1,4 @@
+
 import React from 'react';
 import type { Flag, Flags } from '../../types';
 import { Icon } from '../ui';
@@ -13,7 +14,7 @@ const ComplianceAlerts: React.FC<ComplianceAlertsProps> = ({ flags, missingInfo,
   if (!show) return null;
 
   // FIX: Use a more specific filter to ensure correct type inference for `flag`.
-  const activeFlags = Object.values(flags).filter((flag): flag is Flag => !!(flag as Flag)?.active);
+  const activeFlags = Object.values(flags).filter((flag: Flag) => !!flag?.active);
 
   if (missingInfo.length === 0 && activeFlags.length === 0) return null;
 
@@ -38,3 +39,7 @@ const ComplianceAlerts: React.FC<ComplianceAlertsProps> = ({ flags, missingInfo,
 };
 
 export default ComplianceAlerts;
+
+
+
+

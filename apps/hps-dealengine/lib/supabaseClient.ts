@@ -1,15 +1,46 @@
-'use client';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+"use client";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-let _client: SupabaseClient | null = null;
+/**
+ * Single browser Supabase client for the app.
+ *
+ * - Uses anon key only (no service_role).
+ * - Sessions are stored in browser storage and reused everywhere.
+ */
 
-export function getSupabase(): SupabaseClient {
-  if (!_client) _client = createClient(url, anon);
-  return _client;
+let browserClient: SupabaseClient | null = null;
+
+function ensureClient(): SupabaseClient {
+  if (!browserClient) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error(
+        "Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY. Check your .env.local."
+      );
+    }
+
+    browserClient = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+      },
+    });
+  }
+  return browserClient;
 }
 
-/** Named export for legacy imports: `import { supabase } from "@/lib/supabaseClient"` */
-export const supabase = getSupabase();
+// Preferred API
+export function getSupabaseClient(): SupabaseClient {
+  return ensureClient();
+}
+
+// Back-compat alias (some files may import this)
+export function getSupabase(): SupabaseClient {
+  return ensureClient();
+}
+
+// Legacy constant for older imports
+export const supabase: SupabaseClient = ensureClient();

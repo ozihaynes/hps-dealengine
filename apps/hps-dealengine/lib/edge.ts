@@ -1,109 +1,236 @@
-'use client';
-import { getSupabase } from './supabaseClient';
+// apps/hps-dealengine/lib/edge.ts
+// Typed client helpers for calling Edge Functions from the Next.js app.
 
-async function sha256Hex(s: string): Promise<string> {
-  const enc = new TextEncoder().encode(s);
-  const buf = await crypto.subtle.digest('SHA-256', enc);
-  const b = Array.from(new Uint8Array(buf));
-  return b.map((x) => x.toString(16).padStart(2, '0')).join('');
+"use client";
+
+import type {
+  AnalyzeInput,
+  AnalyzeResult,
+  PolicyOverrideRequestInput,
+  PolicyOverrideRequestResult,
+  PolicyOverrideApproveInput,
+  PolicyOverrideApproveResult,
+} from "@hps-internal/contracts";
+import { getSupabase } from "./supabaseClient";
+
+/* -------------------------------------------------------------------------- */
+/* Types                                                                      */
+/* -------------------------------------------------------------------------- */
+
+// Local types for Runs until @hps-internal/contracts is updated
+export interface SaveRunInput {
+  orgId: string;
+  dealId: string;
+  deal: any; // Ideally DealContract
+  sandbox: any;
+  posture: "conservative" | "base" | "aggressive";
+  outputs: unknown;
+  trace: Array<{ key: string; label: string; details?: unknown }>;
+  meta?: {
+    engineVersion?: string;
+    policyVersion?: string | null;
+    source?: string;
+    durationMs?: number;
+  };
+  policySnapshot?: unknown;
 }
 
-export type AnalyzeInput = {
-  org_id: string;
-  deal: { aiv: number; dom: number; dom_zip?: number };
-  options?: { trace?: boolean };
-};
-
-type AnalyzeResp = {
+export interface SaveRunResult {
   ok: boolean;
-  posture: 'conservative' | 'base' | 'aggressive';
-  outputs: Record<string, unknown>;
-  trace: Array<{
+  run?: {
     id: string;
-    label: string;
-    formula: string;
-    inputs: any;
-    tokens: any;
-    output: any;
-  }>;
-  tokens_used?: Record<string, unknown>;
-  infoNeeded?: string[];
-};
-
-export async function analyze(input: AnalyzeInput): Promise<AnalyzeResp> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase.functions.invoke('v1-analyze', { body: input });
-  if (error) throw error;
-  return data as AnalyzeResp;
+    org_id: string;
+    posture: string;
+    input_hash?: string | null;
+    output_hash?: string | null;
+    policy_hash?: string | null;
+    created_at?: string;
+  };
+  deduped?: boolean;
 }
 
-export async function saveRun(
-  org_id: string,
-  analyzeInput: AnalyzeInput,
-  analyzeResp: AnalyzeResp
-) {
+export interface ReplayRunResult {
+  match: boolean;
+  original_hash: string;
+  replay_hash: string;
+  diff: { message: string } | null;
+}
+
+export interface AiStrategistRequest {
+  mode: "strategist";
+  prompt: string;
+  run?: { output?: unknown; trace?: unknown };
+  policy?: unknown;
+  evidence?: Array<{ kind?: string; id?: string; label?: string; uri?: string }>;
+}
+
+export interface AiStrategistResponse {
+  ok: boolean;
+  text?: string;
+  mode?: string;
+  guardrails?: string[];
+  error?: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Core Functions - Analyze                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Low-level wrapper for the v1-analyze Edge Function.
+ * Uses the caller-scoped Supabase client (anon key + RLS).
+ */
+async function invokeAnalyze(input: AnalyzeInput): Promise<AnalyzeResult> {
   const supabase = getSupabase();
 
-  const { data: userRes, error: userErr } = await supabase.auth.getUser();
-  if (userErr) throw userErr;
-  if (!userRes?.user) throw new Error('No user session; cannot save run.');
-  const created_by = userRes.user.id;
+  const { data, error } = await supabase.functions.invoke("v1-analyze", {
+    body: input,
+  });
 
-  const inputJson = JSON.stringify(analyzeInput);
-  const outputsJson = JSON.stringify(analyzeResp.outputs ?? {});
-  const traceJson = JSON.stringify(analyzeResp.trace ?? []);
+  if (error) {
+    console.error("[edge] v1-analyze failed", error);
+    throw error;
+  }
 
-  const input_hash = await sha256Hex(inputJson);
-  const output_hash = await sha256Hex(outputsJson);
+  if (!data) {
+    throw new Error("v1-analyze returned no data");
+  }
 
-  // Fetch latest policy snapshot driving this posture
-  const { data: vers, error: vErr } = await supabase
-    .from('policy_versions')
-    .select('id, policy_json')
-    .eq('org_id', org_id)
-    .eq('posture', analyzeResp.posture)
-    .order('created_at', { ascending: false })
-    .limit(1);
+  // Function returns { ok, result }
+  if ((data as any).ok && (data as any).result) {
+    return (data as any).result as AnalyzeResult;
+  }
 
-  if (vErr) throw vErr;
+  return data as AnalyzeResult;
+}
 
-  const policy_version_id = vers?.[0]?.id ?? null;
-  const policy_json_str = vers?.[0]?.policy_json ? JSON.stringify(vers[0].policy_json) : '{}';
-  const policy_hash = await sha256Hex(policy_json_str);
+/**
+ * Primary client-side entry point for underwriting analysis.
+ */
+export async function analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+  return invokeAnalyze(input);
+}
 
-  const payload = {
-    org_id,
-    created_by,
-    posture: analyzeResp.posture,
-    policy_version_id,
-    input: JSON.parse(inputJson),
-    output: JSON.parse(outputsJson),
-    trace: JSON.parse(traceJson),
-    input_hash,
-    output_hash,
-    policy_hash,
-  };
+/* -------------------------------------------------------------------------- */
+/* Runs & Replay                                                              */
+/* -------------------------------------------------------------------------- */
 
-  const { data, error } = await supabase.from('runs').insert([payload]).select().single();
-  if (error) throw error;
+/**
+ * Persists a run to the database (public.runs) with full audit hashes.
+ */
+export async function saveRun(input: SaveRunInput): Promise<SaveRunResult> {
+  const supabase = getSupabase();
 
-  const details = {
-    slices: (analyzeResp.trace ?? []).map((t: any) => t.id),
-    posture: analyzeResp.posture,
-    input_hash,
-    output_hash,
-  };
-  const { error: auditErr } = await supabase.from('audit_logs').insert([
+  // Note: function name must match deployment (v1-runs-save)
+  const { data, error } = await supabase.functions.invoke("v1-runs-save", {
+    body: input,
+  });
+
+  if (error) {
+    console.error("[edge] v1-runs-save failed", error);
+    throw error;
+  }
+
+  return data as SaveRunResult;
+}
+
+/**
+ * Re-executes a historical run to verify determinism.
+ */
+export async function replayRun(runId: string): Promise<ReplayRunResult> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase.functions.invoke("v1-runs-replay", {
+    body: { runId },
+  });
+
+  if (error) {
+    console.error("[edge] v1-runs-replay failed", error);
+    throw error;
+  }
+
+  return data as ReplayRunResult;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Policy Overrides                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Request a policy override (creates a pending row in public.policy_overrides).
+ * RLS + org_id resolution are handled in the Edge Function using the caller JWT.
+ */
+export async function requestPolicyOverride(
+  input: PolicyOverrideRequestInput,
+): Promise<PolicyOverrideRequestResult> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase.functions.invoke(
+    "v1-policy-override-request",
     {
-      org_id,
-      actor_user_id: created_by,
-      action: 'analyze.run.created',
-      entity: 'run',
-      entity_id: data.id,
-      details,
+      body: input,
     },
-  ]);
-  if (auditErr) throw auditErr;
+  );
 
-  return data;
+  if (error) {
+    console.error("[edge] v1-policy-override-request failed", error);
+    throw error;
+  }
+
+  return data as PolicyOverrideRequestResult;
 }
+
+/**
+ * Approve or reject an existing override.
+ * The Edge Function checks membership/org/role before updating the row.
+ */
+export async function approvePolicyOverride(
+  input: PolicyOverrideApproveInput,
+): Promise<PolicyOverrideApproveResult> {
+  const supabase = getSupabase();
+
+  const { data, error } = await supabase.functions.invoke(
+    "v1-policy-override-approve",
+    {
+      body: input,
+    },
+  );
+
+  if (error) {
+    console.error("[edge] v1-policy-override-approve failed", error);
+    throw error;
+  }
+
+  return data as PolicyOverrideApproveResult;
+}
+
+/* -------------------------------------------------------------------------- */
+/* AI Strategist                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Calls v1-ai-bridge with caller JWT. Advisory-only; does not change numbers.
+ */
+export async function callAiStrategist(
+  input: AiStrategistRequest,
+): Promise<AiStrategistResponse> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.functions.invoke("v1-ai-bridge", {
+    body: input,
+  });
+  if (error) {
+    console.error("[edge] v1-ai-bridge failed", error);
+    throw error;
+  }
+  return data as AiStrategistResponse;
+}
+
+// Re-export types so UI code can import them from "lib/edge" if desired.
+export type {
+  AnalyzeInput,
+  AnalyzeResult,
+  PolicyOverrideRequestInput,
+  PolicyOverrideRequestResult,
+  PolicyOverrideApproveInput,
+  PolicyOverrideApproveResult,
+} from "@hps-internal/contracts";

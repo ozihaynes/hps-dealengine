@@ -1,0 +1,145 @@
+import { z } from "zod";
+
+import {
+  PolicyPosture,
+  RunInputEnvelope,
+  RunOutputEnvelope,
+  PolicySnapshot,
+  RunRow,
+  canonicalJson,
+  buildRunInputEnvelope,
+  buildRunOutputEnvelope,
+} from "./runs";
+import {
+  AnalyzeInput,
+  AnalyzeResult,
+} from "./analyze";
+
+/**
+ * Minimal inputs needed to construct a RunRow and its hashes.
+ */
+export const BuildRunRowArgsSchema = z.object({
+  orgId: z.string().uuid(),
+  createdBy: z.string().uuid(),
+  posture: z.string() as unknown as z.ZodType<PolicyPosture>,
+  policyVersionId: z.string().uuid().nullable().optional(),
+  deal: z.record(z.unknown()).nullable(),
+  analyzeInput: z.any() as unknown as z.ZodType<AnalyzeInput>,
+  analyzeResult: z.any() as unknown as z.ZodType<AnalyzeResult>,
+  policyJson: z.unknown(),
+  options: z
+    .object({
+      scenario_label: z.string().nullable().optional(),
+      ui_version: z.string().nullable().optional(),
+      engine_version: z.string().nullable().optional(),
+    })
+    .partial()
+    .optional(),
+});
+
+export type BuildRunRowArgs = z.infer<typeof BuildRunRowArgsSchema>;
+
+export interface BuildRunRowResult {
+  row: RunRow;
+  inputEnvelope: RunInputEnvelope;
+  outputEnvelope: RunOutputEnvelope;
+  policySnapshot: PolicySnapshot;
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string;
+}
+
+/**
+ * Pure TypeScript hashing helper (Node-side). The actual digest algorithm is
+ * SHA-256 over the canonical JSON envelopes, encoded as lowercase hex.
+ *
+ * Edge functions can either reimplement this hashJson step locally using
+ * Web Crypto or call out to a shared helper.
+ */
+export async function hashJson(value: unknown): Promise<string> {
+  const canonical = canonicalJson(value);
+  const encoder = new TextEncoder();
+  const data = encoder.encode(canonical);
+
+  // In Node 20+, we can use global crypto.subtle; in older runtimes callers
+  // can polyfill or replace this helper with an equivalent implementation.
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(digest);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/**
+ * Build a RunRow payload and associated hashes/envelopes.
+ *
+ * This function is deliberately pure: it does not perform any I/O or DB calls.
+ * Callers are responsible for inserting/upserting the returned row into
+ * public.runs using their environment-specific client (Supabase JS, pg, etc.).
+ */
+export async function buildRunRowPayload(args: BuildRunRowArgs): Promise<BuildRunRowResult> {
+  const parsed = BuildRunRowArgsSchema.parse(args);
+
+  const {
+    orgId,
+    createdBy,
+    posture,
+    policyVersionId = null,
+    deal,
+    analyzeInput,
+    analyzeResult,
+    policyJson,
+    options = {},
+  } = parsed;
+
+  const inputEnvelope = buildRunInputEnvelope({
+    posture,
+    deal,
+    analyze_input: analyzeInput,
+    options,
+  });
+
+  const outputEnvelope = buildRunOutputEnvelope({
+    analyzeResult,
+    engine_version: options.engine_version ?? null,
+    ui_version: options.ui_version ?? null,
+  });
+
+  const policySnapshot: PolicySnapshot = {
+    posture,
+    policy_json: policyJson,
+  };
+
+  const [input_hash, output_hash, policy_hash] = await Promise.all([
+    hashJson(inputEnvelope),
+    hashJson(outputEnvelope),
+    hashJson(policySnapshot),
+  ]);
+
+  const nowIso = new Date().toISOString();
+
+  const row: RunRow = {
+    id: crypto.randomUUID(),
+    org_id: orgId,
+    created_by: createdBy,
+    posture,
+    policy_version_id: policyVersionId,
+    input: inputEnvelope,
+    output: outputEnvelope,
+    trace: analyzeResult.trace ?? [],
+    input_hash,
+    output_hash,
+    policy_hash,
+    created_at: nowIso,
+  };
+
+  return {
+    row,
+    inputEnvelope,
+    outputEnvelope,
+    policySnapshot,
+    input_hash,
+    output_hash,
+    policy_hash,
+  };
+}

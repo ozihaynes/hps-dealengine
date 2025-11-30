@@ -1,18 +1,21 @@
 import "./globals.css";
-import React from "react";
-import AppTopNav from "../components/AppTopNav";
+import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import { DealSessionProvider } from "@/lib/dealSessionContext";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "HPS DealEngine",
-  description: "Deterministic underwriting sandbox",
+  description:
+    "Deterministic underwriting OS for distressed SFR deals in Central Florida",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-[#0B1220] text-slate-200 antialiased">
-        <AppTopNav />
-        <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-[#020617] text-text-primary antialiased">
+        <DealSessionProvider>
+          {children}
+        </DealSessionProvider>
       </body>
     </html>
   );

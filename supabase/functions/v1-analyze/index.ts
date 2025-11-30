@@ -1,163 +1,301 @@
-import { computeUnderwriting } from '@hps-internal/engine';
-import { UNDERWRITE_POLICY } from '@hps-internal/engine/policy-defaults.js'; // Deno needs .js
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-type Json = Record<string, unknown>;
+const corsHeaders: Record<string, string> = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
-function isNum(v: unknown): v is number {
-  return typeof v === 'number' && Number.isFinite(v);
-}
-function get(obj: any, path: (string | number)[]): any {
-  return path.reduce((acc, k) => (acc && typeof acc === 'object' ? acc[k] : undefined), obj);
-}
-function tokenNumber(
-  raw: any,
-  tokenPath: (string | number)[],
-  directPath: (string | number)[],
-  fallback?: number | null
-) {
-  const tokVal = get(raw, tokenPath);
-  if (isNum(tokVal)) return tokVal;
-  if (
-    typeof tokVal === 'string' &&
-    tokVal.startsWith('<') &&
-    raw?.tokens &&
-    isNum(raw.tokens[tokVal])
-  )
-    return raw.tokens[tokVal];
-  const direct = get(raw, directPath);
-  if (isNum(direct)) return direct;
-  return fallback ?? null;
-}
-
-Deno.serve(async (req) => {
-  const authz = req.headers.get('authorization') ?? '';
-  const authed = authz.startsWith('Bearer ');
-
-  // Supabase client: forward caller's JWT so RLS applies
-  const url = Deno.env.get('SUPABASE_URL');
-  const key = Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY');
-  if (!url || !key) {
-    return new Response(
-      JSON.stringify(
-        { ok: false, error: 'Missing SUPABASE_URL or publishable/anon key env.' },
-        null,
-        2
-      ),
-      { status: 500, headers: { 'content-type': 'application/json' } }
-    );
-  }
-  const supabase = createClient(url, key, {
-    global: { headers: authed ? { authorization: authz } : {} },
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
   });
+}
 
-  const body: any = await req.json().catch(() => ({}));
-  const dealIn = body.deal ?? {};
-  const posture = body.options?.posture ?? 'base';
-  // Optionally constrain org; if omitted, rely on RLS to scope rows by membership
-  const orgId = body.org_id ?? '6f3f2b0e-7f24-4f9d-a9e1-7c6e2e7160a2';
+/**
+ * Shape aligned with @hps-internal/contracts AnalyzeInput.deal.
+ * Kept tolerant and numeric-coercion friendly at the edge.
+ */
+type AnalyzeInput = {
+  arv?: number | null;
+  aiv?: number | null;
+  dom_zip_days?: number | null;
+  months_of_inventory_zip?: number | null;
+  price_to_list_pct?: number | null;
+  local_discount_pct?: number | null;
+  options?: {
+    trace?: boolean;
+  };
+};
 
-  // Normalize to engine deal shape
-  const aiv = isNum(dealIn.aiv) ? dealIn.aiv : isNum(dealIn.list_price) ? dealIn.list_price : null;
-  const domZip = isNum(dealIn.dom) ? dealIn.dom : null;
-  const arv = isNum(dealIn.arv_estimate) ? dealIn.arv_estimate : null;
-  const engineDeal = { market: { aiv, arv, dom_zip: domZip } };
+/**
+ * Output surface aligned with AnalyzeResultSchema.outputs,
+ * plus aivSafetyCap & carryMonths for the current UI slice.
+ */
+type AnalyzeOutputs = {
+  arv: number | null;
+  aiv: number | null;
+  aivSafetyCap: number | null;
+  carryMonths: number | null;
+  buyer_ceiling: number | null;
+  respect_floor: number | null;
+  wholesale_fee: number | null;
+  wholesale_fee_dc: number | null;
+  market_temp_score: number | null;
+  window_floor_to_offer: number | null;
+  headroom_offer_to_ceiling: number | null;
+  cushion_vs_payoff: number | null;
+  seller_script_cash: string | null;
+};
 
-  // Fetch latest policy JSON (supports either policies or policy_versions)
-  let rawPolicy: Json | null = null;
-  {
-    // Try policy_versions first
-    const { data: pv, error: e1 } = await supabase
-      .from('policy_versions')
-      .select('policy_json')
-      .eq('posture', posture)
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (pv?.policy_json) rawPolicy = pv.policy_json as Json;
+type AnalyzeResult = {
+  outputs: AnalyzeOutputs;
+  infoNeeded: string[];
+  trace: unknown;
+};
 
-    // Fallback to policies.active row if needed
-    if (!rawPolicy) {
-      const { data: pol, error: e2 } = await supabase
-        .from('policies')
-        .select('policy_json')
-        .eq('posture', posture)
-        .eq('org_id', orgId)
-        .eq('is_active', true)
-        .maybeSingle();
-      if (pol?.policy_json) rawPolicy = pol.policy_json as Json;
-    }
+type TraceFrame = {
+  key: string;
+  label: string;
+  details?: unknown;
+};
+
+type AnalyzeOkEnvelope = {
+  ok: true;
+  result: AnalyzeResult;
+};
+
+type AnalyzeErrorEnvelope = {
+  ok: false;
+  error: {
+    message: string;
+    code?: string;
+    details?: unknown;
+  };
+};
+
+type AnalyzeEnvelope = AnalyzeOkEnvelope | AnalyzeErrorEnvelope;
+
+function numOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return null;
+  return parsed;
+}
 
-  // Build the exact shape the engine expects, resolving *_token where present.
-  // If DB missing, fall back to defaults to keep the demo hot.
-  const resolved_from = rawPolicy ? 'db' : 'default';
-  const rp = rawPolicy ?? {};
-  const aiv_cap_pct = tokenNumber(
-    rp,
-    ['aiv', 'safety_cap_pct_token'],
-    ['aiv', 'safety_cap_pct'],
-    UNDERWRITE_POLICY.mao_aiv_cap_pct
-  );
-  const carry_cap = tokenNumber(
-    rp,
-    ['carry', 'months_cap_token'],
-    ['carry', 'months_cap'],
-    UNDERWRITE_POLICY.carry_month_cap
-  );
-  const carry_rule = (get(rp, ['carry', 'dom_to_months_rule_token']) ??
-    get(rp, ['carry', 'dom_to_months_rule']) ??
-    'DOM/30') as string;
+/**
+ * Normalize the incoming body from either:
+ *  - { arv, aiv, dom_zip_days, ... }
+ *  - { org_id, posture, deal: { arv, aiv, dom_zip_days, ... } }
+ */
+function coerceInput(raw: unknown): {
+  posture: string | null;
+  input: AnalyzeInput;
+} {
+  const anyRaw = raw as any;
 
-  const list_pct =
-    tokenNumber(rp, ['fees', 'list_commission_pct_token'], ['fees', 'list_commission_pct'], 0.03) ??
-    0.03;
-  const conc_pct =
-    tokenNumber(rp, ['fees', 'concessions_pct_token'], ['fees', 'concessions_pct'], 0.02) ?? 0.02;
-  const sellc_pct =
-    tokenNumber(rp, ['fees', 'sell_close_pct_token'], ['fees', 'sell_close_pct'], 0.015) ?? 0.015;
+  const dealLike =
+    anyRaw && typeof anyRaw.deal === "object" ? anyRaw.deal : anyRaw;
 
-  const policy = {
-    ...UNDERWRITE_POLICY,
-    aiv: { safety_cap_pct_token: aiv_cap_pct, safety_cap_pct: aiv_cap_pct },
-    carry: {
-      dom_to_months_rule_token: carry_rule,
-      months_cap_token: carry_cap,
-      months_cap: carry_cap,
-    },
-    fees: {
-      list_commission_pct_token: list_pct,
-      concessions_pct_token: conc_pct,
-      sell_close_pct_token: sellc_pct,
-      list_commission_pct: list_pct,
-      concessions_pct: conc_pct,
-      sell_close_pct: sellc_pct,
-    },
-    tokens: (rp as any)?.tokens ?? undefined,
-    resolved_from,
+  const posture: string | null =
+    (anyRaw?.posture as string | undefined) ??
+    (dealLike?.posture as string | undefined) ??
+    null;
+
+  const input: AnalyzeInput = {
+    arv: numOrNull(dealLike?.arv),
+    aiv: numOrNull(dealLike?.aiv ?? dealLike?.as_is_value),
+    dom_zip_days: numOrNull(
+      dealLike?.dom_zip_days ?? dealLike?.dom_zip ?? dealLike?.dom,
+    ),
+    months_of_inventory_zip: numOrNull(
+      dealLike?.months_of_inventory_zip ??
+        dealLike?.moi_zip_months ??
+        dealLike?.moi_zip,
+    ),
+    price_to_list_pct: numOrNull(
+      dealLike?.price_to_list_pct ?? dealLike?.["price-to-list-pct"],
+    ),
+    local_discount_pct: numOrNull(
+      dealLike?.local_discount_pct ?? dealLike?.local_discount_20th_pct,
+    ),
+    options: dealLike?.options,
   };
 
-  const uw = computeUnderwriting(engineDeal, policy);
+  return { posture, input };
+}
 
-  return new Response(
-    JSON.stringify(
-      {
-        ok: true,
-        authed,
-        inputs: { posture, engineDeal },
-        policy: {
-          resolved_from,
-          aiv_cap_pct,
-          carry_cap,
-          carry_rule,
-          fees: { list_pct, conc_pct, sellc_pct },
-        },
-        underwriting: uw,
+/**
+ * Basic semantic validation on the normalized input.
+ * Ensures we have at least some meaningful numeric content.
+ */
+function validateInput(posture: string | null, input: AnalyzeInput): {
+  ok: boolean;
+  error?: AnalyzeErrorEnvelope["error"];
+} {
+  if (!input || typeof input !== "object") {
+    return {
+      ok: false,
+      error: {
+        message: "Invalid AnalyzeInput; expected an object.",
+        code: "invalid_input_shape",
       },
-      null,
-      2
-    ),
-    { headers: { 'content-type': 'application/json' } }
-  );
+    };
+  }
+
+  const hasAnyMetric =
+    input.arv != null ||
+    input.aiv != null ||
+    input.dom_zip_days != null ||
+    input.months_of_inventory_zip != null ||
+    input.price_to_list_pct != null ||
+    input.local_discount_pct != null;
+
+  if (!hasAnyMetric) {
+    return {
+      ok: false,
+      error: {
+        message:
+          "Invalid AnalyzeInput; missing key numeric fields (arv, aiv, dom, moi, price_to_list_pct, or local_discount_pct).",
+        code: "missing_numeric_fields",
+        details: {
+          posture,
+          input,
+        },
+      },
+    };
+  }
+
+  return { ok: true };
+}
+
+serve(async (req: Request): Promise<Response> => {
+  // CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: { message: "Method not allowed", code: "method_not_allowed" },
+    };
+    return jsonResponse(envelope, 405);
+  }
+
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: { message: "Invalid JSON body; expected AnalyzeInput", code: "invalid_json" },
+    };
+    return jsonResponse(envelope, 400);
+  }
+
+  const { posture, input } = coerceInput(raw);
+
+  const validation = validateInput(posture, input);
+  if (!validation.ok) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: validation.error ?? {
+        message: "Invalid AnalyzeInput",
+        code: "invalid_input",
+      },
+    };
+    return jsonResponse(envelope, 400);
+  }
+
+  const arv = input.arv ?? 0;
+  const aiv = input.aiv ?? 0;
+  const dom = input.dom_zip_days ?? 0;
+
+  // -------------------------------------------------------------------------
+  // Minimal deterministic engine slice:
+  //  - AIV safety cap at 90% of ARV
+  //  - Carry months from DOM, rounded and clamped [0, 6]
+  // -------------------------------------------------------------------------
+
+  const capPct = 0.9;
+  const aivCapFromArv = arv * capPct;
+  const aivSafetyCap = Math.min(aiv, aivCapFromArv);
+
+  const rawMonths = dom / 30;
+  let carryMonths = Math.round(rawMonths);
+  if (!Number.isFinite(carryMonths) || carryMonths < 0) carryMonths = 0;
+  if (carryMonths > 6) carryMonths = 6;
+
+  const traceFrames: TraceFrame[] = [
+    {
+      key: "inputs",
+      label: "Normalized inputs",
+      details: {
+        posture,
+        arv,
+        aiv,
+        dom,
+        months_of_inventory_zip: input.months_of_inventory_zip,
+        price_to_list_pct: input.price_to_list_pct,
+        local_discount_pct: input.local_discount_pct,
+      },
+    },
+    {
+      key: "aiv_safety_cap",
+      label: "AIV safety cap at 90% of ARV",
+      details: {
+        arv,
+        aiv,
+        capPct,
+        aivCapFromArv,
+        aivSafetyCap,
+      },
+    },
+    {
+      key: "carry_months",
+      label: "Carry months capped between 0 and 6",
+      details: {
+        dom,
+        rawMonths,
+        carryMonths,
+      },
+    },
+  ];
+
+  const outputs: AnalyzeOutputs = {
+    arv: input.arv ?? null,
+    aiv: input.aiv ?? null,
+    aivSafetyCap,
+    carryMonths,
+    buyer_ceiling: null,
+    respect_floor: null,
+    wholesale_fee: null,
+    wholesale_fee_dc: null,
+    market_temp_score: null,
+    window_floor_to_offer: null,
+    headroom_offer_to_ceiling: null,
+    cushion_vs_payoff: null,
+    seller_script_cash: null,
+  };
+
+  const result: AnalyzeResult = {
+    outputs,
+    infoNeeded: [],
+    trace: traceFrames,
+  };
+
+  const envelope: AnalyzeOkEnvelope = {
+    ok: true,
+    result,
+  };
+
+  return jsonResponse(envelope, 200);
 });

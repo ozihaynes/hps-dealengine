@@ -95,6 +95,7 @@ const RunTraceFrameSchema = z.object({
 type RunTraceFrame = z.infer<typeof RunTraceFrameSchema>;
 
 const RunInputEnvelopeSchema = z.object({
+  dealId: z.string().uuid(),
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
@@ -127,6 +128,7 @@ type PolicySnapshot = unknown;
 
 const SaveRunArgsSchema = z.object({
   orgId: z.string().uuid(),
+  dealId: z.string().uuid(),
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
@@ -204,6 +206,7 @@ function buildRunEnvelopes(args: SaveRunArgs): {
   const parsed = SaveRunArgsSchema.parse(args);
 
   const inputEnvelope = RunInputEnvelopeSchema.parse({
+    dealId: parsed.dealId,
     posture: parsed.posture,
     deal: parsed.deal,
     sandbox: parsed.sandbox,

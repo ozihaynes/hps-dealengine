@@ -1,0 +1,47 @@
+import { BuildRunRowArgs, BuildRunRowResult, buildRunRowPayload } from "./runsSave";
+
+/**
+ * Minimal interface for a Supabase-like client that can write to public.runs.
+ * This stays deliberately generic so it can work in Edge (Deno) or Node.
+ */
+export interface RunsTableClient {
+  from(table: "runs"): {
+    insert(
+      values: unknown | unknown[],
+    ): Promise<{ data: unknown; error: { message: string } | null }>;
+  };
+}
+
+export interface SaveRunArgs extends BuildRunRowArgs {}
+
+export interface SaveRunResult extends BuildRunRowResult {}
+
+/**
+ * saveRunWithClient
+ *
+ * Pure helper that:
+ *  1. Builds the run envelopes and hashes via buildRunRowPayload.
+ *  2. Inserts a row into public.runs using the provided client.
+ *
+ * The unique index on (org_id, posture, input_hash, policy_hash) enforces
+ * idempotency. For now we use a simple INSERT and let the DB enforce uniqueness.
+ * If you want soft "already exists" semantics later, this is the place to
+ * upgrade to upsert-style behavior.
+ */
+export async function saveRunWithClient(
+  client: RunsTableClient,
+  args: SaveRunArgs,
+): Promise<SaveRunResult> {
+  const built = await buildRunRowPayload(args);
+
+  const { row } = built;
+
+  const { error } = await client.from("runs").insert(row);
+
+  if (error) {
+    // Bubble up with a clear message; callers can decide how to handle.
+    throw new Error(`Failed to insert run: ${error.message}`);
+  }
+
+  return built;
+}

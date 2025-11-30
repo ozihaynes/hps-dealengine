@@ -1,102 +1,78 @@
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+/* v1-policy-put — strict I/O; update active policy + snapshot policy_versions; caller-scoped RLS */
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-type Json = Record<string, unknown> | null;
+const Body = z.object({
+  org_id: z.string().uuid(),
+  posture: z.enum(["conservative","base","aggressive"]),
+  policy_json: z.record(z.any()),
+  change_summary: z.string().min(1).max(500),
+});
 
-type Body = {
-  posture?: 'conservative' | 'base' | 'aggressive';
-  change_summary?: string | null;
-  tokens?: Record<string, unknown>;
-};
+const PolicyRow = z.object({
+  id: z.string().uuid(),
+  org_id: z.string().uuid(),
+  posture: z.enum(["conservative","base","aggressive"]),
+  policy_json: z.record(z.any()),
+  is_active: z.boolean().optional(),
+  created_at: z.string().datetime().optional(),
+  updated_at: z.string().datetime().optional(),
+});
 
-function bad(status: number, msg: string) {
-  return new Response(JSON.stringify({ ok: false, error: msg }), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
+const VersionRow = z.object({
+  id: z.string().uuid().optional(),        // if UUID, else bigint -> coerce string ok in JS layer
+  org_id: z.string().uuid(),
+  posture: z.enum(["conservative","base","aggressive"]),
+  policy_json: z.record(z.any()),
+  change_summary: z.string(),
+  created_at: z.string().datetime().optional(),
+  created_by: z.string().uuid().optional(),
+});
+
+const Ok = z.object({ ok: z.literal(true), policy: PolicyRow, version: VersionRow });
+const Fail = z.object({ ok: z.literal(false), error: z.string() });
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return bad(405, 'Method not allowed');
-
-  const auth = req.headers.get('Authorization') ?? '';
-  const jwt = auth.startsWith('Bearer ') ? auth.slice(7) : '';
-  let userId = null as string | null;
   try {
-    const payload = JSON.parse(atob(jwt.split('.')[1] ?? ''));
-    userId = payload?.sub ?? null;
-  } catch {
-    /* noop */
+    const auth = req.headers.get("Authorization");
+    if (!auth) return new Response(JSON.stringify({ ok:false, error:"Missing Authorization" }), { status: 401 });
+
+    const url  = Deno.env.get("SUPABASE_URL")!;
+    const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supa = createClient(url, anon, { global: { headers: { Authorization: auth } } });
+
+    const { org_id, posture, policy_json, change_summary } = Body.parse(await req.json());
+
+    // Update active policy for this org/posture
+    const { data: pol, error: uerr } = await supa
+      .from("policies")
+      .update({ policy_json })
+      .eq("org_id", org_id)
+      .eq("posture", posture)
+      .eq("is_active", true)
+      .select("id,org_id,posture,policy_json,is_active,created_at,updated_at")
+      .single();
+
+    if (uerr || !pol) {
+      const status = (uerr?.code === "PGRST116" || !pol) ? 404 : 403; // not found vs likely blocked by RLS
+      return new Response(JSON.stringify({ ok:false, error: uerr?.message || "Policy update failed" }), { status });
+    }
+
+    // Snapshot version (created_by defaults to auth.uid() in DB)
+    const { data: ver, error: verr } = await supa
+      .from("policy_versions")
+      .insert({ org_id, posture, policy_json, change_summary })
+      .select("id,org_id,posture,policy_json,change_summary,created_at,created_by")
+      .single();
+
+    if (verr || !ver) {
+      return new Response(JSON.stringify({ ok:false, error: verr?.message || "Version snapshot failed" }), { status: 500 });
+    }
+
+    const payload = Ok.parse({ ok:true, policy: pol, version: ver });
+    return new Response(JSON.stringify(payload), { headers: { "content-type": "application/json" }, status: 200 });
+  } catch (e) {
+    if (e?.issues) return new Response(JSON.stringify({ ok:false, error:"Invalid input" }), { status: 422 });
+    return new Response(JSON.stringify({ ok:false, error: e?.message ?? "Error" }), { status: 500 });
   }
-
-  const { posture, change_summary, tokens }: Body = await req.json().catch(() => ({}) as Body);
-  if (!posture || !['conservative', 'base', 'aggressive'].includes(posture))
-    return bad(422, 'Invalid posture');
-  if (!tokens || typeof tokens !== 'object') return bad(422, 'Missing tokens object');
-
-  const url = Deno.env.get('SUPABASE_URL')!;
-  const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
-  const supabase = createClient(url, anon, { global: { headers: { Authorization: auth } } });
-
-  // 1) Fetch active policy row under caller RLS
-  const { data: rows, error: selErr } = await supabase
-    .from('policies')
-    .select('id, org_id, posture, is_active, tokens, policy_json')
-    .eq('posture', posture)
-    .eq('is_active', true)
-    .limit(1);
-
-  if (selErr) return bad(500, `select_error: ${selErr.message}`);
-  const current = rows?.[0];
-  if (!current) return bad(404, 'No active policy for this posture');
-
-  // 2) Merge tokens (new overrides existing)
-  const mergedTokens = { ...(current.tokens ?? {}), ...(tokens ?? {}) };
-
-  // Optional: carry a simple policy_json snapshot; expand later as needed
-  const snapshot: Json = {
-    posture: current.posture,
-    is_active: true,
-    tokens: mergedTokens,
-  };
-
-  // 3) Update policy in place (RLS must allow this for the caller)
-  const { error: updErr } = await supabase
-    .from('policies')
-    .update({ tokens: mergedTokens, policy_json: snapshot })
-    .eq('id', current.id)
-    .eq('is_active', true);
-
-  if (updErr) return bad(403, `update_forbidden_or_failed: ${updErr.message}`);
-
-  // 4) Version snapshot (audit)
-  const { error: insErr } = await supabase.from('policy_versions').insert([
-    {
-      org_id: current.org_id,
-      posture: current.posture,
-      policy_json: snapshot,
-      change_summary: change_summary ?? 'Tokens updated via v1-policy-put',
-      created_by: userId,
-    },
-  ]);
-
-  if (insErr) {
-    // Non-fatal for user flow; return 207 multi-status style notice
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        policy: { id: current.id, posture: current.posture, tokens: mergedTokens },
-        warn: `version_insert_failed: ${insErr.message}`,
-      }),
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      policy: { id: current.id, posture: current.posture, tokens: mergedTokens },
-    }),
-    { headers: { 'Content-Type': 'application/json' } }
-  );
 });

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 const MarketTempGauge: React.FC = () => {
@@ -60,3 +61,6 @@ const MarketTempGauge: React.FC = () => {
 };
 
 export default MarketTempGauge;
+
+
+

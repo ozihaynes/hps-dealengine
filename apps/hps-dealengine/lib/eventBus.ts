@@ -1,9 +1,16 @@
-'use client';
-export function emit(name: string, detail?: unknown) {
-  window.dispatchEvent(new CustomEvent(name, { detail }));
+"use client";
+type Handler<T = any> = (payload: T) => void;
+const channels = new Map<string, Set<Handler>>();
+
+export function on<T = any>(event: string, handler: Handler<T>) {
+  const set = channels.get(event) ?? new Set<Handler>();
+  set.add(handler as Handler);
+  channels.set(event, set);
+  return () => set.delete(handler as Handler);
 }
-export function on(name: string, handler: (e: CustomEvent) => void) {
-  const h = (e: Event) => handler(e as CustomEvent);
-  window.addEventListener(name, h as any);
-  return () => window.removeEventListener(name, h as any);
+
+export function emit<T = any>(event: string, payload?: T) {
+  const set = channels.get(event);
+  if (!set) return;
+  set.forEach((fn) => fn(payload));
 }

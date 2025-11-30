@@ -1,0 +1,60 @@
+{
+  "version": "5",
+  "remote": {
+    "https://deno.land/std@0.224.0/async/delay.ts": "f90dd685b97c2f142b8069082993e437b1602b8e2561134827eeb7c12b95c499",
+    "https://deno.land/std@0.224.0/http/server.ts": "f9313804bf6467a1704f45f76cb6cd0a3396a3b31c316035e6a4c2035d1ea514",
+    "https://esm.sh/@supabase/supabase-js@2.48.0": "7aba8f6c9d88a2f505859f86fe8120b5d744c30624d2e1ffbc1107fad164d061"
+  },
+  "workspace": {
+    "packageJson": {
+      "dependencies": [
+        "npm:@playwright/test@^1.56.1",
+        "npm:@supabase/supabase-js@^2.80.0",
+        "npm:@types/node@^20.19.0",
+        "npm:@types/react-dom@^18.3.7",
+        "npm:@types/react@^18.3.26",
+        "npm:typescript@5.6.3"
+      ]
+    },
+    "members": {
+      "apps/hps-dealengine": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@google/generative-ai@~0.24.1",
+            "npm:@supabase/supabase-js@^2.76.1",
+            "npm:@tailwindcss/postcss@4.1.16",
+            "npm:@types/node@20.19.0",
+            "npm:@types/react-dom@^18.3.7",
+            "npm:@types/react@^18.3.26",
+            "npm:classnames@^2.5.1",
+            "npm:eslint-config-next@14.2.5",
+            "npm:eslint@^9.11.1",
+            "npm:next@14.2.5",
+            "npm:react-dom@18.2.0",
+            "npm:react@18.2.0",
+            "npm:tailwindcss@4.1.16",
+            "npm:typescript@^5.6.3",
+            "npm:zod@^3.23.8",
+            "npm:zustand@^4.5.2"
+          ]
+        }
+      },
+      "packages/contracts": {
+        "packageJson": {
+          "dependencies": [
+            "npm:zod@^3.23.8"
+          ]
+        }
+      },
+      "packages/engine": {
+        "packageJson": {
+          "dependencies": [
+            "npm:@vitest/coverage-v8@^4.0.8",
+            "npm:typescript@5.6.3",
+            "npm:vitest@^4.0.8"
+          ]
+        }
+      }
+    }
+  }
+}

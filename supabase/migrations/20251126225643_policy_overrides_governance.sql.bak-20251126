@@ -1,0 +1,35 @@
+-- Sprint 2 Governance: tighten policy_overrides alignment with roadmap
+-- Adds optional policy_version_id linkage and update RLS for approvers
+
+-- Add policy_version_id if missing
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'policy_overrides'
+      AND column_name = 'policy_version_id'
+  ) THEN
+    ALTER TABLE public.policy_overrides
+      ADD COLUMN policy_version_id uuid REFERENCES public.policy_versions(id);
+  END IF;
+END$$;
+
+-- Update RLS: managers/vp/owner can update overrides in their org
+DROP POLICY IF EXISTS "Managers approve overrides" ON public.policy_overrides;
+CREATE POLICY "Managers approve overrides" ON public.policy_overrides
+  FOR UPDATE
+  USING (
+    org_id IN (
+      SELECT org_id FROM public.memberships
+      WHERE user_id = auth.uid()
+        AND role IN ('manager','vp','owner')
+    )
+  )
+  WITH CHECK (
+    org_id IN (
+      SELECT org_id FROM public.memberships
+      WHERE user_id = auth.uid()
+        AND role IN ('manager','vp','owner')
+    )
+  );

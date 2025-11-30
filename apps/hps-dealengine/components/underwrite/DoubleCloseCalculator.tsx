@@ -2,7 +2,7 @@ import React from 'react';
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Badge } from '../ui';
 import { DoubleClose } from '../../services/engine';
 import { fmt$ } from '../../utils/helpers';
-import type { Deal, EngineCalculations } from '../../types';
+import type { Deal, EngineCalculations } from '@ui-v2/types';
 
 interface DoubleCloseCalculatorProps {
   deal: Deal;
@@ -16,7 +16,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
   setDealValue,
 }) => {
   const setDC = (k: string, v: any) => setDealValue(`costs.double_close.${k}`, v);
-  const dc = deal.costs.double_close || {};
+  const dc = (deal as any).costs?.double_close || {};
   const dcCalcs = DoubleClose.computeDoubleClose(dc, { deal });
 
   const doAutofill = () => {
@@ -28,7 +28,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
 
   return (
     <div className="space-y-4 mt-3">
-      <GlassCard>
+      <GlassCard className="p-4 md:p-5">
         <div className="flex items-center justify-between">
           <div className="label-xs uppercase">Double Close Tools</div>
           <div className="flex items-center gap-3">
@@ -45,8 +45,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
       </GlassCard>
 
       {isSimple ? (
-        <GlassCard>
-          <h4 className="label-xs uppercase mb-2">Simple Mode — Core Inputs</h4>
+        <GlassCard className="p-5 md:p-6 space-y-3">
+          <h4 className="label-xs uppercase">Simple Mode - Core Inputs</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             <SelectField
               label="County"
@@ -59,18 +59,18 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               <option>Miami-Dade</option>
             </SelectField>
             <InputField
-              label="A→B Price (Pab)"
+              label="A–B Price (Pab)"
               type="number"
               prefix="$"
-              value={isFinite(dc.pab) ? dc.pab : ''}
+              value={Number.isFinite(dc.pab) ? dc.pab : ''}
               onChange={(e) => setDC('pab', e.target.value)}
               placeholder="Enter Price"
             />
             <InputField
-              label="B→C Price (Pbc)"
+              label="B–C Price (Pbc)"
               type="number"
               prefix="$"
-              value={isFinite(dc.pbc) ? dc.pbc : ''}
+              value={Number.isFinite(dc.pbc) ? dc.pbc : ''}
               onChange={(e) => setDC('pbc', e.target.value)}
               placeholder="Enter Price"
             />
@@ -100,7 +100,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                   label="TF Principal"
                   type="number"
                   prefix="$"
-                  value={isFinite(dc.tf_principal) ? dc.tf_principal : ''}
+                  value={Number.isFinite(dc.tf_principal) ? dc.tf_principal : ''}
                   onChange={(e) => setDC('tf_principal', e.target.value)}
                   placeholder="Enter Amount"
                 />
@@ -117,8 +117,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               onChange={(e) => setDC('association_present', e.target.value)}
             >
               <option>No</option>
-              <option>Yes–HOA</option>
-              <option>Yes–Condo</option>
+              <option>Yes-HOA</option>
+              <option>Yes-Condo</option>
             </SelectField>
             {dc.association_present !== 'No' && (
               <SelectField
@@ -134,8 +134,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
         </GlassCard>
       ) : (
         <>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">A) Property & County</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">A) Property & County</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <SelectField
                 label="County"
@@ -154,7 +154,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 <option>SFR</option>
                 <option>Townhome</option>
                 <option>Condo</option>
-                <option>Duplex/2–4</option>
+                <option>Duplex/2-4</option>
                 <option>Mobile on land</option>
                 <option>Vacant land</option>
               </SelectField>
@@ -164,13 +164,13 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 onChange={(e) => setDC('association_present', e.target.value)}
               >
                 <option>No</option>
-                <option>Yes–HOA</option>
-                <option>Yes–Condo</option>
+                <option>Yes-HOA</option>
+                <option>Yes-Condo</option>
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">B) Structure & Timing</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">B) Structure & Timing</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <SelectField
                 label="Double-close type"
@@ -181,7 +181,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 <option>Held-days</option>
               </SelectField>
               <InputField
-                label="Days held (A–B → B–C)"
+                label="Days held (A-B → B-C)"
                 type="number"
                 value={dc.days_held || ''}
                 onChange={(e) => setDC('days_held', e.target.value)}
@@ -192,37 +192,37 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 onChange={(e) => setDC('same_day_order', e.target.value)}
               >
                 <option>No preference</option>
-                <option>A–B AM / B–C PM</option>
+                <option>A-B AM / B-C PM</option>
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">C) A–B (you BUY from seller)</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">C) A-B (you BUY from seller)</h4>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <InputField
                 label="Pab"
                 type="number"
                 prefix="$"
-                value={isFinite(dc.pab) ? dc.pab : ''}
+                value={Number.isFinite(dc.pab) ? dc.pab : ''}
                 onChange={(e) => setDC('pab', e.target.value)}
                 placeholder="Enter Price"
               />
               <InputField
-                label="Title/settlement A–B"
+                label="Title/settlement A-B"
                 type="number"
                 prefix="$"
                 value={dc.title_ab || ''}
                 onChange={(e) => setDC('title_ab', e.target.value)}
               />
               <InputField
-                label="Other fees A–B"
+                label="Other fees A-B"
                 type="number"
                 prefix="$"
                 value={dc.other_ab || ''}
                 onChange={(e) => setDC('other_ab', e.target.value)}
               />
               <SelectField
-                label="Owner’s title policy paid by (A–B)"
+                label="Owner's title policy paid by (A-B)"
                 value={dc.owners_title_payer_ab || 'Unknown'}
                 onChange={(e) => setDC('owners_title_payer_ab', e.target.value)}
               >
@@ -232,33 +232,33 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">D) B–C (you SELL to end-buyer)</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">D) B-C (you SELL to end-buyer)</h4>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <InputField
                 label="Pbc"
                 type="number"
                 prefix="$"
-                value={isFinite(dc.pbc) ? dc.pbc : ''}
+                value={Number.isFinite(dc.pbc) ? dc.pbc : ''}
                 onChange={(e) => setDC('pbc', e.target.value)}
                 placeholder="Enter Price"
               />
               <InputField
-                label="Title/settlement B–C"
+                label="Title/settlement B-C"
                 type="number"
                 prefix="$"
                 value={dc.title_bc || ''}
                 onChange={(e) => setDC('title_bc', e.target.value)}
               />
               <InputField
-                label="Other fees B–C"
+                label="Other fees B-C"
                 type="number"
                 prefix="$"
                 value={dc.other_bc || ''}
                 onChange={(e) => setDC('other_bc', e.target.value)}
               />
               <SelectField
-                label="Owner’s title policy paid by (B–C)"
+                label="Owner's title policy paid by (B-C)"
                 value={dc.owners_title_payer_bc || 'Unknown'}
                 onChange={(e) => setDC('owners_title_payer_bc', e.target.value)}
               >
@@ -268,8 +268,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">E) End-buyer funds</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">E) End-buyer funds</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <SelectField
                 label="Buyer funds"
@@ -296,13 +296,13 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 label="ARV (for fee check)"
                 type="number"
                 prefix="$"
-                value={dc.arv_for_fee_check || deal.market?.arv || ''}
+                value={dc.arv_for_fee_check || (deal as any).market?.arv || ''}
                 onChange={(e) => setDC('arv_for_fee_check', e.target.value)}
               />
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">F) Transactional Funding (A–B)</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">F) Transactional Funding (A-B)</h4>
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
               <ToggleSwitch
                 label="Using Transactional Funding?"
@@ -313,7 +313,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 label="TF principal"
                 type="number"
                 prefix="$"
-                value={isFinite(dc.tf_principal) ? dc.tf_principal : ''}
+                value={Number.isFinite(dc.tf_principal) ? dc.tf_principal : ''}
                 onChange={(e) => setDC('tf_principal', e.target.value)}
                 placeholder="Enter Amount"
               />
@@ -351,8 +351,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               />
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">G) HOA / Condo (if applicable)</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">G) HOA / Condo (if applicable)</h4>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <SelectField
                 label="Association type"
@@ -396,8 +396,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">H) Carry (if not same-day)</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">H) Carry (if not same-day)</h4>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <InputField
                 label="Carry / holding cost"
@@ -422,8 +422,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               />
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">I) Targets & Estimation</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">I) Targets & Estimation</h4>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <InputField
                 label="Minimum acceptable net spread (optional)"
@@ -441,7 +441,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 <option>Yes</option>
               </SelectField>
               <SelectField
-                label="Assume owner’s title payer A–B"
+                label="Assume owner's title payer A-B"
                 value={dc.assumed_owner_payer_ab || 'Unknown'}
                 onChange={(e) => setDC('assumed_owner_payer_ab', e.target.value)}
               >
@@ -450,7 +450,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 <option>You</option>
               </SelectField>
               <SelectField
-                label="Assume owner’s title payer B–C"
+                label="Assume owner's title payer B-C"
                 value={dc.assumed_owner_payer_bc || 'Unknown'}
                 onChange={(e) => setDC('assumed_owner_payer_bc', e.target.value)}
               >
@@ -460,11 +460,11 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               </SelectField>
             </div>
           </GlassCard>
-          <GlassCard>
-            <h4 className="label-xs uppercase mb-2">J) Outputs & Apply</h4>
+          <GlassCard className="p-5 md:p-6 space-y-3">
+            <h4 className="label-xs uppercase">J) Outputs & Apply</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
               <ToggleSwitch
-                label="Show items 1–13 full math"
+                label="Show items 1-13 full math"
                 checked={dc.show_items_math === undefined ? true : !!dc.show_items_math}
                 onChange={() => setDC('show_items_math', !dc.show_items_math)}
               />
@@ -488,33 +488,33 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
         </>
       )}
 
-      <GlassCard>
-        <h3 className="text-text-primary font-semibold text-base mb-2">Double-Close Results</h3>
+      <GlassCard className="p-5 md:p-6 space-y-3">
+        <h3 className="text-text-primary font-semibold text-base">Double-Close Results</h3>
         {(dc.show_items_math === undefined || dc.show_items_math) && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="info-card space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span>Deed Stamps (A–B)</span>
+                <span>Deed Stamps (A-B)</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Deed_Stamps_AB, 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Deed Stamps (B–C)</span>
+                <span>Deed Stamps (B-C)</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Deed_Stamps_BC, 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Title/Settlement A–B</span>
+                <span>Title/Settlement A-B</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Title_AB, 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Title/Settlement B–C</span>
+                <span>Title/Settlement B-C</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Title_BC, 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Other A–B</span>
+                <span>Other A-B</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Other_AB, 0)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Other B–C</span>
+                <span>Other B-C</span>
                 <span className="font-semibold">{fmt$(dcCalcs.Other_BC, 0)}</span>
               </div>
             </div>
@@ -542,7 +542,6 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
             </div>
           </div>
         )}
-        <div className="my-3" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div className="highlight-card flex items-center justify-between">
             <span className="font-semibold text-text-secondary">Extra Closing Load</span>
@@ -550,7 +549,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
           </div>
           <div className="info-card space-y-1.5 text-sm">
             <div className="flex justify-between">
-              <span>Gross Spread (Pbc − Pab)</span>
+              <span>Gross Spread (Pbc - Pab)</span>
               <span className="font-semibold">{fmt$(dcCalcs.Gross_Spread, 0)}</span>
             </div>
             <div className="flex justify-between">
@@ -563,11 +562,11 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {(dc.show_fee_target === undefined || dc.show_fee_target) && (
             <div className="info-card text-sm flex items-center justify-between">
               <div>
-                <div className="label-xs">Fee Target (≥ 3% of ARV)</div>
+                <div className="label-xs">Fee Target (≈ 3% of ARV)</div>
                 <div>
                   Threshold:{' '}
                   <span className="font-semibold">{fmt$(dcCalcs.Fee_Target_Threshold, 0)}</span>
@@ -578,8 +577,8 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                   dcCalcs.Fee_Target_Check === 'YES'
                     ? 'green'
                     : dcCalcs.Fee_Target_Check === 'NO'
-                      ? 'orange'
-                      : 'blue'
+                    ? 'orange'
+                    : 'blue'
                 }
               >
                 {dcCalcs.Fee_Target_Check}
@@ -596,7 +595,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
           )}
         </div>
         {(dc.show_notes === undefined || dc.show_notes) && (
-          <div className="mt-3 info-card text-xs text-text-secondary/80">
+          <div className="info-card text-xs text-text-secondary/80">
             <div className="label-xs mb-1">Notes / Assumptions</div>
             <ul className="list-disc pl-5 space-y-1">
               {dcCalcs.notes.map((n: string, i: number) => (
@@ -611,4 +610,3 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
 };
 
 export default DoubleCloseCalculator;
-

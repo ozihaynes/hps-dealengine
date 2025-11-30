@@ -1,69 +1,169 @@
-import { z } from 'npm:zod';
+import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
-/** Policy "posture" we support */
-export const Posture = z.enum(['conservative', 'base', 'aggressive']);
-
-export const SettingsSchema = z.object({
-  tokens: z.record(z.any()).default({}),
-  policy_json: z.record(z.any()).default({}),
-});
-export type Settings = z.infer<typeof SettingsSchema>;
-
-export const PolicyPutPayload = z.object({
-  posture: Posture.default('base'),
-  policy: SettingsSchema,
+export const RunTraceFrameSchema = z.object({
+  key: z.string(),
+  label: z.string(),
+  details: z.unknown().optional(),
 });
 
-export const PolicyGetPayload = z.object({
-  posture: Posture.default('base'),
+export type RunTraceFrame = z.infer<typeof RunTraceFrameSchema>;
+
+export const RunInputEnvelopeSchema = z.object({
+  posture: z.string(),
+  deal: z.unknown(),
+  sandbox: z.unknown(),
+  meta: z
+    .object({
+      engineVersion: z.string().optional(),
+      policyVersion: z.string().optional(),
+      source: z.string().optional(),
+    })
+    .default({}),
 });
 
-/** Deal subset used by the current analyzer */
-export const DealSchema = z
-  .object({
-    market: z
-      .object({
-        as_is_value: z.number().optional().nullable(),
-      })
-      .partial()
-      .default({}),
-    costs: z
-      .object({
-        repairs_base: z.number().optional().nullable(),
-        contingency_pct: z.number().optional().nullable(),
-      })
-      .partial()
-      .default({}),
-    debt: z
-      .object({
-        senior_principal: z.number().optional().nullable(),
-        hoa_arrears: z.number().optional().nullable(),
-        muni_fines: z.number().optional().nullable(),
-        title: z
-          .object({
-            cure_cost: z.number().optional().nullable(),
-          })
-          .partial()
-          .optional(),
-      })
-      .partial()
-      .default({}),
-    timeline: z
-      .object({
-        days_to_sale_manual: z.number().optional().nullable(),
-      })
-      .partial()
-      .default({}),
-  })
-  .partial()
-  .default({});
+export type RunInputEnvelope = z.infer<typeof RunInputEnvelopeSchema>;
 
-export type Deal = z.infer<typeof DealSchema>;
+export const RunOutputEnvelopeSchema = z.object({
+  trace: z.array(RunTraceFrameSchema),
+  meta: z
+    .object({
+      engineVersion: z.string().optional(),
+      policyVersion: z.string().optional(),
+      durationMs: z.number().optional(),
+    })
+    .default({}),
+  outputs: z.unknown().optional(),
+});
 
-/** utils */
-export function num(x: unknown): number {
-  if (x == null) return 0;
-  const s = String(x).replace(/[$,_\s]/g, '');
-  const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
+export type RunOutputEnvelope = z.infer<typeof RunOutputEnvelopeSchema>;
+
+export const PolicySnapshotSchema = z.unknown();
+export type PolicySnapshot = z.infer<typeof PolicySnapshotSchema>;
+
+export const AiBridgeInputSchema = z.object({
+  dealId: z.string().uuid(),
+  runId: z.string().uuid(),
+  posture: z.enum(["conservative", "base", "aggressive"]),
+  prompt: z.string().min(1),
+});
+
+export type AiBridgeInput = z.infer<typeof AiBridgeInputSchema>;
+
+export const SaveRunArgsSchema = z.object({
+  orgId: z.string().uuid(),
+  posture: z.string(),
+  deal: z.unknown(),
+  sandbox: z.unknown(),
+  outputs: z.unknown(),
+  trace: z.array(RunTraceFrameSchema),
+  meta: z
+    .object({
+      engineVersion: z.string().optional(),
+      policyVersion: z.string().optional(),
+      source: z.string().optional(),
+      durationMs: z.number().optional(),
+    })
+    .default({}),
+  policySnapshot: z.unknown().optional(),
+});
+
+export type SaveRunArgs = z.infer<typeof SaveRunArgsSchema>;
+
+export type RunRowInsert = {
+  org_id: string;
+  posture: string;
+  input: RunInputEnvelope;
+  output: RunOutputEnvelope;
+  policy_snapshot: PolicySnapshot | null;
+  input_hash: string;
+  output_hash: string;
+  policy_hash: string | null;
+};
+
+/**
+ * Deterministic canonical JSON: sorts object keys recursively, no extra whitespace.
+ */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeys);
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(obj).sort()) {
+      sorted[key] = sortKeys(obj[key]);
+    }
+    return sorted;
+  }
+  return value;
+}
+
+/**
+ * Deterministic string hash (djb2) over canonical JSON.
+ * Not cryptographically secure, but good enough for dedupe + change detection.
+ */
+export function hashJson(value: unknown): string {
+  const str = canonicalJson(value);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  // unsigned 32-bit → hex
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function buildRunEnvelopes(args: SaveRunArgs): {
+  inputEnvelope: RunInputEnvelope;
+  outputEnvelope: RunOutputEnvelope;
+  policySnapshot: PolicySnapshot | null;
+} {
+  const parsed = SaveRunArgsSchema.parse(args);
+
+  const inputEnvelope = RunInputEnvelopeSchema.parse({
+    posture: parsed.posture,
+    deal: parsed.deal,
+    sandbox: parsed.sandbox,
+    meta: {
+      engineVersion: parsed.meta.engineVersion,
+      policyVersion: parsed.meta.policyVersion,
+      source: parsed.meta.source ?? "unknown",
+    },
+  });
+
+  const outputEnvelope = RunOutputEnvelopeSchema.parse({
+    trace: parsed.trace,
+    outputs: parsed.outputs,
+    meta: {
+      engineVersion: parsed.meta.engineVersion,
+      policyVersion: parsed.meta.policyVersion,
+      durationMs: parsed.meta.durationMs,
+    },
+  });
+
+  const policySnapshot = (parsed.policySnapshot ?? null) as PolicySnapshot | null;
+
+  return { inputEnvelope, outputEnvelope, policySnapshot };
+}
+
+export function buildRunRow(args: SaveRunArgs): RunRowInsert {
+  const { inputEnvelope, outputEnvelope, policySnapshot } = buildRunEnvelopes(args);
+
+  const input_hash = hashJson(inputEnvelope);
+  const output_hash = hashJson(outputEnvelope);
+  const policy_hash = policySnapshot ? hashJson(policySnapshot) : null;
+
+  return {
+    org_id: args.orgId,
+    posture: args.posture,
+    input: inputEnvelope,
+    output: outputEnvelope,
+    policy_snapshot: policySnapshot,
+    input_hash,
+    output_hash,
+    policy_hash,
+  };
 }

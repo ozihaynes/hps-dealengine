@@ -1,23 +1,33 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const to = (ms: number) => {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(`timeout ${ms}ms`), ms);
+  return { ctrl, cancel: () => clearTimeout(id) };
+};
 
-serve(async (req) => {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const authHeader = req.headers.get("authorization") ?? "";
+Deno.serve(async () => {
+  const url  = Deno.env.get("SUPABASE_URL") ?? "";
+  const anon = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const target = url ? `${url}/auth/v1/health` : "MISSING_SUPABASE_URL";
 
-  const supabase = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
+  const { ctrl, cancel } = to(2000);
+  let probe: unknown;
+  try {
+    const r = await fetch(target, { headers: { apikey: anon }, signal: ctrl.signal });
+    const body = await r.text();
+    probe = { ok: r.ok, status: r.status, body: body.slice(0, 256) };
+  } catch (e) {
+    probe = { error: String(e) };
+  } finally {
+    cancel();
+  }
+
+  const payload = {
+    SUPABASE_URL: url,
+    anon_present: anon.length > 0,
+    target,
+    probe,
+  };
+  return new Response(JSON.stringify(payload, null, 2), {
+    headers: { "content-type": "application/json" },
   });
-
-  const { data: { user }, error } = await supabase.auth.getUser();
-
-  return new Response(
-    JSON.stringify({
-      ok: true,
-      user_id: user?.id ?? null,
-      error: error?.message ?? null
-    }),
-    { headers: { "content-type": "application/json" } }
-  );
 });

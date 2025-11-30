@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface StatCardProps {
@@ -17,3 +18,6 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon }) => (
 );
 
 export default StatCard;
+
+
+

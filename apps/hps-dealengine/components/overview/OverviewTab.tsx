@@ -1,6 +1,6 @@
-'use client';
 import React from 'react';
-import type { Deal, EngineCalculations, Flags } from '../../types';
+import type { Deal, EngineCalculations } from "@ui-v2/types";
+import type { Flags } from '../../types';
 import { fmt$, num, roundHeadline, getDealHealth } from '../../utils/helpers';
 import { GlassCard, Badge, Icon } from '../ui';
 import StatCard from './StatCard';
@@ -52,9 +52,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const wholesaleFeeWithDC = isFinite(wholesaleFee) ? wholesaleFee - dcTotalCosts : NaN;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {isCashShortfall && (
-        <div className="card-orange p-3 text-white text-center font-semibold flex items-center justify-center gap-2 text-sm">
+        <div className="card-orange p-3 text-white text-center font-semibold flex items-center justify-center gap-2 text-sm shadow-md shadow-black/20">
           <Icon d={Icons.alert} /> Cash (Shortfall): Offer is below minimum spread of{' '}
           {fmt$(minSpread, 0)}. Deficit: {fmt$(minSpread - calc.dealSpread, 0)}.
         </div>
@@ -62,7 +62,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="After-Repair Value (ARV)"
-          value={effectiveHasInput ? fmt$(roundHeadline((deal.market?.arv ?? 0))) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline(deal.market.arv)) : '—'}
           icon={<Icon d={Icons.home} size={20} />}
         />
         <StatCard
@@ -80,7 +80,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           label="As-Is Value (AIV)"
-          value={effectiveHasInput ? fmt$(roundHeadline((deal.market?.as_is_value ?? 0))) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline(deal.market.as_is_value)) : '—'}
           icon={<Icon d={Icons.shield} size={20} />}
         />
         <StatCard
@@ -97,7 +97,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
-          <GlassCard>
+          <GlassCard className="p-5 md:p-6">
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-5">
               <div className="lg:col-span-3">
                 <div className="flex flex-wrap items-center gap-3 mb-3">
@@ -117,12 +117,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                     <Badge color="red">Listing Blocked</Badge>
                   )}
                 </div>
-                <div className="info-card">
-                  <h4 className="label-xs uppercase mb-2 flex items-center gap-2">
+                <div className="info-card border border-white/5">
+                  <h4 className="label-xs uppercase mb-2 flex items-center gap-2 text-text-secondary">
                     <Icon d={Icons.lightbulb} size={16} /> Key Data
                   </h4>
                   {effectiveHasInput ? (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-base text-text-secondary/80">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-text-secondary/80">
                       <p>
                         <strong>Buyer Margin:</strong>{' '}
                         <span className="text-text-primary font-mono">
@@ -207,8 +207,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
       <DealStructureChart calc={calc} deal={deal} hasUserInput={effectiveHasInput} />
-      <GlassCard>
-        <h3 className="text-text-primary font-semibold text-lg mb-2 flex items-center gap-2">
+      <GlassCard className="p-5 md:p-6">
+        <h3 className="text-text-primary font-semibold text-lg mb-3 flex items-center gap-2">
           <Icon d={Icons.playbook} size={18} className="text-accent-blue" /> Negotiation Playbook
         </h3>
         {isAnalyzing ? (
@@ -222,7 +222,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
             Enter deal data and click 'Analyze with AI' to generate negotiation points.
           </p>
         ) : (
-          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: playbookContent }} />
+          <div
+            className="prose prose-invert max-w-none text-sm leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: playbookContent }}
+          />
         )}
       </GlassCard>
     </div>
@@ -230,4 +233,3 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 };
 
 export default OverviewTab;
-

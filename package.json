@@ -1,72 +1,27 @@
 {
+  "name": "hps-dealengine",
   "private": true,
-  "name": "hps-internal-tools",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.0",
   "scripts": {
-    "dev": "pnpm --filter hps-dealengine dev",
-    "build": "pnpm -w --filter @hps-internal/engine... build && pnpm -w --filter hps-dealengine build",
     "typecheck": "pnpm -r exec tsc -p . --noEmit",
-    "lint": "pnpm -r run lint || exit 0",
-    "format": "pnpm -r exec prettier --write .",
-    "test": "vitest run --passWithNoTests",
-    "test:watch": "vitest",
-    "prepare": "husky",
-    "contracts:build": "pnpm --filter @hps-internal/contracts build",
-    "api:types": "openapi-typescript openapi.yaml --output packages/contracts/src/generated/openapi.ts",
-    "api:docs": "redocly build-docs openapi.yaml -o _docs/api.html",
-    "api:check": "redocly lint openapi.yaml"
+    "build": "pnpm --filter \"./packages/contracts\" --filter \"./packages/engine\" --filter \"./apps/hps-dealengine\" build",
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter \"./apps/hps-dealengine\" dev"
   },
-  "lint-staged": {
-    "**/*.{ts,tsx,js,jsx}": [
-      "eslint --cache --fix"
-    ],
-    "**/*.{ts,tsx,js,jsx,json,css,md,yaml}": [
-      "prettier --write"
-    ]
-  },
-  "packageManager": "pnpm@9.12.3",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "devDependencies": {
-    "@hps-internal/engine": "workspace:*",
-    "@redocly/cli": "^2.10.0",
-    "@tailwindcss/postcss": "4.1.16",
-    "@types/node": "20.19.0",
-    "@types/react": "18",
-    "@types/react-dom": "18",
-    "@typescript-eslint/eslint-plugin": "8.46.2",
-    "@typescript-eslint/parser": "8.46.2",
-    "@vitest/coverage-v8": "4.0.4",
-    "ajv": "^8.17.1",
-    "ajv-formats": "2.1.1",
-    "eslint": "8.57.0",
-    "husky": "9.1.7",
-    "lint-staged": "16.2.5",
-    "openapi-typescript": "^7.10.1",
-    "prettier": "3.6.2",
-    "tailwindcss": "4.1.16",
-    "tsx": "4.20.6",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^20.19.0",
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "lint-staged": "^16.2.7",
     "typescript": "5.6.3",
-    "vitest": "4.0.4"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/node": "20.19.0",
-      "eslint": "8.57.0"
-    },
-    "allowedBuiltDependencies": [
-      "esbuild",
-      "unrs-resolver"
-    ]
+    "vitest": "^4.0.8"
   },
   "dependencies": {
-    "@hps-internal/contracts": "workspace:*",
-    "@supabase/supabase-js": "^2.76.1",
-    "next": "^14.2.5",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zod": "^3.23.8"
-  },
-  "engines": {
-    "node": "20.x"
+    "@supabase/supabase-js": "^2.80.0"
   }
 }
