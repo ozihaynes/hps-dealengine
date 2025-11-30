@@ -9,8 +9,8 @@ import React, {
 } from "react";
 import type { ReactNode } from "react";
 
-import { createInitialEstimatorState } from "@ui-v2/constants";
-import { createInitialSandboxState } from "@ui-v2/constants/sandboxSettings";
+import { createInitialEstimatorState } from "./ui-v2-constants";
+import { createInitialSandboxState } from "./ui-v2-constants";
 import type { Deal, SandboxSettings } from "@ui-v2/types";
 import type { AnalyzeResult } from "@hps-internal/contracts";
 
