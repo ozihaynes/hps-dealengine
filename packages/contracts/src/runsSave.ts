@@ -12,9 +12,11 @@ import {
 
 export const SaveRunArgsSchema = z.object({
   orgId: z.string().uuid(),
+  dealId: z.string().uuid(),
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
+  repairProfile: z.unknown().optional(),
   outputs: z.unknown(),
   trace: z.array(RunTraceFrameSchema),
   meta: z
@@ -35,6 +37,7 @@ export type SaveRunArgs = z.infer<typeof SaveRunArgsSchema>;
 export type RunRowInsert = {
   org_id: string;
   posture: string;
+  deal_id: string;
   input: RunInputEnvelope;
   output: RunOutputEnvelope;
   trace: RunTraceFrame[];
@@ -52,9 +55,11 @@ export function buildRunEnvelopes(args: SaveRunArgs): {
   const parsed = SaveRunArgsSchema.parse(args);
 
   const inputEnvelope = RunInputEnvelopeSchema.parse({
+    dealId: parsed.dealId,
     posture: parsed.posture,
     deal: parsed.deal,
     sandbox: parsed.sandbox,
+    repairProfile: parsed.repairProfile,
     meta: {
       engineVersion: parsed.meta.engineVersion,
       policyVersion: parsed.meta.policyVersion,
@@ -87,6 +92,7 @@ export function buildRunRow(args: SaveRunArgs): RunRowInsert {
   return {
     org_id: args.orgId,
     posture: args.posture,
+    deal_id: args.dealId,
     input: inputEnvelope,
     output: outputEnvelope,
     trace: outputEnvelope.trace,

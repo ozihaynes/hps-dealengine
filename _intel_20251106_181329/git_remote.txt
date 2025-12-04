@@ -1,2 +1,0 @@
-origin	git@github.com:ozihaynes/hps-dealengine.git (fetch)
-origin	git@github.com:ozihaynes/hps-dealengine.git (push)

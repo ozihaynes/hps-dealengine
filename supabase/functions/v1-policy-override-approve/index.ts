@@ -142,6 +142,7 @@ serve(async (req: Request): Promise<Response> => {
       approved_at: new Date().toISOString(),
     })
     .eq("id", body.overrideId)
+    .eq("status", "pending")
     .select("id, status, approved_at, approved_by")
     .single();
 

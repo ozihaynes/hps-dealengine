@@ -8,8 +8,10 @@ interface RequestOverrideModalProps {
   open: boolean;
   posture: "conservative" | "base" | "aggressive";
   lastRunId?: string | null;
+  dealId?: string | null;
   defaultTokenKey?: string | null;
   defaultNewValue?: unknown;
+  defaultOldValue?: unknown;
   onClose: () => void;
   onRequested?: (result: any) => void;
 }
@@ -18,13 +20,16 @@ export function RequestOverrideModal({
   open,
   posture,
   lastRunId,
+  dealId,
   defaultTokenKey,
   defaultNewValue,
+  defaultOldValue,
   onClose,
   onRequested,
 }: RequestOverrideModalProps) {
   const [tokenKey, setTokenKey] = useState("");
   const [newValueText, setNewValueText] = useState("");
+  const [oldValueText, setOldValueText] = useState("");
   const [justification, setJustification] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,11 +43,16 @@ export function RequestOverrideModal({
           ? ""
           : JSON.stringify(defaultNewValue, null, 2);
       setNewValueText(prefillValue);
+      const prefillOld =
+        typeof defaultOldValue === "undefined"
+          ? ""
+          : JSON.stringify(defaultOldValue, null, 2);
+      setOldValueText(prefillOld);
       setJustification("");
       setError(null);
       setIsSubmitting(false);
     }
-  }, [open, defaultTokenKey, defaultNewValue]);
+  }, [open, defaultTokenKey, defaultNewValue, defaultOldValue]);
 
   const handleSubmit = async () => {
     setError(null);
@@ -66,6 +76,17 @@ export function RequestOverrideModal({
       return;
     }
 
+    let parsedOldValue: unknown = null;
+    if (oldValueText.trim()) {
+      try {
+        parsedOldValue = JSON.parse(oldValueText);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Current value must be valid JSON: ${message}`);
+        return;
+      }
+    }
+
     if (!justification.trim()) {
       setError("Justification is required.");
       return;
@@ -75,8 +96,10 @@ export function RequestOverrideModal({
 
     try {
       const result = await requestPolicyOverride({
+        dealId: dealId ?? undefined,
         posture,
         tokenKey: tokenKey.trim(),
+        oldValue: parsedOldValue,
         newValue: parsedNewValue,
         justification: justification.trim(),
         runId: lastRunId ?? null,
@@ -116,6 +139,18 @@ export function RequestOverrideModal({
             value={tokenKey}
             onChange={(e) => setTokenKey(e.target.value)}
             placeholder="e.g. policy.min_spread"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-text-primary">
+            Current value (JSON)
+          </label>
+          <textarea
+            className="w-full min-h-[80px] rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-mono text-text-primary focus:border-accent-blue focus:outline-none"
+            value={oldValueText}
+            onChange={(e) => setOldValueText(e.target.value)}
+            placeholder="Existing value (optional)"
           />
         </div>
 

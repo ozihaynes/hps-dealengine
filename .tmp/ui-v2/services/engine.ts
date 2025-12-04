@@ -4,7 +4,6 @@ import type {
   EngineResult,
   EngineCalculations,
   SandboxSettings,
-  Deal,
 } from '../types';
 import { num } from '../utils/helpers';
 
@@ -134,13 +133,15 @@ export const HPSEngine = (() => {
       calculations.instantCashOffer;
 
     calculations.netToSeller =
-      calculations.instantCashOffer - calculations.projectedPayoffClose - num(deal.title.cure_cost);
+      calculations.instantCashOffer -
+      calculations.projectedPayoffClose -
+      num(deal.title.cure_cost);
 
     const auctionDate = new Date(deal.timeline.auction_date);
     const today = new Date();
     calculations.urgencyDays = Math.max(
       0,
-      Math.ceil((auctionDate.getTime() - today.getTime()) / (1000 * 3600 * 24))
+      Math.ceil((auctionDate.getTime() - today.getTime()) / (1000 * 3600 * 24)),
     );
     const urgencyBands: any[] = sandbox.dispositionRecommendationLogicDtmThresholds || [];
     const urgencyBand = urgencyBands.find((b) => calculations.urgencyDays <= b.maxDtm) || {
@@ -161,54 +162,6 @@ export const HPSEngine = (() => {
   return { runEngine, useDealEngine };
 })();
 
-/* VISUAL-ONLY STUB */
-export const DoubleClose = (() => {
-  const MOCK_DC_CALCS = {
-    // Use benign placeholders consistent with empty state
-    Deed_Stamps_AB: 0,
-    Deed_Stamps_BC: 0,
-    Title_AB: 0,
-    Title_BC: 0,
-    Other_AB: 0,
-    Other_BC: 0,
-    TF_Points_$: 0,
-    DocStamps_Note: 0,
-    Intangible_Tax: 0,
-    Extra_Closing_Load: 0,
-    Gross_Spread: NaN,
-    Net_Spread_Before_Carry: NaN,
-    Net_Spread_After_Carry: NaN,
-    Carry_Daily: 0,
-    Carry_Total: 0,
-    Fee_Target_Threshold: 0,
-    Fee_Target_Check: '—',
-    Seasoning_Flag: 'OK',
-    notes: ['County: Orange (deed rate 0.007)', 'Calculations stubbed for visual preview.'],
-  };
+// Delegate DoubleClose to the shared app engine implementation
+export { DoubleClose } from '../../../apps/hps-dealengine/services/engine';
 
-  const computeDoubleClose = (dc: any, deal: any) => {
-    /* VISUAL-ONLY STUB */
-    return MOCK_DC_CALCS;
-  };
-
-  const autofill = (dc: any, deal: DealWrapper, calc: any) => {
-    /* VISUAL-ONLY STUB - Autofill only non-calculated fields */
-    const d = JSON.parse(JSON.stringify(dc || {}));
-    if (!d.county) d.county = deal?.deal?.property?.county || 'Orange';
-    if (!d.carry_basis) d.carry_basis = 'day';
-    if (d.using_tf && !isFinite(num(d.tf_points_rate))) d.tf_points_rate = 0.02;
-
-    if (!('pab' in d)) d.pab = NaN;
-    if (!('pbc' in d)) d.pbc = NaN;
-    if (d.using_tf && !('tf_principal' in d)) d.tf_principal = NaN;
-
-    if (!('title_ab' in d)) d.title_ab = 0;
-    if (!('title_bc' in d)) d.title_bc = 0;
-    if (!('other_ab' in d)) d.other_ab = 0;
-    if (!('other_bc' in d)) d.other_bc = 0;
-
-    return d;
-  };
-
-  return { computeDoubleClose, autofill };
-})();

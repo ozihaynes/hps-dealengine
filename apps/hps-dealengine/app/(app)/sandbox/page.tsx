@@ -10,6 +10,7 @@ import { Postures } from "@hps-internal/contracts";
 import BusinessLogicSandbox from "@/components/sandbox/BusinessLogicSandbox";
 import { DEFAULT_SANDBOX_CONFIG, mergeSandboxConfig } from "@/constants/sandboxSettings";
 import { GlassCard } from "@/components/ui";
+import RepairsSandbox from "@/components/sandbox/RepairsSandbox";
 import {
   fetchSandboxSettings,
   upsertSandboxSettings,
@@ -20,10 +21,12 @@ import {
   fetchSandboxPresets,
 } from "@/lib/sandboxPresets";
 import { prepareSandboxConfigForSave } from "@/constants/sandboxSettings";
+import { useDealSession } from "@/lib/dealSessionContext";
 
 type SandboxConfigValues = SandboxSettings["config"];
 
 export default function SandboxSettingsPage() {
+  const { dbDeal, membershipRole } = useDealSession();
   const [posture, setPosture] = useState<(typeof Postures)[number]>("base");
   const [config, setConfig] = useState<SandboxConfigValues>(DEFAULT_SANDBOX_CONFIG);
   const [presets, setPresets] = useState<
@@ -33,6 +36,9 @@ export default function SandboxSettingsPage() {
   const [presetsLoading, setPresetsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"business" | "repairs">(
+    "business",
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -116,18 +122,35 @@ export default function SandboxSettingsPage() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <button
+          className={`px-3 py-2 rounded-lg text-sm ${activeTab === "business" ? "bg-accent-blue text-white" : "bg-surface/60 text-text-secondary"}`}
+          onClick={() => setActiveTab("business")}
+        >
+          Business Logic Sandbox
+        </button>
+        <button
+          className={`px-3 py-2 rounded-lg text-sm ${activeTab === "repairs" ? "bg-accent-blue text-white" : "bg-surface/60 text-text-secondary"}`}
+          onClick={() => setActiveTab("repairs")}
+        >
+          Repairs Sandbox
+        </button>
+      </div>
+
       {error && (
         <GlassCard className="border border-accent-orange/40 bg-accent-orange/5 p-4 text-sm text-accent-orange">
           {error}
         </GlassCard>
       )}
-      {loading ? (
+      {loading && activeTab === "business" ? (
         <GlassCard className="border border-white/5 bg-surface-elevated/60 p-5 text-sm text-text-secondary">
           Loading sandbox...
         </GlassCard>
-      ) : (
+      ) : activeTab === "business" ? (
         <BusinessLogicSandbox
           posture={posture}
+          role={membershipRole}
+          dealId={dbDeal?.id ?? null}
           config={config}
           presets={presets}
           presetsLoading={presetsLoading}
@@ -137,6 +160,12 @@ export default function SandboxSettingsPage() {
           onLoadPreset={handleLoadPreset}
           onDeletePreset={handleDeletePreset}
           onPostureChange={setPosture}
+        />
+      ) : (
+        <RepairsSandbox
+          posture={posture}
+          onPostureChange={setPosture}
+          defaultMarket="ORL"
         />
       )}
     </div>

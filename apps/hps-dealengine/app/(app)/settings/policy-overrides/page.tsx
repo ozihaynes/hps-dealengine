@@ -8,32 +8,14 @@ import {
   type PolicyOverride,
 } from "@/lib/policyOverrides";
 import { getSupabase } from "@/lib/supabaseClient";
+import { useDealSession } from "@/lib/dealSessionContext";
 
 export default function PolicyOverridesSettingsPage() {
   const supabase = getSupabase();
   const [overrides, setOverrides] = useState<PolicyOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    const loadRole = async () => {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData?.user?.id;
-        if (!userId) return;
-        const { data } = await supabase
-          .from("memberships")
-          .select("role")
-          .limit(1)
-          .maybeSingle();
-        setRole((data?.role ?? null) as string | null);
-      } catch {
-        setRole(null);
-      }
-    };
-    void loadRole();
-  }, [supabase]);
+  const { membershipRole } = useDealSession();
 
   useEffect(() => {
     setLoading(true);
@@ -88,7 +70,7 @@ export default function PolicyOverridesSettingsPage() {
     }
   };
 
-  const roleLower = (role ?? "").toLowerCase();
+  const roleLower = (membershipRole ?? "").toLowerCase();
   const canApprove = ["manager", "vp", "owner"].includes(roleLower);
 
   return (

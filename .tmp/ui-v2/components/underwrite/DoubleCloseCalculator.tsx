@@ -599,7 +599,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
           <div className="mt-3 info-card text-xs text-text-secondary/80">
             <div className="label-xs mb-1">Notes / Assumptions</div>
             <ul className="list-disc pl-5 space-y-1">
-              {dcCalcs.notes.map((n, i) => (
+              {dcCalcs.notes.map((n: string, i: number) => (
                 <li key={i}>{n}</li>
               ))}
             </ul>
@@ -611,3 +611,4 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
 };
 
 export default DoubleCloseCalculator;
+

@@ -5,6 +5,8 @@ import type {
   PolicyOverrideRequestInput,
 } from "@hps-internal/contracts";
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { buildOverrideOrFilter } from "./policyOverrides.helpers";
+export { buildOverrideOrFilter } from "./policyOverrides.helpers";
 
 export type PolicyOverride = {
   id: string;
@@ -13,6 +15,7 @@ export type PolicyOverride = {
   runId: string | null;
   posture: string;
   tokenKey: string;
+  oldValue: unknown;
   newValue: unknown;
   justification: string | null;
   status: string;
@@ -30,6 +33,7 @@ function mapRow(row: any): PolicyOverride {
     runId: row.run_id ?? null,
     posture: row.posture,
     tokenKey: row.token_key,
+    oldValue: row.old_value ?? null,
     newValue: row.new_value,
     justification: row.justification ?? null,
     status: row.status,
@@ -49,7 +53,7 @@ async function getToken(): Promise<string> {
 }
 
 export async function requestPolicyOverride(
-  input: PolicyOverrideRequestInput & { dealId?: string },
+  input: PolicyOverrideRequestInput & { dealId?: string; oldValue?: unknown },
 ): Promise<PolicyOverride> {
   const supabase = getSupabaseClient();
   const token = await getToken();
@@ -67,9 +71,26 @@ export async function requestPolicyOverride(
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    let message: string | null = null;
+    try {
+      const body = await res.clone().json();
+      if (body && typeof body === "object") {
+        const maybe = (body as any).message ?? (body as any).error;
+        if (typeof maybe === "string") {
+          message = maybe;
+        }
+      }
+    } catch {
+      // ignore JSON parse issues
+    }
+
+    if (!message) {
+      const text = await res.text().catch(() => "");
+      if (text) message = text;
+    }
+
     throw new Error(
-      `Failed to request override (status ${res.status})${text ? `: ${text}` : ""}`,
+      message ?? `Failed to request override (status ${res.status})`,
     );
   }
 
@@ -110,9 +131,26 @@ export async function approvePolicyOverride(
   );
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    let message: string | null = null;
+    try {
+      const body = await res.clone().json();
+      if (body && typeof body === "object") {
+        const maybe = (body as any).message ?? (body as any).error;
+        if (typeof maybe === "string") {
+          message = maybe;
+        }
+      }
+    } catch {
+      // ignore JSON parse issues
+    }
+
+    if (!message) {
+      const text = await res.text().catch(() => "");
+      if (text) message = text;
+    }
+
     throw new Error(
-      `Failed to update override (status ${res.status})${text ? `: ${text}` : ""}`,
+      message ?? `Failed to update override (status ${res.status})`,
     );
   }
 
@@ -131,20 +169,44 @@ export async function approvePolicyOverride(
 }
 
 export async function listPolicyOverridesForDealOrRun(args: {
-  dealId: string;
+  dealId?: string;
+  orgId?: string;
   runId?: string | null;
+  posture?: string | null;
+  approvedOnly?: boolean;
+  includeDealIdNullForPosture?: boolean;
 }): Promise<PolicyOverride[]> {
   const supabase = getSupabaseClient();
+  if (!args.dealId && !args.orgId) {
+    return [];
+  }
+
   let query = supabase
     .from("policy_overrides")
     .select(
-      "id, org_id, deal_id, run_id, posture, token_key, new_value, justification, status, requested_by, requested_at, approved_by, approved_at",
+      "id, org_id, deal_id, run_id, posture, token_key, old_value, new_value, justification, status, requested_by, requested_at, approved_by, approved_at",
     )
     .order("requested_at", { ascending: false });
 
-  query = query.eq("deal_id", args.dealId);
-  if (args.runId) {
-    query = query.eq("run_id", args.runId);
+  if (args.orgId) {
+    query = query.eq("org_id", args.orgId);
+  }
+  if (args.posture) {
+    query = query.eq("posture", args.posture);
+  }
+  if (args.approvedOnly) {
+    query = query.eq("status", "approved");
+  }
+
+  const orFilter = buildOverrideOrFilter({
+    runId: args.runId,
+    dealId: args.dealId,
+    includeDealIdNullForPosture: args.includeDealIdNullForPosture,
+    posture: args.posture,
+  });
+
+  if (orFilter) {
+    query = query.or(orFilter);
   }
 
   const { data, error } = await query;

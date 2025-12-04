@@ -19,17 +19,27 @@ import {
 import { Icons } from "@/constants";
 import {
   SANDBOX_PAGES_CONFIG,
+  SANDBOX_SETTING_META_BY_KEY,
   isPostureAwareKey,
 } from "@/constants/sandboxSettings";
+import {
+  SANDBOX_V1_KNOBS,
+  sandboxKnobMap,
+} from "@/constants/sandboxKnobs";
+import { canEditGoverned } from "@/constants/governedTokens";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   askSandboxStrategist,
   buildStrategistPayload,
 } from "@/lib/sandboxStrategist";
+import RequestOverrideModal from "../underwrite/RequestOverrideModal";
 
 type SandboxConfigValues = SandboxSettings["config"];
 
 type BusinessLogicSandboxProps = {
   posture: (typeof Postures)[number];
+  role?: string | null;
+  dealId?: string | null;
   config: SandboxConfigValues;
   presets: SandboxPreset[];
   presetsLoading?: boolean;
@@ -393,6 +403,8 @@ const FloatingStrategistChat = ({
 
 const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
   posture,
+  role,
+  dealId,
   config,
   presets,
   isSaving,
@@ -411,9 +423,21 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
   >(null);
   const [status, setStatus] = useState<string | null>(null);
   const [localSaving, setLocalSaving] = useState(false);
+  const [overrideToken, setOverrideToken] = useState<string | null>(null);
+  const [overrideValue, setOverrideValue] = useState<any>(null);
+  const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
+  const knobMetaMap = useMemo(() => sandboxKnobMap(), []);
+  const canEditGovernedFields = useMemo(
+    () => canEditGoverned(role),
+    [role],
+  );
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useUnsavedChanges(hasUnsavedChanges);
 
   useEffect(() => {
     setSettings(config);
+    setHasUnsavedChanges(false);
   }, [config]);
 
   const filteredPages = useMemo(() => {
@@ -467,6 +491,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
       setSettings((prev) => ({ ...(prev ?? {}), [key]: value }));
     }
     setStatus(null);
+    setHasUnsavedChanges(true);
   };
 
   const handleSave = async () => {
@@ -476,6 +501,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
     try {
       await onSave(settings);
       setStatus("Sandbox settings saved.");
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error(err);
       setStatus("Could not save sandbox settings. Please try again.");
@@ -497,6 +523,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
     try {
       await onSavePreset(settings, name);
       setStatus(`Preset "${name}" saved.`);
+      setHasUnsavedChanges(false);
     } catch (err) {
       console.error(err);
       setStatus("Could not save preset. Please try again.");
@@ -516,6 +543,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
     setSettings(preset.settings);
     onLoadPreset?.(preset);
     setStatus(`Preset "${preset.name}" loaded.`);
+    setHasUnsavedChanges(true);
   };
 
   const effectiveSaving = isSaving || localSaving;
@@ -663,6 +691,15 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
 
                   <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {pageConfig.settings.map((setting) => {
+                      const meta = SANDBOX_SETTING_META_BY_KEY[setting.key];
+                      const postureAware =
+                        meta?.postureAware ?? isPostureAwareKey(setting.key);
+                      const fixed =
+                        meta?.fixedOrVariable === "fixed" || meta?.readOnly;
+                      const v1Knob = knobMetaMap[setting.key];
+                      const governed = Boolean(
+                        v1Knob?.governedToken || false,
+                      );
                       const Component = componentMap[setting.component];
                       if (!Component)
                         return (
@@ -674,12 +711,21 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                       const value = getSettingValue(setting.key);
                       const commonProps = {
                         key: setting.key,
-                        label: isPostureAwareKey(setting.key)
+                        label: postureAware
                           ? `${setting.label} · Posture-specific`
                           : setting.label,
-                        description: isPostureAwareKey(setting.key)
-                          ? `${setting.description} (Posture-specific)`
-                          : setting.description,
+                        description: meta?.helpText
+                          ? postureAware
+                            ? `${meta.helpText} (Posture-specific)`
+                            : meta.helpText
+                          : postureAware
+                            ? `${setting.description} (Posture-specific)`
+                            : setting.description,
+                        disabled:
+                          fixed ||
+                          Boolean(setting.props?.disabled) ||
+                          setting.props?.disabled === true ||
+                          (governed && !canEditGovernedFields),
                         ...(setting.props ?? {}),
                       };
                       const options = setting.props?.options as any;
@@ -750,8 +796,33 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                       };
 
                       return (
-                        <div key={setting.key} className="min-w-0">
+                        <div key={setting.key} className="min-w-0 space-y-1">
                           {renderComponent()}
+                          {v1Knob && (
+                            <div className="text-[11px] text-text-secondary">
+                              {v1Knob.group} • {v1Knob.label}
+                              {governed && !canEditGovernedFields
+                                ? " — governed (request override)"
+                                : governed
+                                ? " — governed"
+                                : ""}
+                            </div>
+                          )}
+                          {governed && !canEditGovernedFields && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setOverrideToken(
+                                  v1Knob?.governedToken ?? setting.key,
+                                );
+                                setOverrideValue(value);
+                                setIsOverrideModalOpen(true);
+                              }}
+                            >
+                              Request Override
+                            </Button>
+                          )}
                         </div>
                       );
                     })}
@@ -807,6 +878,20 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
         </div>
       </div>
       <FloatingStrategistChat settings={settings} posture={posture} />
+      <RequestOverrideModal
+        open={isOverrideModalOpen}
+        posture={posture}
+        dealId={dealId ?? null}
+        lastRunId={null}
+        defaultTokenKey={overrideToken ?? undefined}
+        defaultNewValue={overrideValue}
+        defaultOldValue={overrideValue}
+        onClose={() => setIsOverrideModalOpen(false)}
+        onRequested={() => {
+          setStatus("Override request submitted.");
+          setIsOverrideModalOpen(false);
+        }}
+      />
     </div>
   );
 };

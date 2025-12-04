@@ -8,13 +8,25 @@ import { Button } from "@/components/ui";
 import RequestOverrideModal from "@/components/underwrite/RequestOverrideModal";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { Deal } from "../../../types";
+import { Postures } from "@hps-internal/contracts";
 
-import { HPSEngine } from "../../../services/engine";
 import { getSupabase } from "@/lib/supabaseClient";
 import { publishAnalyzeResult } from "@/lib/analyzeBus";
 import { analyze, saveRun } from "@/lib/edge";
 import { EvidenceUpload } from "@/components/shared/EvidenceUpload";
 import OverridesPanel from "@/components/underwrite/OverridesPanel";
+import {
+  buildAnalyzeRequestPayload,
+  mergePostureAwareValues,
+} from "@/lib/sandboxPolicy";
+import { listEvidence } from "@/lib/evidence";
+import {
+  buildEvidenceStatus,
+  evidenceLabel,
+  type EvidenceKind,
+} from "@/lib/evidenceFreshness";
+import { canEditGoverned } from "@/constants/governedTokens";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 type RunSaveResponse =
   | {
@@ -69,30 +81,47 @@ function setDealPath(prev: Deal, path: string, value: unknown): Deal {
 export default function UnderwritePage() {
   const supabase = getSupabase();
 
-  const { deal, sandbox, setDeal, setLastAnalyzeResult, dbDeal } =
-    useDealSession();
+  const {
+    deal,
+    sandbox,
+    setDeal,
+    setLastAnalyzeResult,
+    lastAnalyzeResult,
+    lastRunId,
+    setLastRunId,
+    dbDeal,
+    posture,
+    setPosture,
+    sandboxLoading,
+    sandboxError,
+    repairRates,
+    membershipRole,
+  } = useDealSession();
   const [orgId, setOrgId] = useState<string>("");
-  const [role, setRole] = useState<string | null>(null);
-  const canEditPolicy = useMemo(() => {
-    const normalized = (role ?? "").toLowerCase();
-    return ["manager", "vp", "owner"].includes(normalized);
-  }, [role]);
-  const [posture, setPosture] = useState<"conservative" | "base" | "aggressive">(
-    "base",
+  const canEditPolicy = useMemo(
+    () => canEditGoverned(membershipRole),
+    [membershipRole],
   );
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [isSavingRun, setIsSavingRun] = useState(false);
   const [saveRunStatus, setSaveRunStatus] = useState<string | null>(null);
-  const [lastRunId, setLastRunId] = useState<string | null>(null);
   const [overrideStatus, setOverrideStatus] = useState<string | null>(null);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
   const [overridePrefill, setOverridePrefill] = useState<{
     tokenKey: string;
     newValue: unknown;
+    oldValue: unknown;
   } | null>(null);
   const [overrideRefreshKey, setOverrideRefreshKey] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [evidenceStatus, setEvidenceStatus] = useState<
+    ReturnType<typeof buildEvidenceStatus>
+  >([]);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useUnsavedChanges(hasUnsavedChanges);
 
   // Load org_id:
   // 1) Prefer the selected dbDeal.org_id (from /deals)
@@ -130,61 +159,72 @@ export default function UnderwritePage() {
     };
   }, [supabase, dbDeal]);
 
-  // Load role for this org to gate policy editing
+  // Local engine calculations (stub / optimistic math for UI); canonical numbers come from Edge.
+  const effectiveSandbox = useMemo(
+    () => mergePostureAwareValues(sandbox, posture),
+    [sandbox, posture],
+  );
+
+  const calc: any = useMemo(() => {
+    const local = analysisResult as any;
+    const persisted = lastAnalyzeResult as any;
+    return {
+      ...(persisted?.calculations ?? {}),
+      ...(persisted?.outputs ?? {}),
+      ...(local?.calculations ?? {}),
+      ...(local?.outputs ?? {}),
+    };
+  }, [analysisResult, lastAnalyzeResult]);
+
+  // Seed from the last persisted run when reopening a deal
   useEffect(() => {
-    if (!orgId) {
-      setRole(null);
+    if (lastAnalyzeResult && !analysisResult) {
+      setAnalysisResult(lastAnalyzeResult as any);
+      publishAnalyzeResult(lastAnalyzeResult as any);
+    }
+  }, [analysisResult, lastAnalyzeResult]);
+
+  // Load evidence for banners (run-scoped when available)
+  const refreshEvidence = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setEvidenceStatus([]);
       return;
     }
+    try {
+      setEvidenceError(null);
+      const rows = await listEvidence({
+        dealId: dbDeal.id,
+        runId: lastRunId ?? undefined,
+      });
+      const kinds: EvidenceKind[] = [
+        "payoff_letter",
+        "title_quote",
+        "insurance_quote",
+        "repair_bid",
+      ];
+      setEvidenceStatus(buildEvidenceStatus(rows, kinds));
+    } catch (err: unknown) {
+      setEvidenceError(
+        err instanceof Error ? err.message : "Failed to load evidence",
+      );
+      setEvidenceStatus([]);
+    }
+  }, [dbDeal?.id, lastRunId]);
 
-    let cancelled = false;
+  useEffect(() => {
+    void refreshEvidence();
+  }, [refreshEvidence]);
 
-    const loadRole = async () => {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData?.user?.id;
-        if (!userId) {
-          if (!cancelled) setRole(null);
-          return;
-        }
-
-        const { data, error: memError } = await supabase
-          .from("memberships")
-          .select("role")
-          .eq("org_id", orgId)
-          .eq("user_id", userId)
-          .limit(1);
-
-        if (cancelled) return;
-        if (memError) {
-          setRole(null);
-          return;
-        }
-
-        const roleVal = data?.[0]?.role ?? null;
-        setRole(roleVal);
-      } catch {
-        if (!cancelled) setRole(null);
-      }
-    };
-
-    void loadRole();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [orgId, supabase]);
-
-  // Local engine calculations (stub / optimistic math for UI); canonical numbers come from Edge.
-  const calc: any = useMemo(() => {
-    const result: any = HPSEngine.runEngine({ deal }, sandbox);
-    return result?.calculations ?? {};
-  }, [deal, sandbox]);
+  // Clear unsaved marker when switching deals
+  useEffect(() => {
+    setHasUnsavedChanges(false);
+  }, [dbDeal?.id]);
 
   // Wire UnderwriteTab's setDealValue helper
   const handleSetDealValue = useCallback(
     (path: string, value: unknown) => {
       setDeal((prev) => setDealPath(prev, path, value));
+      setHasUnsavedChanges(true);
     },
     [setDeal],
   );
@@ -210,41 +250,16 @@ export default function UnderwritePage() {
     setIsAnalyzing(true);
 
     try {
-      const anyDeal: any = deal ?? {};
-      const market: any = anyDeal.market ?? {};
-
-      const input = {
-        org_id: orgId,
+      const analyzePayload = buildAnalyzeRequestPayload({
+        orgId,
         posture,
-        deal: {
-          dealId: dbDeal.id,
-          arv: Number(market.arv ?? market.arv_value ?? 0),
-          aiv: Number(market.as_is_value ?? market.aiv ?? 0),
-          dom_zip_days: Number(
-            market.dom_zip ?? market.dom_zip_days ?? market.dom ?? 0,
-          ),
-          moi_zip_months: Number(
-            market.moi_zip ??
-              market.moi_zip_months ??
-              market.months_of_inventory ??
-              0,
-          ),
-          price_to_list_pct: Number(
-            market["price-to-list-pct"] ??
-              market.price_to_list_pct ??
-              market.price_to_list_ratio ??
-              0,
-          ),
-          local_discount_pct: Number(
-            market.local_discount_20th_pct ??
-              market.local_discount_pct ??
-              0,
-          ),
-          options: { trace: true },
-        },
-      };
+        dbDealId: dbDeal.id,
+        deal,
+        sandbox: effectiveSandbox,
+        repairRates: repairRates ?? undefined,
+      });
 
-      const envelope = await analyze(input);
+      const envelope = await analyze(analyzePayload);
 
       if (!envelope) {
         throw new Error("No result returned from v1-analyze.");
@@ -260,7 +275,7 @@ export default function UnderwritePage() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [deal, orgId, posture, setLastAnalyzeResult, dbDeal]);
+  }, [deal, orgId, posture, setLastAnalyzeResult, dbDeal, effectiveSandbox]);
 
   // ?? Listen for the global header "Analyze" event and route it here
   useEffect(() => {
@@ -296,15 +311,17 @@ export default function UnderwritePage() {
       return;
     }
 
-    if (!analysisResult) {
-      setError("Run Analyze with Engine before saving a run.");
+    const canonicalResult = (analysisResult ?? lastAnalyzeResult) as any;
+
+    if (!canonicalResult) {
+      setError("Run Analyze with Engine before saving a run or reopen a saved run.");
       return;
     }
 
     setIsSavingRun(true);
 
     try {
-      const resultAny = analysisResult as any;
+      const resultAny = canonicalResult;
 
       const outputs = resultAny?.outputs ?? null;
 
@@ -342,11 +359,12 @@ export default function UnderwritePage() {
         orgId,
         dealId: dbDeal.id,
         deal,
-        sandbox,
+        sandbox: effectiveSandbox,
         posture,
         outputs,
         trace: trace as any,
         meta: payloadMeta,
+        repairProfile: repairRates ?? undefined,
         policySnapshot: (resultAny as any).policySnapshot,
       })) as RunSaveResponse;
 
@@ -368,14 +386,24 @@ export default function UnderwritePage() {
       const runId = response.run?.id ?? null;
       setLastRunId(runId);
       setSaveRunStatus(`Run saved${dedupedLabel}. id=${runId ?? "unknown"}`);
+      setHasUnsavedChanges(false);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : JSON.stringify(err);
-      setError(message);
+      setError(`Save run failed: ${message}`);
     } finally {
       setIsSavingRun(false);
     }
-  }, [analysisResult, deal, orgId, posture, sandbox, supabase, dbDeal]);
+  }, [
+    analysisResult,
+    lastAnalyzeResult,
+    deal,
+    orgId,
+    posture,
+    effectiveSandbox,
+    dbDeal,
+    repairRates,
+  ]);
 
   const handleOverrideRequested = useCallback(
     (result: any) => {
@@ -388,8 +416,12 @@ export default function UnderwritePage() {
   );
 
   const openOverrideModal = useCallback(
-    (tokenKey: string, newValue: unknown) => {
-      setOverridePrefill({ tokenKey, newValue });
+    (tokenKey: string, currentValue: unknown) => {
+      setOverridePrefill({
+        tokenKey,
+        newValue: currentValue,
+        oldValue: currentValue,
+      });
       setIsOverrideModalOpen(true);
     },
     [],
@@ -407,8 +439,8 @@ export default function UnderwritePage() {
             the app.
           </p>
           <p className="mt-1 text-xs text-text-tertiary">
-            Role: {role ?? "loading..."} | Policy edits:{" "}
-            {canEditPolicy ? "allowed (manager/vp/owner)" : "locked (analyst)"}
+            Role: {membershipRole ?? "loading..."} | Policy edits:{" "}
+            {canEditPolicy ? "allowed (manager/vp/owner)" : "locked (analyst/unknown)"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -419,13 +451,15 @@ export default function UnderwritePage() {
               value={posture}
               onChange={(e) =>
                 setPosture(
-                  e.target.value as "conservative" | "base" | "aggressive",
+                  e.target.value as (typeof Postures)[number],
                 )
               }
             >
-              <option value="conservative">Conservative</option>
-              <option value="base">Base</option>
-              <option value="aggressive">Aggressive</option>
+              {Postures.map((p) => (
+                <option key={p} value={p}>
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -452,7 +486,7 @@ export default function UnderwritePage() {
           <Button
             size="sm"
             variant="neutral"
-            disabled={isSavingRun || !analysisResult}
+            disabled={isSavingRun || !(analysisResult || lastAnalyzeResult)}
             onClick={handleSaveRun}
           >
             {isSavingRun ? "Saving Run." : "Save Run"}
@@ -478,6 +512,17 @@ export default function UnderwritePage() {
         </div>
       )}
 
+      {sandboxError && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+          {sandboxError}
+        </div>
+      )}
+      {sandboxLoading && (
+        <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs text-text-secondary">
+          Loading sandbox settings...
+        </div>
+      )}
+
       {!orgId && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
           org_id not yet loaded from memberships or selected deal. Make sure you
@@ -486,11 +531,47 @@ export default function UnderwritePage() {
         </div>
       )}
 
+      {(evidenceStatus.length > 0 || evidenceError) && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-100 space-y-1">
+          <div className="font-semibold text-amber-200">
+            Evidence checklist for this deal {lastRunId ? " / run" : ""}
+          </div>
+          {evidenceError && (
+            <div className="text-red-200">Evidence load error: {evidenceError}</div>
+          )}
+          {!evidenceError && evidenceStatus.length === 0 && (
+            <div className="text-amber-50">No evidence found yet.</div>
+          )}
+          {evidenceStatus.map((row) => {
+            const label = evidenceLabel(row.kind);
+            if (row.status === "missing") {
+              return (
+                <div key={row.kind} className="text-amber-50">
+                  {label}: missing — upload before offer.
+                </div>
+              );
+            }
+            if (row.status === "stale") {
+              return (
+                <div key={row.kind} className="text-amber-50">
+                  {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) — refresh.
+                </div>
+              );
+            }
+            return (
+              <div key={row.kind} className="text-emerald-100">
+                {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <UnderwriteTab
         deal={deal}
         calc={calc}
         setDealValue={handleSetDealValue}
-        sandbox={sandbox}
+        sandbox={effectiveSandbox}
         canEditPolicy={canEditPolicy}
         onRequestOverride={openOverrideModal}
       />
@@ -501,6 +582,7 @@ export default function UnderwritePage() {
         posture={posture}
         lastRunId={lastRunId}
         refreshKey={overrideRefreshKey}
+        membershipRole={membershipRole}
       />
 
       {dbDeal?.id && (
@@ -508,6 +590,9 @@ export default function UnderwritePage() {
           dealId={dbDeal.id}
           runId={lastRunId}
           title="Evidence for this deal/run"
+          onUploadComplete={() => {
+            void refreshEvidence();
+          }}
         />
       )}
 
@@ -517,6 +602,8 @@ export default function UnderwritePage() {
         lastRunId={lastRunId}
         defaultTokenKey={overridePrefill?.tokenKey}
         defaultNewValue={overridePrefill?.newValue}
+        defaultOldValue={overridePrefill?.oldValue}
+        dealId={dbDeal?.id}
         onClose={() => {
           setIsOverrideModalOpen(false);
           setOverridePrefill(null);

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { GlassCard } from "@/components/ui";
 import { getSupabase } from "@/lib/supabaseClient";
+import { canEditGoverned } from "@/constants/governedTokens";
 
 type PolicyOverrideRow = {
   id: string;
@@ -23,6 +24,7 @@ interface OverridesPanelProps {
   posture: "conservative" | "base" | "aggressive";
   lastRunId: string | null;
   refreshKey?: number;
+  membershipRole?: string | null;
 }
 
 export function OverridesPanel({
@@ -31,54 +33,15 @@ export function OverridesPanel({
   posture,
   lastRunId,
   refreshKey = 0,
+  membershipRole,
 }: OverridesPanelProps) {
   const supabase = getSupabase();
   const [overrides, setOverrides] = useState<PolicyOverrideRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isManager, setIsManager] = useState(false);
   const [actionLoading, setActionLoading] = useState<
     Record<string, boolean>
   >({});
-
-  // Figure out if current user is manager/vp/owner for this org
-  useEffect(() => {
-    if (!orgId) {
-      setIsManager(false);
-      return;
-    }
-
-    const fetchRole = async () => {
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        const userId = userData?.user?.id;
-        if (!userId) {
-          setIsManager(false);
-          return;
-        }
-
-        const { data, error: memError } = await supabase
-          .from("memberships")
-          .select("role")
-          .eq("org_id", orgId)
-          .eq("user_id", userId)
-          .limit(1);
-
-        if (memError) {
-          throw memError;
-        }
-
-        const role = data?.[0]?.role ?? "";
-        const normalized = (role || "").toLowerCase();
-        setIsManager(["manager", "vp", "owner"].includes(normalized));
-      } catch {
-        // On error, default to non-manager
-        setIsManager(false);
-      }
-    };
-
-    void fetchRole();
-  }, [orgId, supabase]);
 
   // Fetch overrides for this deal/posture/run
   useEffect(() => {
@@ -197,6 +160,8 @@ export function OverridesPanel({
     }
   };
 
+  const canApprove = canEditGoverned(membershipRole);
+
   if (!orgId || !dealId) {
     return null;
   }
@@ -251,7 +216,7 @@ export function OverridesPanel({
                   <span className={badgeClass(ovr.status)}>
                     {ovr.status}
                   </span>
-                  {isPending && isManager && (
+                  {isPending && canApprove && (
                     <div className="flex items-center gap-1">
                       <button
                         type="button"

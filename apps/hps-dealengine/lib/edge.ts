@@ -26,6 +26,7 @@ export interface SaveRunInput {
   posture: "conservative" | "base" | "aggressive";
   outputs: unknown;
   trace: Array<{ key: string; label: string; details?: unknown }>;
+  repairProfile?: unknown;
   meta?: {
     engineVersion?: string;
     policyVersion?: string | null;
@@ -41,6 +42,7 @@ export interface SaveRunResult {
     id: string;
     org_id: string;
     posture: string;
+    deal_id?: string | null;
     input_hash?: string | null;
     output_hash?: string | null;
     policy_hash?: string | null;
@@ -72,6 +74,58 @@ export interface AiStrategistResponse {
   error?: string;
 }
 
+function extractFunctionErrorMessage(
+  error: unknown,
+  data?: unknown,
+  fallback = "Edge Function call failed.",
+): string {
+  const payloads: unknown[] = [];
+
+  if (data) payloads.push(data);
+
+  const contextBody = (error as any)?.context?.body;
+  if (contextBody) payloads.push(contextBody);
+
+  const contextResponse = (error as any)?.context?.response;
+  if (contextResponse && typeof contextResponse === "object") {
+    payloads.push((contextResponse as any)?.error);
+    payloads.push((contextResponse as any)?.body);
+  }
+
+  for (const body of payloads) {
+    if (!body) continue;
+    if (typeof body === "string") {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed && typeof parsed === "object") {
+          const maybeMessage = (parsed as any).message ?? (parsed as any).error;
+          if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
+            return maybeMessage.trim();
+          }
+        }
+      } catch {
+        if (body.trim().length > 0) {
+          return body.trim();
+        }
+      }
+    }
+
+    if (typeof body === "object") {
+      const maybeMessage = (body as any).message ?? (body as any).error;
+      if (typeof maybeMessage === "string" && maybeMessage.trim().length > 0) {
+        return maybeMessage.trim();
+      }
+    }
+  }
+
+  const fallbackMessage =
+    (error as any)?.message && typeof (error as any).message === "string"
+      ? (error as any).message
+      : null;
+
+  return fallbackMessage?.trim() || fallback;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Core Functions - Analyze                                                    */
 /* -------------------------------------------------------------------------- */
@@ -80,7 +134,9 @@ export interface AiStrategistResponse {
  * Low-level wrapper for the v1-analyze Edge Function.
  * Uses the caller-scoped Supabase client (anon key + RLS).
  */
-async function invokeAnalyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+async function invokeAnalyze(
+  input: AnalyzeInput | Record<string, unknown>,
+): Promise<AnalyzeResult> {
   const supabase = getSupabase();
 
   const { data, error } = await supabase.functions.invoke("v1-analyze", {
@@ -107,7 +163,9 @@ async function invokeAnalyze(input: AnalyzeInput): Promise<AnalyzeResult> {
 /**
  * Primary client-side entry point for underwriting analysis.
  */
-export async function analyze(input: AnalyzeInput): Promise<AnalyzeResult> {
+export async function analyze(
+  input: AnalyzeInput | Record<string, unknown>,
+): Promise<AnalyzeResult> {
   return invokeAnalyze(input);
 }
 
@@ -127,8 +185,13 @@ export async function saveRun(input: SaveRunInput): Promise<SaveRunResult> {
   });
 
   if (error) {
-    console.error("[edge] v1-runs-save failed", error);
-    throw error;
+    const message = extractFunctionErrorMessage(
+      error,
+      data,
+      "Failed to save run. Please try again.",
+    );
+    console.error("[edge] v1-runs-save failed", { message, error });
+    throw new Error(message);
   }
 
   return data as SaveRunResult;
@@ -219,8 +282,13 @@ export async function callAiStrategist(
     body: input,
   });
   if (error) {
-    console.error("[edge] v1-ai-bridge failed", error);
-    throw error;
+    const message = extractFunctionErrorMessage(
+      error,
+      data,
+      "AI bridge is temporarily unavailable.",
+    );
+    console.error("[edge] v1-ai-bridge failed", { message, error });
+    throw new Error(message);
   }
   return data as AiStrategistResponse;
 }

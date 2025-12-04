@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 · v2 · v3 (Updated 2025-11-30)
+# HPS DealEngine - Roadmap v1 · v2 · v3 (Updated 2025-12-01)
 
 ---
 
@@ -33,6 +33,7 @@ The following tables are **live with RLS and real data** and must be treated as 
 - `repair_rate_sets` (and related normalized structures)
 
   - Live schema seeded with investor-grade ORL defaults per org/market.
+  - ORL/base profiles normalized via migrations to maintain a single active+default profile per org/market/posture, with canonical profiles seeded for the deals org.
   - Used by `v1-repair-rates` to serve:
 
     - PSF tiers (light/medium/heavy).
@@ -181,6 +182,10 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - POST-only Strategist helper that validates sandbox payloads, enforces JWT membership, and calls OpenAI with strict guardrails (no new numbers, only reference provided sandbox settings). Currently calls OpenAI directly rather than the shared AI bridge.
 
+- `v1-repair-profiles`
+
+  - GET/POST/PUT for repair rate profiles (org/market/posture scoped) with caller JWT, membership/org resolution, and CORS headers shared via `_shared/cors.ts`.
+
 ---
 
 ### 0.3 App Structure
@@ -191,6 +196,7 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - Routes include:
 
+    - `/deals`
     - `/overview`
     - `/underwrite`
     - `/repairs`
@@ -209,6 +215,12 @@ The following tables are **live with RLS and real data** and must be treated as 
     - `/startup`
     - `/logout`
 
+  - Entry + deal selection:
+
+    - `/startup` is a chrome-free first screen.
+    - `/deals` lists org-scoped deals via `get_caller_org` + RLS; create/select sets `DealSession` and routes to `/overview`.
+    - `DealGuard` (in `(app)` layout) bounces protected routes to `/deals` until a deal is selected.
+
 - Core layout components:
 
   - `app/layout.tsx` - global HTML shell, theme, fonts, and **root-level `DealSessionProvider`** (all routes share session context, including `/startup` and `/login`).
@@ -218,6 +230,12 @@ The following tables are **live with RLS and real data** and must be treated as 
     - `DealGuard` (requires active deal for protected routes).
     - `AppTopNav` for desktop nav.
     - `MobileBottomNav` for mobile nav (now implemented + wired).
+
+- UI-v2 decoupling for deploys:
+
+  - `.tmp/ui-v2` is prototype-only and excluded from Vercel uploads via `.vercelignore`.
+  - App imports now use the stable bridge `apps/hps-dealengine/lib/ui-v2-constants.ts` (Icons, estimator sections, sandbox config) backed by committed `apps/hps-dealengine/constants*` files, not `.tmp`.
+  - Runtime UI types live in `apps/hps-dealengine/types.ts`; `@ui-v2/types` imports have been removed from active app code, with cleanup still needed in legacy tests/backups (in progress). Vercel builds no longer fail on missing constants; remaining risk is lingering `@ui-v2/types` alias/type drift.
 
 ---
 
@@ -508,14 +526,13 @@ These are the **platform foundations** that already exist and are working. Agent
 
 - Backend:
 
-  - `repair_rate_sets` is live with seeded ORL defaults.
-  - `v1-repair-rates` returns normalized `RepairRates` payload:
-
-    - `{ asOf, market, source, version, psfTiers, big5, items? }`.
+  - `repair_rate_sets` is live with seeded ORL defaults and posture-aware defaults/active flags.
+  - `v1-repair-rates` returns normalized `RepairRates` payload (psfTiers, big5, lineItemRates, profile metadata) with caller JWT + CORS.
+  - `v1-repair-profiles` supports list/create/update/activate with membership/org validation.
 
 - Contracts & math:
 
-  - Contracts for `RepairRates` shape live in `packages/contracts`.
+  - Contracts for repair rates/profiles live in `packages/contracts` (`repairs.ts`).
   - `apps/hps-dealengine/lib/repairRates.ts` and `lib/repairsMath.ts` encapsulate:
 
     - Rate lookup.
@@ -529,12 +546,14 @@ These are the **platform foundations** that already exist and are working. Agent
     - QuickEstimate (PSF tiers).
     - Detailed estimator sections:
 
-      - Kitchens & Bathrooms
-      - Systems & Major Components
-      - Exterior & Structural
-      - Interior Rooms & Finishes
+    - Kitchens & Bathrooms
+    - Systems & Major Components
+    - Exterior & Structural
+    - Interior Rooms & Finishes
 
-    - All sections now compute correctly, including Big 5 and QuickEstimate, fully wired to live rates.
+    - All sections now compute correctly, including Big 5 and QuickEstimate, fully wired to live rates and active profile metadata.
+  - `/sandbox` includes a Repairs tab to edit/clone/activate profiles and sync them into DealSession.
+- ✅ Repairs Sandbox list for QA Org / ORL / base resolves org via dealId and returns the seeded active/default profile; `v1-repair-rates` uses the same deal-first org resolution and no longer falls back to defaults. Repeat this pattern for additional markets/postures as they are added.
 
 ---
 
@@ -571,390 +590,50 @@ These are the **platform foundations** that already exist and are working. Agent
 
 ---
 
-## 3️⃣ Remaining Work to Finish v1 (Repo-Aligned Sprints)
-
-The remaining v1 work is organized into **sprints**, each a bundle of vertical slices. For each sprint below, there is a split between:
-
-- **Already in place (from this and prior sessions)**.
-- **Remaining tasks (what Codex / future work should do)**.
-
-Agents should **not** jump across sprints in one shot; work them vertically.
-
----
-
-### 🧱 Sprint 0 – Auth Bridging, Deals & Engine-as-Source-of-Truth
-
-**Goal:** Anchor everything to real users and org-scoped deals, with the engine in Edge Functions as the single Source of Truth for numbers.
-
-#### 0.1 Auth Bridging (Client ↔ Server)
-
-**Already in place**
-
-- Supabase client helpers for client-side use (`lib/supabaseClient.ts`) with `getSupabaseClient`.
-- `AuthGate` protecting `(app)` routes using Supabase session on the client.
-- Root redirect `/ -> /login`; `/login` defaults to `/startup` when `redirectTo` is absent.
-- `DealSessionProvider` lives at the root layout so `/login`, `/startup`, and `(app)` routes share the same session context.
-
-**Remaining**
-
-- Add server-side Supabase helpers:
-
-  - `lib/supabase/server.ts` (or equivalent) for Route Handlers / server components.
-  - Ensure they read cookies and never use `service_role`.
-
-- Normalize redirection logic:
-
-  - All `(app)` routes must redirect to `/login?redirectTo=<original>` if there is no session.
-  - Handle “session expired” cases gracefully.
-
-#### 0.2 Deal Model & Use of Canonical Deals Table
-
-**Already in place**
-
-- Canonical deals table is present (`20251109000708_org_deals_and_audit_rls.sql`) with RLS + audit.
-- Runs table includes `deal_id` column (or is prepared to).
-
-**Remaining**
-
-- Ensure `runs.deal_id` is always populated:
-
-  - When calling `v1-analyze` / `v1-runs-save`, call with an explicit `deal_id`.
-  - Enforce via code paths and (if necessary) DB constraints.
-
-- Make sure there is no “shadow deals” concept:
-
-  - Remove leftover JSON-only deal stubs in the app that are not backed by the canonical table.
-
-#### 0.3 “My Deals” & Deal-Scoped Routing
-
-**Already in place**
-
-- `DealSessionProvider` and hooks exist to carry an active deal through tabs.
-- `/deals` route lists org-scoped deals via Supabase (`get_caller_org` + `from("deals").select(...).eq("org_id", orgId).order("created_at", { ascending: false })`), inserts new deals, sets `DealSession` on create/select, and navigates to `/overview`.
-- `/startup` (chrome-free, top-level route) mirrors the `/deals` query/display, allows Run New Deal -> `/overview` (blank session), and row click -> setDbDeal + setDeal(payload) -> `/overview`.
-
-**Remaining**
-
-- Add explicit entry points (nav/CTA) to surface `/deals` from the main shell and handle empty-state messaging on `/startup` when no deals exist.
-
-#### 0.4 Engine as Single Source of Truth
-
-**Already in place**
-
-- `v1-analyze` uses `_vendor/engine` for all math.
-- `/underwrite` already calls `v1-analyze` and `v1-runs-save` in at least one happy path.
-
-**Remaining**
-
-- Remove any path where `packages/engine` is called directly in the browser for **final** outputs.
-- Enforce that all numbers displayed in Overview/Underwrite summaries come from:
-
-  - Either a live call to `v1-analyze` (followed by `v1-runs-save`), or
-  - A previously saved `runs` row.
-
----
-
-### 🧱 Sprint 1 – Evidence Flows (Info-Needed Killer)
-
-**Goal:** Turn “info needed” hints into real evidence workflows wired to Storage + Postgres.
-
-#### 1.1 Edge Functions
-
-**Already in place**
-
-- `v1-evidence-start` and `v1-evidence-url` are implemented; recent session fixed the query filtering logic to correctly scope by `deal_id` / `run_id` with RLS and audit.
-
-**Remaining**
-
-- Apply ensure migrations in hosted Supabase (`supabase db push`) and monitor logs for RLS/schema errors; keep Zod validation aligned with `packages/contracts`.
-
-#### 1.2 Evidence Client Helpers
-
-**Already in place**
-
-- `apps/hps-dealengine/lib/evidence.ts` exists and provides basic helpers for evidence URLs.
-
-**Remaining**
-
-- Keep helper aligned with contracts and RLS (no `service_role`); watch for hosted errors (e.g., 42703) and adjust selects if schema evolves.
-
-#### 1.3 EvidenceUpload Component
-
-**Already in place**
-
-- Basic upload logic and evidence listing patterns exist in the UI.
-
-**Remaining**
-
-- Keep `EvidenceUpload` UX stable; surface inline errors instead of redirects.
-
-#### 1.4 Wiring into Underwrite & Trace
-
-**Remaining**
-
-- Underwrite/Trace list evidence tied to deal/run; continue surfacing missing-evidence states and signed links without redirecting users.
-
----
-
-### 🧱 Sprint 2 – Policy Governance & Overrides
-
-**Goal:** Put governance around sensitive policy changes via override requests instead of ad-hoc edits.
-
-#### 2.1 Override Table & RLS
-
-**Already in place**
-
-- Schema and governance migration (`20251126225643_policy_overrides_governance.sql`) are present and have been refined in a prior session.
-- RLS ensures:
-
-  - Org members can create/view their org's override requests.
-  - Approver roles can resolve requests.
-- Enum extended so `membership_role` includes `owner`, and update policy (`20251127220000_policy_overrides_manager_update_rls.sql`) allows manager/vp/owner roles to approve/reject overrides.
-
-**Remaining**
-
-- Confirm schema completeness in hosted Supabase (`policy_version_id`, field/values/justification/status/timestamps) and keep RLS tight against org/user spoofing.
-
-#### 2.2 Override Functions
-
-**Already in place**
-
-- `v1-policy-override-request` and `v1-policy-override-approve` exist in the repo and compile.
-
-**Remaining**
-
-- Monitor edge function deployment in hosted env; keep contracts in sync and ensure approvals/denials audit/log correctly.
-
-#### 2.3 Lockable Fields in Underwrite UI
-
-**Already in place**
-
-- Policy-sensitive fields exist in the Underwrite UI.
-
-**Remaining**
-
-- Extend those fields to support:
-
-  - `locked` state (for non-approver roles).
-  - `onRequestOverride` callback to open a modal.
-
-- For non-approvers:
-
-  - Show lock icon + “Request override” button instead of direct edit.
-
-#### 2.4 Request Override Modal & Trace Integration
-
-**Remaining**
-
-- `RequestOverrideModal`:
-
-  - Collects:
-
-    - Proposed new value.
-    - Justification.
-
-  - Calls `v1-policy-override-request` and shows success/error states.
-
-- Trace:
-
-  - Show approved overrides in the run trace:
-
-    - Example: `Override: min_spread 0.10 → 0.08 (approved by Manager on 2025-11-21)`.
-
----
-
-### 🧱 Sprint 3 – Repairs: Rates, TTL & UX Polish
-
-**Goal:** Take the now-working Repairs tab and harden it for production (performance, caching, UX).
-
-#### 3.1 RepairRates Hook with TTL & Market Awareness
-
-**Already in place**
-
-- `/repairs` uses live `v1-repair-rates` outputs via `lib/repairRates.ts` / `lib/repairsMath.ts`.
-
-**Remaining**
-
-- Implement `useRepairRates` hook that:
-
-  - Accepts market (from active deal, e.g. `ORL`) via `DealSession`.
-  - Calls `v1-repair-rates` using caller JWT.
-  - Caches results via:
-
-    - React Query, or
-    - manual cache + TTL (e.g. 24 hours) keyed by `org_id + market`.
-
-#### 3.2 Wiring Across QuickEstimate & Detail (Verified)
-
-**Already in place**
-
-- As of this session, all 4 sections and QuickEstimate are wired and fixed:
-
-  - Kitchens & Bathrooms.
-  - Systems & Major Components.
-  - Exterior & Structural.
-  - Interior Rooms & Finishes.
-  - Big 5 and QuickEstimate now compute correctly from real rates.
-
-**Remaining**
-
-- Confirm all unit costs are sourced exclusively from `RepairRates` payload (no leftover hardcoded numbers).
-
-#### 3.3 Meta Display & Pixel Parity
-
-**Remaining**
-
-- Show meta bar above estimator:
-
-  - `market` (e.g., `ORL`).
-  - `version` of rate set.
-  - `as_of` date.
-
-- Refresh Playwright snapshots for `/repairs` after UX is locked.
-
----
-
-### 🧱 Sprint 4 – AI Strategist, User Settings & Sandbox Settings
-
-**Goal:** Wire `v1-ai-bridge` and settings so the app “feels like HPS out of the box” and AI behaves as a strategist, not a calculator.
-
-#### 4.1 v1-ai-bridge Deployment & Contracts
-
-**Already in place**
-
-- `v1-ai-bridge` is hardened with env check (`OPENAI_API_KEY`), Zod contract enforcement, structured errors, and contracts in `packages/contracts`.
-
-**Remaining**
-
-- Redeploy to hosted Supabase and monitor logs for OpenAI/RLS failures.
-- Continue to emphasize advisory-only responses; expand prompt context (run/policy/evidence summaries) without introducing new numeric sources.
-
-#### 4.2 Strategist UI (Parked/Relocated) – 🟡
-
-**Status**
-
-- Strategist panel removed from `/underwrite`; now rendered on `/overview` only and hard-disabled via feature flag with clear messaging.
-- `/sandbox` includes a Strategist chat powered by `v1-sandbox-strategist` (JWT membership enforced, OpenAI guardrails, posture + sandbox settings context). It currently calls OpenAI directly (not the shared AI bridge) and must remain advisory-only with no numeric invention.
-- Do not call `v1-ai-bridge` until provider stability (e.g., OpenAI 429) is resolved; converge Strategist endpoints onto the shared bridge when stable.
-- When re-enabled (v1-late), keep Strategist on `/overview` and maintain advisory-only behavior.
-
-#### 4.3 User Settings & Sandbox Settings
-
-**Already in place (from this session)**
-
-- `user_settings` table + RLS + audit trigger; `v1-user-settings` edge function (JWT, org via memberships) with helper + `/settings/user` UI.
-- `sandbox_settings` table (org/posture scoped) + RLS + audit trigger; `v1-sandbox-settings` edge function with helper + `/settings/sandbox` UI; `/sandbox` reads config defaults.
-- `sandbox_presets` table (org/posture scoped) + RLS + audit trigger; `v1-sandbox-presets` edge function with client helpers; `/sandbox` now loads, saves, and deletes presets persisted in Postgres.
-- Business Logic Sandbox stores posture-aware settings (`postureConfigs` plus base mirroring) so presets/settings keep per-posture values aligned.
-- Contracts exported in `packages/contracts` for both settings slices; helpers use caller JWT (no `service_role`).
-
-**Remaining**
-
-- Verify hosted deployment (`supabase db push`, deploy `v1-sandbox-presets`, redeploy edge functions) and keep defaults aligned with contracts.
-- Apply settings consistently across the shell (posture/market defaults, sandbox defaults) and refresh pixel tests after UI lock.
-
-#### 4.4 Trace-Aware AI Responses & Guardrails
-
-**Remaining**
-
-- Input wiring:
-
-  - When calling `v1-ai-bridge`, send:
-
-    - Run `input`, `output`, `trace`.
-    - Evidence summary for this `deal_id` + `run_id`.
-    - Relevant user/sandbox configuration.
-
-- Guardrails:
-
-  - Enforce that AI:
-
-    - Never updates DB directly.
-    - Never overwrites numeric fields.
-    - Only references numbers present in engine outputs/policy/evidence.
-
-- Output format:
-
-  - Design responses to emphasize:
-
-    - Top risks.
-    - Missing evidence.
-    - Negotiation talking points.
-    - Posture-specific recommendations.
-
-#### 4.5 Local CI Script & Pixel Tripwires
-
-**Remaining**
-
-- Add `scripts/local-ci.ps1` that runs, in order:
-
-  - `pnpm -w typecheck`
-  - `pnpm -w test`
-  - `pnpm -w build`
-  - `npx playwright test`
-
-- v1 is **not** considered ship-ready unless this script is green.
-
----
-
-## 4️⃣ v1 Field-Ready Acceptance Criteria
-
-v1 is **field-ready** (usable on real distressed deals in Central Florida) when all of the following are true:
-
-1. **Deterministic Engine Path**
-
-   - All underwriting numbers in UI come from `v1-analyze` → `v1-runs-save` or from existing `runs` rows.
-   - `v1-runs-replay` reproduces identical outputs and trace for any stored run.
-
-2. **Deal-Centric Workflow**
-
-   - You can:
-
-     - Create a deal.
-     - Underwrite it end-to-end.
-     - Attach evidence.
-     - Request and apply overrides (when appropriate).
-
-   - Every run is linked to a `deal_id` and `org_id`.
-
-3. **Repairs Confidence**
-
-   - `/repairs` uses live `repair_rate_sets` via `v1-repair-rates`.
-   - QuickEstimate and all four detail sections are correct and explainable.
-   - Big 5 flows are wired and numeric; you can justify every line item.
-
-4. **Policy & Overrides Governance**
-
-   - Policy changes are versioned and replayable.
-   - Overrides go through `policy_override_requests` and appear in trace.
-   - You can inspect any run and see which overrides were active and why.
-
-5. **Evidence Coverage**
-
-   - Key evidence types (flood, HOA, insurance, inspections, photos) can be uploaded, stored, and retrieved per deal/run.
-   - Underwrite and Trace clearly surface evidence gaps.
-
-6. **AI Strategist**
-
-   - AI summarizes risk, flags missing evidence, and explains tradeoffs.
-   - AI never acts as a hidden calculator; all numbers it references are traceable to engine outputs, policy, or evidence.
-
-7. **Pixel Parity & Stability**
-
-   - `/overview`, `/underwrite`, `/repairs`, `/sandbox`, `/settings`, `/trace`, `/runs` are visually stable:
-
-     - Either pixel-parity with `ui-v2`, or deliberate, documented deviations.
-
-   - Playwright pixel tests cover these states and are green.
-
-8. **Local CI**
-
-   - `scripts/local-ci.ps1` (or equivalent) runs cleanly on demand.
-   - It is run before:
-
-     - Major refactors.
-     - Deployments.
-     - Handing the repo to another agent.
+## 3?? v1 Status (Field-Ready) ✅
+
+v1 is **field-ready**. Completed slices:
+
+- ✅ Startup "Run New Deal" creates real deals with client/contact info; `/deals` shares the same creation path; `/overview` shows contact popover with safe fallbacks.
+- ✅ Auth + deals + sessions + runs/trace anchored to the canonical deals table with deterministic hashes and DB constraints enforcing `runs.deal_id` for new rows.
+- ✅ Evidence stack and freshness (payoff/title/insurance/repairs) via `v1-evidence-start` / `v1-evidence-url`, UI freshness banners, and auto-refresh after upload.
+- ✅ Policy governance and overrides: governed tokens, request/approve flows, trace visibility; UI role gating (analyst read-only, manager/owner/VP editable).
+- ✅ Repairs engine and profiles (org/posture/market), sandbox integration, `/repairs` + Big 5 alignment, and trace snapshot. QA Org / ORL / base seeded and aligned; extend the pattern for new markets/postures as needed.
+- ✅ Business Logic Sandbox v1 knobs + presets persisted per org/posture and bridged into engine inputs.
+- ✅ AI Strategist surfaces remain advisory-only and grounded in runs/policy/evidence/sandbox.
+- ✅ UI shell and routes (`/overview`, `/underwrite`, `/repairs`, `/trace`, `/settings`, `/sandbox`, `/sources`) ready for field use; session continuity + unsaved-change prompts in critical flows.
+- ✅ Local CI script `scripts/local-ci.ps1` runs typecheck/test/build and can gate Playwright with `PLAYWRIGHT_ENABLE=1`; golden-path Playwright test covers login → startup → run new deal → overview.
+- ✅ Launch checklist added (`docs/LAUNCH_CHECKLIST_V1.md`).
+
+## 4?? v1 Field-Ready Acceptance Criteria
+
+v1 now meets the field-ready bar. In practice this means:
+
+- Every underwrite is anchored to a deals row and saved as a `runs` row with deterministic hashes; `/overview`, `/underwrite`, `/repairs`, `/trace` all read from engine outputs and saved runs, never browser-only math.
+- Evidence (payoff, title, insurance, repairs) is attached to deals/runs with freshness banners; missing or stale items are surfaced.
+- Governed knobs are locked for analysts; overrides are requested, approved, and visible on trace with approver and justification.
+- Repairs are deterministic via org/posture/market repair profiles, and Big 5 matches the detailed estimator; active profile metadata is shown in UI and trace snapshots.
+- Business Logic Sandbox v1 knobs persist per org/posture, flow into engine inputs, and can be saved/loaded as presets.
+- AI Strategist on `/overview` and `/sandbox` is advisory-only, grounded in runs + sandbox + evidence + overrides, and never invents numbers or writes to the DB.
+- Local CI script (`scripts/local-ci.ps1` running typecheck/test/build/Playwright) is green; Playwright specs are opt-in locally via `PLAYWRIGHT_ENABLE=true`.
+
+### 4.1 v1.2 / Hardening Backlog
+
+- 🟡 Numeric ergonomics expansion across Repairs and Sandbox numeric fields (extend `NumericInput` to Big 5, line items, sandbox knobs).
+- 🟡 Repairs & Sandbox productization (bulk category editing, presets, improved Sandbox/KPI linking and display).
+- 🟡 Playwright coverage expansion (governed knobs by role, evidence upload + freshness, session continuity reload/restore, overrides request/approve).
+- 🟡 Bulk operations & scale features (bulk overrides, bulk repair profile operations and additional exotic categories).
+- 🟡 Deeper data connectors (MLS/county/FEMA/tax/insurance) feeding evidence and sandbox knobs under RLS.
+- 🟡 Analytics & reporting (org-level dashboards over deals/runs/outcomes; basic export/report utilities).
+- 🟡 Additional operational UX (notifications/logging for override workflows; richer evidence tagging/categorization).
+
+### v1.1 – UX & Flow Hardening (Completed 2025-12-09)
+
+- ✅ Numeric input ergonomics: empty = truly empty (Scenario Modeler uses `NumericInput`; broader Repairs/Sandbox expansion queued in v1.2).
+- ✅ Role-based UX on governed knobs: analysts read-only for Debt & Liens / Timeline & Legal / Policy & Fees with Request Override; owner/manager/VP editable; approvals visible in Overrides surfaces.
+- ✅ Startup flow as first-class "New Deal": demo defaults removed; requires real client/contact/address; Startup and `/deals` "New Deal" share the same creation path and validations.
+- ✅ Evidence UX: evidence upload auto-refreshes the list and banners without manual page reload or re-selecting the deal.
+- ✅ Session continuity & unsaved changes: last active `dealId` + route persisted/restored on load; `useUnsavedChanges` warns on `beforeunload` for critical forms.
 
 ---
 
@@ -1113,3 +792,10 @@ This section is written directly for AI agents (Codex, ChatGPT, etc.) that will 
      - Never circumvent RLS or determinism.
 
 By following this roadmap and the primer/AGENT instructions, Codex (and other agents) can drive HPS DealEngine from its current state to a **production-ready v1**, and then onward to v2 and v3.
+
+
+
+
+
+
+

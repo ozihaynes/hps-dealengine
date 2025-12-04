@@ -10,11 +10,18 @@ export class HPSEngine {
     const costs = deal.costs ?? {};
     const policy = deal.policy ?? {};
 
+    const sandboxOptions = sandboxToAnalyzeOptions({
+      sandbox,
+      posture: (sandbox as any)?.posture ?? "base",
+    });
+
     const asIs = Number(market.as_is_value ?? 0) || 0;
     const repairs = Number(costs.repairs_base ?? 0) || 0;
     const concessPct = Number(costs.concessions_pct ?? 0) || 0; // 0..1
     const capPct =
-      typeof sandbox?.aivSafetyCapPercentage === "number"
+      typeof sandboxOptions?.valuation?.aivSafetyCapPercentage === "number"
+        ? sandboxOptions.valuation.aivSafetyCapPercentage / 100
+        : typeof sandbox?.aivSafetyCapPercentage === "number"
         ? sandbox.aivSafetyCapPercentage / 100
         : 1;
 
@@ -438,3 +445,4 @@ export const DoubleClose = {
     return base;
   },
 };
+import { sandboxToAnalyzeOptions } from "../lib/sandboxToAnalyzeOptions";

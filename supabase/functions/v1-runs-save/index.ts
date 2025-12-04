@@ -12,13 +12,6 @@ const corsHeaders: Record<string, string> = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
 const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "[v1-runs-save] Missing SUPABASE_URL or SUPABASE_ANON_KEY in environment. " +
-      "Run persistence will fail until these are set.",
-  );
-}
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -29,11 +22,26 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  extra?: Record<string, unknown>,
+) {
+  return jsonResponse(
+    {
+      ok: false,
+      error: code,
+      message,
+      ...(extra ?? {}),
+    },
+    status,
+  );
+}
+
 function createSupabaseClient(req: Request) {
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error(
-      "[v1-runs-save] SUPABASE_URL or SUPABASE_ANON_KEY not set; cannot create client.",
-    );
+    throw new Error("SUPABASE_URL or SUPABASE_ANON_KEY not set; cannot create client.");
   }
 
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -99,6 +107,7 @@ const RunInputEnvelopeSchema = z.object({
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
+  repairProfile: z.unknown().optional(),
   meta: z
     .object({
       engineVersion: z.string().optional(),
@@ -132,6 +141,7 @@ const SaveRunArgsSchema = z.object({
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
+  repairProfile: z.unknown().optional(),
   outputs: z.unknown(),
   trace: z.array(RunTraceFrameSchema),
   meta: z
@@ -151,9 +161,11 @@ type SaveRunArgs = z.infer<typeof SaveRunArgsSchema>;
 type RunRowInsert = {
   org_id: string;
   posture: string;
+  deal_id: string;
   input: RunInputEnvelope;
   output: RunOutputEnvelope;
   trace: RunTraceFrame[];
+  policy_snapshot: PolicySnapshot | null;
   input_hash: string;
   output_hash: string;
   policy_hash: string | null;
@@ -210,6 +222,7 @@ function buildRunEnvelopes(args: SaveRunArgs): {
     posture: parsed.posture,
     deal: parsed.deal,
     sandbox: parsed.sandbox,
+    repairProfile: parsed.repairProfile,
     meta: {
       engineVersion: parsed.meta.engineVersion,
       policyVersion: parsed.meta.policyVersion,
@@ -244,9 +257,11 @@ function buildRunRow(args: SaveRunArgs, createdBy: string): RunRowInsert {
   return {
     org_id: args.orgId,
     posture: args.posture,
+    deal_id: args.dealId,
     input: inputEnvelope,
     output: outputEnvelope,
     trace: outputEnvelope.trace,
+    policy_snapshot: policySnapshot,
     input_hash,
     output_hash,
     policy_hash,
@@ -268,48 +283,55 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse({ ok: false, error: "Method not allowed" }, 405);
   }
 
-  let json: unknown;
-  try {
-    json = await req.json();
-  } catch {
-    return jsonResponse(
-      { ok: false, error: "Invalid JSON body; expected SaveRunArgs" },
-      400,
-    );
-  }
+  let payloadSummary: Record<string, unknown> | null = null;
 
-  const parsed = SaveRunArgsSchema.safeParse(json);
-  if (!parsed.success) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: "Invalid payload",
+  try {
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error("[v1-runs-save] Missing Supabase env", {
+        hasUrl: !!supabaseUrl,
+        hasAnon: !!supabaseAnonKey,
+      });
+      return errorResponse(
+        500,
+        "RUNS_SAVE_CONFIG",
+        "Supabase environment variables are not configured for this function.",
+      );
+    }
+
+    let json: unknown;
+    try {
+      json = await req.json();
+    } catch {
+      return errorResponse(400, "RUNS_SAVE_BAD_JSON", "Invalid JSON body; expected SaveRunArgs");
+    }
+
+    const parsed = SaveRunArgsSchema.safeParse(json);
+    if (!parsed.success) {
+      return errorResponse(400, "RUNS_SAVE_VALIDATION", "Invalid payload", {
         issues: parsed.error.issues,
-      },
-      400,
-    );
-  }
+      });
+    }
 
-  const args = parsed.data;
+    const args = parsed.data;
+    payloadSummary = {
+      orgId: args.orgId,
+      dealId: args.dealId,
+      posture: args.posture,
+      hasOutputs: typeof args.outputs !== "undefined",
+      traceCount: Array.isArray(args.trace) ? args.trace.length : 0,
+    };
 
-  const authHeader = req.headers.get("Authorization");
-  const userId = getUserIdFromAuthHeader(authHeader);
+    const authHeader = req.headers.get("Authorization");
+    const userId = getUserIdFromAuthHeader(authHeader);
 
-  if (!userId) {
-    return jsonResponse(
-      {
-        ok: false,
-        error: {
-          message:
-            "[v1-runs-save] Could not determine user id from Authorization header; " +
-            "ensure you're calling with a valid Supabase user JWT.",
-        },
-      },
-      401,
-    );
-  }
+    if (!userId) {
+      return errorResponse(
+        401,
+        "RUNS_SAVE_AUTH",
+        "Missing or invalid Authorization header; call with a Supabase user JWT.",
+      );
+    }
 
-  try {
     const row = buildRunRow(args, userId);
     const supabase = createSupabaseClient(req);
 
@@ -318,7 +340,7 @@ serve(async (req: Request): Promise<Response> => {
       .from("runs")
       .insert(row)
       .select(
-        "id, org_id, posture, input_hash, output_hash, policy_hash, created_at, created_by",
+        "id, org_id, posture, deal_id, input_hash, output_hash, policy_hash, created_at, created_by",
       )
       .single();
 
@@ -327,28 +349,33 @@ serve(async (req: Request): Promise<Response> => {
 
       // Unique index hit: treat as dedupe and return existing canonical row
       if (err.code === "23505") {
-        const existing = await supabase
+        let existingQuery = supabase
           .from("runs")
           .select(
-            "id, org_id, posture, input_hash, output_hash, policy_hash, created_at, created_by",
+            "id, org_id, posture, deal_id, input_hash, output_hash, policy_hash, created_at, created_by",
           )
           .eq("org_id", args.orgId)
           .eq("posture", args.posture)
-          .eq("input_hash", row.input_hash)
-          .eq("policy_hash", row.policy_hash)
-          .maybeSingle();
+          .eq("input_hash", row.input_hash);
+
+        if (row.policy_hash === null) {
+          existingQuery = existingQuery.is("policy_hash", null);
+        } else {
+          existingQuery = existingQuery.eq("policy_hash", row.policy_hash);
+        }
+
+        const existing = await existingQuery.maybeSingle();
 
         if (existing.error) {
-          return jsonResponse(
-            {
-              ok: false,
-              error: {
-                message: existing.error.message,
-                details: existing.error.details,
-                code: existing.error.code,
-              },
-            },
+          console.error("[v1-runs-save] dedupe lookup failed", {
+            message: existing.error.message,
+            code: existing.error.code,
+            details: existing.error.details,
+          });
+          return errorResponse(
             500,
+            "RUNS_SAVE_DEDUPE_LOOKUP",
+            "Run already exists but could not be loaded.",
           );
         }
 
@@ -360,16 +387,16 @@ serve(async (req: Request): Promise<Response> => {
       }
 
       // Any other DB error is a hard failure
-      return jsonResponse(
-        {
-          ok: false,
-          error: {
-            message: insert.error.message,
-            details: insert.error.details,
-            code: insert.error.code,
-          },
-        },
+      console.error("[v1-runs-save] insert error", {
+        message: insert.error.message,
+        code: insert.error.code,
+        details: insert.error.details,
+        payloadSummary,
+      });
+      return errorResponse(
         500,
+        "RUNS_SAVE_INSERT_ERROR",
+        "Failed to persist run.",
       );
     }
 
@@ -386,12 +413,16 @@ serve(async (req: Request): Promise<Response> => {
         ? err
         : "Unknown error";
 
-    return jsonResponse(
-      {
-        ok: false,
-        error: { message },
-      },
+    console.error("[v1-runs-save error]", {
+      message,
+      stack: err instanceof Error ? err.stack : undefined,
+      payloadSummary,
+    });
+
+    return errorResponse(
       500,
+      "RUNS_SAVE_ERROR",
+      "Unexpected error while saving run.",
     );
   }
 });

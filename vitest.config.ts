@@ -5,8 +5,9 @@ export default defineConfig({
   test: {
     environment: "node",
     include: [
-      "packages/**/tests/**/*.test.ts",
-      "apps/**/tests/**/*.test.ts",
+      "packages/**/*.test.ts",
+      "apps/**/*.test.ts",
+      "supabase/functions/**/*.test.ts",
     ],
     // Use default reporter (fixes "Failed to load custom Reporter from basic")
     reporters: "default",

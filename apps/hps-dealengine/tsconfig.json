@@ -6,9 +6,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "@ui-v2/*": [
-        "../../.tmp/ui-v2/*"
-      ],
       "@/*": [
         "src/*",
         "*"

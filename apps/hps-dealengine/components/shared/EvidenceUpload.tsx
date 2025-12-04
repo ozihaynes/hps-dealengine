@@ -15,14 +15,15 @@ type EvidenceUploadProps = {
   runId?: string | null;
   kindOptions?: KindOption[];
   title?: string;
+  onUploadComplete?: () => void;
 };
 
 const DEFAULT_KINDS: KindOption[] = [
-  { value: "flood_map", label: "Flood map" },
-  { value: "hoa_estoppel", label: "HOA estoppel" },
+  { value: "payoff_letter", label: "Payoff letter" },
+  { value: "title_quote", label: "Title quote" },
   { value: "insurance_quote", label: "Insurance quote" },
+  { value: "repair_bid", label: "Repair bid" },
   { value: "photos", label: "Photos" },
-  { value: "inspection_report", label: "Inspection report" },
 ];
 
 export function EvidenceUpload({
@@ -30,6 +31,7 @@ export function EvidenceUpload({
   runId,
   kindOptions,
   title,
+  onUploadComplete,
 }: EvidenceUploadProps) {
   const kinds = kindOptions ?? DEFAULT_KINDS;
   const [evidence, setEvidence] = useState<Evidence[]>([]);
@@ -64,8 +66,17 @@ export function EvidenceUpload({
         file,
       });
 
-      const next = await listEvidence({ dealId });
-      setEvidence(next);
+      // Prefer run scope when available for refresh
+      const scoped = await listEvidence({ dealId, runId });
+      if (scoped.length > 0) {
+        setEvidence(scoped);
+      } else {
+        const next = await listEvidence({ dealId });
+        setEvidence(next);
+      }
+      if (typeof onUploadComplete === "function") {
+        onUploadComplete();
+      }
     } catch (err: unknown) {
       const msg =
         err instanceof Error ? err.message : "Upload failed";

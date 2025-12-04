@@ -518,7 +518,14 @@ All domain logic runs through Supabase Edge Functions.
   - Relay patterns,
   - Policy override governance.
 
-### 4.2 v2.x — Connectors, Strategy Packs, Multi-Posture
+### 4.1.1 Function Environment Vars
+
+Set these in Supabase Dashboard → Settings → Functions (project `zjkihnihhqmnhpxkecpy`):
+
+- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (all functions).
+- `OPENAI_API_KEY` (required for `v1-ai-bridge`; missing keys return a `CONFIG_ERROR` response).
+
+### 4.2 v2.x - Connectors, Strategy Packs, Multi-Posture
 
 - `v2-connectors-proxy`
   Unified gateway for external property data:

@@ -1,11 +1,20 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
-import { GlassCard, Button, Icon, InputField, SelectField, Modal } from '../ui';
+import { GlassCard, Button, Icon, Modal } from '../ui';
 import { Icons } from '../../constants';
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useDealSession, type DbDeal } from "@/lib/dealSessionContext";
+import {
+    createDealWithClientInfo,
+    createEmptyDealForm,
+    fetchDealsForOrg,
+    formatAddressLine,
+    resolveOrgId,
+    validateNewDealForm,
+} from "@/lib/deals";
+import NewDealForm from "../deals/NewDealForm";
 
 interface StartupPageProps {
     onEnter?: () => void;
@@ -15,9 +24,10 @@ type StartupDealRow = DbDeal;
 
 type DisplayDeal = {
     id: string;
-    client: string;
+    title: string;
     city: string;
     created: string;
+    orgLabel: string;
     raw: StartupDealRow;
 };
 
@@ -32,15 +42,14 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
     
     // New Deal Modal State
     const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
-    const [newClient, setNewClient] = useState({
-        name: "Alex Morgan",
-        phone: "407-555-0192",
-        address: "850 North Orange Ave, Orlando, FL"
-    });
+    const [newDeal, setNewDeal] = useState(createEmptyDealForm());
+    const [createError, setCreateError] = useState<string | null>(null);
+    const [creating, setCreating] = useState(false);
     
     const [deals, setDeals] = useState<StartupDealRow[]>([]);
     const [dealsLoading, setDealsLoading] = useState(true);
     const [dealsError, setDealsError] = useState<string | null>(null);
+    const [orgId, setOrgId] = useState<string | null>(null);
 
     useEffect(() => {
         const timers = [
@@ -62,35 +71,13 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
             try {
                 const supabase = getSupabaseClient();
 
-                const { data: orgId, error: orgError } = await supabase.rpc("get_caller_org");
-                if (orgError) {
-                    if (!isMounted) return;
-                    setDealsError("Unable to resolve your organization. Please check memberships.");
-                    return;
-                }
-
-                if (!orgId) {
-                    if (!isMounted) return;
-                    setDealsError("No organization found for your user.");
-                    return;
-                }
-
-                const { data, error } = await supabase
-                    .from("deals")
-                    .select(
-                        "id, org_id, created_by, created_at, updated_at, address, city, state, zip, payload"
-                    )
-                    .eq("org_id", orgId)
-                    .order("created_at", { ascending: false });
-
-                if (error) {
-                    if (!isMounted) return;
-                    setDealsError("Unable to load deals for your org.");
-                    return;
-                }
-
+                const callerOrgId = await resolveOrgId(supabase);
                 if (!isMounted) return;
-                setDeals((data ?? []) as StartupDealRow[]);
+                setOrgId(callerOrgId);
+
+                const rows = await fetchDealsForOrg(supabase, callerOrgId);
+                if (!isMounted) return;
+                setDeals(rows);
             } catch (err) {
                 console.error("[startup] load deals error", err);
                 if (!isMounted) return;
@@ -110,16 +97,30 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
     }, []);
 
     const filteredDeals = useMemo(() => {
+        const formatOrgLabel = (deal: StartupDealRow) => {
+            const orgId = deal.orgId ?? deal.org_id ?? "";
+            if (deal.orgName && deal.orgName.length > 0) return deal.orgName;
+            if (orgId) return `${orgId.slice(0, 8)}…`;
+            return "Unknown org";
+        };
+
         const mapped: DisplayDeal[] = deals.map((deal) => {
-            const clientLabel = deal.address ?? "Untitled deal";
+            const clientLabel =
+                formatAddressLine({
+                    address: deal.address ?? "",
+                    city: deal.city ?? undefined,
+                    state: deal.state ?? undefined,
+                    zip: deal.zip ?? undefined,
+                }) || "Untitled deal";
             const cityState = [deal.city, deal.state, deal.zip].filter(Boolean).join(", ");
             const createdString = new Date(deal.created_at).toLocaleString();
 
             return {
                 id: deal.id,
-                client: clientLabel,
+                title: clientLabel,
                 city: cityState,
                 created: createdString,
+                orgLabel: formatOrgLabel(deal),
                 raw: deal,
             };
         });
@@ -128,7 +129,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
         
         if (searchTerm) {
             const lower = searchTerm.toLowerCase();
-            data = data.filter(d => d.client.toLowerCase().includes(lower) || d.city.toLowerCase().includes(lower));
+            data = data.filter(d => d.title.toLowerCase().includes(lower) || d.city.toLowerCase().includes(lower));
         }
         
         if (dateFilter) {
@@ -145,19 +146,70 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
         } else if (sortOrder === 'oldest') {
             data.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
         } else if (sortOrder === 'az') {
-            data.sort((a, b) => a.client.localeCompare(b.client));
+            data.sort((a, b) => a.title.localeCompare(b.title));
         }
 
         return data;
     }, [deals, searchTerm, dateFilter, sortOrder]);
 
-    const handleStartDeal = () => {
-        // From startup, this should open the blank app shell (no pre-selected deal).
-        if (onEnter) {
-            onEnter();
+    const handleRunNewDeal = async () => {
+        setCreateError(null);
+        const validationError = validateNewDealForm(newDeal);
+        if (validationError) {
+            setCreateError(validationError);
+            return;
         }
-        router.push('/overview');
-        router.refresh();
+
+        setCreating(true);
+        const supabase = getSupabaseClient();
+
+        try {
+            const callerOrgId = orgId ?? (await resolveOrgId(supabase));
+            if (!orgId) {
+                setOrgId(callerOrgId);
+            }
+
+            const inserted = await createDealWithClientInfo({
+                supabase,
+                orgId: callerOrgId,
+                clientName: newDeal.clientName,
+                clientPhone: newDeal.clientPhone,
+                clientEmail: newDeal.clientEmail,
+                propertyStreet: newDeal.propertyStreet,
+                propertyCity: newDeal.propertyCity,
+                propertyState: newDeal.propertyState,
+                propertyPostalCode: newDeal.propertyPostalCode,
+            });
+
+            setDeals((prev) => [inserted, ...prev]);
+            setDbDeal(inserted);
+            if (inserted.payload) {
+                try {
+                    setDeal(inserted.payload as any);
+                } catch {
+                    // tolerate malformed payload; user can re-run analyze
+                }
+            }
+
+            if (process.env.NODE_ENV !== "production") {
+                console.log("[startup] created deal", { dealId: inserted.id });
+            }
+
+            setIsNewDealModalOpen(false);
+            setNewDeal(createEmptyDealForm());
+
+            if (onEnter) {
+                onEnter();
+            }
+
+            router.push("/overview");
+            router.refresh();
+        } catch (err: any) {
+            console.error("[startup] create deal error", err);
+            setCreateError(err?.message ?? "Unable to create deal. Please try again.");
+        } finally {
+            setCreating(false);
+        }
     };
 
     const handleSelectDeal = (deal: StartupDealRow) => {
@@ -196,7 +248,11 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
 
                     <div className={`mt-8 max-w-md mx-auto transition-all duration-700 delay-300 transform ${step >= 2 ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
                         <Button 
-                            onClick={() => setIsNewDealModalOpen(true)} 
+                            onClick={() => {
+                                setCreateError(null);
+                                setNewDeal(createEmptyDealForm());
+                                setIsNewDealModalOpen(true);
+                            }} 
                             variant="primary" 
                             className="w-full py-4 text-lg font-bold shadow-[0_0_20px_-5px_var(--accent-blue)] hover:shadow-[0_0_30px_-5px_var(--accent-blue)] transition-all duration-300 flex items-center justify-center gap-3"
                         >
@@ -243,7 +299,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                                 >
                                     <option value="newest">Sort: Newest</option>
                                     <option value="oldest">Sort: Oldest</option>
-                                    <option value="az">Sort: Name (A-Z)</option>
+                                    <option value="az">Sort: Address (A-Z)</option>
                                 </select>
                             </div>
                         </div>
@@ -254,7 +310,8 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                             <table className="w-full text-left text-sm border-collapse">
                                 <thead className="sticky top-0 bg-brand-navy/95 backdrop-blur-md z-10 text-xs uppercase tracking-wider text-text-secondary font-semibold">
                                     <tr>
-                                        <th className="p-4 border-b border-white/10">Client</th>
+                                        <th className="p-4 border-b border-white/10">Property</th>
+                                        <th className="p-4 border-b border-white/10 whitespace-nowrap">Org</th>
                                         <th className="p-4 border-b border-white/10">City / State</th>
                                         <th className="p-4 border-b border-white/10 text-right">Created</th>
                                     </tr>
@@ -262,14 +319,14 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                                 <tbody className="divide-y divide-white/5">
                                     {dealsLoading && (
                                         <tr>
-                                            <td colSpan={3} className="p-8 text-center text-text-secondary">
+                                            <td colSpan={4} className="p-8 text-center text-text-secondary">
                                                 Loading deals.
                                             </td>
                                         </tr>
                                     )}
                                     {dealsError && !dealsLoading && (
                                         <tr>
-                                            <td colSpan={3} className="p-8 text-center text-accent-red">
+                                            <td colSpan={4} className="p-8 text-center text-accent-red">
                                                 {dealsError}
                                             </td>
                                         </tr>
@@ -281,7 +338,10 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                                             className="group cursor-pointer hover:bg-accent-blue/10 transition-colors duration-150"
                                         >
                                             <td className="p-4 text-text-primary font-medium group-hover:text-accent-blue transition-colors">
-                                                {deal.client}
+                                                {deal.title}
+                                            </td>
+                                            <td className="p-4 text-text-secondary whitespace-nowrap">
+                                                {deal.orgLabel}
                                             </td>
                                             <td className="p-4 text-text-secondary">
                                                 {deal.city}
@@ -293,7 +353,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                                     ))}
                                     {!dealsLoading && !dealsError && filteredDeals.length === 0 && (
                                         <tr>
-                                            <td colSpan={3} className="p-8 text-center text-text-secondary">
+                                            <td colSpan={4} className="p-8 text-center text-text-secondary">
                                                 No deals found matching your filters.
                                             </td>
                                         </tr>
@@ -308,30 +368,32 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                 </div>
             </GlassCard>
 
-            <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="Start New Deal">
-                <div className="space-y-4 p-1">
-                    <InputField 
-                        label="Client Name" 
-                        value={newClient.name} 
-                        onChange={(e) => setNewClient({...newClient, name: e.target.value})} 
-                        placeholder="Enter client full name"
+            <Modal
+                isOpen={isNewDealModalOpen}
+                onClose={() => {
+                    setIsNewDealModalOpen(false);
+                    setCreateError(null);
+                    setNewDeal(createEmptyDealForm());
+                }}
+                title="Start New Deal"
+            >
+                <div className="p-1">
+                    <NewDealForm
+                        values={newDeal}
+                        onChange={(next) => {
+                            setCreateError(null);
+                            setNewDeal(next);
+                        }}
+                        onSubmit={handleRunNewDeal}
+                        submitting={creating}
+                        error={createError}
+                        submitLabel="Start Deal"
+                        onCancel={() => {
+                            setIsNewDealModalOpen(false);
+                            setCreateError(null);
+                            setNewDeal(createEmptyDealForm());
+                        }}
                     />
-                    <InputField 
-                        label="Phone Number" 
-                        value={newClient.phone} 
-                        onChange={(e) => setNewClient({...newClient, phone: e.target.value})} 
-                        placeholder="(555) 000-0000"
-                    />
-                    <InputField 
-                        label="Property Address" 
-                        value={newClient.address} 
-                        onChange={(e) => setNewClient({...newClient, address: e.target.value})} 
-                        placeholder="Street address, City, State"
-                    />
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-white/10">
-                        <Button variant="ghost" onClick={() => setIsNewDealModalOpen(false)}>Cancel</Button>
-                        <Button variant="primary" onClick={handleStartDeal} className="px-6">Start Deal</Button>
-                    </div>
                 </div>
             </Modal>
         </div>

@@ -11,6 +11,8 @@ type StrategistPanelProps = {
   runTrace?: unknown;
   policySnapshot?: unknown;
   evidenceSummary?: Array<{ kind?: string; id?: string; label?: string; uri?: string }>;
+  defaultPrompt?: string;
+  contextHint?: string;
 };
 
 const guardrailCopy =
@@ -24,15 +26,24 @@ export const StrategistPanel: React.FC<StrategistPanelProps> = ({
   runTrace,
   policySnapshot,
   evidenceSummary = [],
+  defaultPrompt,
+  contextHint,
 }) => {
   const [prompt, setPrompt] = useState(
-    "What are the top 3 risks and what evidence should we collect next?"
+    defaultPrompt ??
+      "What are the top 3 risks and what evidence should we collect next?"
   );
   const [response, setResponse] = useState<AiBridgeAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const missingRun = !dealId || !runId || !posture;
-  const strategistDisabled = true;
+  const strategistDisabled = false;
+
+  React.useEffect(() => {
+    if (defaultPrompt) {
+      setPrompt(defaultPrompt);
+    }
+  }, [defaultPrompt]);
 
   const handleAsk = async () => {
     setError(null);
@@ -47,11 +58,14 @@ export const StrategistPanel: React.FC<StrategistPanelProps> = ({
         setError("Run a calculation and save a run before asking the strategist.");
         return;
       }
+      const fullPrompt = contextHint
+        ? `${contextHint}\n\nUser request: ${prompt}`
+        : prompt;
       const res = await fetchStrategistAnalysis({
         dealId,
         runId,
         posture,
-        prompt,
+        prompt: fullPrompt,
       });
       setResponse(res.analysis);
     } catch (err: any) {
@@ -89,9 +103,7 @@ export const StrategistPanel: React.FC<StrategistPanelProps> = ({
       />
 
       <div className="text-[11px] text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2">
-        {strategistDisabled
-          ? "Strategist is temporarily disabled while we finish v1."
-          : missingRun
+        {missingRun
           ? "Run a calculation and save a run before asking the strategist."
           : guardrailCopy}
       </div>

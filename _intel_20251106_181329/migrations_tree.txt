@@ -1,3 +1,0 @@
-supabase\migrations\20251102212812_0001_policies.sql
-supabase\migrations\20251102235825_init_orgs_rls.sql
-supabase\migrations\20251106_150103_policy_versions_api.sql

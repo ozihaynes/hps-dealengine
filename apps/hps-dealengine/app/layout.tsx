@@ -6,7 +6,7 @@ import { DealSessionProvider } from "@/lib/dealSessionContext";
 export const metadata: Metadata = {
   title: "HPS DealEngine",
   description:
-    "Deterministic underwriting OS for distressed SFR deals in Central Florida",
+    "Deterministic underwriting OS for distressed SFR/townhomes in Central Florida. Production-ready v1 with runs, evidence, and governance.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

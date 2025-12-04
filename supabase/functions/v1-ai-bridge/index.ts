@@ -7,6 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 import { AiBridgeInputSchema } from "../_shared/contracts.ts";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
+import { buildPrompt } from "./prompt.ts";
 
 const MODEL = "gpt-4o-mini";
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").trim();
@@ -35,6 +36,7 @@ type EvidenceRow = {
 type ErrorBody = {
   ok: false;
   errorCode: string;
+  error?: string;
   message: string;
   issues?: Array<{ path: string; message: string }>;
 };
@@ -74,7 +76,17 @@ class BridgeError extends Error {
 }
 
 function errorResponse(req: Request, status: number, code: string, message: string, extra?: Partial<ErrorBody>) {
-  return jsonResponse(req, { ok: false, errorCode: code, message, ...(extra ?? {}) }, status);
+  return jsonResponse(
+    req,
+    {
+      ok: false,
+      errorCode: code,
+      error: extra?.error ?? code,
+      message,
+      ...(extra ?? {}),
+    },
+    status,
+  );
 }
 
 function mapZodIssues(error: z.ZodError): Array<{ path: string; message: string }> {
@@ -97,7 +109,8 @@ function selectProvider() {
     throw new BridgeError(
       500,
       ERROR_CODES.ENV_MISSING,
-      "AI bridge is not configured for this environment.",
+      "Missing env var OPENAI_API_KEY",
+      { error: "CONFIG_ERROR" },
     );
   }
 
@@ -106,7 +119,8 @@ function selectProvider() {
     throw new BridgeError(
       500,
       ERROR_CODES.ENV_MISSING,
-      "AI bridge is not configured for this environment.",
+      "Missing env var OPENAI_API_KEY",
+      { error: "CONFIG_ERROR" },
     );
   }
 
@@ -350,6 +364,7 @@ serve(async (req: Request): Promise<Response> => {
         500,
         ERROR_CODES.SUPABASE_ENV,
         "Supabase environment not configured.",
+        { error: "CONFIG_ERROR" },
       );
     }
 
@@ -396,28 +411,16 @@ serve(async (req: Request): Promise<Response> => {
     const run = await loadRun(supabase, input.runId, input.dealId);
     const evidence = await loadEvidence(supabase, input.dealId, input.runId);
 
-    const promptParts = [
-      "You are an underwriting strategist. Provide advisory guidance only.",
-      "Guardrails:",
-      ...GUARDRAILS,
-      `Posture: ${run.posture}`,
-      `User prompt: ${input.prompt}`,
-      `Run output: ${JSON.stringify(run.output)}`,
-      `Run trace: ${JSON.stringify(run.trace)}`,
-      `Policy snapshot: ${JSON.stringify(run.policy_snapshot)}`,
-      `Evidence (ids/kinds/filesize): ${JSON.stringify(
-        evidence.map((e) => ({
-          id: e.id,
-          kind: e.kind,
-          storageKey: e.storage_key,
-          bytes: e.bytes,
-        })),
-      )}`,
-    ].join("\n\n");
+    const promptText = buildPrompt(
+      run,
+      input.prompt,
+      evidence,
+      GUARDRAILS,
+    );
 
     let summary: string;
     try {
-      summary = await callOpenAI(promptParts, apiKey);
+      summary = await callOpenAI(promptText, apiKey);
     } catch (err) {
       if (err instanceof BridgeError) {
         throw err;
@@ -449,11 +452,15 @@ serve(async (req: Request): Promise<Response> => {
         status: err.status,
         code: err.code,
         message: err.message,
+        stack: err.stack,
       });
       return errorResponse(req, err.status, err.code, err.message, err.extra);
     }
 
-    console.error("[v1-ai-bridge] UNEXPECTED", err);
+    console.error("[v1-ai-bridge] UNEXPECTED", {
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    });
     return errorResponse(
       req,
       500,

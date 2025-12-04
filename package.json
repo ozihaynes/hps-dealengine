@@ -6,7 +6,8 @@
     "typecheck": "pnpm -r exec tsc -p . --noEmit",
     "build": "pnpm --filter \"./packages/contracts\" --filter \"./packages/engine\" --filter \"./apps/hps-dealengine\" build",
     "test": "pnpm -r test",
-    "dev": "pnpm --filter \"./apps/hps-dealengine\" dev"
+    "dev": "pnpm --filter \"./apps/hps-dealengine\" dev",
+    "generate:sandbox-meta": "node scripts/generate-sandbox-meta.cjs"
   },
   "workspaces": [
     "packages/*",
@@ -22,6 +23,7 @@
     "vitest": "^4.0.8"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.80.0"
+    "@supabase/supabase-js": "^2.80.0",
+    "@vercel/speed-insights": "^1.2.0"
   }
 }

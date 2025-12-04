@@ -2,6 +2,7 @@
   "imports": {
     "@hps-internal/engine": "./_vendor/engine/index.js",
     "@hps-internal/engine/": "./_vendor/engine/",
-    "@hps-internal/contracts": "./_shared/contracts.ts"
+    "@hps-internal/contracts": "./_shared/contracts.ts",
+    "zod": "https://esm.sh/zod@3.23.8"
   }
 }

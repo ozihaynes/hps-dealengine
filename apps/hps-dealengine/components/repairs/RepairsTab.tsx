@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import type { RepairRates } from "@/lib/repairRates";
+import type { RepairRates } from "@hps-internal/contracts";
 import type {
   Deal,
   EngineCalculations,
@@ -9,7 +9,7 @@ import type {
 import { fmt$, num } from "../../utils/helpers";
 import { estimatorSections, Icons } from "../../constants";
 import { GlassCard, Button, Icon, SelectField } from "../ui";
-import { computeSectionTotals } from "@/lib/repairsMath";
+import { computeSectionTotals, computeQuickEstimateTotal } from "@/lib/repairsMath";
 
 // --- Interfaces ---
 
@@ -28,8 +28,19 @@ interface RepairsTabProps {
   onReset: () => void;
   repairRates?: RepairRates;
   marketCode?: string;
+  activeProfileName?: string;
+  posture?: string;
   ratesStatus?: "idle" | "loading" | "loaded" | "error";
   ratesError?: string;
+  meta?: {
+    profileId?: string | null;
+    profileName?: string | null;
+    marketCode?: string | null;
+    posture?: string | null;
+    asOf?: string | null;
+    source?: string | null;
+    version?: string | null;
+  } | null;
 }
 
 interface EstimatorRowProps {
@@ -62,10 +73,20 @@ interface EstimatorSectionProps {
 const RatesMetaBar: React.FC<{
   asOf?: string;
   market?: string;
+  posture?: string;
+  profileName?: string;
   version?: string;
   status?: "idle" | "loading" | "loaded" | "error";
   error?: string;
-}> = ({ asOf, market, version, status = "idle", error }) => {
+}> = ({
+  asOf,
+  market,
+  posture,
+  profileName,
+  version,
+  status = "idle",
+  error,
+}) => {
   if (status === "loading") {
     return (
       <div className="info-card flex items-center justify-between mb-2 border border-white/5">
@@ -78,8 +99,9 @@ const RatesMetaBar: React.FC<{
   return (
     <div className="info-card flex flex-col gap-1 md:flex-row md:items-center md:justify-between mb-2 border border-white/5 px-3 py-2">
       <div className="label-xs">
-        Repair unit rates · {market ?? "ORL"} {version ? `v${version}` : ""} · last update:{" "}
+        Repair unit rates - {market ?? "ORL"} {version ? `v${version}` : ""} - posture {posture ?? "base"} - last update:{" "}
         <strong className="text-text-primary/90">{asOf ?? "unknown"}</strong>
+        {profileName ? ` - ${profileName}` : ""}
       </div>
       <div className="text-xs text-text-secondary/80">
         {status === "error"
@@ -184,22 +206,12 @@ const QuickEstimate: React.FC<{
 
   const quickEstimateTotal = useMemo(() => {
     const sqft = resolveSqft();
-    const effectivePsf =
-      (psfTiers as any)?.[rehabLevel as keyof typeof psfTiers] ?? 0;
-
-    let total = sqft * effectivePsf;
-
-    (["roof", "hvac", "repipe", "electrical", "foundation"] as const).forEach(
-      (item) => {
-        if (big5[item]) {
-          const rate =
-            (big5Rates as any)?.[item as keyof RepairRates["big5"]] ?? 0;
-          total += rate * sqft;
-        }
-      }
-    );
-
-    return total;
+    return computeQuickEstimateTotal({
+      sqft,
+      rehabLevel: rehabLevel as keyof typeof psfTiers,
+      big5Selections: big5,
+      rates: { psfTiers, big5: big5Rates },
+    });
   }, [rehabLevel, big5, psfTiers, big5Rates, deal, calc]);
 
   const toggle = (k: keyof typeof big5) =>
@@ -477,47 +489,93 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
   onReset,
   repairRates,
   marketCode,
+  activeProfileName,
+  posture,
   ratesStatus,
   ratesError,
+  meta,
 }) => {
   const { costs, quantities } = estimatorState;
+  const effectiveMarket = meta?.marketCode ?? repairRates?.marketCode ?? marketCode;
+  const effectivePosture = meta?.posture ?? repairRates?.posture ?? posture;
+  const effectiveProfileName =
+    meta?.profileName ?? repairRates?.profileName ?? activeProfileName;
+  const effectiveAsOf = meta?.asOf ?? repairRates?.asOf ?? "unknown";
+  const effectiveVersion = meta?.version ?? repairRates?.version;
+  console.log("[RepairsTab] props", {
+    meta,
+    estimatorState,
+    repairRates,
+    marketCode,
+    posture,
+  });
 
-  const ratesAsOf = repairRates?.asOf ?? "unknown";
+  // Debug: surface which rates are in use for Quick Estimate and Big5 display
+  React.useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[RepairsTab] render rates state", {
+        profileId: repairRates?.profileId ?? null,
+        profileName: repairRates?.profileName ?? null,
+        marketCode: effectiveMarket,
+        posture: effectivePosture,
+        big5: repairRates?.big5 ?? null,
+        usingFallback: !repairRates,
+      });
+    }
+  }, [repairRates, effectivePosture, effectiveMarket]);
+
   const psfTiers = repairRates?.psfTiers ?? {
     none: 0,
-    light: 25,
-    medium: 40,
-    heavy: 60,
+    light: 0,
+    medium: 0,
+    heavy: 0,
   };
   const big5Rates = repairRates?.big5 ?? {
-    roof: 6,
-    hvac: 6,
-    repipe: 5,
-    electrical: 5.5,
-    foundation: 15,
+    roof: 0,
+    hvac: 0,
+    repipe: 0,
+    electrical: 0,
+    foundation: 0,
   };
 
   const { sectionTotals, totalRepairCost } = useMemo(
-    () => computeSectionTotals(costs, quantities),
-    [costs, quantities]
+    () =>
+      computeSectionTotals(
+        costs,
+        quantities,
+        (repairRates?.lineItemRates as any) ?? undefined
+      ),
+    [costs, quantities, repairRates?.lineItemRates]
   );
 
   return (
     <div className="space-y-4 repairs-scope">
       <RatesMetaBar
-        asOf={ratesAsOf}
-        market={repairRates?.market ?? marketCode}
-        version={repairRates?.version}
+        asOf={effectiveAsOf}
+        market={effectiveMarket}
+        posture={effectivePosture}
+        profileName={effectiveProfileName}
+        version={effectiveVersion}
         status={ratesStatus}
         error={ratesError}
       />
       <QuickEstimate
+        key={repairRates?.profileId ?? "quick-estimate"}
         deal={deal}
         calc={calc}
         setDealValue={setDealValue}
         psfTiers={psfTiers}
         big5Rates={big5Rates}
       />
+      {process.env.NODE_ENV !== "production" && repairRates && (
+        <div className="text-xs text-text-secondary bg-white/5 border border-white/10 rounded-lg p-2">
+          <div className="font-semibold text-text-primary">Active Repair Profile (dev)</div>
+          <div>
+            {repairRates.profileId} | {repairRates.profileName ?? "unnamed"} | {repairRates.marketCode} | {repairRates.posture}
+          </div>
+          <div>Big5 roof/hvac/repipe/electrical/foundation: {JSON.stringify(repairRates.big5)}</div>
+        </div>
+      )}
       <GlassCard className="p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">

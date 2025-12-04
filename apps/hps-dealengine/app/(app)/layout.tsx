@@ -1,7 +1,7 @@
 "use client";
 
+import React, { Suspense, useEffect } from "react";
 import type { ReactNode } from "react";
-import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -10,6 +10,12 @@ import AppTopNav from "@/components/AppTopNav";
 import MobileBottomNav from "@/components/shared/MobileBottomNav";
 import { Icon } from "@/components/ui";
 import { useDealSession } from "../../lib/dealSessionContext";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import {
+  clearLastSession,
+  loadLastSession,
+  saveLastSession,
+} from "@/lib/sessionPersistence";
 import { Icons } from "../../lib/ui-v2-constants";
 
 const APP_TABS = [
@@ -55,6 +61,54 @@ function DealGuard({ children }: { children: ReactNode }) {
   }, [dbDeal, pathname, router]);
 
   return <>{children}</>;
+}
+
+function SessionPersistenceSync() {
+  const { dbDeal } = useDealSession();
+  const pathname = usePathname();
+  const router = useRouter();
+  const supabase = getSupabaseClient();
+  const attemptedRef = React.useRef(false);
+
+  // Save last session when deal + route are known
+  React.useEffect(() => {
+    if (dbDeal?.id && pathname) {
+      saveLastSession({ dealId: dbDeal.id, pathname });
+      return;
+    }
+    clearLastSession();
+  }, [dbDeal?.id, pathname]);
+
+  // Attempt restore on first mount if authenticated and no active deal
+  React.useEffect(() => {
+    if (attemptedRef.current) return;
+    attemptedRef.current = true;
+
+    const restore = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
+        if (!session) return;
+        if (dbDeal?.id) return;
+
+        const last = loadLastSession();
+        if (!last?.dealId) return;
+
+        // Seed the existing DealSession bootstrap key
+        localStorage.setItem("hps-active-deal-id", last.dealId);
+
+        if (last.pathname && pathname !== last.pathname) {
+          router.replace(last.pathname);
+        }
+      } catch {
+        // best-effort; ignore errors
+      }
+    };
+
+    void restore();
+  }, [dbDeal?.id, pathname, router, supabase]);
+
+  return null;
 }
 
 function AppTabNav() {
@@ -119,6 +173,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               >
                 {children}
               </Suspense>
+              <SessionPersistenceSync />
             </div>
           </main>
 
