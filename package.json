@@ -7,7 +7,12 @@
     "build": "pnpm --filter \"./packages/contracts\" --filter \"./packages/engine\" --filter \"./apps/hps-dealengine\" build",
     "test": "pnpm -r test",
     "dev": "pnpm --filter \"./apps/hps-dealengine\" dev",
-    "generate:sandbox-meta": "node scripts/generate-sandbox-meta.cjs"
+    "test:e2e": "playwright test",
+    "generate:sandbox-meta": "node scripts/generate-sandbox-meta.cjs",
+    "check:glossary": "pnpm dlx tsx scripts/check-glossary-alignment.ts",
+    "check:dashboard-coverage": "tsx scripts/dashboard-kpi-coverage-report.ts",
+    "check:docs-frontmatter": "tsx scripts/check-doc-frontmatter.ts",
+    "generate:doc-registry": "tsx scripts/generate-doc-registry.ts"
   },
   "workspaces": [
     "packages/*",

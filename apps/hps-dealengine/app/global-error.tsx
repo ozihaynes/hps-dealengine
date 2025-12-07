@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { GlassCard, Button, Icon } from "@/components/ui";
 import { Icons } from "@/constants";
@@ -9,7 +10,11 @@ type GlobalErrorProps = {
   reset: () => void;
 };
 
-export default function GlobalError({ reset }: GlobalErrorProps) {
+export default function GlobalError({ error, reset }: GlobalErrorProps) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#020617] flex items-center justify-center px-4">

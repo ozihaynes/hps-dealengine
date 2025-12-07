@@ -1,0 +1,122 @@
+[
+  {
+    "inputId": "underwrite.market.arv",
+    "inputLabel": "After-Repair Value (ARV)",
+    "inputCategory": "valuation",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["hero_arv_mao", "discount_to_arv_pct", "discount_to_arv_dollars", "assignment_fee_pct_arv", "buyer_ceiling_value", "deal_structure_headroom", "market_temp_score"],
+    "hasDashboardExposure": true,
+    "exposureType": ["hero_kpi", "guardrails", "chart"],
+    "notes": "ARV drives MAO, discount math, buyer ceiling, and structure chart markers."
+  },
+  {
+    "inputId": "underwrite.market.as_is_value",
+    "inputLabel": "As-Is Value (AIV)",
+    "inputCategory": "valuation",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["hero_arv_mao", "mao_bundle_as_is_cap", "deal_structure_payoff_gap"],
+    "hasDashboardExposure": true,
+    "exposureType": ["hero_kpi", "strategy"],
+    "notes": "Feeds AIV safety cap and as-is cap MAO shown in Strategy card."
+  },
+  {
+    "inputId": "underwrite.status.insurability",
+    "inputLabel": "Insurance Bindability",
+    "inputCategory": "risk",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["risk_gate_insurability", "risk_overall_badge", "risk_overall_status"],
+    "hasDashboardExposure": true,
+    "exposureType": ["risk_gate"],
+    "notes": "Directly drives insurability gate and overall risk badges."
+  },
+  {
+    "inputId": "underwrite.debt.senior_principal",
+    "inputLabel": "Senior Principal",
+    "inputCategory": "payoff",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["cushion_vs_payoff", "strategy_projected_payoff", "strategy_shortfall_to_payoff", "deal_structure_payoff_gap", "projected_payoff_close"],
+    "hasDashboardExposure": true,
+    "exposureType": ["guardrails", "strategy", "chart"],
+    "notes": "Payoff math flows through guardrails deltas and strategy payoff tiles."
+  },
+  {
+    "inputId": "underwrite.costs.double_close",
+    "inputLabel": "Double-Close Inputs",
+    "inputCategory": "profit_spread",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["wholesale_fee_with_dc"],
+    "hasDashboardExposure": true,
+    "exposureType": ["stat_card"],
+    "notes": "DC load reduces wholesale fee card."
+  },
+  {
+    "inputId": "underwrite.timeline.auction_date",
+    "inputLabel": "Auction / Sale Date",
+    "inputCategory": "timeline",
+    "primaryTabs": ["Underwrite"],
+    "dashboardKpiIds": ["timeline_days_to_money", "timeline_urgency_label", "timeline_carry_months", "deal_analysis_urgency"],
+    "hasDashboardExposure": true,
+    "exposureType": ["hero_kpi", "timeline_card"],
+    "notes": "Auction proximity affects urgency, DTM, and carry."
+  },
+  {
+    "inputId": "repairs.quick_estimate_psf",
+    "inputLabel": "QuickEstimate PSF",
+    "inputCategory": "repairs",
+    "primaryTabs": ["Repairs"],
+    "dashboardKpiIds": ["total_repairs", "carry_costs_total", "mao_bundle_flip", "mao_bundle_wholetail"],
+    "hasDashboardExposure": true,
+    "exposureType": ["analysis_panel", "strategy"],
+    "notes": "Higher PSF inflates repairs, affecting carry and MAO bundles."
+  },
+  {
+    "inputId": "repairs.big5_increments",
+    "inputLabel": "Big 5 Budget Killers",
+    "inputCategory": "repairs",
+    "primaryTabs": ["Repairs"],
+    "dashboardKpiIds": ["total_repairs", "carry_costs_total"],
+    "hasDashboardExposure": true,
+    "exposureType": ["analysis_panel"],
+    "notes": "Roof/HVAC/etc adjust repair total shown in Deal Analysis."
+  },
+  {
+    "inputId": "sandbox.minSpreadByArvBand",
+    "inputLabel": "Min Spread by ARV Band",
+    "inputCategory": "guardrails",
+    "primaryTabs": ["Sandbox"],
+    "dashboardKpiIds": ["guardrails_status", "dealhealth_risk_posture", "window_floor_to_offer"],
+    "hasDashboardExposure": true,
+    "exposureType": ["guardrails"],
+    "notes": "Policy ladder informs spread checks in guardrails and health strip."
+  },
+  {
+    "inputId": "sandbox.assignmentFeeTargetPctOfArv",
+    "inputLabel": "Assignment Fee Target % of ARV",
+    "inputCategory": "profit_spread",
+    "primaryTabs": ["Sandbox"],
+    "dashboardKpiIds": ["assignment_fee_cash", "assignment_fee_pct_arv", "assignment_policy_targets"],
+    "hasDashboardExposure": true,
+    "exposureType": ["hero_kpi", "badge"],
+    "notes": "Target surfaced in assignment tile and subtext."
+  },
+  {
+    "inputId": "sandbox.holdingCostsMonthlyDefaults",
+    "inputLabel": "Hold Cost Defaults",
+    "inputCategory": "timeline",
+    "primaryTabs": ["Sandbox"],
+    "dashboardKpiIds": ["timeline_carry_monthly", "timeline_carry_total", "carry_costs_total", "carry_months_calc"],
+    "hasDashboardExposure": true,
+    "exposureType": ["timeline_card", "analysis_panel"],
+    "notes": "Base monthly holds drive carry metrics in timeline and Deal Analysis."
+  },
+  {
+    "inputId": "sandbox.allowPlaceholdersWhenEvidenceMissing",
+    "inputLabel": "Allow Evidence Placeholders",
+    "inputCategory": "evidence",
+    "primaryTabs": ["Sandbox"],
+    "dashboardKpiIds": ["evidence_confidence_grade", "workflow_state_evidence", "evidence_placeholders"],
+    "hasDashboardExposure": true,
+    "exposureType": ["evidence_card"],
+    "notes": "Controls confidence/workflow outcomes shown on Data & Evidence."
+  }
+]

@@ -1,29 +1,26 @@
 import React, { useCallback, useState } from "react";
-import type { Deal, EngineCalculations } from "../../types";
+import type { DealStructureView } from "../../lib/overviewExtras";
 import { fmt$, num } from "../../utils/helpers";
 import { Icons } from "../../constants";
 import { GlassCard, Button, Icon } from "../ui";
 
 interface DealStructureChartProps {
-  deal: Deal;
-  calc: EngineCalculations;
+  view: DealStructureView;
   hasUserInput: boolean;
 }
 
 const DealStructureChart: React.FC<DealStructureChartProps> = ({
-  deal,
-  calc,
+  view,
   hasUserInput,
 }) => {
   const [copied, setCopied] = useState(false);
 
-  // Core anchors
-  const payoff = num(calc.projectedPayoffClose);
-  const floor = num(calc.respectFloorPrice);
-  const offer = num(calc.instantCashOffer);
-  const ceiling = num(calc.buyerCeiling);
-  const asIs = num(deal.market.as_is_value);
-  const arv = num(deal.market.arv);
+  const payoff = num(view.payoff);
+  const floor = num(view.respectFloor);
+  const offer = num(view.offer);
+  const ceiling = num(view.buyerCeiling);
+  const asIs = num(view.aiv);
+  const arv = num(view.arv);
 
   const allValues = [payoff, floor, offer, asIs, ceiling, arv].filter((v) =>
     isFinite(v)
@@ -113,9 +110,9 @@ const DealStructureChart: React.FC<DealStructureChartProps> = ({
     }
 
     if (
-      calc.urgencyDays <= 14 &&
-      Number(deal.debt.senior_per_diem) > 0 &&
-      isFinite(Number(deal.debt.senior_per_diem))
+      (view.urgencyDays ?? Infinity) <= 14 &&
+      Number((view as any).seniorPerDiem) > 0 &&
+      isFinite(Number((view as any).seniorPerDiem))
     ) {
       parts.push(
         `With the auction so close, every day matters. Closing quickly provides significant per-diem relief for you.`

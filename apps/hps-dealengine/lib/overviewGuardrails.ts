@@ -125,6 +125,8 @@ export function buildOverviewGuardrailsView(params: {
   let workflowState: WorkflowState = "needs_run";
   if (!lastAnalyzeResult) {
     workflowState = "needs_run";
+  } else if (guardrailsStatus === "broken") {
+    workflowState = "needs_review";
   } else if (offer == null || floor == null || ceiling == null) {
     workflowState = "needs_review";
   } else {

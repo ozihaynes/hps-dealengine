@@ -10,6 +10,11 @@ export type SandboxAnalyzeOptions = {
     aivHardMax?: number;
     aivHardMin?: number;
     aivSoftMaxVsArvMultiplier?: number;
+    aivCapOverrideApprovalRole?: string;
+    aivCapOverrideConditionBindableInsuranceRequired?: boolean;
+    aivCapOverrideConditionClearTitleQuoteRequired?: boolean;
+    aivCapOverrideConditionFastZipLiquidityRequired?: boolean;
+    aivCapEvidenceVpApprovalLoggingRequirement?: boolean;
     arvHardMax?: number;
     arvHardMin?: number;
     arvSoftMaxVsAivMultiplier?: number;
@@ -17,6 +22,14 @@ export type SandboxAnalyzeOptions = {
     arvSoftMaxCompsAgeDays?: number;
     arvCompsSetSizeForMedian?: number;
     buyerCeilingFormulaDefinition?: string;
+  };
+  floors?: {
+    floorInvestorAivDiscountP20Zip?: number | null;
+    floorInvestorAivDiscountTypicalZip?: number | null;
+    floorPayoffMinRetainedEquityPercentage?: number | null;
+    floorPayoffMoveOutCashDefault?: number | null;
+    floorPayoffMoveOutCashMax?: number | null;
+    floorPayoffMoveOutCashMin?: number | null;
   };
   floorsSpreads?: {
     floorInvestorAivDiscountTypicalZip?: number;
@@ -44,6 +57,65 @@ export type SandboxAnalyzeOptions = {
     daysToMoneyDefaultCashCloseDays?: number;
     defaultDaysToWholesaleClose?: number;
     daysToMoneyMaxDays?: number;
+  };
+  carry?: {
+    carryMonthsMaximumCap?: number | null;
+    carryMonthsFormulaDefinition?: string | null;
+    uninsurableAdderExtraHoldCosts?: number | null;
+  };
+  holdCosts?: {
+    holdCostsFlipFastZip?: number | null;
+    holdCostsFlipNeutralZip?: number | null;
+    holdCostsFlipSlowZip?: number | null;
+    holdCostsWholetailFastZip?: number | null;
+    holdCostsWholetailNeutralZip?: number | null;
+    holdCostsWholetailSlowZip?: number | null;
+    holdingCostsMonthlyDefaultHoa?: number | null;
+    holdingCostsMonthlyDefaultInsurance?: number | null;
+    holdingCostsMonthlyDefaultTaxes?: number | null;
+    holdingCostsMonthlyDefaultUtilities?: number | null;
+  };
+  timeline?: {
+    clearToCloseBufferDays?: number | null;
+    daysToMoneySelectionMethod?: string | null;
+    daysToMoneyDefaultCashCloseDays?: number | null;
+    daysToMoneyMaxDays?: number | null;
+    defaultDaysToWholesaleClose?: number | null;
+    dispositionRecommendationUrgentCashMaxDtm?: number | null;
+    dispositionRecommendationUrgentCashMaxAuctionDays?: number | null;
+    offerValidityPeriodDaysPolicy?: number | null;
+  };
+  profitUninsurable?: {
+    uninsurableAdderFlipMarginPercentage?: number | null;
+    uninsurableAdderExtraHoldCosts?: number | null;
+  };
+  profit_and_fees?: {
+    assignmentFeeTarget?: number | null;
+    assignmentFeeMaxPublicizedArvPercentage?: number | null;
+    buyerTargetMarginFlipBaselinePolicy?: number | null;
+    buyerTargetMarginWholetailMinPercentage?: number | null;
+    buyerTargetMarginWholetailMaxPercentage?: number | null;
+    buyerSegmentationWholetailMaxRepairsAsArvPercentage?: number | null;
+    initialOfferSpreadMultiplier?: number | null;
+    minSpreadByArvBand?: any[] | null;
+  };
+  disposition_and_double_close?: {
+    doubleCloseMinSpreadThreshold?: number | null;
+    doubleClosePerDiemCarryModeling?: boolean | null;
+    deedDocumentaryStampRatePolicy?: number | null;
+    titlePremiumRateSource?: string | null;
+    dispositionTrackEnablement?: string[] | null;
+  };
+  compliance_and_risk_gates?: {
+    bankruptcyStayGateLegalBlock?: boolean | null;
+    fha90DayResaleRuleGate?: boolean | null;
+    firptaWithholdingGate?: boolean | null;
+    flood50RuleGate?: boolean | null;
+    floodZoneEvidenceSourceFemaMapSelector?: string | null;
+    scraVerificationGate?: boolean | null;
+    stateProgramGateFhaVaOverlays?: boolean | null;
+    vaProgramRequirementsWdoWaterTestEvidence?: boolean | null;
+    warrantabilityReviewRequirementCondoEligibilityScreens?: boolean | null;
   };
   wholetail?: {
     buyerSegmentationWholetailMaxRepairsAsArvPercentage?: number;
@@ -79,6 +151,21 @@ export type SandboxAnalyzeOptions = {
     bankersRoundingModeNumericSafety?: boolean;
     assumptionsProtocolPlaceholdersWhenEvidenceMissing?: boolean;
     buyerCostsAllocationDualScenarioRenderingWhenUnknown?: boolean;
+  };
+  workflow_and_guardrails?: {
+    analystReviewTriggerBorderlineBandThreshold?: number | null;
+    cashPresentationGateMinimumSpreadOverPayoff?: number | null;
+    assumptionsProtocolPlaceholdersWhenEvidenceMissing?: boolean | null;
+    bankersRoundingModeNumericSafety?: string | null;
+    buyerCostsAllocationDualScenarioRenderingWhenUnknown?: boolean | null;
+    buyerCostsLineItemModelingMethod?: string | null;
+    abcConfidenceGradeRubric?: string | null;
+    allowAdvisorOverrideWorkflowState?: boolean | null;
+  };
+  ux_policy?: {
+    bankersRoundingModeNumericSafety?: string | null;
+    buyerCostsAllocationDualScenarioRenderingWhenUnknown?: boolean | null;
+    buyerCostsLineItemModelingMethod?: string | null;
   };
   raw?: Record<string, unknown>;
 };
@@ -150,6 +237,19 @@ export function sandboxToAnalyzeOptions(params: {
       aivHardMax: toNumber(s.aivHardMax),
       aivHardMin: toNumber(s.aivHardMin),
       aivSoftMaxVsArvMultiplier: toNumber(s.aivSoftMaxVsArvMultiplier),
+      aivCapOverrideApprovalRole: toString(s.aivCapOverrideApprovalRole),
+      aivCapOverrideConditionBindableInsuranceRequired: Boolean(
+        s.aivCapOverrideConditionBindableInsuranceRequired,
+      ),
+      aivCapOverrideConditionClearTitleQuoteRequired: Boolean(
+        s.aivCapOverrideConditionClearTitleQuoteRequired,
+      ),
+      aivCapOverrideConditionFastZipLiquidityRequired: Boolean(
+        s.aivCapOverrideConditionFastZipLiquidityRequired,
+      ),
+      aivCapEvidenceVpApprovalLoggingRequirement: Boolean(
+        s.aivCapEvidenceVpApprovalLoggingRequirement,
+      ),
       arvHardMax: toNumber(s.arvHardMax),
       arvHardMin: toNumber(s.arvHardMin),
       arvSoftMaxVsAivMultiplier: toNumber(s.arvSoftMaxVsAivMultiplier),
@@ -157,6 +257,22 @@ export function sandboxToAnalyzeOptions(params: {
       arvSoftMaxCompsAgeDays: toNumber(s.arvSoftMaxCompsAgeDays),
       arvCompsSetSizeForMedian: toNumber(s.arvCompsSetSizeForMedian),
       buyerCeilingFormulaDefinition: toString(s.buyerCeilingFormulaDefinition),
+    },
+    floors: {
+      floorInvestorAivDiscountP20Zip: toNumber(
+        s.floorInvestorAivDiscountP20Zip,
+      ),
+      floorInvestorAivDiscountTypicalZip: toNumber(
+        s.floorInvestorAivDiscountTypicalZip,
+      ),
+      floorPayoffMinRetainedEquityPercentage: toNumber(
+        s.floorPayoffMinRetainedEquityPercentage,
+      ),
+      floorPayoffMoveOutCashDefault: toNumber(
+        s.floorPayoffMoveOutCashDefault,
+      ),
+      floorPayoffMoveOutCashMax: toNumber(s.floorPayoffMoveOutCashMax),
+      floorPayoffMoveOutCashMin: toNumber(s.floorPayoffMoveOutCashMin),
     },
     floorsSpreads: {
       floorInvestorAivDiscountTypicalZip: toNumber(
@@ -202,6 +318,47 @@ export function sandboxToAnalyzeOptions(params: {
       ),
       defaultDaysToWholesaleClose: toNumber(s.defaultDaysToWholesaleClose),
       daysToMoneyMaxDays: toNumber(s.daysToMoneyMaxDays),
+    },
+    carry: {
+      carryMonthsMaximumCap: toNumber(s.carryMonthsMaximumCap),
+      carryMonthsFormulaDefinition: toString(s.carryMonthsFormulaDefinition),
+      uninsurableAdderExtraHoldCosts: toNumber(s.uninsurableAdderExtraHoldCosts),
+    },
+    holdCosts: {
+      holdCostsFlipFastZip: toNumber(s.holdCostsFlipFastZip),
+      holdCostsFlipNeutralZip: toNumber(s.holdCostsFlipNeutralZip),
+      holdCostsFlipSlowZip: toNumber(s.holdCostsFlipSlowZip),
+      holdCostsWholetailFastZip: toNumber(s.holdCostsWholetailFastZip),
+      holdCostsWholetailNeutralZip: toNumber(s.holdCostsWholetailNeutralZip),
+      holdCostsWholetailSlowZip: toNumber(s.holdCostsWholetailSlowZip),
+      holdingCostsMonthlyDefaultHoa: toNumber(s.holdingCostsMonthlyDefaultHoa),
+      holdingCostsMonthlyDefaultInsurance: toNumber(
+        s.holdingCostsMonthlyDefaultInsurance,
+      ),
+      holdingCostsMonthlyDefaultTaxes: toNumber(
+        s.holdingCostsMonthlyDefaultTaxes,
+      ),
+      holdingCostsMonthlyDefaultUtilities: toNumber(
+        s.holdingCostsMonthlyDefaultUtilities,
+      ),
+    },
+    timeline: {
+      clearToCloseBufferDays: toNumber(s.clearToCloseBufferDays),
+      daysToMoneySelectionMethod: toString(s.daysToMoneySelectionMethod),
+      daysToMoneyDefaultCashCloseDays: toNumber(
+        s.daysToMoneyDefaultCashCloseDays,
+      ),
+      daysToMoneyMaxDays: toNumber(s.daysToMoneyMaxDays),
+      defaultDaysToWholesaleClose: toNumber(s.defaultDaysToWholesaleClose),
+      dispositionRecommendationUrgentCashMaxDtm: toNumber(
+        s.dispositionRecommendationUrgentCashMaxDtm,
+      ),
+      dispositionRecommendationUrgentCashMaxAuctionDays: toNumber(
+        s.dispositionRecommendationUrgentCashMaxAuctionDays,
+      ),
+      offerValidityPeriodDaysPolicy: toNumber(
+        s.offerValidityPeriodDaysPolicy,
+      ),
     },
     wholetail: {
       buyerSegmentationWholetailMaxRepairsAsArvPercentage: toNumber(
@@ -266,6 +423,87 @@ export function sandboxToAnalyzeOptions(params: {
       ),
       buyerCostsAllocationDualScenarioRenderingWhenUnknown: Boolean(
         s.buyerCostsAllocationDualScenarioRenderingWhenUnknown,
+      ),
+    },
+    workflow_and_guardrails: {
+      analystReviewTriggerBorderlineBandThreshold: toNumber(
+        s.analystReviewTriggerBorderlineBandThreshold,
+      ),
+      cashPresentationGateMinimumSpreadOverPayoff: toNumber(
+        s.cashPresentationGateMinimumSpreadOverPayoff,
+      ),
+      assumptionsProtocolPlaceholdersWhenEvidenceMissing: Boolean(
+        s.assumptionsProtocolPlaceholdersWhenEvidenceMissing,
+      ),
+      bankersRoundingModeNumericSafety: toString(s.bankersRoundingModeNumericSafety),
+      buyerCostsAllocationDualScenarioRenderingWhenUnknown: Boolean(
+        s.buyerCostsAllocationDualScenarioRenderingWhenUnknown,
+      ),
+      buyerCostsLineItemModelingMethod: toString(s.buyerCostsLineItemModelingMethod),
+      abcConfidenceGradeRubric: toString(s.abcConfidenceGradeRubric),
+      allowAdvisorOverrideWorkflowState: Boolean(s.allowAdvisorOverrideWorkflowState),
+    },
+    ux_policy: {
+      bankersRoundingModeNumericSafety: toString(s.bankersRoundingModeNumericSafety),
+      buyerCostsAllocationDualScenarioRenderingWhenUnknown: Boolean(
+        s.buyerCostsAllocationDualScenarioRenderingWhenUnknown,
+      ),
+      buyerCostsLineItemModelingMethod: toString(s.buyerCostsLineItemModelingMethod),
+    },
+    profitUninsurable: {
+      uninsurableAdderFlipMarginPercentage: toNumber(
+        s.uninsurableAdderFlipMarginPercentage,
+      ),
+      uninsurableAdderExtraHoldCosts: toNumber(
+        s.uninsurableAdderExtraHoldCosts,
+      ),
+    },
+    profit_and_fees: {
+      assignmentFeeTarget: toNumber(s.assignmentFeeTarget),
+      assignmentFeeMaxPublicizedArvPercentage: toNumber(
+        s.assignmentFeeMaxPublicizedArvPercentage,
+      ),
+      buyerTargetMarginFlipBaselinePolicy: toNumber(
+        s.buyerTargetMarginFlipBaselinePolicy,
+      ),
+      buyerTargetMarginWholetailMinPercentage: toNumber(
+        s.buyerTargetMarginWholetailMinPercentage,
+      ),
+      buyerTargetMarginWholetailMaxPercentage: toNumber(
+        s.buyerTargetMarginWholetailMaxPercentage,
+      ),
+      buyerSegmentationWholetailMaxRepairsAsArvPercentage: toNumber(
+        s.buyerSegmentationWholetailMaxRepairsAsArvPercentage,
+      ),
+      initialOfferSpreadMultiplier: toNumber(s.initialOfferSpreadMultiplier),
+      minSpreadByArvBand: sanitizeBands(s.minSpreadByArvBand),
+    },
+    disposition_and_double_close: {
+      doubleCloseMinSpreadThreshold: toNumber(s.doubleCloseMinSpreadThreshold),
+      doubleClosePerDiemCarryModeling: Boolean(
+        s.doubleClosePerDiemCarryModeling,
+      ),
+      deedDocumentaryStampRatePolicy: toNumber(s.deedDocumentaryStampRatePolicy),
+      titlePremiumRateSource: toString(s.titlePremiumRateSource),
+      dispositionTrackEnablement: Array.isArray(s.dispositionTrackEnablement)
+        ? s.dispositionTrackEnablement.filter((v: unknown) => typeof v === "string")
+        : undefined,
+    },
+    compliance_and_risk_gates: {
+      bankruptcyStayGateLegalBlock: Boolean(s.bankruptcyStayGateLegalBlock),
+      fha90DayResaleRuleGate: Boolean(s.fha90DayResaleRuleGate),
+      firptaWithholdingGate: Boolean(s.firptaWithholdingGate),
+      flood50RuleGate: Boolean(s.flood50RuleGate),
+      floodZoneEvidenceSourceFemaMapSelector: toString(
+        s.floodZoneEvidenceSourceFemaMapSelector,
+      ),
+      scraVerificationGate: Boolean(s.scraVerificationGate),
+      stateProgramGateFhaVaOverlays: Boolean(s.stateProgramGateFhaVaOverlays),
+      vaProgramRequirementsWdoWaterTestEvidence: Boolean(
+        s.vaProgramRequirementsWdoWaterTestEvidence,
+      ),
+      warrantabilityReviewRequirementCondoEligibilityScreens: Boolean(
+        s.warrantabilityReviewRequirementCondoEligibilityScreens,
       ),
     },
     raw,

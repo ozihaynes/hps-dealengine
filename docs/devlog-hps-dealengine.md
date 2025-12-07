@@ -1,10 +1,10 @@
-# HPS DealEngine — Devlog
+# HPS DealEngine - Devlog
 
-Lightweight running log of what’s actually been done and what’s next.  
-This is the **“what changed, when, and what’s the next move?”** companion to:
+Lightweight running log of whats actually been done and whats next.  
+This is the **"what changed, when, and whats the next move?"** companion to:
 
-- `docs/primer-hps-dealengine.md` — stable architecture + non-negotiables.
-- `docs/roadmap-v1-v2-v3.md` — roadmap, phases, and sprint framing.
+- `docs/primer-hps-dealengine.md` - stable architecture + non-negotiables.
+- `docs/roadmap-v1-v2-v3.md` - roadmap, phases, and sprint framing.
 
 Use this file to orient quickly before doing work or delegating to an agent.
 
@@ -13,114 +13,106 @@ Use this file to orient quickly before doing work or delegating to an agent.
 ## 0. How to Use This Devlog
 
 - **Audience:** You (OZi), future collaborators, and AI agents.
-- **Granularity:** High-level but concrete — no commit hashes, just meaningful milestones.
+- **Granularity:** High-level but concrete - no commit hashes, just meaningful milestones.
 - **Sections:**
-  - **0.x Status Snapshots** — current truth, kept up to date.
-  - **Dated Entries** — chronological log of key changes.
-  - **Near-Term Focus** — what we’ve agreed is “next” based on roadmap.
+  - **0.x Status Snapshots** - current truth, kept up to date.
+  - **Dated Entries** - chronological log of key changes.
+  - **Near-Term Focus** - what weve agreed is "next" based on roadmap.
 
 When something significant ships, changes direction, or gets blocked, add a dated entry here.
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-02)
+## 0.1 Current Status Snapshot (as of 2025-12-15)
 
-**Project:** `hps-dealengine` - deterministic underwriting OS for distressed SFR/townhomes (initially Central Florida).
+**V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
-**Core truths right now:**
+- **Architecture & principles**
+  - Primer + roadmap are the guardrails (policy-first, deterministic hashes via `runs`, RLS-first).
+  - Edge-backed engine (`v1-analyze` + `buildUnderwritingPolicyFromOptions`) is the single source of underwriting math; no browser-only finals.
 
-- **Architecture & Principles**
+- **Business Sandbox v1**
+  - 196 knobs classified in `docs/knobs-audit-v1.md` with coverage in `tools/knob-coverage-report.cjs/json`.
+  - All `KEEP` knobs are runtime-wired (runtime_math/risk_gate/workflow) except three `ux_only`: `abcConfidenceGradeRubric`, `allowAdvisorOverrideWorkflowState`, `buyerCostsLineItemModelingMethod` (surfaced as UX/policy context, no math impact).
+  - `BusinessLogicSandbox` hides DROP backlog knobs; `KnobFamilySummary` + UX band show policy context; coverage map lives in repo.
 
-  - Primer and roadmap are written and live:
-    - `docs/primer-hps-dealengine.md`
-    - `docs/roadmap-v1-v2-v3.md`
-  - Non-negotiables are locked:
-    - Policy-driven rules in Postgres.
-    - Determinism enforced via `runs` + hashes.
-    - RLS-first, no `service_role` in user flows.
-    - Vertical slices (UI -> Edge -> DB -> Trace/Audit).
+- **Dashboard / nav / flows**
+  - `/overview` labeled **Dashboard** with `TopDealKpis` (ARV, MAO, discount, assignment vs target/max, DTM/speed, risk/confidence/workflow), Strategy/Guardrails, Timeline & Carry, Risk & Evidence cards.
+  - Nav split: left `Dashboard`; right `Repairs  Underwrite  Deals  Trace  Sandbox  Settings`. Deal-required routes append `?dealId=`; no-deal clicks fall back to `/startup`.
+  - `/startup` hub (empty state + "View all deals"), `/deals` list sets `DealSession` and routes to `/overview?dealId=...`.
 
-- **Backend / DB**
-
-  - Supabase Postgres with RLS:
-    - `organizations`, `memberships` for multi-tenant backbone.
-    - Canonical `deals` table from `20251109000708_org_deals_and_audit_rls.sql`.
-    - `policies`, `policy_versions` (+ view), `runs`, `repair_rate_sets`, `audit_logs` in place.
-    - Evidence table hardened via idempotent ensure migrations (`filename`, `updated_at` guaranteed; triggers/RLS aligned).
-    - `user_settings` (org/user scoped) and `sandbox_settings` (org/posture scoped) live with RLS + audit triggers.
-    - `sandbox_presets` (org/posture scoped) created by `20251201120000_sandbox_presets.sql`, unique on `(org_id, name, posture)`, with RLS + audit/updated_at triggers for saved sandbox scenarios.
-  - Edge Functions:
-    - Live/hardened: `v1-ping`, `v1-analyze`, `v1-policy-get`, `v1-policy-put`, `v1-runs-save`, `v1-repair-rates`, `v1-user-settings`, `v1-sandbox-settings`, `v1-sandbox-presets`, `v1-evidence-start`, `v1-evidence-url`.
-    - Hardened and in active use: `v1-ai-bridge` (env-check, structured errors).
-    - Governance functions present: `v1-policy-override-*`, `v1-runs-*` (relay/replay) ready for UI wiring.
-    - `_vendor/engine` wired into `v1-analyze` - engine math is coming from `packages/engine`.
-
-- **Frontend**
-
-  - Next.js 14 App Router app under `apps/hps-dealengine`.
-  - `(app)` dashboard shell with navy theme:
-    - Top nav, Mobile bottom nav, shared layout across `/overview`, `/underwrite`, `/repairs`, `/trace`, `/settings`, `/sandbox`, `/sources`.
-  - `/login` implemented; `(app)` group guarded via `AuthGate` and `DealSessionProvider`.
-  - `/sandbox` uses posture-aware configs with server-backed presets: loads defaults via `v1-sandbox-settings`, fetches/creates/deletes presets via `v1-sandbox-presets`, and merges posture-specific values when applying presets.
-  - `.tmp/ui-v2` is now prototype-only and excluded from Vercel uploads via `.vercelignore`; app imports use the stable bridge `lib/ui-v2-constants.ts` backed by committed `apps/hps-dealengine/constants*`, and runtime UI types live in `apps/hps-dealengine/types.ts` (no active `@ui-v2/types` usage).
+- **Evidence / risk / workflow**
+  - Placeholder knob (`assumptionsProtocolPlaceholdersWhenEvidenceMissing`) drives evidence freshness, confidence downgrade, workflow state, and traces (allowed/used/kinds). Workflow card shows one-line reason; per-kind freshness has blocking markers; risk pills show disabled/failing states; confidence badge follows rubric.
+  - Trace renders EVIDENCE_FRESHNESS_POLICY, RISK_GATES_POLICY, CONFIDENCE_POLICY, WORKFLOW_STATE_POLICY with thresholds, placeholders, rubric text, and gate enablement.
 
 - **Repairs**
+  - `repair_rate_sets` + `v1-repair-rates` + RepairsTab wired to live ORL defaults with RLS. Profiles served via `v1-repair-profiles`; repairs math uses live rates. (Org alignment bug noted earlier, tracked as v1.1 hardening.)
 
-  - `repair_rate_sets` table live with ORL defaults and RLS; `v1-repair-rates` returns normalized `RepairRates`; `RepairsTab` + `repairsMath` + `repairRates` wired to live rates (QuickEstimate + all estimator sections compute correctly).
-  - Note: ORL/base RepairsSandbox list + `/repairs` live-rate sync currently have an org-alignment bug (v1-repair-profiles org-from-deal); see 2025-12-02 entry. v1.1 hardening will fix org resolution and reset/seed canonical profiles for the deals org.
-
-- **Engine / Runs / Trace**
-
-  - `packages/engine` implements deterministic underwriting logic.
-  - `v1-analyze` + `v1-runs-save` path works in dev.
-  - `/underwrite` -> run engine -> `/trace` vertical slice is functional:
-    - Deals can be analyzed and runs inspected with hashes/trace.
-
-- **Tooling**
-  - Monorepo with `pnpm` workspaces:
-    - `apps/hps-dealengine`, `packages/engine`, `packages/contracts`, `packages/ui-v2`.
-  - `pnpm -w typecheck` is green on the latest snapshot; `pnpm -w build` succeeds locally (clear `.next/trace` locks on Windows if needed).
-  - Playwright E2E pixel tests exist for key screens (Overview, Underwrite, Repairs, Sandbox, UserSettings, UnderwriteDebug).
-  - `.vercelignore` keeps `_snapshots/**` and `.tmp/**` out of deploy uploads; `tsconfig` still contains `@ui-v2/*` path mapping for prototype/backups until the last test/import is moved.
+- **QA / E2E harness**
+  - `docs/QA_ENV_V1.md` defines QA Supabase setup, required env vars (QA user + READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals), and how to run specs.
+  - Playwright specs (`golden-path`, `timeline-and-carry`, `risk-and-evidence`) align to Startup -> Deals -> Dashboard IA, assert Dashboard heading and current risk/evidence/workflow surfaces, and skip cleanly when env vars are absent.
+  - Core commands green: `pnpm -w typecheck`, `pnpm -w build` (Sentry/require-in-the-middle warning only), `pnpm -w test`.
 
 ---
 
-## 0.2 Near-Term Focus (Next Sprints from Roadmap)
+## 0.2 Near-Term Focus (Next Sprints)
 
-Based on `docs/roadmap-v1-v2-v3.md`, near-term v1 focus is:
+V1 is complete. Near-term is v1.1 hardening; v2+ stays backlog:
 
-1. **Sprint 1 - Evidence Flows (stabilize)**
+1) **QA Supabase + E2E enablement**
+   - Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals per `docs/QA_ENV_V1.md`.
+   - Run env-gated Playwright specs against QA; optionally enable in CI.
 
-   - Apply latest ensure migrations (`supabase db push`) so `filename`/`updated_at` exist.
-   - Keep `EvidenceUpload` + Trace listings green; monitor Supabase logs for 42703s.
+2) **Repairs/UX polish**
+   - Fix org alignment for repair profiles/rates sync; tidy RepairsTab meta and presentation.
+   - Consume UX-only knobs where safe (rounding, buyer-cost presentation) without changing math.
 
-2. **Sprint 2 - Policy Overrides (governance UI)**
+3) **Overrides/governance hardening**
+   - Light UI for override request/review and trace visibility; keep governance RLS intact.
 
-   - Wire lockable fields + RequestOverride modal in Underwrite.
-   - Add manager review/approve surface in Settings and Trace visibility.
+4) **Minor ergonomics**
+   - Tidy Sandbox/Startup/Deals copy and hints; keep Dashboard KPIs stable.
 
-3. **Sprint 3 - Repairs Polish**
-
-   - Build `useRepairRates` with TTL + market awareness.
-   - Meta bar + pixel-tight layout; refresh Playwright snapshots after lock.
-
-4. **Sprint 4 - AI Strategist & Settings**
-   - Keep Strategist advisory-only; finalize copy/UI and OpenAI stability.
-   - Validate `/settings/user` + `/settings/sandbox` flows in hosted env.
-   - Deploy `sandbox_presets` migration + `v1-sandbox-presets`, and verify `/sandbox` preset save/load/delete with posture-specific defaults.
-5. **Vercel-safe UI-v2 bridge**
-   - Rely on `lib/ui-v2-constants.ts` + `apps/hps-dealengine/types.ts`; migrate remaining tests/imports off `@ui-v2/*` and drop the alias once clean.
-   - Keep `.tmp/**` out of deploys via `.vercelignore` and confirm Vercel builds don't require the prototype directory; current Vercel blocker is lingering `@ui-v2/types` usage/type drift.
-
-This devlog should reflect which of these are “✅ done”, “🟡 in progress”, or “⏳ not started yet” over time.
+Everything else (connectors, portfolio/analytics, deeper economics, UX-only presentation richness, SRE v2/v3) is explicitly v2+.
 
 ---
 
 ## 1. Dated Entries
 
+### 2025-Q4 — Dual-Agent AI, Theming, and Dashboard Brain
+
+- Implemented 5-theme design system (Navy/Burgundy/Green/Black/White) with CSS variables and ThemeProvider; Navy stays source-of-truth and other themes follow the electric-navy glass aesthetic.
+- Simplified dashboard headline KPIs: removed ARV / Buyer Ceiling / Respect Floor / AIV stat cards from the top grid; wholesale fee pair remains primary. Documented dashboard KPIs and inputs (kpi-inventory, input-surfaces, kpi-input-matrix) and added coverage check (`check:dashboard-coverage`).
+- Built trust-tiered docs (product/domain/engine/app/dashboard/glossary/ai/ops) with frontmatter and `ai.index-for-ai` as the sitemap; audited AI surfaces and standardized on the Dual-Agent model (Deal Analyst vs Deal Strategist) via `v1-ai-bridge` with structured outputs, tone hooks, and stale-run awareness.
+- Added global draggable, modeless AI windows (react-rnd) with FAB launchers, per-persona sessions (title/pin/tone/history), localStorage persistence, and Analyst run-freshness gating (no-run + stale consent).
+- Kept tests/typecheck/build green; no changes to engine math or contracts.
+
+### 2025-12-15 - V1 field-ready (Dashboard, Sandbox, traces, QA harness)
+
+- Business Sandbox v1: 196 knobs with KEEP/DROP/DROP_BACKLOG classification; coverage tool + JSON snapshot checked in; only three KEEP knobs are UX-only (`abcConfidenceGradeRubric`, `allowAdvisorOverrideWorkflowState`, `buyerCostsLineItemModelingMethod`), all others wired runtime through sandbox -> policy -> engine -> traces -> UI. Sandbox hides DROP backlog knobs and surfaces UX-only in the UX band and KnobFamilySummary.
+- Engine/policy: Shared `buildUnderwritingPolicyFromOptions` used by `v1-analyze`; workflow/guardrail knobs (borderline, cash gate, placeholders, rubric) drive math and traces. Evidence placeholders degrade confidence and workflow, recorded in traces with placeholder kinds.
+- Dashboard/nav: `/overview` labeled Dashboard with TopDealKpis, Strategy/Guardrails, Timeline & Carry, Risk & Evidence cards. Nav split Dashboard | Repairs  Underwrite  Deals  Trace  Sandbox  Settings; deal-required routes append `?dealId` and fall back to `/startup` when unset. Startup hub offers create + "View all deals"; /deals selection routes to Dashboard.
+- Evidence/risk/workflow UI: Overview shows workflow reason line, per-kind freshness with blocking markers, placeholders allowed/used notes, risk pills with disabled/failing states, confidence badge. Trace shows placeholder policy, gate enablement, confidence rubric text, borderline/cash gate thresholds, workflow reasons.
+- QA/E2E: `docs/QA_ENV_V1.md` added; Playwright specs (golden path, timeline/carry, risk/evidence) updated to the new IA and surfaces and skip cleanly when QA env vars are absent.
+- Commands: `pnpm -w typecheck`, `pnpm -w build` (Sentry/require-in-the-middle warning only), `pnpm -w test` all green.
+
+### 2025-12-14 - QA E2E alignment (login, deep-links, Supabase gating)
+
+- Login/UI: `/login` renders LoginForm (placeholders `email` / `password`, button "Sign in"); Playwright specs updated to use the same selectors with `.first()` safety.
+- DealSession/nav: Deep-link hydration from `?dealId=` exercised via E2E specs; guarded routes defer redirect while hydration is in flight and nav tabs preserve `dealId`.
+- QA env fixtures: Specs now expect env-driven QA deal IDs (READY, STALE_EVIDENCE, HARD_GATE, TIMELINE) plus QA user creds/API URL; IDs are passed via env, not hard-coded.
+- Playwright/E2E status (at time): golden path green locally with QA envs; timeline/carry and risk/evidence gated on env and app availability; underwrite/analyze API spec gated on QA API URL + anon key.
+- Commands this session: `pnpm -w typecheck` (pass), `pnpm -w test` (pass); `pnpm -w build` not run in that block.
+### 2025-12-13 - Slice QA-OptionA - Deal deep-link hydration & nav persistence
+
+- DealSession now hydrates `dbDeal` from `?dealId=` on guarded routes using the caller JWT (RLS-safe); URL takes precedence over localStorage, and hydration is tracked to avoid premature redirects.
+- DealGuard defers redirect while URL-based hydration is in flight; guarded routes bounce to `/startup` when no active deal and no valid deep-link.
+- App nav (desktop tabs + mobile nav) now preserves `?dealId=<active>` on guarded routes, keeping deal context when switching Overview/Underwrite/Repairs/Trace.
+- Commands: `pnpm -w typecheck` (pass), `pnpm -w test` (pass), `pnpm -w build` (failed on Windows EPERM opening `.next/trace`; Next build otherwise compiled with existing require-in-the-middle warnings).
+
 ### 2025-12-10 - Slice W1-1 - Buyer Ceiling & AIV Cap Clamp (Epic 1, Task 1)
 
-- Engine: implemented canonical buyer ceiling helper (ARV × (1 − margin) − repairs − buyer costs − carry) with infoNeeded when margin/ARV missing; added AIV safety cap helper and MAO clamp (mao_final = min of presentation, cap, buyer ceiling) with new trace steps BUYER_CEILING, AIV_SAFETY_CAP, MAO_CLAMP. Added optional diagnostics (mao_cap_wholesale, buyer_ceiling_unclamped).
+- Engine: implemented canonical buyer ceiling helper (ARV x (1 - margin) - repairs - buyer costs - carry) with infoNeeded when margin/ARV missing; added AIV safety cap helper and MAO clamp (mao_final = min of presentation, cap, buyer ceiling) with new trace steps BUYER_CEILING, AIV_SAFETY_CAP, MAO_CLAMP. Added optional diagnostics (mao_cap_wholesale, buyer_ceiling_unclamped).
 - Contracts: AnalyzeOutputs extended with optional mao_cap_wholesale and buyer_ceiling_unclamped to mirror engine outputs; edge typings updated to accept the expanded bundle.
 - Behavior: buyer_ceiling now populated from policy margin/fees/carry inputs (placeholder TODOs noted for policy wiring of margin/hold-cost/repairs), MAO bundle reflects clamped wholesale offer, headroom/spread values updated accordingly.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (all green).
@@ -136,11 +128,11 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 
 ### 2025-12-10 - Slice W1-3 - Spread Ladder, Cash Gate & Borderline (Epic 1, Task 3)
 
-- Engine: implemented ARV-band min-spread ladder (≤200k: 15k; 200–400k: 20k; 400–650k: 25k; >650k: max(30k, 4% ARV)), cash spread, cash gate (≥$10k pass) and borderline flag (±$5k around ladder or confidence C). Added trace steps `SPREAD_LADDER`, `CASH_GATE`, `BORDERLINE` and outputs `spread_cash`, `min_spread_required`, `cash_gate_status`, `cash_deficit`, `borderline_flag`.
+- Engine: implemented ARV-band min-spread ladder (<=200k: 15k; 200-400k: 20k; 400-650k: 25k; >650k: max(30k, 4% ARV)), cash spread, cash gate (>=$10k pass) and borderline flag (+/-$5k around ladder or confidence C). Added trace steps `SPREAD_LADDER`, `CASH_GATE`, `BORDERLINE` and outputs `spread_cash`, `min_spread_required`, `cash_gate_status`, `cash_deficit`, `borderline_flag`.
 - Contracts/edge: AnalyzeOutputs extended with optional spread/cash/borderline fields; v1-analyze typings updated to pass them through.
 - Tests: strategy spec expanded for ladder bands, cash gate shortfall/pass, borderline triggers, and trace presence; all vitest suites remain green.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (green after clearing stale .next/trace lock).
-- TODO(policy): replace hardcoded ladder, cash gate $10k, and ±$5k borderline band with sandbox/SoTruth knobs per the manual.
+- TODO(policy): replace hardcoded ladder, cash gate $10k, and +/-$5k borderline band with sandbox/SoTruth knobs per the manual.
 
 ### 2025-12-10 - Slice W1-PW1 - Epic 1 policy wiring (Buyer/Floor/Payoff/Respect)
 
@@ -181,7 +173,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 - Tests/commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (all green).
 - TODO/DOC_GAP: bands thresholds and payoff projection are provisional; replace 5k tightness/gap bands and null payoff with policy-driven values per the underwriting manual.
 
-### 2025-12-10 - Slice A — /overview Deal Health & Guardrails
+### 2025-12-10 - Slice A - /overview Deal Health & Guardrails
 
 - Added `overviewGuardrails` presenter to normalize Respect Floor, current offer, Buyer Ceiling, deltas, and UI-only status badges from `lastAnalyzeResult` + calc.
 - Implemented `DealHealthStrip` and `GuardrailsCard` on `/overview` to surface guardrails/risk/confidence/workflow plus floor/offer/ceiling with deltas; mobile-friendly layout.
@@ -197,7 +189,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 - Role-based governed knobs: DealSession carries membershipRole; analysts see governed sections read-only with override requests; managers/owners/VPs can edit/approve.
 - Session continuity + unsaved-change prompts: last deal + route persist across reloads; beforeunload guard for dirty Underwrite/Repairs/Sandbox forms.
 - Playwright golden-path test added (login -> startup -> run new deal -> overview); local CI script gates Playwright via PLAYWRIGHT_ENABLE.
-- Launch checklist documented (`docs/LAUNCH_CHECKLIST_V1.md`); roadmap marked v1 ✅ and v1.2 backlog carved out.
+- Launch checklist documented (`docs/LAUNCH_CHECKLIST_V1.md`); roadmap marked v1 done and v1.2 backlog carved out.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (green).
 - TODOs: extend NumericInput across Repairs/Sandbox; clean up legacy runs with null deal_id if/when needed; expand Playwright coverage beyond the golden path.
 
@@ -214,8 +206,8 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 - **Changes:**
   - v1-repair-profiles CORS hardened for PUT/PATCH; preflight now succeeds in production and sandbox edits (e.g., Roof 4->1) save cleanly.
   - DealSession refreshRepairRates now guards by requestId, derives marketCode once, and triggers estimator reseed when profile meta/line items change, preventing stale overwrites.
-  - v1-repair-rates now enforces org-aware profileId selection: uses the requested profile only if it belongs to the caller’s org/market/posture; otherwise logs cross-org attempts and falls back to the correct active/default profile.
-  - RepairsSandbox scopes all profile list/create/update/activate calls to the active deal’s org, with guards when no deal/org is selected.
+  - v1-repair-rates now enforces org-aware profileId selection: uses the requested profile only if it belongs to the callers org/market/posture; otherwise logs cross-org attempts and falls back to the correct active/default profile.
+  - RepairsSandbox scopes all profile list/create/update/activate calls to the active deals org, with guards when no deal/org is selected.
   - End-to-end verified: RepairsSandbox Save + Set Active + Sync -> DealSession -> `/repairs` QuickEstimate/Big5 reflect the edited profile for base/ORL on the active org.
 - **Commands:** `pnpm -w typecheck`, `pnpm -w test`, `supabase functions deploy v1-repair-profiles --project-ref zjkihnihhqmnhpxkecpy`, `supabase functions deploy v1-repair-rates --project-ref zjkihnihhqmnhpxkecpy`.
 
@@ -243,7 +235,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 ### 2025-12-02 - App shell on main + Vercel-safe UI-v2 bridge (types migration in progress)
 
 - **Context**
-  - UI “fat trim” branch is now on main: (app) shell + Startup/Overview/Repairs/Underwrite/Trace/Settings/Sandbox routed through a shared DealSessionProvider with AppTopNav + MobileBottomNav.
+  - UI "fat trim" branch is now on main: (app) shell + Startup/Overview/Repairs/Underwrite/Trace/Settings/Sandbox routed through a shared DealSessionProvider with AppTopNav + MobileBottomNav.
   - Session/deal flow is client-driven (`AuthGate`, `/startup`, `/deals`, `DealGuard`) rather than middleware redirects.
   - Vercel builds previously failed on missing `.tmp/ui-v2` constants; constants are now bridged into committed app code. Remaining build risk is lingering `@ui-v2/types` references/type shape drift.
   - Local `pnpm -w build` / `pnpm -r test` have been green after the constants swap; Vercel still sees type issues until the type migration is fully clean.
@@ -298,7 +290,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
   - `apps/hps-dealengine/app/layout.tsx`
   - `apps/hps-dealengine/app/(app)/layout.tsx`
 - **Next steps**
-  - Add explicit “View all deals” entry point in nav or startup when no deals exist (empty state and CTA).
+  - Add explicit "View all deals" entry point in nav or startup when no deals exist (empty state and CTA).
   - Add E2E coverage for `/ -> /login -> /startup -> /overview` for both new and existing deals (DealSession populated vs blank).
   - Decide and document the desired default landing after selecting a deal (`/overview` vs `/deals`) and align nav affordances accordingly.
 
@@ -322,8 +314,8 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
       - Sprint 4: AI Strategist.
 
 - Clarified usage of this devlog:
-  - This file is now explicitly the **“what changed / what’s next”** stream for humans and agents.
-  - Primer + Roadmap are the stable reference; Devlog is allowed to be “live” and updated frequently.
+  - This file is now explicitly the **"what changed / whats next"** stream for humans and agents.
+  - Primer + Roadmap are the stable reference; Devlog is allowed to be "live" and updated frequently.
 
 **Status after this day:**
 
@@ -332,7 +324,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 
 ---
 
-### 2025-11-24 to 2025-11-25 — Repairs Stack and SPA Shell Stabilization
+### 2025-11-24 to 2025-11-25 - Repairs Stack and SPA Shell Stabilization
 
 **Repairs**
 
@@ -343,7 +335,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 
 - Verified `v1-repair-rates`:
 
-  - Returns a normalized `RepairRates` object for the caller’s org/market.
+  - Returns a normalized `RepairRates` object for the callers org/market.
   - Includes PSF tiers (light/medium/heavy) and Big 5 increments (roof, HVAC, repipe, electrical, foundation) plus meta (`as_of`, `source`, `version`, `market`).
 
 - Frontend wiring:
@@ -386,7 +378,7 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 
 ---
 
-### 2025-11-22 — Route Consolidation and Visual Shell
+### 2025-11-22 - Route Consolidation and Visual Shell
 
 - Focused on getting a cohesive SPA-style dashboard:
 
@@ -401,8 +393,8 @@ This devlog should reflect which of these are “✅ done”, “🟡 in progres
 
 **Status after this day:**
 
-- Visual experience is no longer “fragmented pages”; it’s one cohesive app.
-- This provided the foundation needed for the current roadmap’s Phase 1 (“SPA shell & shared deal session”).
+- Visual experience is no longer "fragmented pages"; its one cohesive app.
+- This provided the foundation needed for the current roadmaps Phase 1 ("SPA shell & shared deal session").
 
 ---
 
@@ -458,7 +450,7 @@ When you make a meaningful change (or ask an agent to), append a new dated secti
 
 - Use the format:
 
-  - `### YYYY-MM-DD — Short Title`
+  - `### YYYY-MM-DD - Short Title`
   - Bullets for:
     - What changed.
     - Why it matters.
@@ -467,13 +459,13 @@ When you make a meaningful change (or ask an agent to), append a new dated secti
 - When a sprint item from the roadmap moves from planned -> in progress -> done:
   - Reflect it in:
     - A dated entry here.
-    - Optionally, update the checklist in `docs/roadmap-v1-v2-v3.md` or the “Remaining Sprints” section.
+    - Optionally, update the checklist in `docs/roadmap-v1-v2-v3.md` or the "Remaining Sprints" section.
 
 This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, one vertical slice at a time.
 
 ### 2025-11-26 - Sprint C  Policy Overrides Table + RLS
 
-- Context: Sprint 2 / Sprint C – create `policy_overrides` table with `policy_version_id` and base RLS.
+- Context: Sprint 2 / Sprint C - create `policy_overrides` table with `policy_version_id` and base RLS.
 - Done:
   - Updated migration `20251126233123_create_policy_overrides.sql` to include `policy_version_id` on create.
   - Applied migrations locally (via `supabase db reset`), then ran `pnpm -w typecheck` and `pnpm -w build` (both green).
@@ -488,7 +480,7 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 
 ### 2025-11-27 - Sprint A  Anchor Auth + Deal Session
 
-- Context: Sprint A – Anchor Auth + Deal Session (Auth bridging, canonical deals, engine-as-SOT).
+- Context: Sprint A - Anchor Auth + Deal Session (Auth bridging, canonical deals, engine-as-SOT).
 - Done:
   - Added DealGuard to the `(app)` shell to force users to `/deals` when no deal is selected; root `/` and login now redirect to `/deals`.
   - Persisted selected deal in `DealSession`, rehydrate from Supabase on reload, and load the latest run for that deal (`runs.input->>dealId`) to seed `lastAnalyzeResult`.
@@ -513,11 +505,11 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
   - Auth gating is handled via client AuthGate + DealGuard; middleware remains a no-op to avoid breaking Supabase localStorage auth tokens.
   - Latest run lookup depends on `dealId` being included in run input (now enforced when saving runs).
 - Next Up:
-  - Sprint B – Evidence flows (deploy `v1-evidence-*`, EvidenceUpload wiring in Underwrite/Trace).
+  - Sprint B - Evidence flows (deploy `v1-evidence-*`, EvidenceUpload wiring in Underwrite/Trace).
 
 ### 2025-11-27 - Sprint B  Evidence Flows
 
-- Context: Sprint B – Evidence Flows (info-needed to real evidence uploads).
+- Context: Sprint B - Evidence Flows (info-needed to real evidence uploads).
 - Done:
   - Hardened `v1-evidence-start` and `v1-evidence-url` with JWT enforcement, deal/run validation, org scoping, and evidence row insertion before issuing signed upload URLs.
   - Added client helpers to hash files, request signed upload URLs, upload via signed tokens, list evidence by deal/run, and sign short-lived view URLs.
@@ -671,7 +663,7 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
   - Refactoring AuthGate.tsx to remove useSearchParams and use window.location.href for redirectTo.
 - Re-ran `pnpm -w typecheck` and `pnpm -w build` - both are green.
 
-### 2025-12-02 – Repairs org alignment & sandbox reset (🟡)
+### 2025-12-02 - Repairs org alignment & sandbox reset ((pending))
 
 - v1 stays field-ready per earlier entries; this pass focused on Repairs alignment and the sandbox reset.
 - Repairs DB migrations: applied the normalization/reset chain (`20251206120000`, `20251206121500`, `20251206220000`, `20251206230000`, `20251206231000`, `20251207`, `20251208104500`) to move ORL/base profiles into the canonical deals org (`ed6ae332-2d15-44be-a8fb-36005522ad60`), clear legacy org rows, and enforce a single active+default ORL/base profile per org/market/posture (seeded canonical profile).
@@ -679,21 +671,21 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - v1-repair-profiles resolves org_id via `dealId` when present (membership fallback otherwise), filters list/create/update/activate by org_id + marketCode + posture, and clears competing active/default rows when toggling flags.
 - Client/UI alignment: `repairRates.ts`, `repairProfiles.ts`, DealSession, RepairsSandbox, `/repairs`, and `RepairsTab` now pass `dealId` through, use DealSession.repairRates as the single source of truth, and surface active profile metadata in UI.
 - Still broken: RepairsSandbox list (`v1-repair-profiles?dealId=<dealId>&marketCode=ORL&posture=base&includeInactive=true`) returns `count: 0` with edge error `{"error":"Missing or invalid orgId in request body."}`; `/repairs` sees v1-repair-rates 400/404 for ORL/base and falls back to zero/investor defaults.
-- Diagnosis: residual org resolution bug in v1-repair-profiles (still validating/expecting a request-body orgId on some paths) rather than React wiring; data is seeded but not visible under the caller’s deal org.
+- Diagnosis: residual org resolution bug in v1-repair-profiles (still validating/expecting a request-body orgId on some paths) rather than React wiring; data is seeded but not visible under the callers deal org.
 - Surgical reset plan: treat `ed6ae332-2d15-44be-a8fb-36005522ad60` as the canonical deals org; ship one reset/seed migration that deletes all ORL/base profiles for that org + the legacy org, inserts one active+default ORL/base profile, and enforces one active+default per org/market/posture; fix v1-repair-profiles list/create/update/activate so it never requires client orgId when `dealId` is present and always filters by the deal-resolved org.
 - Expected after fix: `/sandbox -> Repairs` lists the seeded ORL/base profile; `/repairs` calls to v1-repair-rates return 200 for ORL/base and stop showing the "falling back to defaults" banner.
 - Files/migrations touched (high level): the repair_rate_sets normalization/reset migrations above; `supabase/functions/v1-repair-rates`; `supabase/functions/v1-repair-profiles`; `apps/hps-dealengine/lib/repairRates.ts`; `apps/hps-dealengine/lib/repairProfiles.ts`; `apps/hps-dealengine/lib/dealSessionContext.tsx`; `apps/hps-dealengine/components/sandbox/RepairsSandbox.tsx`; `apps/hps-dealengine/app/(app)/repairs/page.tsx`; `apps/hps-dealengine/components/repairs/RepairsTab.tsx`.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (re-run this session; all green).
 - Next Up: (1) Fix v1-repair-profiles to stop requiring orgId when dealId is present and always resolve/filter by the deal org; (2) run the reset/seed migration enforcing one active+default ORL/base profile for the canonical org; (3) redeploy `v1-repair-profiles` + `v1-repair-rates` and re-test `/sandbox` + `/repairs`.
 
-#### UX & Flow Hardening – Deferred to v1.1 (🟡)
+#### UX & Flow Hardening - Deferred to v1.1 ((pending))
 
 - Numeric input UX:
-  - Treat “no value” as an empty string rather than a hard 0.
+  - Treat "no value" as an empty string rather than a hard 0.
   - Use `placeholder="0"` for numeric fields and auto-select on focus so typing replaces the visible 0.
 
 - Governed UX for Debt & Liens / Timeline & Legal / Policy & Fees:
-  - Analysts: governed knobs remain read-only with “Request Override” flow.
+  - Analysts: governed knobs remain read-only with "Request Override" flow.
   - Owner/Manager/VP: knobs should be fully editable.
   - Longer-term: per-team-member profile permissions and role-based presets (logged as v1.1 design work).
 
@@ -724,7 +716,7 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Tests/checks: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` run and green post-changes.
 - TODOs: extend the same Repairs deal-first/seeded pattern to any additional markets/postures; improve UX for missing sqft (QuickEstimate warning) to reduce "usingFallback" scenarios when sqft is absent.
 
-### 2025-12-10 - Slice W1-PW2-IMPLEMENT-1 — Policy-driven spread ladder, cash gate, borderline
+### 2025-12-10 - Slice W1-PW2-IMPLEMENT-1 - Policy-driven spread ladder, cash gate, borderline
 
 - Engine: `UnderwritingPolicy` now carries `min_spread_by_arv_band`, `cash_gate_min`, and `borderline_band_width`; `buildUnderwritingPolicy` maps sandbox ladders (`minSpreadByArvBand`), cash gate (`cashPresentationGateMinimumSpreadOverPayoff`), and borderline band (`analystReviewTriggerBorderlineBandThreshold`) with canonical fallbacks only when absent.
 - Spread ladder / cash / borderline logic: `computeMinSpreadRequired`, `computeCashGate`, and borderline checks now read policy values (no hardcoded 15k/20k/25k/30k, 10k, or 5k). SPREAD_LADDER, CASH_GATE, and BORDERLINE traces emit the policy band, gate, and band width used.
@@ -732,14 +724,107 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (all green).
 - TODO(policy/data): Hold-cost per track/speed and AIV cap override gating still to be wired in PW2-IMPLEMENT-2; gap/tight bands remain TODO(policy).
 
-### 2025-12-10 - Slice W1-PW2-IMPLEMENT-2 — Policy-driven hold costs & AIV cap override
+### 2025-12-10 - Slice W1-PW2-IMPLEMENT-2 - Policy-driven hold costs & AIV cap override
 
 - Engine: `UnderwritingPolicy` extended with track/speed hold-cost bands and default monthly bills; Buyer Ceiling now uses policy-driven hold costs (with HOLD_COST_POLICY trace) when explicit bills are missing. AIV safety cap now supports default vs override pct with override gating (bindable insurance, clear title, fast ZIP, approval role/log) and emits detailed AIV_SAFETY_CAP trace (cap pct used, override allowed/block reasons).
 - Builder: `buildUnderwritingPolicy` now maps hold cost knobs (`holdCostsFlip*`, `holdCostsWholetail*`, `holdCostsWholesaleMonthlyPctOfArvDefault`, `holdingCostsMonthlyDefault*`) and AIV override knobs (approval role + conditions + logging) into policy fields; percent knobs normalized to decimals.
 - Tests: strategy spec adds hold-cost sensitivity and AIV override allow/deny scenarios; all existing tests updated and green.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (all green).
-- TODO(data/policy): override pct knob still TODO(policy) if a dedicated value is added; role/approval evidence is minimal—override stays conservative when evidence is missing.
+- TODO(data/policy): override pct knob still TODO(policy) if a dedicated value is added; role/approval evidence is minimal-override stays conservative when evidence is missing.
 
+### 2025-12-10 - Slice E2-W2-IMPLEMENT - Timeline & Carry / Speed Bands / DTM -> Urgency
+
+- Engine: Legacy DOM-only carry/speed logic replaced with policy-driven helpers (`computeSpeedBandPolicy`, `computeCarryMonthsFromPolicy`, `computeCarryTotals`, `computeDaysToMoneyPolicy`). Added SPEED_BAND_POLICY, CARRY_MONTHS_POLICY, HOLD_COST_POLICY (carry reuse), and DTM_URGENCY_POLICY traces.
+- Contracts: `AnalyzeOutputs.timeline_summary` now includes dom/moi, raw & capped carry months, hold_monthly_dollars, carry_total_dollars, per-path DTM + source + buffer, while keeping prior fields for back-compat.
+- UI: Timeline presenters/components read the richer `timeline_summary` (no calc fallbacks) for speed band, days-to-money, urgency, carry months, hold monthly, and carry total.
+- Tests/commands: Typecheck/test/build all green after wiring; existing engine/app tests updated. (No new e2e added; TODO(e2e) to cover Timeline & Carry panels.)
+- TODO(policy/data): Urgency thresholds and auction DTM remain TODO(policy/data) pending explicit knobs and deterministic "today" reference; clear-to-close buffers and role/evidence signals should be expanded when data is available.
+
+### 2025-12-11 - Slice E2-W3 - DTM/Urgency policy wiring + Timeline & Carry trace
+
+- Engine: UnderwritingPolicy extended with DTM policy fields (max DTM, selection method, default cash/wholesale days, roll-forward, buffers, urgency bands). `computeDaysToMoneyPolicy` now selects DTM via policy, applies clear-to-close/board buffers, maps urgency via policy bands, and emits enriched DTM_URGENCY_POLICY trace with candidates/selection. Speed/carry helpers reused; timeline_summary populated with per-path DTM/source/buffer plus carry + hold dollars.
+- Contracts: `AnalyzeOutputs.timeline_summary` remains additive; engine now populates new fields (dom/moi, raw/capped carry, hold monthly/total, per-path DTM, source, buffer, urgency) consistently.
+- UI: /overview timeline presenter consumes hold/carry from timeline_summary; /trace gains a "Timeline & Carry" summary card based on outputs/timeline_summary.
+- Tests/commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green. No Playwright/e2e added yet (TODO(e2e): cover Timeline & Carry on /overview and /trace).
+- TODO(policy/data): Auction DTM still needs deterministic "today" input; urgency thresholds should move to explicit knobs when available; buffer triggers depend on richer title/insurance/board evidence.
+
+### 2025-12-11 - Slice E2-W4 - Timeline & Carry e2e coverage (scaffold)
+
+- Added Playwright test scaffold (`tests/e2e/timeline-and-carry.spec.ts`) and root script `pnpm -w test:e2e`. The spec is currently skipped pending a deterministic seeded deal/auth harness but documents the intended assertions for Timeline & Carry on /overview and /trace (speed band, days_to_money, urgency, carry months, hold monthly, carry total).
+- No engine/UI behavior changes; existing `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` remain green.
+- TODO(e2e): wire a seeded deal + auth fixture to enable the spec and assert engine-driven timeline_summary values end-to-end.
+
+### 2025-12-12 - Slice E3-W2 - Engine confidence/workflow/risk/evidence wiring
+
+- Engine: `UnderwritingPolicy` extended with confidence, workflow, gates, and evidence_freshness policies. Added helpers `computeEvidenceSummary`, `computeRiskGates`, `computeConfidenceGrade`, `computeWorkflowState`, and new traces (`EVIDENCE_FRESHNESS_POLICY`, `RISK_GATES_POLICY`, `CONFIDENCE_POLICY`, `WORKFLOW_STATE_POLICY`). Borderline now relies on policy band + confidence grade C flag.
+- Outputs: `AnalyzeOutputs`/engine outputs now populate `confidence_grade/reasons`, `risk_summary` (overall + per_gate), `evidence_summary` (freshness_by_kind with status/age/blocking), and `workflow_state/reasons`; wired through the edge unchanged.
+- Tests: Updated strategy/risk timeline specs for policy-driven outputs; all workspace tests remain green.
+- Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
+- TODO(policy/data): Many policy fields still pass-through only when provided; evidence timestamps and gate flags need richer inputs; workflow overrides and gate-specific evidence mapping to be expanded when data/knobs are available.
+
+### 2025-12-12 - Slice E3-W3 - Risk & Evidence UI + e2e scaffold
+
+- UI: /overview Risk & Compliance card now reads policy-driven per-gate statuses; Evidence card surfaces freshness rows (missing/stale/blocking) with confidence reasons. /trace page adds a Risk, Confidence & Evidence summary card sourced purely from run outputs (workflow, confidence, per-gate risk, evidence freshness).
+- Playwright: Added scaffold spec `tests/e2e/risk-and-evidence.spec.ts` (skipped until deterministic fixtures/auth are available) outlining expected assertions for risk/evidence/workflow across /overview and /trace.
+- Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green. `pnpm -w test:e2e` exists; risk/evidence spec remains skipped pending fixtures.
+- TODO(e2e-fixtures): seed deterministic deals + auth harness to enable risk/evidence e2e and unskip the spec.
+
+### 2025-12-13 - Slice E3-W3 - Risk/Evidence UI polish + trace waterfall
+
+- /overview risk/evidence cards now use engine outputs only: confidence/workflow badges with reasons, risk gates + evidence freshness badges with blocking indicators, and stable `data-testid` hooks for e2e.
+- /trace adds a full Risk, Confidence & Evidence section plus dedicated trace cards for CONFIDENCE_POLICY, EVIDENCE_FRESHNESS_POLICY, RISK_GATES_POLICY, and WORKFLOW_STATE_POLICY, all rendered directly from run outputs/traces (no recompute).
+- Playwright `tests/e2e/risk-and-evidence.spec.ts` updated with ReadyForOffer vs stale/missing evidence scenarios using the new selectors; still skipped pending deterministic seeded deals/auth harness.
+- TODO(e2e-fixtures): create seeded deals with known risk/evidence states to unskip specs; consider adding gate/evidence reason strings once policy tokens are finalized.
+
+### 2025-12-14 - Slice V - Placeholder gate TODO sweep
+
+- Workflow/evidence knob `assumptionsProtocolPlaceholdersWhenEvidenceMissing` now controls blocking vs downgrade: evidence freshness respects the flag, CONFIDENCE_POLICY adds placeholder reasons (grade downgraded to B when used), and WORKFLOW_STATE_POLICY traces include whether placeholders were allowed/used.
+- Added unit coverage in `packages/engine/src/__tests__/compute_underwriting.risk_timeline.spec.ts` to assert NeedsInfo when placeholders are disallowed vs Ready/Review with downgraded confidence when allowed.
+- Traces (EVIDENCE_FRESHNESS_POLICY, CONFIDENCE_POLICY, WORKFLOW_STATE_POLICY) now emit allow/used/placeholder kinds + rubric context for auditability.
+- Backlog pushed to v2+: (1) policy-driven hold_cost_per_month per speed/track + deterministic repairs totals instead of placeholder constants; (2) explicit AIV override pct knob plus policy tokens for gap bands/DTM urgency thresholds and deterministic "today"; (3) doc-stamp/closing cost tables + UX-only knobs (bankers rounding, dual-scenario buyer costs, line-item vs aggregate) consumed in offer/strategy presenters.
+
+### 2025-12-15 - Slice E4-W1 - QA env doc + E2E harness alignment
+
+- Docs: Added `docs/QA_ENV_V1.md` describing QA Supabase setup, required env vars, and seeded deal expectations for running the gated Playwright specs.
+- E2E: Updated `golden-path`, `timeline-and-carry`, and `risk-and-evidence` specs to follow the v1 IA (Startup hub -> Deals -> Dashboard) and the refreshed evidence/risk/workflow surfaces. Specs remain env-gated and skip cleanly when QA vars are absent.
+- Commands: `pnpm -w typecheck`, `pnpm -w build`, `pnpm -w test` all green. Playwright specs still opt-in via QA env.
+
+### 2025-12-06 - Glossary-driven tooltips v1 + guardrails
+
+- **Context:** UX polish slice for v1 — make all non-obvious policy/engine terms explainable in‑app without bloating the UI, and lock the rules so future agents don’t re‑invent tooltip patterns.
+- **Glossary inventory (Stage 1):**
+  - Created `docs/glossary/glossary_candidates.json` (~40 terms) and `docs/glossary/glossary_v1_shortlist.json` (32 v1 keys with `reason` fields) as machine‑readable inventories for valuation/floors, spread/profit, DTM/carry, risk/compliance, evidence/workflow, repairs, and sandbox knobs.
+  - Excluded obvious labels (taxes, insurance, closing costs, provider names) and kept the focus on policy/engine concepts and gates (Respect Floor, Buyer Ceiling, AIV safety cap, spread ladder, DTM, EMD, uninsurable, FHA 90‑day, FEMA 50%, FIRPTA, PACE, SIRS/Milestone, etc.).
+- **Single-source glossary module (Stage 2):**
+  - Added `apps/hps-dealengine/lib/glossary.ts` with:
+    - `ALL_GLOSSARY_KEYS` + `GlossaryKey` union.
+    - `GlossaryEntry` interface and `GLOSSARY` map (v1 terms fully populated).
+    - `getGlossaryEntry(key: GlossaryKey)` helper as the single runtime accessor.
+  - Definitions are short, plain-language (“what it is + why it matters”) and aligned with the SoTruth / secondary underwriting manuals; no formulas or task‑critical instructions.
+  - Authoring rules baked into the file comment: no inline tooltip strings, stable snake_case keys, and glossary.ts as the only source of truth for in‑app definitions.
+- **Tooltip wiring (Stage 3):**
+  - Introduced a small tooltip primitive and `InfoTooltip` component under `apps/hps-dealengine/components/ui/`, with a `helpKey?: GlossaryKey` prop on shared components (e.g., StatCard, InputField, SelectField, key headers).
+  - Applied v1 tooltips to high‑value, non-obvious terms only:
+    - `/overview`: ARV, AIV, Respect Floor, Buyer Ceiling, DTM, Carry Months, risk gate rows.
+    - `/underwrite`: AIV Safety Cap, Carry Months snapshot, ARV/AIV inputs.
+    - `/repairs`: QuickEstimate header, Big 5 “Budget Killers”.
+    - `/trace`: Confidence policy trace, Evidence section.
+    - `/sandbox`: Business Logic Sandbox posture selector (Conservative/Base/Aggressive).
+  - Kept scope tight: no tours or onboarding flows — just contextual definitions.
+- **Visual + layering polish:**
+  - Refined tooltips into a horizontal “card” pattern: compact, landscape aspect ratio, rounded corners consistent with cards, light brand-blue background with navy outline, small text and padding.
+  - Implemented a portal-based tooltip (`createPortal` to `document.body`) to escape parent stacking contexts and `overflow: hidden` containers; tooltips now reliably render above neighboring cards (e.g., “Respect Floor” over “Current Offer”).
+  - Thinned the outline to ~⅓ of the original width and tuned the glow/shadow so the card is readable without feeling bulky; added a dark, semi-transparent inner backdrop + blur for text legibility on complex backgrounds.
+- **Guardrails & checks:**
+  - Added `apps/hps-dealengine/lib/glossary.test.ts` to enforce:
+    - Every `GlossaryKey` has a `GLOSSARY` entry.
+    - Every `description` is non-empty and tooltip-length (min/max characters).
+  - Added `scripts/check-glossary-alignment.ts` and `package.json` script `"check:glossary"` to keep `glossary_v1_shortlist.json` in sync with `GlossaryKey`/`GLOSSARY`.
+  - All checks green after this slice:
+    - `pnpm -w typecheck`
+    - `pnpm -w test` (includes glossary invariants)
+    - `pnpm run check:glossary`
+- **Result:** Glossary + tooltips v1 is now **locked** — single source of truth, tests + alignment script, and a consistent, portal-based tooltip UX across Overview/Underwrite/Repairs/Trace/Sandbox. Future tooltip work must go through `GlossaryKey` + `GLOSSARY` and respect these guardrails.
 
 
 

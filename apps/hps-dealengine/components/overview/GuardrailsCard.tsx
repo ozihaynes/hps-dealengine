@@ -47,6 +47,7 @@ export function GuardrailsCard({ view }: { view: OverviewGuardrailsView }) {
           label="Respect Floor"
           value={formatCurrency(view.floor)}
           icon={<Icon d={Icons.shield} size={18} className="text-accent-blue" />}
+          helpKey="respect_floor"
         />
         <StatCard
           label="Current Offer"
@@ -57,6 +58,7 @@ export function GuardrailsCard({ view }: { view: OverviewGuardrailsView }) {
           label="Buyer Ceiling"
           value={formatCurrency(view.ceiling)}
           icon={<Icon d={Icons.trending} size={18} className="text-accent-blue" />}
+          helpKey="buyer_ceiling"
         />
       </div>
 

@@ -1,5 +1,6 @@
 // apps/hps-dealengine/types.ts
 import type { MouseEvent, ReactNode } from "react";
+import type { GlossaryKey } from "./lib/glossary";
 
 /** Calculations used by Overview/Underwrite */
 export interface EngineCalculations {
@@ -93,6 +94,7 @@ export interface InputFieldProps {
   max?: number | string;
   step?: number | string;
   disabled?: boolean;
+  helpKey?: GlossaryKey;
 }
 export interface SelectFieldProps {
   label?: string;
@@ -102,6 +104,7 @@ export interface SelectFieldProps {
   className?: string;
   description?: string;
   children?: ReactNode;
+  helpKey?: GlossaryKey;
 }
 
 export interface ToggleSwitchProps {

@@ -5,6 +5,7 @@ import React from "react";
 import type { TimelineViewModel } from "@/lib/overviewRiskTimeline";
 import { fmt$ } from "@/utils/helpers";
 import { GlassCard, Badge, Icon } from "../ui";
+import { InfoTooltip } from "../ui/InfoTooltip";
 import { Icons } from "@/constants";
 
 const urgencyBadge = (
@@ -56,26 +57,32 @@ export function TimelineCarryCard({
         <Badge color={badge.color}>{badge.label}</Badge>
       </div>
 
-      {!hasData ? (
-        <p className="text-sm text-text-secondary">
-          No timeline data yet — run the deal to compute days-to-money and carry.
-        </p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
-            <p className="label-xs uppercase text-text-secondary">Days to Money</p>
-            <p className="text-2xl font-bold font-mono text-text-primary">
-              {labelOrDash(timeline.daysToMoney)}
+          {!hasData ? (
+            <p className="text-sm text-text-secondary">
+              No timeline data yet — run the deal to compute days-to-money and carry.
             </p>
-            <p className="text-xs text-text-secondary">
-              Speed: {timeline.speedBand ?? "—"}
-            </p>
-          </div>
-          <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
-            <p className="label-xs uppercase text-text-secondary">Carry Months</p>
-            <p className="text-2xl font-bold font-mono text-text-primary">
-              {labelOrDash(timeline.carryMonths, 1)}
-            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
+                <p className="label-xs uppercase text-text-secondary flex items-center gap-1">
+                  Days to Money
+                  <InfoTooltip helpKey="dtm" />
+                </p>
+                <p className="text-2xl font-bold font-mono text-text-primary">
+                  {labelOrDash(timeline.daysToMoney)}
+                </p>
+                <p className="text-xs text-text-secondary">
+                  Speed: {timeline.speedBand ?? "—"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
+                <p className="label-xs uppercase text-text-secondary flex items-center gap-1">
+                  Carry Months
+                  <InfoTooltip helpKey="carry_months" />
+                </p>
+                <p className="text-2xl font-bold font-mono text-text-primary">
+                  {labelOrDash(timeline.carryMonths, 1)}
+                </p>
             {timeline.auctionDate ? (
               <p className="text-xs text-text-secondary">
                 Auction: {timeline.auctionDate}

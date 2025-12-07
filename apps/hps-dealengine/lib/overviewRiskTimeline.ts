@@ -9,12 +9,25 @@ export type RiskGate = {
   key: keyof NonNullable<AnalyzeOutputs["risk_summary"]>;
   label: string;
   status: RiskStatus;
-  reason?: string | null;
+  reasons: string[];
 };
 
 export type RiskViewModel = {
   overallStatus: RiskStatus;
   gates: RiskGate[];
+  reasons: string[];
+};
+
+export type ConfidenceViewModel = {
+  grade: "A" | "B" | "C" | "Unknown";
+  label: string;
+  reasons: string[];
+};
+
+export type WorkflowState = "NeedsInfo" | "NeedsReview" | "ReadyForOffer" | "Unknown";
+export type WorkflowViewModel = {
+  state: WorkflowState;
+  label: string;
   reasons: string[];
 };
 
@@ -37,20 +50,34 @@ export type EvidenceViewModel = {
   confidenceReasons: string[];
   missingKinds: string[];
   staleKinds: string[];
+  blockingKinds: string[];
+  freshnessRows: EvidenceFreshnessRow[];
   isComplete: boolean;
+  placeholdersAllowed: boolean;
+  placeholdersUsed: boolean;
+  placeholderKinds: string[];
 };
 
-const RISK_GATES: Array<{ key: RiskGate["key"]; label: string }> = [
-  { key: "insurability", label: "Insurability" },
-  { key: "payoff", label: "Payoff" },
-  { key: "title", label: "Title / Liens" },
-  { key: "fha_va_flip", label: "FHA / VA Flip Rules" },
-  { key: "firpta", label: "FIRPTA" },
-  { key: "pace_solar_ucc", label: "PACE / Solar / UCC" },
-  { key: "condo_sirs", label: "Condo / SIRS" },
-  { key: "manufactured", label: "Manufactured" },
-  { key: "scra", label: "SCRA / Active Duty" },
-];
+export type EvidenceFreshnessRow = {
+  kind: string;
+  label: string;
+  status: "fresh" | "stale" | "missing";
+  ageDays: number | null;
+  blocking: boolean;
+  reasons: string[];
+};
+
+const RISK_GATE_LABELS: Record<string, string> = {
+  insurability: "Insurability",
+  payoff: "Payoff",
+  title: "Title / Liens",
+  fha_va_flip: "FHA / VA Flip Rules",
+  firpta: "FIRPTA",
+  pace_solar_ucc: "PACE / Solar / UCC",
+  condo_sirs: "Condo / SIRS",
+  manufactured: "Manufactured",
+  scra: "SCRA / Active Duty",
+};
 
 const toNumber = (value: unknown): number | null => {
   const n = Number(value);
@@ -85,39 +112,59 @@ const mapOverallStatus = (
   return "pass";
 };
 
-const deriveUrgency = (
-  raw: "normal" | "elevated" | "critical" | null | undefined,
-  daysToMoney: number | null,
-): { label: string; tone: TimelineUrgencyTone } => {
-  if (raw === "critical") return { label: "Critical", tone: "high" };
-  if (raw === "elevated") return { label: "Elevated", tone: "medium" };
-  if (raw === "normal") return { label: "Normal", tone: "low" };
-
-  // UI-only fallback: derive urgency from days-to-money if present.
-  if (daysToMoney != null) {
-    if (daysToMoney <= 14) return { label: "Critical", tone: "high" }; // presentation-only threshold
-    if (daysToMoney <= 45) return { label: "Elevated", tone: "medium" }; // presentation-only threshold
-    return { label: "Normal", tone: "low" };
+const humanizeWorkflow = (state: AnalyzeOutputs["workflow_state"] | null | undefined): WorkflowViewModel => {
+  switch (state) {
+    case "ReadyForOffer":
+      return { state: "ReadyForOffer", label: "Ready for Offer", reasons: [] };
+    case "NeedsReview":
+      return { state: "NeedsReview", label: "Needs Review", reasons: [] };
+    case "NeedsInfo":
+      return { state: "NeedsInfo", label: "Needs Info", reasons: [] };
+    default:
+      return { state: "Unknown", label: "Unknown", reasons: [] };
   }
-
-  return { label: "Unknown", tone: "neutral" };
 };
+
+export function buildConfidenceView(outputs: AnalyzeOutputs | null | undefined): ConfidenceViewModel {
+  const gradeRaw = outputs?.confidence_grade;
+  const grade: ConfidenceViewModel["grade"] =
+    gradeRaw === "A" || gradeRaw === "B" || gradeRaw === "C" ? gradeRaw : "Unknown";
+  return {
+    grade,
+    label: grade === "Unknown" ? "Confidence unknown" : `Confidence ${grade}`,
+    reasons: outputs?.confidence_reasons ?? [],
+  };
+}
+
+export function buildWorkflowView(outputs: AnalyzeOutputs | null | undefined): WorkflowViewModel {
+  const base = humanizeWorkflow(outputs?.workflow_state ?? null);
+  return {
+    ...base,
+    reasons: outputs?.workflow_reasons ?? [],
+  };
+}
 
 export function buildRiskView(
   outputs: AnalyzeOutputs | null | undefined,
 ): RiskViewModel {
   const summary = outputs?.risk_summary;
-  const reasons = summary?.reasons ?? [];
+  const reasons = Array.isArray(summary?.reasons) ? summary?.reasons ?? [] : [];
 
-  const gates: RiskGate[] = RISK_GATES.map((gate) => {
-    const status = mapGateStatus((summary as any)?.[gate.key]);
-    const reason =
-      reasons.find((r) => r.toLowerCase().includes(gate.key.toLowerCase())) ??
-      null;
+  const perGate = summary?.per_gate ?? {};
+  const gateEntries =
+    Object.keys(perGate).length > 0
+      ? Object.entries(perGate)
+      : Object.entries(RISK_GATE_LABELS).map(([key]) => [key, (summary as any)?.[key]]);
+
+  const gates: RiskGate[] = gateEntries.map(([key, value]) => {
+    const status = mapGateStatus((value as any)?.status ?? (value as any));
+    const gateReasons =
+      (Array.isArray((value as any)?.reasons) ? ((value as any).reasons as string[]) : []) ?? [];
     return {
-      ...gate,
+      key: key as any,
+      label: RISK_GATE_LABELS[key] ?? key,
       status,
-      reason,
+      reasons: gateReasons,
     };
   });
 
@@ -136,22 +183,33 @@ export function buildTimelineView(
 ): TimelineViewModel {
   const summary = outputs?.timeline_summary;
   const daysToMoney = summary?.days_to_money ?? null;
-  const carryMonths =
-    summary?.carry_months ?? toNumber(calc ? (calc as any).carryMonths : null);
-  const carryTotal = toNumber(calc ? (calc as any).carryCosts : null);
+  const carryMonths = summary?.carry_months ?? toNumber(calc ? (calc as any).carryMonths : null);
+  const carryTotal =
+    (summary as any)?.carry_total_dollars ??
+    toNumber(calc ? (calc as any).carryCosts : null);
   const carryMonthly =
-    carryMonths && carryMonths > 0 && carryTotal != null
-      ? carryTotal / carryMonths
-      : null;
+    (summary as any)?.hold_monthly_dollars ??
+    (carryMonths && carryMonths > 0 && carryTotal != null ? carryTotal / carryMonths : null);
 
-  const urgency = deriveUrgency(summary?.urgency ?? null, daysToMoney);
+  let urgencyTone: TimelineUrgencyTone = "neutral";
+  let urgencyLabel = "Unknown";
+  if (summary?.urgency === "critical") {
+    urgencyTone = "high";
+    urgencyLabel = "Critical";
+  } else if (summary?.urgency === "elevated") {
+    urgencyTone = "medium";
+    urgencyLabel = "Elevated";
+  } else if (summary?.urgency === "normal") {
+    urgencyTone = "low";
+    urgencyLabel = "Normal";
+  }
 
   return {
     daysToMoney,
     carryMonths,
     speedBand: summary?.speed_band ?? null,
-    urgencyLabel: urgency.label,
-    urgencyTone: urgency.tone,
+    urgencyLabel,
+    urgencyTone,
     carryMonthly,
     carryTotal,
     auctionDate: summary?.auction_date_iso ?? null,
@@ -160,10 +218,11 @@ export function buildTimelineView(
 
 export function buildEvidenceView(
   outputs: AnalyzeOutputs | null | undefined,
+  traceFrames?: any[] | null,
 ): EvidenceViewModel {
   const summary = outputs?.evidence_summary;
   const gradeRaw =
-    summary?.confidence_grade ?? outputs?.confidence_grade ?? null;
+    outputs?.confidence_grade ?? summary?.confidence_grade ?? null;
   const grade: EvidenceViewModel["confidenceGrade"] =
     gradeRaw === "A" || gradeRaw === "B" || gradeRaw === "C"
       ? gradeRaw
@@ -171,24 +230,75 @@ export function buildEvidenceView(
 
   const missingKinds: string[] = [];
   const staleKinds: string[] = [];
+  const blockingKinds: string[] = [];
+  const freshnessRows: EvidenceViewModel["freshnessRows"] = [];
   const freshness = summary?.freshness_by_kind ?? {};
-  Object.entries(freshness).forEach(([kind, status]) => {
+  Object.entries(freshness).forEach(([kind, statusObj]) => {
+    const status =
+      typeof statusObj === "string"
+        ? statusObj
+        : typeof statusObj === "object"
+        ? statusObj?.status
+        : null;
+    const ageDays =
+      typeof statusObj === "object" && statusObj
+        ? (statusObj as any).age_days ?? null
+        : null;
+    const blocking =
+      typeof statusObj === "object" && statusObj
+        ? Boolean((statusObj as any).blocking_for_ready)
+        : false;
+    const reasons =
+      (typeof statusObj === "object" && statusObj && Array.isArray((statusObj as any).reasons)
+        ? ((statusObj as any).reasons as string[])
+        : []) ?? [];
     const label = evidenceLabel(kind);
     if (status === "missing") {
       missingKinds.push(label);
     } else if (status === "stale") {
       staleKinds.push(label);
     }
+    if (blocking) {
+      blockingKinds.push(label);
+    }
+    if (status) {
+      freshnessRows.push({
+        kind,
+        label,
+        status,
+        ageDays: typeof ageDays === "number" ? ageDays : null,
+        blocking,
+        reasons,
+      });
+    }
   });
+
+  const evidenceTrace = Array.isArray(traceFrames)
+    ? traceFrames.find((t: any) => t?.rule === "EVIDENCE_FRESHNESS_POLICY")
+    : null;
+  const placeholdersAllowed =
+    evidenceTrace?.details?.allow_placeholders_when_evidence_missing === true;
+  const placeholdersUsed = evidenceTrace?.details?.placeholders_used === true;
+  const placeholderKinds =
+    Array.isArray(evidenceTrace?.details?.placeholder_kinds) && evidenceTrace?.details?.placeholder_kinds.length > 0
+      ? (evidenceTrace.details.placeholder_kinds as string[])
+      : [];
 
   return {
     confidenceGrade: grade,
     confidenceLabel: grade === "Unknown" ? "Unknown" : `Confidence ${grade}`,
-    confidenceReasons:
-      summary?.confidence_reasons ?? outputs?.confidence_reasons ?? [],
+    confidenceReasons: outputs?.confidence_reasons ?? summary?.confidence_reasons ?? [],
     missingKinds,
     staleKinds,
+    blockingKinds,
+    freshnessRows,
     isComplete:
-      grade !== "Unknown" && missingKinds.length === 0 && staleKinds.length === 0,
+      grade !== "Unknown" &&
+      missingKinds.length === 0 &&
+      staleKinds.length === 0 &&
+      blockingKinds.length === 0,
+    placeholdersAllowed,
+    placeholdersUsed,
+    placeholderKinds,
   };
 }

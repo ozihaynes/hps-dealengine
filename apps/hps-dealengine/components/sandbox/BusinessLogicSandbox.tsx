@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type {
   SandboxPreset,
   SandboxSettings,
+  SandboxSettingKey,
 } from "@hps-internal/contracts";
 import { Postures } from "@hps-internal/contracts";
 
@@ -27,12 +28,17 @@ import {
   sandboxKnobMap,
 } from "@/constants/sandboxKnobs";
 import { canEditGoverned } from "@/constants/governedTokens";
+import {
+  getKnobMetadata,
+  isKeepKnob,
+} from "@/lib/sandboxKnobAudit";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   askSandboxStrategist,
   buildStrategistPayload,
 } from "@/lib/sandboxStrategist";
 import RequestOverrideModal from "../underwrite/RequestOverrideModal";
+import { fmt$ } from "@/utils/helpers";
 
 type SandboxConfigValues = SandboxSettings["config"];
 
@@ -423,6 +429,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
   >(null);
   const [status, setStatus] = useState<string | null>(null);
   const [localSaving, setLocalSaving] = useState(false);
+  const [showLegacyKnobs, setShowLegacyKnobs] = useState(false);
   const [overrideToken, setOverrideToken] = useState<string | null>(null);
   const [overrideValue, setOverrideValue] = useState<any>(null);
   const [isOverrideModalOpen, setIsOverrideModalOpen] = useState(false);
@@ -441,22 +448,36 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
   }, [config]);
 
   const filteredPages = useMemo(() => {
-    if (!searchQuery) return SANDBOX_PAGES_CONFIG;
     const lowerCaseQuery = searchQuery.toLowerCase();
-    return SANDBOX_PAGES_CONFIG.map((page) => {
-      const filteredSettings = page.settings.filter(
-        (setting) =>
+    const pages = SANDBOX_PAGES_CONFIG.map((page) => {
+      const filteredSettings = page.settings.filter((setting) => {
+        const key = setting.key as SandboxSettingKey;
+        const keep = isKeepKnob(key);
+        if (!showLegacyKnobs && !keep) {
+          return false;
+        }
+        if (!lowerCaseQuery) {
+          return true;
+        }
+        return (
           setting.label.toLowerCase().includes(lowerCaseQuery) ||
-          setting.description.toLowerCase().includes(lowerCaseQuery),
-      );
+          setting.description.toLowerCase().includes(lowerCaseQuery)
+        );
+      });
       return { ...page, settings: filteredSettings };
-    }).filter(
-      (page) =>
-        page.title.toLowerCase().includes(lowerCaseQuery) ||
-        page.description.toLowerCase().includes(lowerCaseQuery) ||
-        page.settings.length > 0,
-    );
-  }, [searchQuery]);
+    }).filter((page) => {
+      const matchesPageQuery = lowerCaseQuery
+        ? page.title.toLowerCase().includes(lowerCaseQuery) ||
+          page.description.toLowerCase().includes(lowerCaseQuery)
+        : true;
+      if (showLegacyKnobs) {
+        return matchesPageQuery || page.settings.length > 0;
+      }
+      return page.settings.length > 0 && matchesPageQuery;
+    });
+
+    return pages;
+  }, [searchQuery, showLegacyKnobs]);
 
   const pageConfig = useMemo(
     () => filteredPages[currentPage] || filteredPages[0],
@@ -465,7 +486,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
 
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchQuery]);
+  }, [searchQuery, showLegacyKnobs]);
 
   const getSettingValue = (key: string) => {
     if (isPostureAwareKey(key)) {
@@ -547,6 +568,23 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
   };
 
   const effectiveSaving = isSaving || localSaving;
+  const roundingModeValue = getSettingValue("bankersRoundingModeNumericSafety") ?? "bankers";
+  const dualScenarioValue =
+    getSettingValue("buyerCostsAllocationDualScenarioRenderingWhenUnknown") ?? null;
+  const lineItemMethodValue = getSettingValue("buyerCostsLineItemModelingMethod") ?? null;
+  const sampleOffer = 214937.5;
+  const applyRounding = (mode: string, n: number) => {
+    const normalized = (mode || "").toString().toLowerCase();
+    if (normalized === "truncate") return Math.trunc(n);
+    if (normalized === "round") return Math.round(n);
+    // default banker’s: round to nearest even
+    const floored = Math.floor(n);
+    const fraction = n - floored;
+    if (fraction > 0.5) return Math.ceil(n);
+    if (fraction < 0.5) return floored;
+    return floored % 2 === 0 ? floored : floored + 1;
+  };
+  const sampleRounded = applyRounding(String(roundingModeValue ?? "bankers"), sampleOffer);
 
   return (
     <div className="rounded-2xl border border-white/10 bg-surface-elevated/40 shadow-lg shadow-blue-900/20">
@@ -573,6 +611,7 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
               onPostureChange?.(e.target.value as (typeof Postures)[number])
             }
             className="w-48"
+            helpKey="sandbox_posture"
           >
             {Postures.map((option) => (
               <option key={option} value={option}>
@@ -588,6 +627,11 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
           >
             Save as Preset...
           </Button>
+          <ToggleSwitch
+            label="Show legacy/backlog knobs (unsafe / v2 backlog)"
+            checked={showLegacyKnobs}
+            onChange={() => setShowLegacyKnobs((prev) => !prev)}
+          />
         </div>
       </div>
 
@@ -700,6 +744,14 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                       const governed = Boolean(
                         v1Knob?.governedToken || false,
                       );
+                      const knobMetadata = getKnobMetadata(
+                        setting.key as SandboxSettingKey,
+                      );
+                      const keepKnob =
+                        knobMetadata?.recommendedAction === "KEEP";
+                      const knobLabel = v1Knob
+                        ? `${v1Knob.group} - ${v1Knob.label}`
+                        : setting.label;
                       const Component = componentMap[setting.component];
                       if (!Component)
                         return (
@@ -798,16 +850,19 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                       return (
                         <div key={setting.key} className="min-w-0 space-y-1">
                           {renderComponent()}
-                          {v1Knob && (
-                            <div className="text-[11px] text-text-secondary">
-                              {v1Knob.group} • {v1Knob.label}
-                              {governed && !canEditGovernedFields
-                                ? " — governed (request override)"
-                                : governed
-                                ? " — governed"
-                                : ""}
-                            </div>
-                          )}
+                          <div className="text-[11px] text-text-secondary">
+                            {knobLabel}
+                            {governed && !canEditGovernedFields
+                              ? " - governed (request override)"
+                              : governed
+                              ? " - governed"
+                              : ""}
+                            {!keepKnob && (
+                              <span className="ml-2 inline-flex items-center rounded-full bg-accent-orange/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-orange">
+                                Legacy/backlog
+                              </span>
+                            )}
+                          </div>
                           {governed && !canEditGovernedFields && (
                             <Button
                               size="sm"
@@ -834,6 +889,49 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                 </div>
               )}
             </main>
+          </div>
+
+          <div className="border-t border-white/5 bg-white/5 px-5 py-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-text-primary">UX &amp; Presentation</h3>
+              <span className="text-[11px] text-text-secondary">UX-only knobs (display, not math)</span>
+            </div>
+            <p className="text-sm text-text-secondary">
+              These knobs change how offers and buyer costs are presented. They do not alter core math.
+            </p>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-white/5 bg-surface-elevated/60 p-3">
+                <p className="label-xs uppercase text-text-secondary">Rounding mode</p>
+                <p className="text-sm font-semibold text-text-primary">
+                  {String(roundingModeValue ?? "bankers")}
+                </p>
+                <p className="text-[11px] text-text-secondary">
+                  Example $214,937.50 → <span className="font-mono text-text-primary">{fmt$(sampleRounded, 0)}</span>
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/5 bg-surface-elevated/60 p-3">
+                <p className="label-xs uppercase text-text-secondary">Buyer costs scenario</p>
+                <p className="text-sm font-semibold text-text-primary">
+                  {dualScenarioValue === true
+                    ? "Dual scenario"
+                    : dualScenarioValue === false
+                    ? "Single scenario"
+                    : "Auto"}
+                </p>
+                <p className="text-[11px] text-text-secondary">
+                  When costs are unknown, choose whether to show both conservative and optimistic views.
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/5 bg-surface-elevated/60 p-3">
+                <p className="label-xs uppercase text-text-secondary">Buyer costs detail</p>
+                <p className="text-sm font-semibold text-text-primary">
+                  {lineItemMethodValue ?? "aggregate"}
+                </p>
+                <p className="text-[11px] text-text-secondary">
+                  Toggle line-item vs aggregate buyer cost display in overview/trace surfaces.
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Footer */}
@@ -877,7 +975,6 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
           )}
         </div>
       </div>
-      <FloatingStrategistChat settings={settings} posture={posture} />
       <RequestOverrideModal
         open={isOverrideModalOpen}
         posture={posture}

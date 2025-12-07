@@ -345,6 +345,16 @@ AI outputs should:
 - Reference run IDs, policy versions, or evidence IDs where helpful.
 - Complement, not compete with, deterministic logic.
 
+### 6.4 AI Surfaces (2025 Dual-Agent Model)
+
+- All in-app AI is delivered through two personas:
+  - **Deal Analyst** — per-deal, per-run, negotiation; persona: tactical underwriter.
+  - **Deal Strategist** — system/sandbox/market; persona: strategic operator.
+- UI pattern:
+  - Floating action buttons (bottom-right) open draggable, modeless windows (no backdrops).
+  - Analyst window requires a completed run, enforces stale-run warnings/consent before answering.
+- Any new AI surface must route through one of these personas or explicitly propose and document a third persona with equivalent guardrails.
+
 ---
 
 ## 7. Logging, Traces, and Observability

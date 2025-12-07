@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { computeUnderwriting } from "@hps-internal/engine";
+import {
+  buildUnderwritingPolicyFromOptions,
+} from "@hps-internal/engine/policy_builder";
+import type { UnderwritingPolicy } from "@hps-internal/engine";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -38,6 +43,12 @@ type AnalyzeSandboxOptions = {
   floorsSpreads?: Record<string, unknown>;
   repairs?: Record<string, unknown>;
   carryTimeline?: Record<string, unknown>;
+  carry?: Record<string, unknown>;
+  holdCosts?: Record<string, unknown>;
+  timeline?: Record<string, unknown>;
+  profitUninsurable?: Record<string, unknown>;
+  profit_and_fees?: Record<string, unknown>;
+  disposition_and_double_close?: Record<string, unknown>;
   wholetail?: Record<string, unknown>;
 };
 
@@ -257,206 +268,40 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 400);
   }
 
-  const arv = input.arv ?? 0;
-  const aiv = input.aiv ?? 0;
-  const dom = input.dom_zip_days ?? 0;
+  const basePolicy: UnderwritingPolicy = {} as UnderwritingPolicy;
+  const uwPolicy = buildUnderwritingPolicyFromOptions(
+    basePolicy,
+    sandboxOptions ?? null,
+  );
 
-  // -------------------------------------------------------------------------
-  // Minimal deterministic engine slice:
-  //  - AIV safety cap at 90% of ARV
-  //  - Carry months from DOM, rounded and clamped [0, 6]
-  // -------------------------------------------------------------------------
-
-  const capPct = 0.9;
-  const aivCapFromArv = arv * capPct;
-  const aivSafetyCap = Math.min(aiv, aivCapFromArv);
-
-  const rawMonths = dom / 30;
-  let carryMonths = Math.round(rawMonths);
-  if (!Number.isFinite(carryMonths) || carryMonths < 0) carryMonths = 0;
-  if (carryMonths > 6) carryMonths = 6;
-
-  const traceFrames: TraceFrame[] = [
-    {
-      key: "inputs",
-      label: "Normalized inputs",
-      details: {
-        posture,
-        arv,
-        aiv,
-        dom,
-        months_of_inventory_zip: input.months_of_inventory_zip,
-        price_to_list_pct: input.price_to_list_pct,
-        local_discount_pct: input.local_discount_pct,
-        sandboxOptions,
-      },
-    },
-    {
-      key: "aiv_safety_cap",
-      label: "AIV safety cap at 90% of ARV",
-      details: {
-        arv,
-        aiv,
-        capPct,
-        aivCapFromArv,
-        aivSafetyCap,
-      },
-    },
-    {
-      key: "carry_months",
-      label: "Carry months capped between 0 and 6",
-      details: {
-        dom,
-        rawMonths,
-        carryMonths,
-      },
-    },
-  ];
-
-  const buyerCeiling = aivSafetyCap ?? input.aiv ?? null;
-  const respectFloor = aivSafetyCap ?? input.aiv ?? null;
-  const primaryOffer = respectFloor;
-  const windowFloorToOffer =
-    primaryOffer != null && respectFloor != null
-      ? primaryOffer - respectFloor
-      : null;
-  const headroomOfferToCeiling =
-    buyerCeiling != null && primaryOffer != null
-      ? buyerCeiling - primaryOffer
-      : null;
-  const payoffProjected = null; // TODO(policy): add payoff inputs to AnalyzeInput to compute this deterministically.
-  const cushionVsPayoff =
-    payoffProjected != null && primaryOffer != null
-      ? primaryOffer - payoffProjected
-      : null;
-  const shortfallVsPayoff =
-    payoffProjected != null && primaryOffer != null
-      ? payoffProjected - primaryOffer
-      : null;
-
-  const sellerOfferBand =
-    primaryOffer != null && respectFloor != null && buyerCeiling != null
-      ? primaryOffer < respectFloor
-        ? "low"
-        : primaryOffer > buyerCeiling
-        ? "high"
-        : "fair"
-      : null;
-
-  const buyerAskBand =
-    headroomOfferToCeiling != null
-      ? headroomOfferToCeiling < 0
-        ? "aggressive"
-        : headroomOfferToCeiling <= 5000
-        ? "balanced"
-        : "generous"
-      : null;
-
-  const sweetSpotFlag =
-    windowFloorToOffer != null &&
-    windowFloorToOffer >= 0 &&
-    headroomOfferToCeiling != null &&
-    headroomOfferToCeiling >= 0;
-
-  const gapFlag =
-    windowFloorToOffer == null || headroomOfferToCeiling == null
-      ? null
-      : windowFloorToOffer < 0 || headroomOfferToCeiling < 0
-      ? "wide_gap"
-      : Math.min(windowFloorToOffer, headroomOfferToCeiling) <= 5000
-      ? "narrow_gap"
-      : "no_gap";
-
-  const workflowState =
-    primaryOffer == null || respectFloor == null || buyerCeiling == null
-      ? "NeedsInfo"
-      : windowFloorToOffer != null && windowFloorToOffer < 0
-      ? "NeedsReview"
-      : "ReadyForOffer";
-
-  const confidenceGrade =
-    primaryOffer == null || respectFloor == null || buyerCeiling == null
-      ? "C"
-      : "B";
-  const timelineSummary = {
-    days_to_money: dom ?? null,
-    carry_months: carryMonths,
-    speed_band:
-      dom != null ? (dom <= 30 ? "fast" : dom <= 90 ? "balanced" : "slow") : null,
-    urgency: dom != null ? (dom <= 14 ? "critical" : dom <= 45 ? "elevated" : "normal") : null,
-    auction_date_iso: null,
-  };
-
-  const riskSummary = {
-    overall: "watch" as const,
-    insurability: "info_needed" as const,
-    payoff: payoffProjected != null ? ("pass" as const) : ("info_needed" as const),
-    reasons: payoffProjected != null ? [] : ["payoff: info_needed"],
-  };
-
-  const evidenceSummary = {
-    confidence_grade: confidenceGrade,
-    confidence_reasons:
-      confidenceGrade === "C"
-        ? ["Missing inputs for ceiling/floor/offer."]
-        : [],
-    freshness_by_kind: {
-      comps: "missing" as const,
-      payoff_letter: payoffProjected != null ? ("fresh" as const) : ("missing" as const),
-      title_quote: "missing" as const,
-      insurance: "missing" as const,
-      repairs: "missing" as const,
+  const deal = {
+    market: {
+      arv: input.arv ?? null,
+      aiv: input.aiv ?? null,
+      dom_zip: input.dom_zip_days ?? null,
+      moi_zip: input.months_of_inventory_zip ?? null,
+      price_to_list_pct: input.price_to_list_pct ?? null,
+      local_discount_pct: input.local_discount_pct ?? null,
     },
   };
 
-  const outputs: AnalyzeOutputs = {
-    arv: input.arv ?? null,
-    aiv: input.aiv ?? null,
-    aivSafetyCap,
-    carryMonths,
-    buyer_ceiling: buyerCeiling,
-    respect_floor: respectFloor,
-    wholesale_fee: null,
-    wholesale_fee_dc: null,
-    market_temp_score: null,
-    window_floor_to_offer: windowFloorToOffer,
-    headroom_offer_to_ceiling: headroomOfferToCeiling,
-    cushion_vs_payoff: cushionVsPayoff,
-    seller_script_cash: null,
-    mao_wholesale: primaryOffer,
-    mao_flip: buyerCeiling,
-    mao_wholetail: buyerCeiling,
-    mao_as_is_cap: respectFloor,
-    primary_offer: primaryOffer,
-    primary_offer_track: primaryOffer != null ? "wholesale" : null,
-    payoff_projected: payoffProjected,
-    shortfall_vs_payoff: shortfallVsPayoff,
-    seller_offer_band: sellerOfferBand,
-    buyer_ask_band: buyerAskBand,
-    sweet_spot_flag: sweetSpotFlag,
-    gap_flag: gapFlag,
-    strategy_recommendation:
-      primaryOffer != null ? "Recommend Wholesale — provisional" : null,
-    workflow_state: workflowState,
-    confidence_grade: confidenceGrade,
-    confidence_reasons:
-      confidenceGrade === "C"
-        ? ["Missing inputs for ceiling/floor/offer."]
-        : null,
-    timeline_summary: timelineSummary,
-    risk_summary: riskSummary,
-    evidence_summary: evidenceSummary,
-  };
+  const result = computeUnderwriting(deal as unknown as Record<string, unknown>, uwPolicy as unknown as Record<string, unknown>);
 
-  const result: AnalyzeResult = {
-    outputs,
-    infoNeeded: [],
-    trace: traceFrames,
-  };
+  if (!result.ok) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: { message: "Engine error", code: "engine_error", details: result },
+    };
+    return jsonResponse(envelope, 500);
+  }
 
   const envelope: AnalyzeOkEnvelope = {
     ok: true,
-    result,
+    result: {
+      outputs: result.outputs as AnalyzeOutputs,
+      infoNeeded: result.infoNeeded ?? [],
+      trace: result.trace as TraceFrame[],
+    },
   };
 
   return jsonResponse(envelope, 200);

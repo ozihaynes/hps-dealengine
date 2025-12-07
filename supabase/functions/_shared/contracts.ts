@@ -40,12 +40,25 @@ export type RunOutputEnvelope = z.infer<typeof RunOutputEnvelopeSchema>;
 export const PolicySnapshotSchema = z.unknown();
 export type PolicySnapshot = z.infer<typeof PolicySnapshotSchema>;
 
-export const AiBridgeInputSchema = z.object({
-  dealId: z.string().uuid(),
-  runId: z.string().uuid(),
-  posture: z.enum(["conservative", "base", "aggressive"]),
-  prompt: z.string().min(1),
-});
+export const AiBridgeInputSchema = z.discriminatedUnion("persona", [
+  z.object({
+    persona: z.literal("dealAnalyst"),
+    dealId: z.string().uuid(),
+    runId: z.string().uuid(),
+    posture: z.string().optional(),
+    userPrompt: z.string().min(1),
+    tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
+    isStale: z.boolean().optional(),
+  }),
+  z.object({
+    persona: z.literal("dealStrategist"),
+    userPrompt: z.string().min(1),
+    posture: z.string().optional(),
+    sandboxSettings: z.unknown().optional(),
+    route: z.string().optional(),
+    tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
+  }),
+]);
 
 export type AiBridgeInput = z.infer<typeof AiBridgeInputSchema>;
 

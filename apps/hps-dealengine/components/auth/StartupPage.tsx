@@ -202,7 +202,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                 onEnter();
             }
 
-            router.push("/overview");
+            router.push(`/overview?dealId=${inserted.id}`);
             router.refresh();
         } catch (err: any) {
             console.error("[startup] create deal error", err);
@@ -226,7 +226,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
             onEnter();
         }
 
-        router.push("/overview");
+        router.push(`/overview?dealId=${deal.id}`);
         router.refresh();
     };
 
@@ -302,9 +302,28 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                                     <option value="az">Sort: Address (A-Z)</option>
                                 </select>
                             </div>
+                            <Button
+                              variant="neutral"
+                              className="whitespace-nowrap"
+                              onClick={() => router.push("/deals")}
+                            >
+                              View all deals
+                            </Button>
                         </div>
                     </div>
 
+                    {!dealsLoading && !dealsError && deals.length === 0 ? (
+                      <div className="rounded-lg border border-dashed border-white/10 bg-black/30 p-6 text-center text-text-secondary space-y-2">
+                        <p className="text-lg font-semibold text-text-primary">No deals yet</p>
+                        <p className="text-sm">
+                          Create your first deal to start underwriting, or jump to the full deals list.
+                        </p>
+                        <div className="flex flex-wrap items-center justify-center gap-3">
+                          <Button variant="primary" onClick={() => setIsNewDealModalOpen(true)}>Create new deal</Button>
+                          <Button variant="neutral" onClick={() => router.push("/deals")}>View all deals</Button>
+                        </div>
+                      </div>
+                    ) : (
                     <div className="overflow-hidden rounded-lg border border-white/10 bg-black/20">
                         <div className="overflow-x-auto max-h-[400px]">
                             <table className="w-full text-left text-sm border-collapse">
@@ -362,6 +381,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                             </table>
                         </div>
                     </div>
+                    )}
                     <div className="mt-2 text-right text-xs text-text-secondary/50">
                         Showing {filteredDeals.length} records
                     </div>

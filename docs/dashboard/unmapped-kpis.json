@@ -1,0 +1,762 @@
+[
+  {
+    "id": "wholesale_fee",
+    "label": "Wholesale Fee",
+    "component": "OverviewTab/Wholesale StatCard",
+    "cardGroup": "Wholesale Fees",
+    "unit": "currency",
+    "analyzeFields": [
+      "outputs.buyer_ceiling",
+      "outputs.respect_floor",
+      "calculations.buyerCeiling",
+      "calculations.respectFloorPrice"
+    ],
+    "dealFields": [
+      "deal.market.arv"
+    ],
+    "derivedFromKnobs": [
+      "minSpreadByArvBand",
+      "buyerCeilingFormulaDefinition",
+      "assignmentFeeTargetPctOfArv"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "profit_spread",
+    "description": "Spread between buyer ceiling and respect floor prior to double-close friction.",
+    "storyRole": "hero",
+    "notes": "Computed via getWholesaleFeeView; should mirror Underwrite wholesale math."
+  },
+  {
+    "id": "timeline_speed_band",
+    "label": "Speed Band",
+    "component": "TopDealKpis/Timeline tile",
+    "cardGroup": "Top Strip",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.timeline_summary.speed_band"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "speedBandPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "timeline",
+    "description": "Engine-selected market speed band driving urgency.",
+    "storyRole": "supporting",
+    "notes": "Rendered with the DTM value."
+  },
+  {
+    "id": "confidence_grade_badge",
+    "label": "Confidence Grade",
+    "component": "TopDealKpis badges",
+    "cardGroup": "Top Strip",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.confidence_grade"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "confidenceRubric",
+      "allowPlaceholdersWhenEvidenceMissing"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "evidence",
+    "description": "Confidence grade from engine evidence/inputs.",
+    "storyRole": "supporting",
+    "notes": "Shared with Data & Evidence card."
+  },
+  {
+    "id": "workflow_state_badge",
+    "label": "Workflow State",
+    "component": "TopDealKpis badges",
+    "cardGroup": "Top Strip",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.workflow_state"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "workflowStatePolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "workflow",
+    "description": "Offer readiness state from policy.",
+    "storyRole": "supporting",
+    "notes": "Mirrors Data & Evidence workflow pill."
+  },
+  {
+    "id": "dealhealth_confidence_grade",
+    "label": "Confidence Badge",
+    "component": "DealHealthStrip/Confidence",
+    "cardGroup": "Deal Health",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.confidence_grade"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "confidenceRubric",
+      "allowPlaceholdersWhenEvidenceMissing"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "evidence",
+    "description": "Confidence badge reused from evidence summary.",
+    "storyRole": "supporting",
+    "notes": "Defaults to C when no run."
+  },
+  {
+    "id": "dealhealth_workflow_state",
+    "label": "Workflow Badge",
+    "component": "DealHealthStrip/Workflow",
+    "cardGroup": "Deal Health",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.workflow_state"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "workflowStatePolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "workflow",
+    "description": "Needs run/review/ready state shown in health strip.",
+    "storyRole": "supporting",
+    "notes": "UI-level derivation when missing offer/floor/ceiling."
+  },
+  {
+    "id": "respect_floor_value",
+    "label": "Respect Floor",
+    "component": "GuardrailsCard/StatCard",
+    "cardGroup": "Guardrails & Profit",
+    "unit": "currency",
+    "analyzeFields": [
+      "outputs.respect_floor",
+      "calculations.respectFloorPrice"
+    ],
+    "dealFields": [
+      "deal.policy.min_spread"
+    ],
+    "derivedFromKnobs": [
+      "respectFloorPolicy",
+      "investorFloorDiscounts"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "guardrails",
+    "description": "Floor price protecting payoff + essentials.",
+    "storyRole": "hero",
+    "notes": "Also shown in DealStructureChart markers."
+  },
+  {
+    "id": "current_offer_value",
+    "label": "Current Offer",
+    "component": "GuardrailsCard/StatCard",
+    "cardGroup": "Guardrails & Profit",
+    "unit": "currency",
+    "analyzeFields": [
+      "calculations.instantCashOffer",
+      "outputs.primary_offer",
+      "outputs.mao_wholesale"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "maoPolicySelection",
+      "cashGateMinimumSpread"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "offer",
+    "description": "Instant cash offer / MAO used for guardrail deltas.",
+    "storyRole": "hero",
+    "notes": "Feeds window/headroom deltas."
+  },
+  {
+    "id": "headroom_offer_to_ceiling",
+    "label": "Headroom to Ceiling",
+    "component": "GuardrailsCard/Delta row",
+    "cardGroup": "Guardrails & Profit",
+    "unit": "currency",
+    "analyzeFields": [
+      "outputs.headroom_offer_to_ceiling",
+      "calculations.instantCashOffer",
+      "outputs.buyer_ceiling"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "minSpreadByArvBand"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "guardrails",
+    "description": "Room above the offer before hitting buyer ceiling.",
+    "storyRole": "supporting",
+    "notes": "Mirrors DealStructureChart headroom ribbon."
+  },
+  {
+    "id": "strategy_primary_offer",
+    "label": "Primary Offer",
+    "component": "StrategyPostureCard/Primary Offer",
+    "cardGroup": "Strategy & Posture",
+    "unit": "currency",
+    "analyzeFields": [
+      "outputs.primary_offer",
+      "outputs.mao_wholesale"
+    ],
+    "dealFields": [
+      "deal.market.arv"
+    ],
+    "derivedFromKnobs": [
+      "maoPolicySelection",
+      "primaryTrackPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "offer",
+    "description": "MAO for the selected primary path.",
+    "storyRole": "hero",
+    "notes": "Displays alongside workflow/confidence badges."
+  },
+  {
+    "id": "strategy_bands_gap",
+    "label": "Bands & Gap",
+    "component": "StrategyPostureCard/Bands",
+    "cardGroup": "Strategy & Posture",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.buyer_band",
+      "outputs.seller_band",
+      "outputs.band_gap_flag",
+      "outputs.sweet_spot"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "bandTightnessPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "strategy",
+    "description": "Seller vs buyer band context and gap/sweet spot flag.",
+    "storyRole": "supporting",
+    "notes": "Uses outputs bands bundle from strategy view model."
+  },
+  {
+    "id": "mao_bundle_wholesale",
+    "label": "MAO Wholesale",
+    "component": "StrategyPostureCard/MAOs by Path",
+    "cardGroup": "Strategy & Posture",
+    "unit": "currency",
+    "analyzeFields": [
+      "outputs.mao_wholesale"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "maoPolicySelection"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "offer",
+    "description": "Wholesale MAO from engine outputs.",
+    "storyRole": "supporting",
+    "notes": "Displayed with flip/wholetail/as-is cap."
+  },
+  {
+    "id": "strategy_recommendation",
+    "label": "Recommendation",
+    "component": "StrategyPostureCard/Recommendation",
+    "cardGroup": "Strategy & Posture",
+    "unit": "text",
+    "analyzeFields": [
+      "outputs.strategy_recommendation"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "strategyRecommendationPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "strategy",
+    "description": "Narrative guidance from engine outputs.",
+    "storyRole": "supporting",
+    "notes": "Displays plain text recommendation."
+  },
+  {
+    "id": "risk_gate_payoff",
+    "label": "Gate: Payoff",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.payoff.status",
+      "outputs.risk_summary.payoff"
+    ],
+    "dealFields": [
+      "deal.debt"
+    ],
+    "derivedFromKnobs": [
+      "payoffVerificationPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "Payoff/title clearance gate.",
+    "storyRole": "supporting",
+    "notes": "Reasons pulled from risk_summary per_gate."
+  },
+  {
+    "id": "risk_gate_title",
+    "label": "Gate: Title / Liens",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.title.status",
+      "outputs.risk_summary.title"
+    ],
+    "dealFields": [
+      "deal.title"
+    ],
+    "derivedFromKnobs": [
+      "titleRiskPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "Title/lien clearance gate.",
+    "storyRole": "supporting",
+    "notes": "Includes FHA/VA flip etc when flagged."
+  },
+  {
+    "id": "risk_gate_fha_va_flip",
+    "label": "Gate: FHA / VA Flip",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.fha_va_flip.status",
+      "outputs.risk_summary.fha_va_flip"
+    ],
+    "dealFields": [
+      "deal.timeline"
+    ],
+    "derivedFromKnobs": [
+      "fhaVaFlipPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "90-day flip rule compliance.",
+    "storyRole": "supporting",
+    "notes": "Rendered with glossary tooltip."
+  },
+  {
+    "id": "risk_gate_firpta",
+    "label": "Gate: FIRPTA",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.firpta.status",
+      "outputs.risk_summary.firpta"
+    ],
+    "dealFields": [
+      "deal.legal"
+    ],
+    "derivedFromKnobs": [
+      "firptaPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "FIRPTA withholding risk gate.",
+    "storyRole": "supporting",
+    "notes": "Uses evidence + legal flags."
+  },
+  {
+    "id": "risk_gate_pace_solar_ucc",
+    "label": "Gate: PACE / Solar / UCC",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.pace_solar_ucc.status",
+      "outputs.risk_summary.pace_solar_ucc"
+    ],
+    "dealFields": [
+      "deal.debt"
+    ],
+    "derivedFromKnobs": [
+      "paceUccPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "PACE/solar/UCC encumbrance gate.",
+    "storyRole": "supporting",
+    "notes": "Reasons displayed in gate list."
+  },
+  {
+    "id": "risk_gate_condo_sirs",
+    "label": "Gate: Condo / SIRS",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.condo_sirs.status",
+      "outputs.risk_summary.condo_sirs"
+    ],
+    "dealFields": [
+      "deal.property"
+    ],
+    "derivedFromKnobs": [
+      "condoSirsPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "Condo milestone/SIRS compliance.",
+    "storyRole": "supporting",
+    "notes": "Helps flag reserve studies/special assessments."
+  },
+  {
+    "id": "risk_gate_manufactured",
+    "label": "Gate: Manufactured",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.manufactured.status",
+      "outputs.risk_summary.manufactured"
+    ],
+    "dealFields": [
+      "deal.property"
+    ],
+    "derivedFromKnobs": [
+      "manufacturedHousingPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "Manufactured/mobile home risk gate.",
+    "storyRole": "supporting",
+    "notes": "UI shows gate reason when present."
+  },
+  {
+    "id": "risk_gate_scra",
+    "label": "Gate: SCRA",
+    "component": "RiskComplianceCard/Gate row",
+    "cardGroup": "Risk & Compliance",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.risk_summary.per_gate.scra.status",
+      "outputs.risk_summary.scra"
+    ],
+    "dealFields": [
+      "deal.legal"
+    ],
+    "derivedFromKnobs": [
+      "scraPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "risk",
+    "description": "Active duty/SCRA verification gate.",
+    "storyRole": "supporting",
+    "notes": "Shows watch/fail when verification missing."
+  },
+  {
+    "id": "evidence_missing",
+    "label": "Missing Evidence",
+    "component": "DataEvidenceCard/Missing list",
+    "cardGroup": "Data & Evidence",
+    "unit": "list",
+    "analyzeFields": [
+      "outputs.evidence_summary.freshness_by_kind"
+    ],
+    "dealFields": [
+      "evidence.*"
+    ],
+    "derivedFromKnobs": [
+      "allowPlaceholdersWhenEvidenceMissing",
+      "evidenceFreshnessPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "evidence",
+    "description": "List of evidence kinds marked missing.",
+    "storyRole": "supporting",
+    "notes": "Shown with blocking badge where applicable."
+  },
+  {
+    "id": "evidence_stale",
+    "label": "Stale Evidence",
+    "component": "DataEvidenceCard/Stale list",
+    "cardGroup": "Data & Evidence",
+    "unit": "list",
+    "analyzeFields": [
+      "outputs.evidence_summary.freshness_by_kind"
+    ],
+    "dealFields": [
+      "evidence.*"
+    ],
+    "derivedFromKnobs": [
+      "evidenceFreshnessPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "evidence",
+    "description": "Evidence items present but stale.",
+    "storyRole": "supporting",
+    "notes": "Includes age days and blocking flag."
+  },
+  {
+    "id": "evidence_blocking",
+    "label": "Blocking Evidence",
+    "component": "DataEvidenceCard/Blocking list",
+    "cardGroup": "Data & Evidence",
+    "unit": "list",
+    "analyzeFields": [
+      "outputs.evidence_summary.freshness_by_kind"
+    ],
+    "dealFields": [
+      "evidence.*"
+    ],
+    "derivedFromKnobs": [
+      "evidenceFreshnessPolicy",
+      "allowPlaceholdersWhenEvidenceMissing"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "evidence",
+    "description": "Evidence kinds flagged as blocking Ready state.",
+    "storyRole": "supporting",
+    "notes": "Blocking flag drives workflow state."
+  },
+  {
+    "id": "deal_analysis_health",
+    "label": "Deal Health",
+    "component": "OverviewTab/Deal Analysis badge",
+    "cardGroup": "Deal Analysis",
+    "unit": "categorical",
+    "analyzeFields": [
+      "calculations.dealSpread",
+      "deal.policy.min_spread"
+    ],
+    "dealFields": [
+      "deal.policy.min_spread"
+    ],
+    "derivedFromKnobs": [
+      "minSpreadByArvBand"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "guardrails",
+    "description": "Pass/Tight/Below policy badge based on spread vs min spread.",
+    "storyRole": "supporting",
+    "notes": "Displayed next to Deal Analysis heading."
+  },
+  {
+    "id": "buyer_margin_pct",
+    "label": "Buyer Margin %",
+    "component": "OverviewTab/Deal Analysis Key Data",
+    "cardGroup": "Deal Analysis",
+    "unit": "percent",
+    "analyzeFields": [
+      "calculations.displayMargin"
+    ],
+    "dealFields": [
+      "deal.policy.margin"
+    ],
+    "derivedFromKnobs": [
+      "assignmentFeeTargetPctOfArv",
+      "buyerMarginPctPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "profit_spread",
+    "description": "Displayed buyer margin percent from calculations.",
+    "storyRole": "supporting",
+    "notes": "Renders in Key Data list."
+  },
+  {
+    "id": "contingency_pct",
+    "label": "Contingency %",
+    "component": "OverviewTab/Deal Analysis Key Data",
+    "cardGroup": "Deal Analysis",
+    "unit": "percent",
+    "analyzeFields": [
+      "calculations.displayCont"
+    ],
+    "dealFields": [
+      "deal.costs.rehab.contingency_pct"
+    ],
+    "derivedFromKnobs": [
+      "contingencyPctDefaults"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Repairs"
+    ],
+    "category": "repairs",
+    "description": "Contingency percentage applied to repairs.",
+    "storyRole": "supporting",
+    "notes": "From calc.displayCont."
+  },
+  {
+    "id": "assignment_observed",
+    "label": "Assignment Fee (Observed)",
+    "component": "OverviewTab/Deal Analysis Key Data",
+    "cardGroup": "Deal Analysis",
+    "unit": "currency",
+    "analyzeFields": [
+      "calculations.maoFinal",
+      "calculations.instantCashOffer"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "assignmentFeeTargetPctOfArv"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "profit_spread",
+    "description": "Difference between MAO and instant cash offer.",
+    "storyRole": "supporting",
+    "notes": "UI-calculated when both values exist."
+  },
+  {
+    "id": "resale_costs",
+    "label": "Resale Costs",
+    "component": "OverviewTab/Deal Analysis Cost Snapshot",
+    "cardGroup": "Deal Analysis",
+    "unit": "currency",
+    "analyzeFields": [
+      "calculations.resaleCosts"
+    ],
+    "dealFields": [
+      "deal.costs.resale"
+    ],
+    "derivedFromKnobs": [
+      "listingCostModelSellerCostLineItems"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "disposition",
+    "description": "Disposition/resale cost stack.",
+    "storyRole": "supporting",
+    "notes": "Uses policy defaults when not specified."
+  },
+  {
+    "id": "tenant_buffer",
+    "label": "Tenant Buffer",
+    "component": "OverviewTab/Deal Analysis Cost Snapshot",
+    "cardGroup": "Deal Analysis",
+    "unit": "currency",
+    "analyzeFields": [
+      "calculations.tenantBuffer"
+    ],
+    "dealFields": [
+      "deal.property.occupancy"
+    ],
+    "derivedFromKnobs": [
+      "tenantMoveOutCashDefaults"
+    ],
+    "primaryTabs": [
+      "Underwrite",
+      "Sandbox"
+    ],
+    "category": "risk",
+    "description": "Buffer applied when occupied by tenant.",
+    "storyRole": "supporting",
+    "notes": "Shown only when occupancy=tenant."
+  },
+  {
+    "id": "deal_structure_window",
+    "label": "Negotiation Window",
+    "component": "DealStructureChart/Window",
+    "cardGroup": "Deal Structure",
+    "unit": "currency",
+    "analyzeFields": [
+      "calculations.instantCashOffer",
+      "outputs.respect_floor"
+    ],
+    "dealFields": [],
+    "derivedFromKnobs": [
+      "minSpreadByArvBand"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "guardrails",
+    "description": "Offer minus respect floor visualized as negotiation band.",
+    "storyRole": "supporting",
+    "notes": "Rendered as orange ribbon on chart."
+  },
+  {
+    "id": "market_temp_label",
+    "label": "Market Temp Label",
+    "component": "MarketTempGauge",
+    "cardGroup": "Overview Extras",
+    "unit": "categorical",
+    "analyzeFields": [
+      "outputs.timeline_summary.speed_band",
+      "outputs.timeline_summary.days_to_money"
+    ],
+    "dealFields": [
+      "deal.market.dom",
+      "deal.market.months_of_inventory"
+    ],
+    "derivedFromKnobs": [
+      "speedBandPolicy"
+    ],
+    "primaryTabs": [
+      "Underwrite"
+    ],
+    "category": "market",
+    "description": "Cool/Neutral/Warm/Hot label for market heat.",
+    "storyRole": "supporting",
+    "notes": "Reason text includes speed band and DTM."
+  }
+]

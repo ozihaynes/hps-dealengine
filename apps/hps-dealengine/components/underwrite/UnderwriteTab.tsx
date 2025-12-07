@@ -1,6 +1,7 @@
 import React from "react";
 import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon } from "../ui";
+import { InfoTooltip } from "../ui/InfoTooltip";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";
 import { num, fmt$ } from "../../utils/helpers";
@@ -195,13 +196,19 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         {analysisOutputs ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <div className="label-xs text-text-secondary">AIV Safety Cap</div>
+              <div className="label-xs text-text-secondary flex items-center gap-1">
+                AIV Safety Cap
+                <InfoTooltip helpKey="aiv_safety_cap" />
+              </div>
               <div className="text-lg font-semibold">
                 {aivSafetyCap != null ? fmt$(aivSafetyCap, 0) : "-"}
               </div>
             </div>
             <div className="space-y-1">
-              <div className="label-xs text-text-secondary">Carry Months</div>
+              <div className="label-xs text-text-secondary flex items-center gap-1">
+                Carry Months
+                <InfoTooltip helpKey="carry_months" />
+              </div>
               <div className="text-lg font-semibold">
                 {carryMonths != null ? num(carryMonths, 1) : "-"}
               </div>
@@ -224,6 +231,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             value={market.arv ?? ""}
             onChange={(e: any) => setDealValue("market.arv", e.target.value)}
             warning={arvWarning}
+            helpKey="arv"
           />
           <InputField
             label="As-Is Value"
@@ -232,6 +240,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             value={market.as_is_value ?? ""}
             onChange={(e: any) => setDealValue("market.as_is_value", e.target.value)}
             warning={arvWarning}
+            helpKey="aiv"
           />
           {/* Units in label to avoid suffix overlap */}
           <InputField

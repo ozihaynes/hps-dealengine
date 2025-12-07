@@ -104,7 +104,7 @@ export default function DealsPage() {
       setCreateError(null);
 
       // For now, send the user into Overview for the selected deal.
-      router.push("/overview");
+      router.push(`/overview?dealId=${inserted.id}`);
     } catch (err: any) {
       console.error("[/deals] create deal error", err);
       setCreateError(err?.message ?? "Unable to create deal. Please try again.");
@@ -123,7 +123,7 @@ export default function DealsPage() {
           // ignore malformed payload; user can re-run analyze
         }
       }
-      router.push("/overview");
+      router.push(`/overview?dealId=${deal.id}`);
     },
     [router, setDbDeal, setDeal]
   );
@@ -184,10 +184,18 @@ export default function DealsPage() {
       {status.deals.length === 0 ? (
         <div className="rounded-md border border-dashed border-gray-400/50 bg-gray-900/40 p-6 text-sm text-gray-300">
           <p className="font-medium mb-1">No deals yet.</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mb-2">
             Click <span className="font-semibold">New Deal</span> to create your first deal for this
-            organization.
+            organization or return to the startup hub.
           </p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => setIsNewDealModalOpen(true)}>
+              Create new deal
+            </Button>
+            <Button size="sm" variant="neutral" onClick={() => router.push("/startup")}>
+              Go to Startup
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border border-gray-800 bg-gray-950/40">

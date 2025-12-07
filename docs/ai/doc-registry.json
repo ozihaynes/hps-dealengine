@@ -1,0 +1,219 @@
+[
+  {
+    "docId": "ai.assistant-behavior-guide",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "System-prompt rules for DealEngine AI assistants covering identity, allowed/forbidden behavior, source hierarchy, and audit posture.",
+    "path": "docs/ai/assistant-behavior-guide.md"
+  },
+  {
+    "docId": "ai.ceo-assumptions-by-doc",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Captures CEO-level assumptions baked into docs, clarifying when to treat guidance as authoritative vs subject to override.",
+    "path": "docs/ai/ceo-assumptions-by-doc.md"
+  },
+  {
+    "docId": "ai.data-sources-and-trust-tiers",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Defines source hierarchy for AI, from policy/math and engine outputs to product/playbooks and external market data, with usage rules.",
+    "path": "docs/ai/data-sources-and-trust-tiers.md"
+  },
+  {
+    "docId": "ai.doc-metadata-schema",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Frontmatter schema used across docs so AI and humans can route by category, audience, and trust tier.",
+    "path": "docs/ai/doc-metadata-schema.md"
+  },
+  {
+    "docId": "ai.index-for-ai",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Entry point and sitemap for DealEngine docs with priority rules and boot sequence for AI assistants and humans.",
+    "path": "docs/index-for-ai.md"
+  },
+  {
+    "docId": "ai.prompting-patterns",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Canonical prompt/response patterns for DealEngine AI (deal explain, run diff, seller questions, risk gaps, IC prep, evidence gaps).",
+    "path": "docs/ai/prompting-patterns.md"
+  },
+  {
+    "docId": "app.overview-layout-map",
+    "category": "app",
+    "trustTier": 1,
+    "summary": "Describes the current /dashboard layout, regions, and KPIs/cards with links to trace and domain sources.",
+    "path": "docs/app/overview-layout-map.md"
+  },
+  {
+    "docId": "app.repairs-flow",
+    "category": "app",
+    "trustTier": 1,
+    "summary": "Workflow for the Repairs tab from QuickEstimate through Big 5 and line items, including evidence expectations and integration with underwriting.",
+    "path": "docs/app/repairs-flow.md"
+  },
+  {
+    "docId": "app.routes-overview",
+    "category": "app",
+    "trustTier": 1,
+    "summary": "Intended map of primary routes, personas, and guards across Dashboard, Underwrite, Repairs, Trace, Sandbox, Deals, Runs, and Settings.",
+    "path": "docs/app/routes-overview.md"
+  },
+  {
+    "docId": "app.underwrite-flow",
+    "category": "app",
+    "trustTier": 1,
+    "summary": "Step-by-step recipe for using /underwrite, running analyze, interpreting outputs, and reaching ReadyForOffer.",
+    "path": "docs/app/underwrite-flow.md"
+  },
+  {
+    "docId": "dashboard.kpi-inventory",
+    "category": "dashboard",
+    "trustTier": 1,
+    "summary": "Canonical list of Dashboard KPIs with formulas, sources, dependencies, and placement; aligns UI with engine outputs and trace.",
+    "path": "docs/dashboard/kpi-inventory.md"
+  },
+  {
+    "docId": "dashboard.kpi-stories",
+    "category": "dashboard",
+    "trustTier": 1,
+    "summary": "Narrative guide to what each Dashboard KPI means, how to act on it, and how to explain states with trace references.",
+    "path": "docs/dashboard/kpi-stories.md"
+  },
+  {
+    "docId": "domain.market-temp-methodology",
+    "category": "domain",
+    "trustTier": 0,
+    "summary": "Defines Market Temp from DOM/MOI inputs, speed bands, and how market speed influences carry, margins, and exit strategy.",
+    "path": "docs/domain/market-temp-methodology.md"
+  },
+  {
+    "docId": "domain.repairs-and-contingency-model",
+    "category": "domain",
+    "trustTier": 0,
+    "summary": "Authoritative repairs policy covering Quick Estimate PSF, Big 5, line-item scopes, repair profiles, and contingency rules.",
+    "path": "docs/domain/repairs-and-contingency-model.md"
+  },
+  {
+    "docId": "domain.risk-gates-and-compliance",
+    "category": "domain",
+    "trustTier": 0,
+    "summary": "Intended source of truth for risk/compliance gates (flood, insurance, title, condo/SIRS, FHA/VA, PACE/UCC, FIRPTA/SCRA) and how they map to trace and UI.",
+    "path": "docs/domain/risk-gates-and-compliance.md"
+  },
+  {
+    "docId": "domain.timeline-and-carry-policy",
+    "category": "domain",
+    "trustTier": 0,
+    "summary": "Defines Days-to-Money, urgency bands, carry cost policy, and how timeline risks influence exits, strategy, and evidence.",
+    "path": "docs/domain/timeline-and-carry-policy.md"
+  },
+  {
+    "docId": "domain.wholesale-underwriting-handbook",
+    "category": "domain",
+    "trustTier": 0,
+    "summary": "Authoritative wholesale underwriting manual covering valuation standards, spreads, floors/ceilings, MAO selection, exits, and checklists.",
+    "path": "docs/domain/wholesale-underwriting-handbook.md"
+  },
+  {
+    "docId": "engine.analyze-contracts",
+    "category": "engine",
+    "trustTier": 1,
+    "summary": "Human-readable spec for AnalyzeInput/AnalyzeOutput and trace envelopes used by v1-analyze and runs-save.",
+    "path": "docs/engine/analyze-contracts.md"
+  },
+  {
+    "docId": "engine.architecture-overview",
+    "category": "engine",
+    "trustTier": 1,
+    "summary": "Maps the Next.js app, Supabase Edge Functions, engine package, RLS model, and deterministic underwriting flow UI → Edge → DB.",
+    "path": "docs/engine/architecture-overview.md"
+  },
+  {
+    "docId": "engine.knobs-and-sandbox-mapping",
+    "category": "engine",
+    "trustTier": 1,
+    "summary": "Intended map of sandbox/policy knobs to engine behaviors and UI surfaces; currently a placeholder pointing to knobs audit.",
+    "path": "docs/engine/knobs-and-sandbox-mapping.md"
+  },
+  {
+    "docId": "engine.trace-anatomy",
+    "category": "engine",
+    "trustTier": 1,
+    "summary": "Defines trace frame structure and semantics so UI/AI can explain underwriting decisions without re-deriving math.",
+    "path": "docs/engine/trace-anatomy.md"
+  },
+  {
+    "docId": "examples.deal-scenarios",
+    "category": "examples",
+    "trustTier": 2,
+    "summary": "Six end-to-end deal scenarios illustrating how spreads, risk gates, timeline, evidence, and strategy interact across the app.",
+    "path": "docs/examples/deal-scenarios.md"
+  },
+  {
+    "docId": "glossary.concepts-by-page",
+    "category": "glossary",
+    "trustTier": 1,
+    "summary": "Maps UI labels/components to glossary keys and source docs to keep terminology consistent across routes.",
+    "path": "docs/glossary/concepts-by-page.md"
+  },
+  {
+    "docId": "glossary.terms",
+    "category": "glossary",
+    "trustTier": 1,
+    "summary": "Canonical definitions for DealEngine terms (Respect Floor, Buyer Ceiling, DTM, Market Temp, Risk Gates, etc.) aligned with UI and engine.",
+    "path": "docs/glossary/terms.md"
+  },
+  {
+    "docId": "ops.data-integrity-and-validation",
+    "category": "ops",
+    "trustTier": 1,
+    "summary": "Validation and integrity guidance across DB, engine, and UI plus SOPs for fixing bad data without breaking determinism or RLS.",
+    "path": "docs/ops/data-integrity-and-validation.md"
+  },
+  {
+    "docId": "ops.error-conditions",
+    "category": "ops",
+    "trustTier": 1,
+    "summary": "Error taxonomy and support runbooks for auth, edge functions, RLS, evidence uploads, and outage/degraded states.",
+    "path": "docs/ops/error-conditions.md"
+  },
+  {
+    "docId": "playbooks.negotiation-playbook-templates",
+    "category": "playbooks",
+    "trustTier": 2,
+    "summary": "Reusable negotiation templates grounded in DealEngine guardrails, KPIs, risk gates, and evidence expectations.",
+    "path": "docs/playbooks/negotiation-playbook-templates.md"
+  },
+  {
+    "docId": "playbooks.user-faq",
+    "category": "playbooks",
+    "trustTier": 2,
+    "summary": "Operational FAQ mapped to routes, KPIs, risk gates, and evidence so support and AI can answer consistently.",
+    "path": "docs/playbooks/user-faq.md"
+  },
+  {
+    "docId": "product.end-to-end-deal-lifecycle",
+    "category": "product",
+    "trustTier": 2,
+    "summary": "Maps the full lead-to-close lifecycle to DealEngine routes, data models, edge functions, and statuses.",
+    "path": "docs/product/end-to-end-deal-lifecycle.md"
+  },
+  {
+    "docId": "product.personas-and-use-cases",
+    "category": "product",
+    "trustTier": 2,
+    "summary": "Defines primary personas, jobs-to-be-done, workflows, and expectations that guide DealEngine product and AI behavior.",
+    "path": "docs/product/personas-and-use-cases.md"
+  },
+  {
+    "docId": "product.vision-and-positioning",
+    "category": "product",
+    "trustTier": 2,
+    "summary": "Defines HPS DealEngine's product vision, positioning, scope boundaries, and differentiation for investor/wholesaler operators.",
+    "path": "docs/product/vision-and-positioning.md"
+  }
+]

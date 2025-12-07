@@ -9,6 +9,7 @@ import type {
 import { fmt$, num } from "../../utils/helpers";
 import { estimatorSections, Icons } from "../../constants";
 import { GlassCard, Button, Icon, SelectField } from "../ui";
+import { InfoTooltip } from "../ui/InfoTooltip";
 import { computeSectionTotals, computeQuickEstimateTotal } from "@/lib/repairsMath";
 
 // --- Interfaces ---
@@ -219,8 +220,9 @@ const QuickEstimate: React.FC<{
 
   return (
     <GlassCard className="p-5 md:p-6 space-y-3">
-      <h3 className="text-lg font-bold text-text-primary">
+      <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
         Quick Estimate Calculator
+        <InfoTooltip helpKey="quick_estimate" />
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SelectField
@@ -242,8 +244,9 @@ const QuickEstimate: React.FC<{
           </option>
         </SelectField>
         <div>
-          <label className="block text-xs font-medium text-text-secondary mb-1">
+          <label className="block text-xs font-medium text-text-secondary mb-1 flex items-center gap-1">
             Big 5 Budget Killers
+            <InfoTooltip helpKey="big5_repairs" />
           </label>
           <div className="space-y-1">
             {(

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { clearAiWindowsStorage } from "@/lib/ai/aiWindowsContext";
 
 export default function LogoutPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function LogoutPage() {
           "max-age=0",
           "samesite=lax",
         ].join("; ");
-
+        clearAiWindowsStorage();
         router.replace("/login");
       }
     }

@@ -89,6 +89,7 @@ export default function UnderwritePage() {
     lastAnalyzeResult,
     lastRunId,
     setLastRunId,
+    setLastRunAt,
     dbDeal,
     posture,
     setPosture,
@@ -96,6 +97,8 @@ export default function UnderwritePage() {
     sandboxError,
     repairRates,
     membershipRole,
+    hasUnsavedDealChanges,
+    setHasUnsavedDealChanges,
   } = useDealSession();
   const [orgId, setOrgId] = useState<string>("");
   const canEditPolicy = useMemo(
@@ -119,9 +122,7 @@ export default function UnderwritePage() {
     ReturnType<typeof buildEvidenceStatus>
   >([]);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  useUnsavedChanges(hasUnsavedChanges);
+  useUnsavedChanges(hasUnsavedDealChanges);
 
   // Load org_id:
   // 1) Prefer the selected dbDeal.org_id (from /deals)
@@ -217,16 +218,16 @@ export default function UnderwritePage() {
 
   // Clear unsaved marker when switching deals
   useEffect(() => {
-    setHasUnsavedChanges(false);
-  }, [dbDeal?.id]);
+    setHasUnsavedDealChanges(false);
+  }, [dbDeal?.id, setHasUnsavedDealChanges]);
 
   // Wire UnderwriteTab's setDealValue helper
   const handleSetDealValue = useCallback(
     (path: string, value: unknown) => {
       setDeal((prev) => setDealPath(prev, path, value));
-      setHasUnsavedChanges(true);
+      setHasUnsavedDealChanges(true);
     },
-    [setDeal],
+    [setDeal, setHasUnsavedDealChanges],
   );
 
   const handleAnalyze = useCallback(async () => {
@@ -385,8 +386,9 @@ export default function UnderwritePage() {
 
       const runId = response.run?.id ?? null;
       setLastRunId(runId);
+      setLastRunAt(response.run?.created_at ?? new Date().toISOString());
       setSaveRunStatus(`Run saved${dedupedLabel}. id=${runId ?? "unknown"}`);
-      setHasUnsavedChanges(false);
+      setHasUnsavedDealChanges(false);
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : JSON.stringify(err);
@@ -567,34 +569,36 @@ export default function UnderwritePage() {
         </div>
       )}
 
-      <UnderwriteTab
-        deal={deal}
-        calc={calc}
-        setDealValue={handleSetDealValue}
-        sandbox={effectiveSandbox}
-        canEditPolicy={canEditPolicy}
-        onRequestOverride={openOverrideModal}
-      />
+      <div className="space-y-6">
+          <UnderwriteTab
+            deal={deal}
+            calc={calc}
+            setDealValue={handleSetDealValue}
+            sandbox={effectiveSandbox}
+            canEditPolicy={canEditPolicy}
+            onRequestOverride={openOverrideModal}
+          />
 
-      <OverridesPanel
-        orgId={orgId || null}
-        dealId={dbDeal?.id ?? null}
-        posture={posture}
-        lastRunId={lastRunId}
-        refreshKey={overrideRefreshKey}
-        membershipRole={membershipRole}
-      />
+          <OverridesPanel
+            orgId={orgId || null}
+            dealId={dbDeal?.id ?? null}
+            posture={posture}
+            lastRunId={lastRunId}
+            refreshKey={overrideRefreshKey}
+            membershipRole={membershipRole}
+          />
 
-      {dbDeal?.id && (
-        <EvidenceUpload
-          dealId={dbDeal.id}
-          runId={lastRunId}
-          title="Evidence for this deal/run"
-          onUploadComplete={() => {
-            void refreshEvidence();
-          }}
-        />
-      )}
+          {dbDeal?.id && (
+            <EvidenceUpload
+              dealId={dbDeal.id}
+              runId={lastRunId}
+              title="Evidence for this deal/run"
+              onUploadComplete={() => {
+                void refreshEvidence();
+              }}
+            />
+          )}
+      </div>
 
       <RequestOverrideModal
         open={isOverrideModalOpen}

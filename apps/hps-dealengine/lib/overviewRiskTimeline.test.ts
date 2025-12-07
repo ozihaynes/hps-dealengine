@@ -10,7 +10,7 @@ describe("overviewRiskTimeline presenters", () => {
   it("handles missing outputs gracefully", () => {
     const risk = buildRiskView(null);
     const timeline = buildTimelineView(null, null as any);
-    const evidence = buildEvidenceView(undefined);
+    const evidence = buildEvidenceView(undefined, null);
 
     expect(risk.overallStatus).toBe("unknown");
     expect(risk.gates.every((g) => g.status === "unknown")).toBe(true);
@@ -23,8 +23,10 @@ describe("overviewRiskTimeline presenters", () => {
     const risk = buildRiskView({
       risk_summary: {
         overall: "watch",
-        insurability: "pass",
-        payoff: "fail",
+        per_gate: {
+          insurability: { status: "pass" },
+          payoff: { status: "fail", reasons: ["missing payoff"] },
+        },
         reasons: ["payoff: fail - missing payoff letter"],
       },
     } as any);
@@ -32,7 +34,7 @@ describe("overviewRiskTimeline presenters", () => {
     expect(risk.overallStatus).toBe("watch");
     const payoffGate = risk.gates.find((g) => g.key === "payoff");
     expect(payoffGate?.status).toBe("fail");
-    expect(payoffGate?.reason).toContain("payoff");
+    expect(payoffGate?.reasons[0]).toContain("payoff");
   });
 
   it("builds timeline with urgency and carry fallbacks", () => {
@@ -61,10 +63,10 @@ describe("overviewRiskTimeline presenters", () => {
         confidence_grade: "B",
         confidence_reasons: ["thin comps"],
         freshness_by_kind: {
-          payoff_letter: "fresh",
-          title_quote: "missing",
-          comps: "stale",
-          insurance: "fresh",
+          payoff_letter: { status: "fresh" },
+          title_quote: { status: "missing", blocking_for_ready: true },
+          comps: { status: "stale", age_days: 120 },
+          insurance: { status: "fresh" },
         },
       },
     } as any);
@@ -77,5 +79,32 @@ describe("overviewRiskTimeline presenters", () => {
       true,
     );
     expect(evidence.isComplete).toBe(false);
+  });
+
+  it("pulls placeholder policy from trace when present", () => {
+    const trace = [
+      {
+        rule: "EVIDENCE_FRESHNESS_POLICY",
+        details: {
+          allow_placeholders_when_evidence_missing: true,
+          placeholders_used: true,
+          placeholder_kinds: ["payoff_letter"],
+        },
+      },
+    ];
+    const evidence = buildEvidenceView(
+      {
+        evidence_summary: {
+          freshness_by_kind: {
+            payoff_letter: { status: "missing", blocking_for_ready: true },
+          },
+        },
+      } as any,
+      trace,
+    );
+
+    expect(evidence.placeholdersAllowed).toBe(true);
+    expect(evidence.placeholdersUsed).toBe(true);
+    expect(evidence.placeholderKinds).toContain("payoff_letter");
   });
 });

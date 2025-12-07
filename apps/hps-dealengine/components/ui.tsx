@@ -15,6 +15,11 @@ import type {
 } from '../types';
 import { num } from '../utils/helpers';
 import { Icons } from '../constants';
+import { InfoTooltip } from './ui/InfoTooltip';
+
+export function cn(...classes: Array<string | false | null | undefined>) {
+  return classes.filter(Boolean).join(' ');
+}
 
 export const Icon = ({ d, size = 20, className = '' }: IconProps) => (
   <svg
@@ -33,7 +38,19 @@ export const Icon = ({ d, size = 20, className = '' }: IconProps) => (
 );
 
 export const GlassCard = ({ children, className = '' }: CardProps) => (
-  <div className={`card-icy ${className}`}>{children}</div>
+  <div
+    className={cn(
+      'card-icy border-[color:var(--glass-border)] text-[color:var(--text-primary)]',
+      className
+    )}
+    style={{
+      backgroundColor: 'var(--glass-bg)',
+      borderColor: 'var(--glass-border)',
+      color: 'var(--text-primary)',
+    }}
+  >
+    {children}
+  </div>
 );
 
 export const Badge = ({ color, children }: BadgeProps) => {
@@ -61,8 +78,10 @@ export const Button = ({
 }: ButtonProps) => {
   const sizes = { sm: 'px-2 py-1 text-xs', md: 'px-4 py-2 text-sm' };
   const variants = {
-    primary:
-      'bg-accent-blue text-white hover:bg-blue-500 disabled:bg-blue-500/50 disabled:cursor-not-allowed',
+    primary: cn(
+      'bg-[color:var(--accent-color)] text-[color:var(--text-primary)]',
+      'hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed'
+    ),
     danger:
       'bg-accent-red text-white hover:bg-red-700 disabled:bg-red-500/50 disabled:cursor-not-allowed',
     ghost:
@@ -90,10 +109,14 @@ export const InputField = ({
   suffix,
   description,
   warning,
+  helpKey,
   ...props
 }: InputFieldProps) => (
   <div className="relative">
-    <label className="block text-base font-medium text-text-primary mb-1">{label}</label>
+    <div className="mb-1 flex items-center gap-2">
+      <label className="block text-base font-medium text-text-primary">{label}</label>
+      {helpKey ? <InfoTooltip helpKey={helpKey} /> : null}
+    </div>
     {description && <p className="text-xs text-text-secondary/70 mb-2">{description}</p>}
     <div className="relative">
       {prefix && (
@@ -136,9 +159,13 @@ export const SelectField = ({
   children,
   className,
   description,
+  helpKey,
 }: SelectFieldProps) => (
   <div className={className}>
-    <label className="block text-base font-medium text-text-primary mb-1">{label}</label>
+    <div className="mb-1 flex items-center gap-2">
+      <label className="block text-base font-medium text-text-primary">{label}</label>
+      {helpKey ? <InfoTooltip helpKey={helpKey} /> : null}
+    </div>
     {description && <p className="text-xs text-text-secondary/70 mb-2">{description}</p>}
     <select value={value} onChange={onChange} className="dark-select">
       {children}

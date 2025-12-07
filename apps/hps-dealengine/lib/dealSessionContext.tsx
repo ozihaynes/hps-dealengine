@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useCallback,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -20,6 +21,7 @@ import { Postures } from "@hps-internal/contracts";
 
 import { HPSEngine } from "../services/engine";
 import { getSupabaseClient } from "./supabaseClient";
+import { useSearchParams } from "next/navigation";
 import {
   DEFAULT_SANDBOX_CONFIG,
   mergeSandboxConfig,
@@ -63,6 +65,8 @@ type DealSessionValue = {
   sandboxError: string | null;
   lastAnalyzeResult: AnalyzeResult | null;
   lastRunId: string | null;
+  lastRunAt: string | null;
+  hasUnsavedDealChanges: boolean;
   repairRates: RepairRates | null;
   repairRatesLoading: boolean;
   repairRatesError: string | null;
@@ -75,6 +79,10 @@ type DealSessionValue = {
   setPosture: React.Dispatch<
     React.SetStateAction<(typeof Postures)[number]>
   >;
+  setHasUnsavedDealChanges: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+  setLastRunAt: React.Dispatch<React.SetStateAction<string | null>>;
   refreshSandbox: () => Promise<void>;
   refreshRepairRates: (opts?: {
     profileId?: string | null;
@@ -87,6 +95,8 @@ type DealSessionValue = {
   setActiveRepairProfileId: React.Dispatch<
     React.SetStateAction<string | null>
   >;
+  isHydratingActiveDeal: boolean;
+  hydratedDealId: string | null;
 };
 
 const DealSessionContext = createContext<DealSessionValue | null>(null);
@@ -192,6 +202,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const [lastAnalyzeResult, setLastAnalyzeResult] =
     useState<AnalyzeResult | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
+  const [lastRunAt, setLastRunAt] = useState<string | null>(null);
+  const [hasUnsavedDealChanges, setHasUnsavedDealChanges] = useState(false);
   const [dbDeal, setDbDeal] = useState<DbDeal | null>(null);
   const [repairRates, setRepairRates] = useState<RepairRates | null>(null);
   const [repairRatesLoading, setRepairRatesLoading] = useState(false);
@@ -202,6 +214,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     string | null
   >(null);
   const [membershipRole, setMembershipRole] = useState<OrgMembershipRole | null>(null);
+  const [isHydratingActiveDeal, setIsHydratingActiveDeal] = useState(false);
+  const [hydratedDealId, setHydratedDealId] = useState<string | null>(null);
   const derivedMarketCode = useMemo(
     () => deriveMarketCode(deal as Deal).toUpperCase(),
     [
@@ -212,6 +226,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     ],
   );
   const repairRatesRequestRef = React.useRef(0);
+  const searchParams = useSearchParams();
+  const dealIdFromUrl = searchParams?.get("dealId");
 
   const loadSandbox = React.useCallback(async () => {
     setSandboxLoading(true);
@@ -232,6 +248,39 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [dbDeal?.org_id, posture]);
 
+  const loadDealById = useCallback(
+    async (dealId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from("deals")
+          .select(
+            "id, org_id, created_by, created_at, updated_at, address, city, state, zip, client_name, client_phone, client_email, payload, organization:organizations(name)"
+          )
+          .eq("id", dealId)
+          .maybeSingle();
+
+        if (error || !data) {
+          return null;
+        }
+
+        const organization =
+          (data as any)?.organization ?? (data as any)?.organizations ?? null;
+        const normalized = {
+          ...(data as any),
+          orgId: (data as any)?.org_id ?? (data as any)?.orgId ?? "",
+          orgName: organization?.name ?? null,
+          organization,
+        } as DbDeal;
+
+        setDbDeal(normalized);
+        return normalized;
+      } catch {
+        return null;
+      }
+    },
+    [supabase],
+  );
+
   // Persist selected deal id locally so reloads keep context
   useEffect(() => {
     if (dbDeal?.id) {
@@ -246,32 +295,36 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     if (!savedId) return;
 
     const load = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("deals")
-          .select(
-            "id, org_id, created_by, created_at, updated_at, address, city, state, zip, client_name, client_phone, client_email, payload, organization:organizations(name)"
-          )
-          .eq("id", savedId)
-          .maybeSingle();
-
-        if (!error && data) {
-          const organization =
-            (data as any)?.organization ?? (data as any)?.organizations ?? null;
-          setDbDeal({
-            ...(data as any),
-            orgId: (data as any)?.org_id ?? (data as any)?.orgId ?? "",
-            orgName: organization?.name ?? null,
-            organization,
-          } as DbDeal);
-        }
-      } catch {
-        // ignore; user can pick a new deal
+      const loaded = await loadDealById(savedId);
+      if (loaded) {
+        setHydratedDealId(loaded.id);
       }
     };
 
     void load();
-  }, []);
+  }, [loadDealById]);
+
+  // Hydrate DealSession from URL ?dealId=... when present (deep-link)
+  useEffect(() => {
+    if (!dealIdFromUrl) return;
+    if (isHydratingActiveDeal) return;
+
+    // If already aligned with this dealId, no-op
+    if (dbDeal?.id === dealIdFromUrl && hydratedDealId === dealIdFromUrl) {
+      return;
+    }
+
+    setIsHydratingActiveDeal(true);
+    loadDealById(dealIdFromUrl)
+      .then((loaded) => {
+        if (loaded?.id) {
+          setHydratedDealId(loaded.id);
+        }
+      })
+      .finally(() => {
+        setIsHydratingActiveDeal(false);
+      });
+  }, [dealIdFromUrl, dbDeal?.id, hydratedDealId, isHydratingActiveDeal, loadDealById]);
 
   // When dbDeal changes, sync in-memory deal shape from payload
   useEffect(() => {
@@ -457,13 +510,16 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         if (output) {
           setLastAnalyzeResult(output as AnalyzeResult);
           setLastRunId((data as any).id ?? null);
+          setLastRunAt((data as any).created_at ?? null);
         } else {
           setLastAnalyzeResult(null);
           setLastRunId(null);
+          setLastRunAt(null);
         }
       } catch {
         setLastAnalyzeResult(null);
         setLastRunId(null);
+        setLastRunAt(null);
       }
     };
 
@@ -503,6 +559,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       sandboxError,
       lastAnalyzeResult,
       lastRunId,
+      lastRunAt,
+      hasUnsavedDealChanges,
       repairRates,
       repairRatesLoading,
       repairRatesError,
@@ -512,6 +570,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       setDeal,
       setSandbox,
       setPosture,
+      setHasUnsavedDealChanges,
+      setLastRunAt,
       refreshSandbox: loadSandbox,
       refreshRepairRates,
       setLastAnalyzeResult,
@@ -519,6 +579,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       setDbDeal,
       setActiveRepairProfileId,
       membershipRole,
+      isHydratingActiveDeal,
+      hydratedDealId,
     }),
     [
       deal,
@@ -528,6 +590,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       sandboxError,
       lastAnalyzeResult,
       lastRunId,
+      lastRunAt,
+      hasUnsavedDealChanges,
       repairRates,
       repairRatesLoading,
       repairRatesError,
@@ -537,6 +601,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       loadSandbox,
       refreshRepairRates,
       membershipRole,
+      isHydratingActiveDeal,
+      hydratedDealId,
     ]
   );
 
