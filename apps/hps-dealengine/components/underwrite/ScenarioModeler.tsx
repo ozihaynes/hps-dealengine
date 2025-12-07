@@ -1,15 +1,15 @@
 // apps/hps-dealengine/components/underwrite/ScenarioModeler.tsx
 
 import React, { useState, useMemo } from "react";
-import type { Deal, EngineCalculations, SandboxSettings } from "../../types";
-import { InputField } from "../ui";
+import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
+import NumericInput from "../ui/NumericInput";
 import { fmt$, num } from "../../utils/helpers";
 import { HPSEngine } from "../../services/engine";
 
 interface ScenarioModelerProps {
   deal: Deal;
   setDealValue: (path: string, value: any) => void;
-  sandbox: SandboxSettings;
+  sandbox: SandboxConfig;
   calc: EngineCalculations;
 }
 
@@ -26,14 +26,20 @@ const ScenarioModeler: React.FC<ScenarioModelerProps> = ({
   calc,
 }) => {
   // Initial scenario inputs derived safely from the deal
-  const [scenarioDays, setScenarioDays] = useState<string | number>(
-    deal?.policy?.manual_days_to_money ?? ""
+  const [scenarioDays, setScenarioDays] = useState<number | null>(
+    typeof deal?.policy?.manual_days_to_money === "number"
+      ? deal.policy.manual_days_to_money
+      : null,
   );
-  const [scenarioRepairs, setScenarioRepairs] = useState<string | number>(
-    deal?.costs?.repairs_base ?? 0
+  const [scenarioRepairs, setScenarioRepairs] = useState<number | null>(
+    typeof deal?.costs?.repairs_base === "number"
+      ? deal.costs.repairs_base
+      : null,
   );
-  const [scenarioConcessions, setScenarioConcessions] = useState<string | number>(
-    ((deal?.costs?.concessions_pct ?? 0) as number) * 100
+  const [scenarioConcessions, setScenarioConcessions] = useState<number | null>(
+    typeof deal?.costs?.concessions_pct === "number"
+      ? (deal.costs.concessions_pct as number) * 100
+      : null,
   );
 
   const scenarioResult = useMemo(() => {
@@ -50,12 +56,14 @@ const ScenarioModeler: React.FC<ScenarioModelerProps> = ({
 
     // Ensure numeric fields are always numbers (or null where appropriate)
     scenarioDealData.policy.manual_days_to_money =
-      scenarioDays === "" || scenarioDays === null || typeof scenarioDays === "undefined"
+      scenarioDays === null || typeof scenarioDays === "undefined"
         ? null
         : num(scenarioDays);
 
-    scenarioDealData.costs.repairs_base = num(scenarioRepairs);
-    scenarioDealData.costs.concessions_pct = num(scenarioConcessions) / 100;
+    scenarioDealData.costs.repairs_base =
+      scenarioRepairs === null ? null : num(scenarioRepairs);
+    scenarioDealData.costs.concessions_pct =
+      scenarioConcessions === null ? null : num(scenarioConcessions) / 100;
 
     // Run the deterministic engine with sandbox policy settings
     return HPSEngine.runEngine({ deal: scenarioDealData as Deal }, sandbox);
@@ -95,36 +103,44 @@ const ScenarioModeler: React.FC<ScenarioModelerProps> = ({
       <div className="md:col-span-1 space-y-4 info-card border border-white/5 p-4">
         <h3 className="font-semibold text-text-primary">Model Scenario</h3>
 
-        <InputField
-          label="Force Days to Money"
-          type="number"
-          value={scenarioDays}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setScenarioDays(e.target.value)
-          }
-          placeholder="e.g., 14"
-          suffix="days"
-        />
+        <div className="space-y-2">
+          <label className="block text-base font-medium text-text-primary">
+            Force Days to Money
+          </label>
+          <NumericInput
+            value={scenarioDays}
+            onValueChange={setScenarioDays}
+            placeholder="e.g., 14"
+            className="w-full"
+          />
+          <p className="text-xs text-text-secondary/70">days</p>
+        </div>
 
-        <InputField
-          label="Adjust Repair Budget"
-          type="number"
-          prefix="$"
-          value={scenarioRepairs}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setScenarioRepairs(e.target.value)
-          }
-        />
+        <div className="space-y-2">
+          <label className="block text-base font-medium text-text-primary">
+            Adjust Repair Budget
+          </label>
+          <NumericInput
+            value={scenarioRepairs}
+            onValueChange={setScenarioRepairs}
+            placeholder="e.g., 25000"
+            className="w-full"
+          />
+          <p className="text-xs text-text-secondary/70">USD</p>
+        </div>
 
-        <InputField
-          label="Adjust Seller Concessions"
-          type="number"
-          suffix="%"
-          value={scenarioConcessions}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setScenarioConcessions(e.target.value)
-          }
-        />
+        <div className="space-y-2">
+          <label className="block text-base font-medium text-text-primary">
+            Adjust Seller Concessions
+          </label>
+          <NumericInput
+            value={scenarioConcessions}
+            onValueChange={setScenarioConcessions}
+            placeholder="e.g., 2"
+            className="w-full"
+          />
+          <p className="text-xs text-text-secondary/70">%</p>
+        </div>
       </div>
 
       {/* Right: Scenario vs Current comparison */}

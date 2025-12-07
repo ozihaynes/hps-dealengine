@@ -152,7 +152,7 @@ export const ToggleSwitch = ({ label, checked, onChange, description }: ToggleSw
       <span className="text-sm text-text-primary">{label}</span>
       {description && <p className="text-xs text-text-secondary/70 mt-1">{description}</p>}
     </div>
-    <div className="relative flex-shrink-0 mt-1">
+    <div className="relative shrink-0 mt-1">
       <input type="checkbox" className="sr-only" checked={checked} onChange={onChange} />
       <div
         className={`block w-10 h-6 rounded-full ${checked ? 'bg-accent-blue' : 'bg-gray-600'}`}

@@ -1,5 +1,6 @@
 // apps/hps-dealengine/types.ts
 import type { MouseEvent, ReactNode } from "react";
+import type { GlossaryKey } from "./lib/glossary";
 
 /** Calculations used by Overview/Underwrite */
 export interface EngineCalculations {
@@ -93,6 +94,7 @@ export interface InputFieldProps {
   max?: number | string;
   step?: number | string;
   disabled?: boolean;
+  helpKey?: GlossaryKey;
 }
 export interface SelectFieldProps {
   label?: string;
@@ -102,6 +104,7 @@ export interface SelectFieldProps {
   className?: string;
   description?: string;
   children?: ReactNode;
+  helpKey?: GlossaryKey;
 }
 
 export interface ToggleSwitchProps {
@@ -170,15 +173,33 @@ export interface Deal {
     dom_zip?: number;
     moi_zip?: number;
     "price-to-list-pct"?: number;
+    price_to_list_ratio?: number;
     local_discount_20th_pct?: number;
+    local_discount_pct?: number;
+    dom?: number;
+    months_of_inventory?: number;
   };
   property: {
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
     occupancy?: string;
     county?: string;
     old_roof_flag?: boolean;
     is_homestead?: boolean;
     is_foreclosure_sale?: boolean;
     is_redemption_period_sale?: boolean;
+  };
+  contact?: {
+    name?: string;
+    phone?: string;
+    email?: string;
+  };
+  client?: {
+    name?: string;
+    phone?: string;
+    email?: string;
   };
   status: {
     insurability?: string;
@@ -221,16 +242,5 @@ export interface Deal {
   };
 }
 
-/** Minimal sandbox settings referenced by UI */
-export interface SandboxSettings {
-  aivSafetyCapPercentage?: number;
-  buyerTargetMarginFlipBaselinePolicy?: number;
-  carryMonthsMaximumCap?: number;
-  dispositionRecommendationLogicDtmThresholds?: unknown;
-  floorInvestorAivDiscountTypicalZip?: number;
-  floorPayoffMoveOutCashDefault?: number;
-  initialOfferSpreadMultiplier?: number;
-  listingCostModelSellerCostLineItems?: any[]; // used as array in UI
-  minSpreadByArvBand?: unknown[];
-  repairsContingencyPercentageByClass?: Record<string, number>;
-}
+// SandboxConfig from contracts represents the mutable sandbox settings blob.
+export type SandboxConfig = import("@hps-internal/contracts").SandboxConfig;

@@ -8,6 +8,7 @@ import { Postures, type UserSettings } from "@hps-internal/contracts";
 import { Button, GlassCard, Icon, SelectField } from "@/components/ui";
 import { Icons } from "@/constants";
 import { fetchUserSettings, upsertUserSettings } from "@/lib/userSettings";
+import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 
 type FormState = {
   defaultPosture: string;
@@ -326,6 +327,7 @@ export default function UserSettingsPage() {
               </p>
             </div>
           </div>
+          <ThemeSwitcher />
           <div className="grid gap-2">
             {themeOptions.map((opt) => {
               const isActive = form.theme === opt.value;

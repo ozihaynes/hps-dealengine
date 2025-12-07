@@ -1,6 +1,8 @@
 /** @type {import("next").NextConfig} */
-module.exports = {
+const baseConfig = {
   reactStrictMode: true,
   distDir: ".next-build",
   transpilePackages: ["@hps-internal/engine", "@hps-internal/contracts"],
 };
+
+module.exports = baseConfig;

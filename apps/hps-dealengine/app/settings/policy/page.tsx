@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../../lib/supabaseClient";
+import { clearAiWindowsStorage } from "@/lib/ai/aiWindowsContext";
 
 export default function PolicySettingsPage() {
   const router = useRouter();
@@ -51,6 +52,7 @@ export default function PolicySettingsPage() {
       await supabase.auth.signOut();
     } finally {
       setUserEmail(null);
+      clearAiWindowsStorage();
       router.replace("/login");
     }
   }

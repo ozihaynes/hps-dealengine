@@ -1,5 +1,13 @@
 import { Postures } from "@hps-internal/contracts";
-import type { SandboxConfig } from "@hps-internal/contracts";
+import type {
+  SandboxConfig,
+  SandboxSettingMeta,
+} from "@hps-internal/contracts";
+import {
+  SANDBOX_DEFAULTS as CONTRACT_SANDBOX_DEFAULTS,
+  SANDBOX_ROOT_DEFAULTS,
+  SANDBOX_SETTING_META,
+} from "@hps-internal/contracts";
 import {
   SANDBOX_ALL_SETTING_DEFS,
   SANDBOX_PAGES_CONFIG as RAW_SANDBOX_PAGES_CONFIG,
@@ -16,21 +24,11 @@ export type SandboxPage = {
   settings: SandboxSettingItem[];
 };
 
-const LEGACY_SANDBOX_DEFAULTS: SandboxConfig = {
-  arvRange: { min: 150000, max: 450000 },
-  repairBudgetRange: { min: 0, max: 80000 },
-  discountRange: { min: 0, max: 0.3 },
-  flags: {
-    enableAggressiveUpside: false,
-    showRiskWarnings: true,
-  },
-};
-
 export const SANDBOX_PAGES_CONFIG: SandboxPage[] = RAW_SANDBOX_PAGES_CONFIG;
 
 export const DEFAULT_SANDBOX_CONFIG: SandboxConfig = {
-  ...createInitialSandboxState(),
-  ...LEGACY_SANDBOX_DEFAULTS,
+  ...(CONTRACT_SANDBOX_DEFAULTS as Record<string, any>),
+  ...SANDBOX_ROOT_DEFAULTS,
 };
 
 // Posture-aware keys (vary by posture)
@@ -107,3 +105,6 @@ export function isPostureAwareKey(key: string) {
 }
 
 export const ALL_SANDBOX_SETTING_DEFS = SANDBOX_ALL_SETTING_DEFS;
+export const ALL_SANDBOX_SETTING_META: SandboxSettingMeta[] = SANDBOX_SETTING_META;
+export const SANDBOX_SETTING_META_BY_KEY: Record<string, SandboxSettingMeta> =
+  Object.fromEntries(SANDBOX_SETTING_META.map((m) => [m.key, m]));

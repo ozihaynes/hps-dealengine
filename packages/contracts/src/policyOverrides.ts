@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 export const PolicyOverrideRequestInputSchema = z.object({
+  dealId: z.string().uuid().optional(),
   posture: z.string().min(1),
   tokenKey: z.string().min(1),
+  oldValue: z.any().optional(),
   newValue: z.any(),
   justification: z.string().min(1),
   runId: z.string().uuid().optional().nullable(),

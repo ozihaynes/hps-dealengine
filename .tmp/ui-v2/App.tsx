@@ -33,6 +33,7 @@ import OverviewTab from './components/overview/OverviewTab';
 import RepairsTab from './components/repairs/RepairsTab';
 import UnderwriteTab from './components/underwrite/UnderwriteTab';
 import BusinessLogicSandbox from './components/settings/BusinessLogicSandbox';
+import MobileBottomNav from './components/shared/MobileBottomNav';
 
 const GlobalStyles = () => (
   <style>{`
@@ -647,6 +648,11 @@ const TABS = [
   { id: 'underwrite', label: 'Underwrite', icon: Icons.calculator },
 ];
 
+const MOBILE_NAV_ITEMS = [
+  ...TABS,
+  { id: 'settings', label: 'Settings', icon: Icons.settings },
+];
+
 const App = () => {
   const [settings, setSettings] = useLocalStorage<AppSettings>(
     'hps-dealengine-settings',
@@ -739,7 +745,7 @@ ${JSON.stringify({ deal, calculations }, null, 2)}
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .split('\n')
-        .map((line) => (line.trim().startsWith('* ') ? `<li>${line.substring(2)}</li>` : line))
+        .map((line: string) => (line.trim().startsWith('* ') ? `<li>${line.substring(2)}</li>` : line))
         .join('\n')
         .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
         .replace(/<\/ul>\n<ul>/g, '');
@@ -845,6 +851,17 @@ ${JSON.stringify({ deal, calculations }, null, 2)}
     }));
     showToast('Preset deleted.', 'orange');
   };
+
+  const handleMobileNavChange = (tabId: string) => {
+    if (tabId === 'settings') {
+      setCurrentPage('settings');
+    } else {
+      setCurrentPage('engine');
+      setActiveTab(tabId);
+    }
+  };
+
+  const activeMobileTab = currentPage === 'settings' ? 'settings' : activeTab;
 
   const enginePageContent = (
     <>
@@ -978,8 +995,21 @@ ${JSON.stringify({ deal, calculations }, null, 2)}
           )}
         </main>
       </div>
+
+      {/* Mobile bottom navigation (visible on mobile/tablet only) */}
+      <MobileBottomNav
+        navItems={MOBILE_NAV_ITEMS}
+        activeTab={activeMobileTab}
+        onTabChange={handleMobileNavChange}
+      />
     </div>
   );
 };
 
 export default App;
+
+
+
+
+
+

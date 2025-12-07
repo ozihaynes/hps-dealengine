@@ -1,6 +1,7 @@
 import React from "react";
-import type { Deal, EngineCalculations, SandboxSettings } from "../../types";
+import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon } from "../ui";
+import { InfoTooltip } from "../ui/InfoTooltip";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";
 import { num, fmt$ } from "../../utils/helpers";
@@ -34,7 +35,7 @@ interface UnderwriteTabProps {
   deal: Deal;
   calc: EngineCalculations;
   setDealValue: (path: string, value: any) => void;
-  sandbox: SandboxSettings;
+  sandbox: SandboxConfig;
   canEditPolicy: boolean;
   onRequestOverride: (tokenKey: string, newValue: unknown) => void;
 }
@@ -48,6 +49,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   onRequestOverride,
 }) => {
   const baseDeal = (deal as any) ?? {};
+  const sandboxAny = sandbox as any;
 
   const property = (baseDeal.property ??
     ({
@@ -140,13 +142,17 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   const getMinSpreadPlaceholder = () => {
     const arv = num(market.arv, 0);
-    const bands: any[] = sandbox.minSpreadByArvBand || [];
+    const bands: any[] = Array.isArray(sandboxAny.minSpreadByArvBand)
+      ? sandboxAny.minSpreadByArvBand
+      : [];
     const applicableBand = bands.find((b) => arv <= b.maxArv) || bands[bands.length - 1];
     if (!applicableBand) return "Policy Default";
     return `${fmt$(applicableBand.minSpread, 0)} (Policy)`;
   };
 
-  const commissionItems: any[] = sandbox.listingCostModelSellerCostLineItems || [];
+  const commissionItems: any[] = Array.isArray(sandboxAny.listingCostModelSellerCostLineItems)
+    ? sandboxAny.listingCostModelSellerCostLineItems
+    : [];
   const commissionDefault = commissionItems.find((i) => i.item === "Commissions")?.defaultPct || 6;
   const concessionsDefault = commissionItems.find((i) => i.item === "Seller Concessions")?.defaultPct || 2;
   const sellCloseDefault = commissionItems.find((i) => i.item === "Title & Stamps")?.defaultPct || 1.5;
@@ -190,13 +196,19 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         {analysisOutputs ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="space-y-1">
-              <div className="label-xs text-text-secondary">AIV Safety Cap</div>
+              <div className="label-xs text-text-secondary flex items-center gap-1">
+                AIV Safety Cap
+                <InfoTooltip helpKey="aiv_safety_cap" />
+              </div>
               <div className="text-lg font-semibold">
                 {aivSafetyCap != null ? fmt$(aivSafetyCap, 0) : "-"}
               </div>
             </div>
             <div className="space-y-1">
-              <div className="label-xs text-text-secondary">Carry Months</div>
+              <div className="label-xs text-text-secondary flex items-center gap-1">
+                Carry Months
+                <InfoTooltip helpKey="carry_months" />
+              </div>
               <div className="text-lg font-semibold">
                 {carryMonths != null ? num(carryMonths, 1) : "-"}
               </div>
@@ -219,6 +231,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             value={market.arv ?? ""}
             onChange={(e: any) => setDealValue("market.arv", e.target.value)}
             warning={arvWarning}
+            helpKey="arv"
           />
           <InputField
             label="As-Is Value"
@@ -227,6 +240,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             value={market.as_is_value ?? ""}
             onChange={(e: any) => setDealValue("market.as_is_value", e.target.value)}
             warning={arvWarning}
+            helpKey="aiv"
           />
           {/* Units in label to avoid suffix overlap */}
           <InputField
@@ -377,6 +391,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 label="Payoff Confirmed"
                 checked={!!debt.payoff_is_confirmed}
                 onChange={() =>
+                  canEditPolicy &&
                   setDealValue("debt.payoff_is_confirmed", !debt.payoff_is_confirmed)
                 }
               />
@@ -431,7 +446,12 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         <div className="mt-6">
           <div className="flex justify-between items-center mb-2">
             <h4 className="label-xs uppercase tracking-wider text-accent-blue/80">Junior Liens</h4>
-            <Button size="sm" variant="neutral" onClick={addJuniorLien}>
+            <Button
+              size="sm"
+              variant="neutral"
+              onClick={addJuniorLien}
+              disabled={!canEditPolicy}
+            >
               + Add Lien
             </Button>
           </div>
@@ -581,7 +601,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             min="0"
             max="10"
             step="0.1"
-            placeholder={`${sandbox.aivSafetyCapPercentage || 3}% (Policy)`}
+            placeholder={`${sandboxAny.aivSafetyCapPercentage || 3}% (Policy)`}
             disabled={!canEditPolicy}
           />
           <LockedHint

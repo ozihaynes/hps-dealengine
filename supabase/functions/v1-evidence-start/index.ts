@@ -126,6 +126,36 @@ serve(async (req) => {
     const orgId = (dealRow as DealRow).org_id;
     const runId = body.runId ?? null;
 
+    if (runId) {
+      const { data: runRow, error: runError } = await supabase
+        .from("runs")
+        .select("id, org_id, deal_id, input")
+        .eq("id", runId)
+        .maybeSingle();
+
+      if (runError || !runRow) {
+        return jsonResponse(
+          req,
+          { ok: false, error: "Run not found or not accessible" },
+          404,
+        );
+      }
+
+      const runOrgId = (runRow as any).org_id;
+      const runDealId =
+        (runRow as any).deal_id ??
+        ((runRow as any).input as any)?.dealId ??
+        null;
+
+      if (runOrgId !== orgId || (runDealId && runDealId !== body.dealId)) {
+        return jsonResponse(
+          req,
+          { ok: false, error: "Run does not belong to this deal/org" },
+          400,
+        );
+      }
+    }
+
     const storageKey = [
       "org",
       orgId,

@@ -1,31 +1,19 @@
 
 import React from 'react';
+import type { MarketTempView } from '../../lib/overviewExtras';
 
-const MarketTempGauge: React.FC = () => {
-  // Static market data to provide a consistent source of truth.
-  const marketData = {
-    temperature: 58,
-    summary: 'Balanced market conditions observed.',
-  };
+export interface MarketTempGaugeProps {
+  view: MarketTempView;
+}
 
-  const temp = marketData.temperature;
+const MarketTempGauge: React.FC<MarketTempGaugeProps> = ({ view }) => {
+  const temp = Number.isFinite(view.score) ? view.score : 0;
   const rotation = -90 + (temp / 100) * 180;
-  const color = 'text-cyan-300'; // Set to cyan as requested.
-
-  const renderContent = () => {
-    return (
-      <>
-        <div className={`text-3xl font-bold font-mono metric-glow ${color}`}>
-          {marketData.temperature}
-        </div>
-        <div className={`text-xs font-semibold text-center ${color}`}>{marketData.summary}</div>
-      </>
-    );
-  };
+  const color = view.label === 'hot' ? 'text-orange-300' : view.label === 'cool' ? 'text-cyan-300' : 'text-blue-200';
 
   return (
     <div className="card-icy flex flex-col items-center justify-center text-center h-full">
-      <h4 className="label-xs uppercase mb-2">Central FL Market Temp</h4>
+      <h4 className="label-xs uppercase mb-2">Market Temp</h4>
       <div className="relative w-48 h-24">
         <svg viewBox="0 0 100 50" className="w-full h-full">
           <path
@@ -55,12 +43,12 @@ const MarketTempGauge: React.FC = () => {
           style={{ transform: `translateX(-50%) translateX(-0.5px) rotate(${rotation}deg)` }}
         ></div>
       </div>
-      {renderContent()}
+      <div className={`text-3xl font-bold font-mono metric-glow ${color}`}>{Math.round(temp)}</div>
+      <div className={`text-xs font-semibold text-center ${color}`}>{view.reason}</div>
     </div>
   );
 };
 
 export default MarketTempGauge;
-
 
 

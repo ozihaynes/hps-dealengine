@@ -9,9 +9,11 @@ export const RunTraceFrameSchema = z.object({
 export type RunTraceFrame = z.infer<typeof RunTraceFrameSchema>;
 
 export const RunInputEnvelopeSchema = z.object({
+  dealId: z.string().uuid(),
   posture: z.string(),
   deal: z.unknown(),
   sandbox: z.unknown(),
+  repairProfile: z.unknown().optional(),
   meta: z
     .object({
       engineVersion: z.string().optional(),

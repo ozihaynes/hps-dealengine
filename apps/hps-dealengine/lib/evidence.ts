@@ -103,7 +103,8 @@ export async function listEvidence(opts: {
 
   if (opts.runId) {
     query.eq("run_id", opts.runId);
-  } else if (opts.dealId) {
+  }
+  if (opts.dealId) {
     query.eq("deal_id", opts.dealId);
   }
 

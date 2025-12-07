@@ -1,0 +1,146 @@
+---
+doc_id: "ops.error-conditions"
+category: "ops"
+audience: ["ai-assistant", "engineer", "ops", "product"]
+trust_tier: 1
+summary: "Error taxonomy and support runbooks for auth, edge functions, RLS, evidence uploads, and outage/degraded states."
+---
+
+# Error Conditions & Support Runbooks — HPS DealEngine
+
+## Purpose
+- Catalog user-facing error conditions and standard resolution steps for support, ops/engineering, and AI assistants.
+- Map errors to likely causes, user guidance, and escalation details, aligned with engine architecture, Analyze contracts, Risk Gates & Compliance, AI behavior, and data validation.
+
+## Error Taxonomy (surfaces)
+- **Auth & Session:** Login failures; missing org membership; expired/invalid JWT; DealSession not found or expired.
+- **Edge Functions & APIs:** v1-analyze validation/engine errors or missing inputs; v1-runs-save hash/uniqueness/RLS issues; repairs APIs (v1-repair-rates/profiles); evidence APIs (v1-evidence-*); sandbox/policy endpoints.
+- **RLS / Database:** `permission denied for table ...`; missing row/foreign key/uniqueness (runs hash, org/deal linkage); access to runs/deals outside membership.
+- **Evidence Uploads & Files:** CORS or signed URL failures; file size/type limits; upload timeout.
+- **UI / Runtime:** Next.js route errors; React error boundaries; “failed to fetch”; “no run selected/no deal selected” guards; hydration issues.
+- **Network / Timeouts:** Edge function timeout; Supabase connectivity; transient provider errors.
+
+## Per-Error Playbook
+
+### Analyze request failed (400/422)
+- **Example message:** “Analyze failed: missing ARV in input” (example) or validation errors from v1-analyze.
+- **Surface:** Edge / API.
+- **Likely root causes:** Required fields missing (dealId, posture, ARV/AIV, repairs); malformed payload; stale DealSession.
+- **User steps:**
+  - Re-select deal; verify posture/market; ensure ARV/AIV/repairs/payoff are entered.
+  - Retry Analyze; if persists, capture error text.
+- **Ops/eng steps:** Check v1-analyze logs; validate AnalyzeInput contract vs UI payload; confirm contract changes reflected in client.
+- **Escalate with:** dealId, orgId, runId (if any), route, payload snapshot, error text, timestamp.
+
+### Runs save failed (hash/uniqueness/RLS)
+- **Example message:** “runs hash uniqueness violation” or “permission denied for table runs”.
+- **Surface:** Edge / DB.
+- **Likely root causes:** Duplicate (org, posture, input_hash, policy_hash); RLS denies insert; missing run payload; DealSession mismatch.
+- **User steps:**
+  - Ensure you ran Analyze just before save; reselect deal/posture.
+  - Retry save once; if RLS/permission, contact admin.
+- **Ops/eng steps:** Check v1-runs-save logs; inspect runs uniqueness and RLS policies; verify user org membership and policy hash alignment.
+- **Escalate with:** dealId, orgId, run input_hash/policy_hash, exact error, timestamp.
+
+### Permission denied (RLS)
+- **Example message:** “permission denied for table deals/runs/...”.
+- **Surface:** DB / RLS.
+- **Likely root causes:** User not in org/memberships; attempting to access another org’s deal/run; service role not used where required (back-office only).
+- **User steps:**
+  - Confirm you’re in the correct org; re-auth; re-open deal.
+  - If still blocked, request org membership update.
+- **Ops/eng steps:** Check memberships; RLS policies; JWT claims; confirm route is not using service_role in user flows.
+- **Escalate with:** user, orgId, dealId/runId, route, error text, timestamp.
+
+### Evidence upload failed (CORS/signed URL/size)
+- **Example message:** “Failed to upload evidence: 403” or “URL signature invalid”.
+- **Surface:** Evidence API / Storage.
+- **Likely root causes:** Expired or bad signed URL; file too large/wrong type; CORS blocked; network drop.
+- **User steps:**
+  - Retry quickly; ensure file size/type acceptable; try different network.
+  - If repeat, collect error text and time.
+- **Ops/eng steps:** Check evidence function logs; validate storage bucket CORS; verify signed URL generation; size/type limits.
+- **Escalate with:** user, orgId, dealId, file name/size/type, error text, timestamp.
+
+### Repairs rates/profiles not loading
+- **Example message:** “Failed to load repair rates” or empty QuickEstimate/Big 5 data.
+- **Surface:** Repairs API / UI.
+- **Likely root causes:** v1-repair-rates/profiles failure; profile missing for market/posture; network error.
+- **User steps:**
+  - Refresh; confirm deal market/posture; re-open Repairs tab.
+  - Do not guess repairs; mark info-needed if blocked.
+- **Ops/eng steps:** Check repair rates/profile endpoints; seed/default profile existence; sandbox posture mapping.
+- **Escalate with:** orgId, dealId, posture/market, error text, timestamp.
+
+### No run selected / No deal selected
+- **Example message:** “Select a deal to view this page” or blank stats.
+- **Surface:** UI guard.
+- **Likely root causes:** Deep link without DealSession; session expired; run not chosen.
+- **User steps:**
+  - Pick a deal from `/deals`; re-run Analyze; select latest run in UI.
+- **Ops/eng steps:** Verify DealSession context; check route guard logic; confirm runs list query.
+- **Escalate with:** user, route, dealId (if any), timestamp.
+
+### Auth/session errors
+- **Example message:** “Invalid/expired session”, repeated logouts.
+- **Surface:** Auth.
+- **Likely root causes:** Expired JWT; org membership removed; cookie/session cleared.
+- **User steps:**
+  - Re-login; confirm org membership; try incognito.
+- **Ops/eng steps:** Check auth config and memberships; inspect auth logs; confirm RLS context.
+- **Escalate with:** user email, org, timestamp, route.
+
+### Network/timeout / failed to fetch
+- **Example message:** “Failed to fetch” or request timeout.
+- **Surface:** Network / Edge.
+- **Likely root causes:** Connectivity issues; Edge function timeout; transient provider issue.
+- **User steps:**
+  - Check connection; retry; if persistent, pause and notify support.
+- **Ops/eng steps:** Monitor Edge/Supabase health; inspect function latency/timeouts; rate limits.
+- **Escalate with:** route, function, timestamp, error text.
+
+### UI runtime / error boundary
+- **Example message:** “Something went wrong” or React error boundary page.
+- **Surface:** UI runtime.
+- **Likely root causes:** Unexpected null data (no run/deal), unhandled component state, hydration issues.
+- **User steps:**
+  - Refresh; reselect deal; re-run Analyze; if repeat, report steps.
+- **Ops/eng steps:** Check logs/console; reproduce with same deal/run; harden guards/null checks.
+- **Escalate with:** steps to reproduce, route, deal/run ids, screenshot, timestamp.
+
+## Playbooks for Outages & Degraded States
+- **v1-analyze degraded/down:**
+  - Symptoms: Analyze fails repeatedly on `/underwrite`.
+  - User guidance: Pause new underwriting; do not hand-calc; work on evidence collection; notify support.
+  - Ops: Check Supabase/Edge health and v1-analyze logs; rollback recent deploy if needed; post status.
+  - AI messaging: Acknowledge outage, advise pause, collect dealIds affected, avoid workaround offers.
+- **Repair rates/profiles down:**
+  - Symptoms: Repairs tab empty/errored; QuickEstimate disabled.
+  - User: Do not guess; mark info-needed; capture error.
+  - Ops: Check v1-repair-rates/profiles; seed defaults; status update.
+  - AI: Say rates unavailable; gather org/market/posture; no speculative repair numbers.
+- **Evidence services degraded:**
+  - Symptoms: Uploads fail; signed URLs bad.
+  - User: Hold IC/ReadyForOffer until evidence is uploaded; collect docs offline for later upload.
+  - Ops: Check evidence functions/storage/CORS; regenerate URLs; status update.
+  - AI: Request offline collection, no bypassing evidence tracking; promise re-upload when fixed.
+- **Auth/session issues:**
+  - Symptoms: Repeated logouts/unauthorized.
+  - User: Re-auth; confirm org membership; avoid repeated retries.
+  - Ops: Check auth config, memberships, RLS; status comms if widespread.
+  - AI: Acknowledge auth issues; advise re-login; escalate if persistent.
+
+## AI & Support Usage
+- AI should map error text + route to the closest entry, give user-safe steps, and collect escalation metadata (dealId, runId, orgId, route, error text, timestamp). Never suggest bypassing RLS or fabricating data.
+- Support/ops use this as a runbook for triage; link entries in tickets; ensure recurring issues are tracked and fixed.
+- Align with AI Behavior Guide (docs/ai/assistant-behavior-guide.md) and trust tiers; do not guess engine math.
+
+## CEO-Level Defaults & Assumptions
+- Treat v1-analyze and v1-runs-save failures as high priority; pause underwriting rather than “manual math.”
+- RLS errors are never acceptable to ignore; they indicate access or policy misconfig.
+- Outage playbooks included for underwriting, repairs rates, evidence, auth even if not all errors are enumerated in code.
+- Frontline support can guide data fixes and retries; anything involving RLS, engine exceptions, or persistent API failures goes to engineering.
+
+## Maintenance Notes
+- Update this doc when: new error codes/messages are added in Edge Functions; new critical endpoints ship; auth/DealSession patterns change; new user-facing error conditions appear.
+- Ensure error text and runbooks are kept in sync with code and release notes before shipping changes.

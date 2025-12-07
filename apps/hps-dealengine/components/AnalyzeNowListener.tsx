@@ -1,28 +1,50 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import type { SandboxConfig } from "@hps-internal/contracts";
+import { Postures } from "@hps-internal/contracts";
 import type { Deal, EngineCalculations } from "@/types";
-import { supabase } from "@/lib/supabaseClient";
+import { analyze } from "@/lib/edge";
+import {
+  buildAnalyzeRequestPayload,
+  mergePostureAwareValues,
+} from "@/lib/sandboxPolicy";
 
 type Props = {
   deal: Deal;
-  sandbox?: any;
+  sandbox?: SandboxConfig;
+  posture?: (typeof Postures)[number];
+  orgId?: string;
+  dbDealId?: string;
   onResult?: (o: { calculations: Partial<EngineCalculations> }) => void;
 };
 
-export default function AnalyzeNowListener({ deal, sandbox, onResult }: Props) {
+export default function AnalyzeNowListener({
+  deal,
+  sandbox,
+  posture = "base",
+  orgId,
+  dbDealId,
+  onResult,
+}: Props) {
+  const effectiveSandbox = useMemo(
+    () => mergePostureAwareValues(sandbox ?? ({} as SandboxConfig), posture),
+    [sandbox, posture],
+  );
+
   useEffect(() => {
     const handler = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("v1-analyze", {
-          body: { deal }
+        const payload = buildAnalyzeRequestPayload({
+          orgId,
+          posture,
+          dbDealId,
+          deal,
+          sandbox: effectiveSandbox,
         });
-        if (error) {
-          console.warn("v1-analyze error:", error);
-        } else if (data) {
-          onResult?.(data as any);
-        }
+        const data = await analyze(payload);
+        onResult?.(data as any);
       } catch (e) {
         console.warn("v1-analyze failed:", e);
       }
@@ -30,9 +52,8 @@ export default function AnalyzeNowListener({ deal, sandbox, onResult }: Props) {
 
     window.addEventListener("hps:analyze-now" as any, handler);
     return () => window.removeEventListener("hps:analyze-now" as any, handler);
-  }, [deal, sandbox, onResult]);
+  }, [deal, effectiveSandbox, posture, orgId, dbDealId, onResult]);
 
   return null;
 }
-
 

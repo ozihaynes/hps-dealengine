@@ -2,24 +2,49 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, GlassCard } from "@/components/ui";
 import OverviewTab from "@/components/overview/OverviewTab";
-import { Button } from "@/components/ui";
-
+import { DealHealthStrip } from "@/components/overview/DealHealthStrip";
+import { GuardrailsCard } from "@/components/overview/GuardrailsCard";
+import { buildOverviewGuardrailsView } from "@/lib/overviewGuardrails";
+import { StrategyPostureCard } from "@/components/overview/StrategyPostureCard";
+import { buildStrategyViewModel } from "@/lib/overviewStrategy";
+import {
+  buildConfidenceView,
+  buildEvidenceView,
+  buildRiskView,
+  buildTimelineView,
+  buildWorkflowView,
+} from "@/lib/overviewRiskTimeline";
+import { RiskComplianceCard } from "@/components/overview/RiskComplianceCard";
+import { TimelineCarryCard } from "@/components/overview/TimelineCarryCard";
+import { DataEvidenceCard } from "@/components/overview/DataEvidenceCard";
+import KnobFamilySummary from "@/components/overview/KnobFamilySummary";
+import TopDealKpis from "@/components/overview/TopDealKpis";
 import { createInitialEstimatorState } from "../../../lib/ui-v2-constants";
 import type { Deal } from "../../../types";
-
-import {
-  HPSEngine,
-  DoubleClose,
-  type DoubleCloseCalcs,
-} from "../../../services/engine";
+import { DoubleClose, type DoubleCloseCalcs } from "../../../services/engine";
 import { fmt$ } from "../../../utils/helpers";
 import { useDealSession } from "@/lib/dealSessionContext";
-import StrategistPanel from "@/components/underwrite/StrategistPanel";
+import { mergePostureAwareValues } from "@/lib/sandboxPolicy";
+import {
+  extractContactFromDeal,
+  extractContactFromPayload,
+  formatAddressLine,
+} from "@/lib/deals";
 
 /**
- * Ensure the Deal has the shape OverviewTab + engine expect.
+ * Layout V1 spec (overview): hero KPIs at top, then a 2x2 grid of cards:
+ * 1) Valuation & Floors (GuardrailsCard)
+ * 2) Strategy & MAO (StrategyPostureCard)
+ * 3) Timeline & Carry (TimelineCarryCard)
+ * 4) Risk & Evidence (RiskComplianceCard + DataEvidenceCard stacked)
+ * Keep hero strip + analytics cards canonical; no engine/policy changes here.
+ */
+
+/**
+ * Ensure the Deal has the shape the overview cards + engine expect.
  * This tolerates partial shapes coming from UI-V2 or engine defaults.
  */
 function normalizeDealShape(base?: any): Deal {
@@ -49,7 +74,7 @@ function normalizeDealShape(base?: any): Deal {
 }
 
 /**
- * Build a robust initial Deal that matches what OverviewTab expects.
+ * Build a robust initial Deal that matches what the overview cards expect.
  * Prefer UI-V2 estimator defaults; fall back to HPSEngine defaults,
  * then to a minimal defensive shape.
  */
@@ -68,20 +93,7 @@ function makeInitialDeal(): Deal {
     // swallow and fall through to engine defaults
   }
 
-  // 2) Try engine helpers / defaults
-  try {
-    const engineAny: any = HPSEngine as any;
-    if (typeof engineAny?.createInitialDeal === "function") {
-      return normalizeDealShape(engineAny.createInitialDeal());
-    }
-    if (engineAny?.defaults?.deal) {
-      return normalizeDealShape(engineAny.defaults.deal);
-    }
-  } catch {
-    // fall through to final minimal shape
-  }
-
-  // 3) Final defensive fallback: just the fields OverviewTab/engine touch
+  // 2) Final defensive fallback: just the fields overview cards/engine touch
   return normalizeDealShape({
     market: {
       arv: 0,
@@ -102,26 +114,136 @@ function makeInitialDeal(): Deal {
 
 export default function Page() {
   // Shared state coming from DealSession (same session as /underwrite)
-  const { deal: rawDeal, sandbox, lastAnalyzeResult, dbDeal } = useDealSession();
-  const [posture] = useState<"conservative" | "base" | "aggressive">("base");
+  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture, sandbox } =
+    useDealSession();
 
-  // Always normalize the shape so OverviewTab + engine get what they expect
+  // Always normalize the shape so the overview cards + engine get what they expect
   const deal = useMemo(
     () => normalizeDealShape(rawDeal ?? makeInitialDeal()),
     [rawDeal],
   );
+  const effectiveSandbox = useMemo(
+    () => mergePostureAwareValues(sandbox, posture),
+    [sandbox, posture],
+  );
 
   const [playbookContent, setPlaybookContent] = useState<string>("");
   const [analysisRun, setAnalysisRun] = useState(false);
+  const isAnalyzing = false;
+  const [showContactCard, setShowContactCard] = useState(false);
 
-  // Local engine calculations (deterministic stub)
-  const engineResult: any = useMemo(
-    () => HPSEngine.runEngine({ deal }, sandbox),
-    [deal, sandbox],
+  const contactInfo = useMemo(() => {
+    return (
+      extractContactFromPayload(deal as any) ??
+      extractContactFromPayload(dbDeal?.payload ?? null) ??
+      extractContactFromDeal(dbDeal)
+    );
+  }, [deal, dbDeal]);
+
+  const hasContactInfo = useMemo(() => {
+    if (!contactInfo) return false;
+    const parts = [contactInfo.name, contactInfo.phone, contactInfo.email].map(
+      (value) => (typeof value === "string" ? value.trim() : ""),
+    );
+    return parts.some((value) => value.length > 0);
+  }, [contactInfo]);
+
+  const contactName = hasContactInfo
+    ? contactInfo?.name?.trim() || "Client"
+    : "Client info not set";
+  const contactPhone =
+    hasContactInfo && contactInfo?.phone ? contactInfo.phone : "Phone not provided";
+  const contactEmail =
+    hasContactInfo && contactInfo?.email ? contactInfo.email : "Email not provided";
+
+  const propertyAddress = useMemo(() => {
+    const primary = formatAddressLine({
+      address: dbDeal?.address ?? "",
+      city: dbDeal?.city ?? undefined,
+      state: dbDeal?.state ?? undefined,
+      zip: dbDeal?.zip ?? undefined,
+    });
+
+    if (primary) return primary;
+
+    const property = (deal as any)?.property ?? {};
+    const fallback = formatAddressLine({
+      address: property.address ?? "",
+      city: property.city ?? undefined,
+      state: property.state ?? undefined,
+      zip: property.zip ?? undefined,
+    });
+
+    return fallback || "Address not provided";
+  }, [dbDeal?.address, dbDeal?.city, dbDeal?.state, dbDeal?.zip, deal]);
+
+  useEffect(() => {
+    if (dbDeal?.id && process.env.NODE_ENV !== "production") {
+      console.log("[overview] rendering deal header", {
+        dealId: dbDeal.id,
+        clientName: contactInfo?.name ?? null,
+      });
+    }
+  }, [dbDeal?.id, contactInfo?.name]);
+
+  useEffect(() => {
+    setShowContactCard(false);
+  }, [dbDeal?.id, contactName]);
+
+  // Canonical outputs from the last analyze (from Edge/runs)
+  const calc: any = useMemo(() => {
+    const persisted = lastAnalyzeResult as any;
+    return {
+      ...(persisted?.calculations ?? {}),
+      ...(persisted?.outputs ?? {}),
+    };
+  }, [lastAnalyzeResult]);
+
+  const guardrailsView = useMemo(
+    () =>
+      buildOverviewGuardrailsView({
+        deal,
+        lastAnalyzeResult: lastAnalyzeResult as any,
+        calc,
+      }),
+    [deal, lastAnalyzeResult, calc],
   );
-  const calc: any = engineResult?.calculations ?? {};
 
-  // Double-close math (Florida-specific) – tolerate missing costs on deal
+  const strategyView = useMemo(
+    () => buildStrategyViewModel((lastAnalyzeResult as any)?.outputs ?? null),
+    [lastAnalyzeResult],
+  );
+
+  const riskView = useMemo(
+    () => buildRiskView((lastAnalyzeResult as any)?.outputs ?? null),
+    [lastAnalyzeResult],
+  );
+
+  const confidenceView = useMemo(
+    () => buildConfidenceView((lastAnalyzeResult as any)?.outputs ?? null),
+    [lastAnalyzeResult],
+  );
+
+  const workflowView = useMemo(
+    () => buildWorkflowView((lastAnalyzeResult as any)?.outputs ?? null),
+    [lastAnalyzeResult],
+  );
+
+  const timelineView = useMemo(
+    () => buildTimelineView((lastAnalyzeResult as any)?.outputs ?? null, calc),
+    [lastAnalyzeResult, calc],
+  );
+
+  const evidenceView = useMemo(
+    () =>
+      buildEvidenceView(
+        (lastAnalyzeResult as any)?.outputs ?? null,
+        (lastAnalyzeResult as any)?.trace ?? null,
+      ),
+    [lastAnalyzeResult],
+  );
+
+  // Double-close math (Florida-specific) - tolerate missing costs on deal
   const dcInput = ((deal as any).costs?.double_close ?? {}) as any;
   const dcAutofilled = DoubleClose.autofill(dcInput, { deal }, calc);
   const dcResult = DoubleClose.computeDoubleClose(dcAutofilled, {
@@ -139,14 +261,14 @@ export default function Page() {
   const generatePlaybook = useCallback(() => {
     if (!canAnalyze) return;
 
-    const buyerCeiling = Number(calc.buyerCeiling ?? 0);
-    const respectFloor = Number(calc.respectFloorPrice ?? 0);
+    const buyerCeiling = Number(calc.buyerCeiling ?? calc.buyer_ceiling ?? 0);
+    const respectFloor = Number(calc.respectFloorPrice ?? calc.respect_floor ?? 0);
     const wholesaleFee =
       isFinite(buyerCeiling) && isFinite(respectFloor)
         ? buyerCeiling - respectFloor
         : 0;
 
-    const urgencyDays = Number(calc.urgencyDays ?? 0);
+    const urgencyDays = Number(calc.urgencyDays ?? calc.carryMonths ?? 0);
     const dcLoad =
       Number((dcResult as any).Extra_Closing_Load ?? 0) +
       Number((dcResult as any).Total_Double_Close_Cost ?? 0);
@@ -157,10 +279,7 @@ export default function Page() {
       `<p><strong>Deal snapshot:</strong> Buyer ceiling ${fmt$(
         buyerCeiling,
         0,
-      )}, Respect Floor ${fmt$(
-        respectFloor,
-        0,
-      )}, implied spread ${fmt$(
+      )}, Respect Floor ${fmt$(respectFloor, 0)}, implied spread ${fmt$(
         wholesaleFee,
         0,
       )} before double-close friction.</p>`,
@@ -182,9 +301,9 @@ export default function Page() {
       parts.push(
         `<p><strong>Urgency:</strong> This deal has roughly ${urgencyDays.toFixed(
           0,
-        )} days of runway before risk steps up. Present it as “we’re in a ${urgencyDays.toFixed(
+        )} days of runway before risk steps up. Present it as "we're in a ${urgencyDays.toFixed(
           0,
-        )}-day window before we have to re-underwrite and the number can move,” not as pressure.</p>`,
+        )}-day window before we have to re-underwrite and the number can move," not as pressure.</p>`,
       );
     }
 
@@ -207,49 +326,170 @@ export default function Page() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
-            Overview
-          </h1>
-          <p className="text-sm text-text-secondary">
-            One-glance snapshot of where this deal sits in the corridor.
-          </p>
+      <div className="space-y-6">
+        <GlassCard className="p-4 md:p-5">
+          <div
+            className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
+            onMouseLeave={() => setShowContactCard(false)}
+          >
+            <div>
+              <p className="text-xs uppercase text-text-secondary">Property</p>
+              <div className="text-lg font-semibold text-text-primary">
+                {propertyAddress}
+              </div>
+              {dbDeal?.id && (
+                <p className="text-xs text-text-secondary">
+                  Deal ID {dbDeal.id.slice(0, 8)}.
+                </p>
+              )}
+            </div>
+            <div className="relative">
+              <p className="text-xs uppercase text-text-secondary">Client</p>
+              <button
+                type="button"
+                className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary hover:border-accent-blue/60 hover:text-accent-blue"
+                onClick={() => setShowContactCard((prev) => !prev)}
+                onMouseEnter={() => setShowContactCard(true)}
+              >
+                {contactName}
+              </button>
+              {showContactCard && (
+                <div className="absolute right-0 mt-2 w-64 rounded-lg border border-white/10 bg-surface-elevated/90 p-3 shadow-xl">
+                  <div className="flex flex-col gap-2 text-sm text-text-primary">
+                    {hasContactInfo ? (
+                      <>
+                        <div>
+                          <p className="text-[11px] uppercase text-text-secondary">
+                            Phone
+                          </p>
+                          <p className="font-semibold">{contactPhone}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] uppercase text-text-secondary">
+                            Email
+                          </p>
+                          <p className="font-semibold break-words">
+                            {contactEmail}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-[13px] text-text-secondary">
+                        Client info not available yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </GlassCard>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+              Dashboard
+            </h1>
+            <p className="text-sm text-text-secondary">
+              One-glance snapshot of where this deal sits in the corridor.
+            </p>
+          </div>
+
+          <Button
+            variant="primary"
+            disabled={!canAnalyze}
+            onClick={generatePlaybook}
+          >
+            Generate Playbook
+          </Button>
         </div>
 
-        <Button
-          variant="primary"
-          disabled={!canAnalyze}
-          onClick={generatePlaybook}
-        >
-          Generate Playbook
-        </Button>
-      </div>
+        <TopDealKpis
+          arv={deal.market?.arv ?? null}
+          maoFinal={
+            (lastAnalyzeResult as any)?.outputs?.primary_offer ??
+            (lastAnalyzeResult as any)?.outputs?.mao_wholesale ??
+            null
+          }
+          discountToArvPct={
+            deal.market?.arv &&
+            (lastAnalyzeResult as any)?.outputs?.primary_offer
+              ? (deal.market.arv -
+                  (lastAnalyzeResult as any).outputs.primary_offer) /
+                deal.market.arv
+              : null
+          }
+          discountToArvDollars={
+            deal.market?.arv &&
+            (lastAnalyzeResult as any)?.outputs?.primary_offer
+              ? deal.market.arv -
+                (lastAnalyzeResult as any).outputs.primary_offer
+              : null
+          }
+          assignmentFee={(lastAnalyzeResult as any)?.outputs?.spread_cash ?? null}
+          assignmentPolicyTargetPct={
+            (() => {
+              const trace = (lastAnalyzeResult as any)?.trace ?? [];
+              const fee = Array.isArray(trace)
+                ? trace.find((t: any) => t?.rule === "ASSIGNMENT_FEE_POLICY")
+                : null;
+              const target = fee?.details?.assignment_fee_target ?? null;
+              const arv = deal.market?.arv ?? null;
+              return arv && target != null ? target / arv : null;
+            })()
+          }
+          assignmentPolicyMaxPct={
+            (() => {
+              const trace = (lastAnalyzeResult as any)?.trace ?? [];
+              const fee = Array.isArray(trace)
+                ? trace.find((t: any) => t?.rule === "ASSIGNMENT_FEE_POLICY")
+                : null;
+              return fee?.details?.max_publicized_pct_of_arv ?? null;
+            })()
+          }
+          dtmDays={
+            (lastAnalyzeResult as any)?.outputs?.timeline_summary
+              ?.dtm_selected_days ??
+            (lastAnalyzeResult as any)?.outputs?.timeline_summary?.days_to_money ??
+            null
+          }
+          speedBand={
+            (lastAnalyzeResult as any)?.outputs?.timeline_summary?.speed_band ?? null
+          }
+          riskOverall={(lastAnalyzeResult as any)?.outputs?.risk_summary?.overall ?? null}
+          confidenceGrade={(lastAnalyzeResult as any)?.outputs?.confidence_grade ?? null}
+          workflowState={(lastAnalyzeResult as any)?.outputs?.workflow_state ?? null}
+        />
 
-      <div>
+        <DealHealthStrip view={guardrailsView} />
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <GuardrailsCard view={guardrailsView} />
+          <StrategyPostureCard view={strategyView} />
+          <TimelineCarryCard timeline={timelineView} />
+          <div className="flex flex-col gap-4">
+            <RiskComplianceCard risk={riskView} />
+            <DataEvidenceCard
+              evidence={evidenceView}
+              confidence={confidenceView}
+              workflow={workflowView}
+            />
+          </div>
+        </div>
+
         <OverviewTab
           deal={deal}
           calc={calc}
           flags={{}}
           hasUserInput={canAnalyze}
           playbookContent={playbookContent}
-          isAnalyzing={false}
+          isAnalyzing={isAnalyzing}
           analysisRun={analysisRun}
         />
-      </div>
 
-      <div className="mt-6">
-        <h2 className="text-lg font-semibold text-text-primary mb-2">
-          Strategist (AI)
-        </h2>
-        <StrategistPanel
-          dealId={dbDeal?.id}
-          runId={undefined}
-          posture={posture}
-          runOutput={null}
-          runTrace={null}
-          policySnapshot={null}
-          evidenceSummary={[]}
+        <KnobFamilySummary
+          runOutput={lastAnalyzeResult ?? null}
+          sandbox={effectiveSandbox}
         />
       </div>
     </div>

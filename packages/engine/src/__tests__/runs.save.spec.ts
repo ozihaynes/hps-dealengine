@@ -9,6 +9,7 @@ describe("buildRunRow", () => {
   it("builds a runs row payload matching the contract", () => {
     const args = SaveRunArgsSchema.parse({
       orgId: "11111111-1111-1111-1111-111111111111",
+      dealId: "22222222-2222-2222-2222-222222222222",
       posture: "base",
       deal: {
         arv: 250000,
@@ -59,6 +60,11 @@ describe("buildRunRow", () => {
       policySnapshot: {
         foo: "bar",
       },
+      repairProfile: {
+        profileId: "33333333-3333-3333-3333-333333333333",
+        marketCode: "ORL",
+        posture: "base",
+      },
     });
 
     const row: RunRowInsert = buildRunRow(args);
@@ -71,6 +77,8 @@ describe("buildRunRow", () => {
     expect(row.input.posture).toBe("base");
     expect(row.input.deal).toEqual(args.deal);
     expect(row.input.sandbox).toEqual(args.sandbox);
+    expect(row.input.dealId).toBe(args.dealId);
+    expect(row.input.repairProfile).toEqual(args.repairProfile);
 
     // Output/trace mapping
     expect(row.output.outputs).toEqual(args.outputs);

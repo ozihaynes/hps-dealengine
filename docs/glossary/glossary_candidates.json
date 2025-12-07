@@ -1,0 +1,362 @@
+[
+  {
+    "key": "arv",
+    "term": "ARV (After-Repair Value)",
+    "context": "Overview KPIs, Underwrite outputs, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "aiv",
+    "term": "AIV (As-Is Value)",
+    "context": "Overview KPIs, Underwrite inputs/outputs, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "aiv_safety_cap",
+    "term": "AIV Safety Cap Percentage",
+    "context": "Sandbox knobs, Underwrite Guardrails / Trace",
+    "source": "sandbox_knob_audit",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "investor_floor",
+    "term": "Investor Floor",
+    "context": "Underwrite Guardrails, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "payoff_floor",
+    "term": "Payoff Floor",
+    "context": "Underwrite Guardrails, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "respect_floor",
+    "term": "Respect Floor",
+    "context": "Overview Guardrails strip, Underwrite Guardrails, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "buyer_ceiling",
+    "term": "Buyer Ceiling",
+    "context": "Overview Guardrails, Underwrite MAO bundle, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "mao",
+    "term": "MAO (Max Allowable Offer)",
+    "context": "Underwrite summary, Overview Strategy, Trace",
+    "source": "engine",
+    "category": "valuation_floors",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "spread_ladder",
+    "term": "Spread Ladder",
+    "context": "Trace (SPREAD_LADDER), Overview Strategy/Guardrails",
+    "source": "engine",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "min_spread_by_arv_band",
+    "term": "Min Spread by ARV Band",
+    "context": "Sandbox knobs, Trace SPREAD_LADDER step",
+    "source": "sandbox_knob_audit",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "cash_gate",
+    "term": "Cash Presentation Gate",
+    "context": "Trace CASH_GATE, Overview Strategy",
+    "source": "engine",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "negotiation_buffer",
+    "term": "Negotiation Buffer",
+    "context": "Sandbox knobs, Underwrite MAO banding",
+    "source": "sandbox_knob_audit",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "assignment_fee",
+    "term": "Assignment Fee",
+    "context": "Underwrite outputs, Sandbox knobs (Assignment Fee policies)",
+    "source": "manual",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "wholesale_fee_mode",
+    "term": "Wholesale Fee Mode",
+    "context": "Sandbox knobs (Wholesale Fee Mode), Underwrite disposition logic",
+    "source": "sandbox_knob_audit",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "disposition_track",
+    "term": "Disposition Track",
+    "context": "Overview Strategy card, Underwrite strategy summary, Sandbox",
+    "source": "engine",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "double_close",
+    "term": "Double-Close",
+    "context": "Sandbox knobs (Double-Close settings), Underwrite disposition summary",
+    "source": "manual",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "wholetail",
+    "term": "Wholetail",
+    "context": "Overview Strategy, Underwrite disposition tracks, Sandbox",
+    "source": "manual",
+    "category": "profit_spread",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "dtm",
+    "term": "DTM (Days-to-Money)",
+    "context": "Overview Timeline card, Underwrite timeline section, Trace",
+    "source": "engine",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "carry_months",
+    "term": "Carry Months",
+    "context": "Timeline & Carry card, Sandbox knobs (Carry Months formula/cap)",
+    "source": "sandbox_knob_audit",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "auction_urgency",
+    "term": "Auction Urgency Bands",
+    "context": "Sandbox knobs (Auction Urgency policies), Timeline & Carry summary",
+    "source": "sandbox_knob_audit",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "emd_timeline",
+    "term": "EMD Timeline",
+    "context": "Timeline & Legal, Sandbox knobs (EMD Timeline — Deadline Policy)",
+    "source": "sandbox_knob_audit",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "zip_speed_band",
+    "term": "ZIP Speed Band",
+    "context": "Market Temp / Timeline sections, Sandbox knobs (Speed Bands)",
+    "source": "sandbox_knob_audit",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "market_temp",
+    "term": "Market Temp",
+    "context": "Overview market indicators, Sandbox (Market Liquidity Inputs)",
+    "source": "sandbox_knob_audit",
+    "category": "timeline_carry",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "confidence_grade",
+    "term": "Confidence Grade",
+    "context": "Overview Deal Health, Trace, settings (A/B/C Confidence rubric)",
+    "source": "manual",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "risk_gate",
+    "term": "Risk Gate",
+    "context": "Overview Risk & Compliance card, Trace risk summary, Sandbox gates",
+    "source": "manual",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "evidence_freshness",
+    "term": "Evidence Freshness",
+    "context": "Overview Evidence card, Underwrite evidence banners, settings",
+    "source": "manual",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "uninsurable",
+    "term": "Uninsurable",
+    "context": "Risk & Compliance card, Sandbox (Uninsurable Adders), Trace",
+    "source": "manual",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "fha_90_day_rule",
+    "term": "FHA 90-Day Resale Rule",
+    "context": "Risk & Compliance, Sandbox Compliance & Risk Gates",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "fema_50_percent_rule",
+    "term": "FEMA 50% Rule",
+    "context": "Risk & Compliance, Sandbox gates (Flood 50% Rule, Repairs structural)",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "firpta",
+    "term": "FIRPTA Withholding",
+    "context": "Risk & Compliance, Sandbox gates (FIRPTA Withholding Gate)",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "pace_assessment",
+    "term": "PACE Assessment",
+    "context": "Risk & Compliance, Sandbox knobs (PACE handling/detection)",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "condo_sirs_milestone",
+    "term": "Condo SIRS/Milestone",
+    "context": "Risk & Compliance, Sandbox (Condo SIRS/Milestone Flag)",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "scra_verification",
+    "term": "SCRA Verification",
+    "context": "Risk & Compliance, Sandbox gate (SCRA Verification Gate)",
+    "source": "sandbox_knob_audit",
+    "category": "risk_evidence",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "repair_class",
+    "term": "Repair Class",
+    "context": "/repairs estimator, Trace repairs, Sandbox Repairs Contingency",
+    "source": "manual",
+    "category": "repairs",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "repairs_contingency",
+    "term": "Repairs Contingency",
+    "context": "/repairs estimator, Sandbox (Repairs Contingency knobs)",
+    "source": "sandbox_knob_audit",
+    "category": "repairs",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "quick_estimate",
+    "term": "QuickEstimate (PSF Repairs)",
+    "context": "/repairs QuickEstimate section",
+    "source": "ui",
+    "category": "repairs",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "psf",
+    "term": "PSF (Per-Square-Foot) Repairs",
+    "context": "/repairs QuickEstimate and detailed estimator math",
+    "source": "manual",
+    "category": "repairs",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "big5_repairs",
+    "term": "Big 5 Repairs",
+    "context": "/repairs Big 5 section, Repair profiles",
+    "source": "manual",
+    "category": "repairs",
+    "isCommon": false,
+    "priority": "medium"
+  },
+  {
+    "key": "sandbox_posture",
+    "term": "Underwriting Posture (Conservative/Base/Aggressive)",
+    "context": "Sandbox posture selector, settings, Overview/Underwrite posture labels",
+    "source": "manual",
+    "category": "sandbox",
+    "isCommon": false,
+    "priority": "high"
+  },
+  {
+    "key": "sandbox_preset",
+    "term": "Sandbox Preset",
+    "context": "/sandbox preset list/save, Sandbox settings",
+    "source": "ui",
+    "category": "sandbox",
+    "isCommon": false,
+    "priority": "medium"
+  }
+]

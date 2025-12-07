@@ -363,7 +363,7 @@ const StrategistChat = ({ settings }: { settings: SandboxSettings }) => {
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
         .replace(/`([^`]+)`/g, '<code>$1</code>')
         .split('\n')
-        .map((line) => (line.trim().startsWith('* ') ? `<li>${line.substring(2)}</li>` : line))
+        .map((line: string) => (line.trim().startsWith('* ') ? `<li>${line.substring(2)}</li>` : line))
         .join('\n')
         .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
         .replace(/<\/ul>\n<ul>/g, '');
@@ -764,3 +764,4 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
 };
 
 export default BusinessLogicSandbox;
+

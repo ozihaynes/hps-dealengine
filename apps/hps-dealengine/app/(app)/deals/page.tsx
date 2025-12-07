@@ -3,8 +3,17 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button, Modal } from "@/components/ui";
+import NewDealForm from "@/components/deals/NewDealForm";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { useDealSession, type DbDeal } from "@/lib/dealSessionContext";
+import {
+  createDealWithClientInfo,
+  createEmptyDealForm,
+  fetchDealsForOrg,
+  resolveOrgId,
+  validateNewDealForm,
+} from "@/lib/deals";
 
 type DealsStatus =
   | { kind: "loading" }
@@ -17,55 +26,31 @@ export default function DealsPage() {
 
   const [status, setStatus] = useState<DealsStatus>({ kind: "loading" });
   const [creating, setCreating] = useState(false);
+  const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
+  const [newDeal, setNewDeal] = useState(createEmptyDealForm());
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const loadDeals = useCallback(async () => {
     const supabase = getSupabaseClient();
 
-    setStatus({ kind: "loading" });
-
-    // 1) Resolve caller org via RPC
-    const { data: orgId, error: orgError } = await supabase.rpc("get_caller_org");
-
-    if (orgError) {
-      console.error("[/deals] get_caller_org error", orgError);
+    try {
+      setStatus({ kind: "loading" });
+      const orgId = await resolveOrgId(supabase);
+      const rows = await fetchDealsForOrg(supabase, orgId);
+      setStatus({
+        kind: "ready",
+        orgId,
+        deals: rows,
+      });
+    } catch (err: any) {
+      console.error("[/deals] load deals error", err);
       setStatus({
         kind: "error",
-        message: "Unable to resolve your organization. Please check memberships.",
+        message:
+          err?.message ??
+          "Unable to load deals for your org. Please check your memberships and try again.",
       });
-      return;
     }
-
-    if (!orgId) {
-      setStatus({
-        kind: "error",
-        message: "No organization found for your user.",
-      });
-      return;
-    }
-
-    // 2) Fetch deals for this org
-    const { data, error } = await supabase
-      .from("deals")
-      .select(
-        "id, org_id, created_by, created_at, updated_at, address, city, state, zip, payload"
-      )
-      .eq("org_id", orgId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[/deals] select deals error", error);
-      setStatus({
-        kind: "error",
-        message: "Unable to load deals for your org.",
-      });
-      return;
-    }
-
-    setStatus({
-      kind: "ready",
-      orgId,
-      deals: (data ?? []) as DbDeal[],
-    });
   }, []);
 
   useEffect(() => {
@@ -75,45 +60,58 @@ export default function DealsPage() {
   const handleCreateDeal = useCallback(async () => {
     if (status.kind !== "ready") return;
 
-    setCreating(true);
-    const supabase = getSupabaseClient();
-
-    const label = `Untitled deal ${new Date().toLocaleDateString()}`;
-
-    const { data, error } = await supabase
-      .from("deals")
-      .insert({
-        org_id: status.orgId,
-        address: label,
-      })
-      .select(
-        "id, org_id, created_by, created_at, updated_at, address, city, state, zip, payload"
-      )
-      .single();
-
-    if (error) {
-      console.error("[/deals] create deal error", error);
-      setCreating(false);
-      // Keep the page usable even if create fails.
+    const validationError = validateNewDealForm(newDeal);
+    if (validationError) {
+      setCreateError(validationError);
       return;
     }
 
-    const inserted = data as DbDeal;
+    setCreating(true);
+    const supabase = getSupabaseClient();
 
-    setStatus((prev) => {
-      if (prev.kind !== "ready") return prev;
-      return {
-        ...prev,
-        deals: [inserted, ...prev.deals],
-      };
-    });
+    try {
+      const inserted = await createDealWithClientInfo({
+        supabase,
+        orgId: status.orgId,
+        clientName: newDeal.clientName,
+        clientPhone: newDeal.clientPhone,
+        clientEmail: newDeal.clientEmail,
+        propertyStreet: newDeal.propertyStreet,
+        propertyCity: newDeal.propertyCity,
+        propertyState: newDeal.propertyState,
+        propertyPostalCode: newDeal.propertyPostalCode,
+      });
 
-    setDbDeal(inserted);
-    setCreating(false);
+      setStatus((prev) => {
+        if (prev.kind !== "ready") return prev;
+        return {
+          ...prev,
+          deals: [inserted, ...prev.deals],
+        };
+      });
 
-    // For now, send the user into Overview for the selected deal.
-    router.push("/overview");
-  }, [router, setDbDeal, status]);
+      setDbDeal(inserted);
+      if (inserted.payload) {
+        try {
+          setDeal(inserted.payload as any);
+        } catch {
+          // tolerate malformed payload; user can re-run analyze
+        }
+      }
+
+      setIsNewDealModalOpen(false);
+      setNewDeal(createEmptyDealForm());
+      setCreateError(null);
+
+      // For now, send the user into Overview for the selected deal.
+      router.push(`/overview?dealId=${inserted.id}`);
+    } catch (err: any) {
+      console.error("[/deals] create deal error", err);
+      setCreateError(err?.message ?? "Unable to create deal. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  }, [newDeal, router, setDbDeal, setDeal, status]);
 
   const handleSelectDeal = useCallback(
     (deal: DbDeal) => {
@@ -125,10 +123,17 @@ export default function DealsPage() {
           // ignore malformed payload; user can re-run analyze
         }
       }
-      router.push("/overview");
+      router.push(`/overview?dealId=${deal.id}`);
     },
     [router, setDbDeal, setDeal]
   );
+
+  const getOrgLabel = useCallback((deal: DbDeal) => {
+    const orgId = deal.orgId ?? deal.org_id ?? "";
+    if (deal.orgName && deal.orgName.length > 0) return deal.orgName;
+    if (orgId) return `${orgId.slice(0, 8)}…`;
+    return "Unknown org";
+  }, []);
 
   if (status.kind === "loading") {
     return (
@@ -162,23 +167,35 @@ export default function DealsPage() {
     <main className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Deals</h1>
-        <button
-          type="button"
-          className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
-          onClick={() => void handleCreateDeal()}
+        <Button
+          variant="primary"
+          onClick={() => {
+            setCreateError(null);
+            setNewDeal(createEmptyDealForm());
+            setIsNewDealModalOpen(true);
+          }}
           disabled={creating}
+          className="px-3 py-1.5 text-sm"
         >
-          {creating ? "Creating…" : "New Deal"}
-        </button>
+          {creating ? "Creating..." : "New Deal"}
+        </Button>
       </div>
 
       {status.deals.length === 0 ? (
         <div className="rounded-md border border-dashed border-gray-400/50 bg-gray-900/40 p-6 text-sm text-gray-300">
           <p className="font-medium mb-1">No deals yet.</p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 mb-2">
             Click <span className="font-semibold">New Deal</span> to create your first deal for this
-            organization.
+            organization or return to the startup hub.
           </p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => setIsNewDealModalOpen(true)}>
+              Create new deal
+            </Button>
+            <Button size="sm" variant="neutral" onClick={() => router.push("/startup")}>
+              Go to Startup
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border border-gray-800 bg-gray-950/40">
@@ -186,6 +203,9 @@ export default function DealsPage() {
             <thead className="bg-gray-900/60 text-gray-300 text-xs uppercase tracking-wide">
               <tr>
                 <th className="px-4 py-2 text-left">Address</th>
+                <th className="px-4 py-2 text-left hidden sm:table-cell">
+                  Org
+                </th>
                 <th className="px-4 py-2 text-left hidden sm:table-cell">
                   City / State
                 </th>
@@ -208,6 +228,12 @@ export default function DealsPage() {
                     <div className="text-xs text-gray-500 md:hidden">
                       {[deal.city, deal.state, deal.zip].filter(Boolean).join(", ")}
                     </div>
+                    <div className="text-xs text-gray-500 sm:hidden">
+                      Org: {getOrgLabel(deal)}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 align-middle hidden sm:table-cell text-xs text-gray-400">
+                    {getOrgLabel(deal)}
                   </td>
                   <td className="px-4 py-2 align-middle hidden sm:table-cell text-gray-300">
                     {[deal.city, deal.state, deal.zip].filter(Boolean).join(", ")}
@@ -221,6 +247,33 @@ export default function DealsPage() {
           </table>
         </div>
       )}
+
+      <Modal
+        isOpen={isNewDealModalOpen}
+        onClose={() => {
+          setIsNewDealModalOpen(false);
+          setCreateError(null);
+          setNewDeal(createEmptyDealForm());
+        }}
+        title="Start New Deal"
+      >
+        <NewDealForm
+          values={newDeal}
+          onChange={(next) => {
+            setCreateError(null);
+            setNewDeal(next);
+          }}
+          onSubmit={handleCreateDeal}
+          submitting={creating}
+          error={createError}
+          submitLabel="Start Deal"
+          onCancel={() => {
+            setIsNewDealModalOpen(false);
+            setCreateError(null);
+            setNewDeal(createEmptyDealForm());
+          }}
+        />
+      </Modal>
     </main>
   );
 }

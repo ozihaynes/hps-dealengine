@@ -3,25 +3,14 @@
 
 export const dynamic = "force-dynamic";
 
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import type {
-  Deal,
-  EngineCalculations,
-  EstimatorState,
-} from "../../../types";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import type { Deal, EngineCalculations, EstimatorState } from "../../../types";
 import RepairsTab from "@/components/repairs/RepairsTab";
 import { useDealSession } from "@/lib/dealSessionContext";
-import { HPSEngine } from "@/services/engine";
 import { estimatorSections } from "../../../lib/ui-v2-constants";
-import {
-  useRepairRates,
-  type RepairRates,
-} from "@/lib/repairRates";
+import type { RepairRates } from "@hps-internal/contracts";
+import { createInitialEstimatorState } from "@/lib/repairsEstimator";
+import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 
 /**
  * Safely set a nested property on the Deal by a dotted path, e.g. "market.arv".
@@ -79,44 +68,6 @@ function getCurrentSqft(deal: Deal, calc: EngineCalculations): number {
   return 0;
 }
 
-/**
- * CRITICAL FIX: Use the ACTUAL section keys from estimatorSections
- */
-function createInitialEstimatorState(): EstimatorState {
-  const costs: Record<string, Record<string, any>> = {};
-  const quantities: Record<string, number> = {};
-
-  for (const [sectionKey, section] of Object.entries(estimatorSections)) {
-    costs[sectionKey] = {};
-
-    for (const [itemKey, item] of Object.entries(section.items)) {
-      const defaultCondition = item.options
-        ? Object.keys(item.options)[0]
-        : undefined;
-
-      const defaultCost =
-        item.options && defaultCondition
-          ? item.options[defaultCondition]
-          : 0;
-
-      costs[sectionKey][itemKey] = {
-        condition: defaultCondition,
-        cost: defaultCost,
-        notes: "",
-      };
-
-      if (item.isPerUnit) {
-        quantities[itemKey] = 0;
-      }
-    }
-  }
-
-  return {
-    costs,
-    quantities,
-  } as EstimatorState;
-}
-
 function deriveMarketCode(deal: Deal): string {
   const market: any = (deal as any)?.market ?? {};
   return (
@@ -129,25 +80,89 @@ function deriveMarketCode(deal: Deal): string {
 }
 
 export default function RepairsPage() {
-  const { deal, sandbox, setDeal } = useDealSession();
+  const {
+    deal,
+    setDeal,
+    posture,
+    refreshRepairRates,
+    activeRepairProfile,
+    activeRepairProfileId,
+    lastAnalyzeResult,
+    repairRates,
+    repairRatesLoading,
+    repairRatesError,
+  } = useDealSession();
+  console.log("[Repairs] render", {
+    activeRepairProfileId,
+    activeRepairProfileName: activeRepairProfile?.name ?? null,
+    repairRates,
+  });
 
   const [estimatorState, setEstimatorState] = useState<EstimatorState>(() =>
     createInitialEstimatorState(),
   );
 
-  // ADDITION: Local sqft override
   const [localSqft, setLocalSqft] = useState<string>("");
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  const marketCode = deriveMarketCode(deal as Deal);
-  const { data: rates, status: ratesStatus, error: ratesError, refresh } =
-    useRepairRates(marketCode);
+  useUnsavedChanges(hasUnsavedChanges);
+
+  const marketCode = deriveMarketCode(deal as Deal).toUpperCase();
+  const rates: RepairRates | null = repairRates ?? null;
+  const ratesStatus: "idle" | "loading" | "loaded" | "error" = repairRatesLoading
+    ? "loading"
+    : repairRatesError
+    ? "error"
+    : rates
+    ? "loaded"
+    : "idle";
+  const repairMeta = rates
+    ? {
+        profileId: rates.profileId ?? null,
+        profileName: rates.profileName ?? null,
+        marketCode: rates.marketCode ?? marketCode,
+        posture: rates.posture ?? posture,
+        asOf: rates.asOf ?? undefined,
+        source: rates.source ?? null,
+        version: rates.version ?? undefined,
+      }
+    : activeRepairProfile
+    ? {
+        profileId: activeRepairProfile.id ?? null,
+        profileName: activeRepairProfile.name ?? null,
+        marketCode: activeRepairProfile.marketCode ?? marketCode,
+        posture: activeRepairProfile.posture ?? posture,
+        asOf: activeRepairProfile.asOf ?? undefined,
+        source: activeRepairProfile.source ?? null,
+        version: activeRepairProfile.version ?? undefined,
+      }
+    : null;
+  const profileName =
+    repairMeta?.profileName ?? activeRepairProfile?.name;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") {
+      console.debug("[RepairsPage] refreshing repair rates", {
+        marketCode,
+        posture,
+        activeRepairProfileId,
+      });
+    }
+    void refreshRepairRates({
+      profileId: activeRepairProfileId,
+      marketCode,
+      posture,
+    });
+  }, [refreshRepairRates, activeRepairProfileId, marketCode, posture]);
 
   const calc: EngineCalculations = useMemo(() => {
-    const result: any = HPSEngine.runEngine({ deal }, sandbox);
-    return (result?.calculations ?? {}) as EngineCalculations;
-  }, [deal, sandbox]);
+    const persisted = lastAnalyzeResult as any;
+    return {
+      ...(persisted?.calculations ?? {}),
+      ...(persisted?.outputs ?? {}),
+    } as EngineCalculations;
+  }, [lastAnalyzeResult]);
 
-  // Get current sqft and set local input if empty
   useEffect(() => {
     const currentSqft = getCurrentSqft(deal as Deal, calc);
     if (currentSqft > 0 && !localSqft) {
@@ -155,9 +170,22 @@ export default function RepairsPage() {
     }
   }, [deal, calc, localSqft]);
 
+  useEffect(() => {
+    setEstimatorState(
+      createInitialEstimatorState((rates?.lineItemRates as any) ?? undefined),
+    );
+    setHasUnsavedChanges(false);
+  }, [
+    rates?.profileId,
+    rates?.marketCode,
+    rates?.posture,
+    JSON.stringify(rates?.lineItemRates ?? {}),
+  ]);
+
   const setDealValue = useCallback(
     (path: string, value: unknown) => {
       setDeal((prev) => setDealPath(prev as Deal, path, value));
+      setHasUnsavedChanges(true);
     },
     [setDeal],
   );
@@ -184,6 +212,7 @@ export default function RepairsPage() {
 
         return next;
       });
+      setHasUnsavedChanges(true);
     },
     [],
   );
@@ -200,17 +229,21 @@ export default function RepairsPage() {
 
       return next;
     });
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleReset = useCallback(() => {
-    setEstimatorState(createInitialEstimatorState());
-  }, []);
+    setEstimatorState(
+      createInitialEstimatorState((rates?.lineItemRates as any) ?? undefined),
+    );
+    setHasUnsavedChanges(false);
+  }, [rates?.lineItemRates]);
 
   const handleSqftSave = () => {
     const sqft = Number(localSqft.replace(/[^\d.]/g, ""));
     if (!isNaN(sqft) && sqft > 0) {
-      // Save to deal.property.sqft
       setDealValue("property.sqft", sqft);
+      setHasUnsavedChanges(false);
     }
   };
 
@@ -228,7 +261,6 @@ export default function RepairsPage() {
         </p>
       </div>
 
-      {/* Square Footage Input */}
       <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
@@ -238,7 +270,10 @@ export default function RepairsPage() {
             <input
               type="number"
               value={localSqft}
-              onChange={(e) => setLocalSqft(e.target.value)}
+              onChange={(e) => {
+                setLocalSqft(e.target.value);
+                setHasUnsavedChanges(true);
+              }}
               placeholder="Enter sqft (e.g., 1500)"
               className="w-full px-3 py-2 bg-surface/80 border border-border/40 rounded-lg text-white"
             />
@@ -257,7 +292,6 @@ export default function RepairsPage() {
         )}
       </div>
 
-      {/* Live repair rates status strip */}
       <div className="rounded-xl border border-border/40 bg-surface/60 px-4 py-3 text-sm">
         {ratesStatus === "loading" && (
           <p className="text-text-secondary">
@@ -265,16 +299,30 @@ export default function RepairsPage() {
           </p>
         )}
 
+        {ratesStatus === "idle" && (
+          <p className="text-amber-200">
+            No live repair profile loaded yet for {marketCode}/{posture}. Activate a profile
+            in Repairs Sandbox and sync to DealSession.
+          </p>
+        )}
+
         {ratesStatus === "loaded" && rates && (
           <p className="text-text-secondary">
-            Using live repair rates as of{" "}
-            <span className="font-medium text-white">{rates.asOf}</span> for{" "}
-            <span className="font-medium text-white">{rates.market}</span>{" "}
-            (v{rates.version}).
+            Using{" "}
+            <span className="font-medium text-white">
+              {profileName ?? "Active Profile"}
+            </span>{" "}
+            ({rates.posture}) in{" "}
+            <span className="font-medium text-white">
+              {rates.marketCode}
+            </span>{" "}
+            as of{" "}
+            <span className="font-medium text-white">{rates.asOf}</span>{" "}
+            - source {rates.source ?? "unknown"}, v{rates.version}.
             <button
               type="button"
               className="ml-3 text-xs text-accent-blue underline"
-              onClick={() => void refresh()}
+              onClick={() => void refreshRepairRates()}
             >
               Refresh
             </button>
@@ -282,22 +330,28 @@ export default function RepairsPage() {
         )}
 
         {ratesStatus === "error" && (
-          <p className="text-amber-300">
-            Could not load live repair rates
-            {ratesError ? `: ${ratesError}` : ""}. Falling back to default
-            investor rates in the UI.
+          <div className="text-amber-300 space-y-1">
+            <p>
+              Could not load live repair rates for {marketCode}/{posture}.
+              {repairRatesError ? ` ${repairRatesError}` : ""}
+            </p>
+            <p className="text-xs text-amber-200">
+              No rates will be applied until a profile is active for this org/market/posture.
+              Use Repairs Sandbox to activate one, then sync.
+            </p>
             <button
               type="button"
-              className="ml-3 text-xs text-accent-blue underline"
-              onClick={() => void refresh()}
+              className="text-xs text-accent-blue underline"
+              onClick={() => void refreshRepairRates()}
             >
               Retry
             </button>
-          </p>
+          </div>
         )}
       </div>
 
       <RepairsTab
+        key={rates?.profileId ?? "repairs-tab"}
         deal={deal as Deal}
         setDealValue={setDealValue}
         calc={calc}
@@ -306,9 +360,16 @@ export default function RepairsPage() {
         onQuantityChange={handleQuantityChange}
         onReset={handleReset}
         repairRates={rates ?? undefined}
-        marketCode={marketCode}
+        marketCode={repairMeta?.marketCode ?? marketCode}
+        activeProfileName={
+          repairMeta?.profileName ??
+          activeRepairProfile?.name ??
+          undefined
+        }
+        posture={repairMeta?.posture ?? posture}
         ratesStatus={ratesStatus}
-        ratesError={ratesError ?? undefined}
+        ratesError={repairRatesError ?? undefined}
+        meta={repairMeta ?? undefined}
       />
     </div>
   );

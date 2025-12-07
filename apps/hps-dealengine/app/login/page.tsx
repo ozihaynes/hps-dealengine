@@ -1,6 +1,11 @@
 import LoginClient from "./LoginClient";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: "Log in – HPS DealEngine",
+  description:
+    "Authenticate to HPS DealEngine to run deterministic, RLS-backed underwriting.",
+};
 
 type LoginPageProps = {
   searchParams?: {

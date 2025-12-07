@@ -1,27 +1,33 @@
-export function buildCorsHeaders(req: Request): Record<string, string> {
-  const origin = req.headers.get("Origin") ?? "*";
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Headers":
-      "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "OPTIONS, GET, POST, PUT",
-  };
-}
+// supabase/functions/_shared/cors.ts
+
+export const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+};
 
 export function handleOptions(req: Request): Response | null {
-  if (req.method !== "OPTIONS") return null;
-  const headers = buildCorsHeaders(req);
-  return new Response("ok", { status: 200, headers });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+  return null;
 }
 
 export function jsonResponse(
-  req: Request,
+  _req: Request,
   body: unknown,
   status = 200,
 ): Response {
-  const headers = buildCorsHeaders(req);
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...headers, "content-type": "application/json" },
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+    },
   });
 }

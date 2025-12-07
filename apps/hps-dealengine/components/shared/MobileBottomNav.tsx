@@ -26,7 +26,10 @@ const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
   if (!items?.length) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-[rgba(2,6,23,0.92)] backdrop-blur-lg md:hidden">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-[color:var(--glass-border)] bg-[color:var(--bg-primary)] backdrop-blur-lg md:hidden"
+      style={{ backgroundColor: "color-mix(in srgb, var(--bg-primary) 92%, transparent)" }}
+    >
       <div className="mx-auto flex max-w-6xl items-center justify-around px-3">
         {items.map((item) => {
           const isActive =
@@ -41,8 +44,8 @@ const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
               className={[
                 "flex flex-1 flex-col items-center justify-center gap-1 py-3 text-[11px] font-semibold transition-colors",
                 isActive
-                  ? "text-accent-blue"
-                  : "text-text-secondary hover:text-text-primary",
+                  ? "text-[color:var(--accent-color)]"
+                  : "text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]",
               ].join(" ")}
             >
               <Icon

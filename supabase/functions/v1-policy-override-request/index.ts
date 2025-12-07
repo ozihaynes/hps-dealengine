@@ -4,11 +4,15 @@ import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 
 const RequestSchema = z.object({
+  dealId: z.string().uuid().optional(),
   posture: z.string().min(1),
   tokenKey: z.string().min(1),
+  oldValue: z.any().optional(),
   newValue: z.any(),
   justification: z.string().min(1),
   runId: z.string().uuid().optional().nullable(),
+}).refine((val) => !!val.dealId || !!val.runId, {
+  message: "dealId or runId is required",
 });
 
 type MembershipRow = {
@@ -99,27 +103,95 @@ serve(async (req: Request): Promise<Response> => {
     (a, b) => priorityIndex(a.role) - priorityIndex(b.role),
   );
 
-  const primaryMembership = typedMemberships[0];
+  const membershipOrgIds = typedMemberships
+    .map((m) => m.org_id)
+    .filter((id): id is string => !!id);
 
-  // ---------------------------------------------------------------------------
-  // Try to find a policy_version for one of the user's orgs (role priority)
-  // ---------------------------------------------------------------------------
+  const primaryMembership = typedMemberships[0];
 
   let orgId: string | null = null;
   let policyVersionId: string | null = null;
+  let dealId: string | null = body.dealId ?? null;
+  let posture = body.posture;
 
-  for (const m of typedMemberships) {
-    const thisOrgId = m.org_id;
-    if (!thisOrgId) continue;
+  // If a runId was provided, prefer org/deal/posture from that run
+  if (body.runId) {
+    const {
+      data: runRow,
+      error: runError,
+    } = await supabase
+      .from("runs")
+      .select("org_id, posture, deal_id, input")
+      .eq("id", body.runId)
+      .maybeSingle();
 
+    if (runError) {
+      console.error("[v1-policy-override-request] run lookup failed", {
+        runId: body.runId,
+        error: runError,
+      });
+      return jsonResponse(
+        req,
+        { ok: false, error: "Failed to load run for override" },
+        500,
+      );
+    }
+
+    if (!runRow) {
+      return jsonResponse(
+        req,
+        { ok: false, error: "Run not found for override" },
+        404,
+      );
+    }
+
+    const runOrgId = (runRow as any).org_id as string | null;
+    if (runOrgId && !membershipOrgIds.includes(runOrgId)) {
+      return jsonResponse(
+        req,
+        { ok: false, error: "Forbidden: run not in caller orgs" },
+        403,
+      );
+    }
+
+    orgId = runOrgId ?? orgId;
+    const inferredDealId =
+      (runRow as any).deal_id ??
+      ((runRow as any).input as any)?.dealId ??
+      null;
+    if (!dealId) {
+      dealId = inferredDealId ?? null;
+    }
+    posture = (runRow as any).posture ?? posture;
+  }
+
+  // If still no orgId, use membership-derived ordering
+  if (!orgId) {
+    orgId = primaryMembership.org_id;
+  }
+
+  // Guard: caller must belong to resolved org
+  if (orgId && !membershipOrgIds.includes(orgId)) {
+    return jsonResponse(
+      req,
+      { ok: false, error: "Forbidden: membership not found for org" },
+      403,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Try to find a policy_version for the resolved org/posture
+  // ---------------------------------------------------------------------------
+
+  if (orgId) {
     const {
       data: pv,
       error: pvError,
     } = await supabase
       .from("policy_versions")
       .select("id")
-      .eq("org_id", thisOrgId)
-      .eq("posture", body.posture)
+      .eq("org_id", orgId)
+      .eq("posture", posture)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -127,27 +199,54 @@ serve(async (req: Request): Promise<Response> => {
     if (pvError) {
       console.error(
         "[v1-policy-override-request] policy_versions lookup failed",
-        { orgId: thisOrgId, posture: body.posture, error: pvError },
+        { orgId, posture, error: pvError },
       );
-      continue;
     }
 
     if (pv?.id) {
-      orgId = thisOrgId;
       policyVersionId = pv.id as string;
-      break;
     }
   }
 
-  // Fallback: if no policyVersion found, still choose a deterministic org
-  if (!orgId) {
-    orgId = primaryMembership.org_id;
+  if (!policyVersionId) {
+    for (const m of typedMemberships) {
+      const thisOrgId = m.org_id;
+      if (!thisOrgId) continue;
+
+      const {
+        data: pv,
+        error: pvError,
+      } = await supabase
+        .from("policy_versions")
+        .select("id")
+        .eq("org_id", thisOrgId)
+        .eq("posture", posture)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (pvError) {
+        console.error(
+          "[v1-policy-override-request] policy_versions lookup failed (fallback)",
+          { orgId: thisOrgId, posture, error: pvError },
+        );
+        continue;
+      }
+
+      if (pv?.id) {
+        policyVersionId = pv.id as string;
+        if (!orgId) {
+          orgId = thisOrgId;
+        }
+        break;
+      }
+    }
   }
 
   if (!orgId) {
     return jsonResponse(
       req,
-      { ok: false, error: "Membership not found" },
+      { ok: false, error: "Membership not found for caller" },
       403,
     );
   }
@@ -163,9 +262,11 @@ serve(async (req: Request): Promise<Response> => {
     .from("policy_overrides")
     .insert({
       org_id: orgId,
+      deal_id: dealId ?? null,
       run_id: body.runId ?? null,
-      posture: body.posture,
+      posture,
       token_key: body.tokenKey,
+      old_value: body.oldValue ?? null,
       new_value: body.newValue,
       justification: body.justification,
       status: "pending",

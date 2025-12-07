@@ -19,21 +19,21 @@ export default function AppTopNav() {
   };
 
   return (
-    <div className="flex w-full items-center justify-between gap-4">
+    <div className="flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)]">
       {/* Brand lockup */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/5">
-          <Icon d={Icons.calculator} size={22} className="text-accent-blue" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)]">
+          <Icon d={Icons.calculator} size={22} className="text-[color:var(--accent-color)]" />
         </div>
         <div className="flex flex-col leading-tight">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-text-secondary">
+          <span className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
             Haynes Property Solutions
           </span>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-semibold text-text-primary">
+            <span className="text-2xl font-semibold text-[color:var(--text-primary)]">
               DealEngine<span className="align-super text-[10px]">TM</span>
             </span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+            <span className="rounded-full border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--text-secondary)]">
               v1
             </span>
           </div>
@@ -43,10 +43,10 @@ export default function AppTopNav() {
       {/* Right-side controls */}
       <div className="flex items-center gap-3">
         {/* Icon cluster */}
-        <div className="hidden sm:flex items-center gap-2 text-text-secondary/80">
+        <div className="hidden sm:flex items-center gap-2 text-[color:var(--text-secondary)]">
           <Link
             href="/sandbox"
-            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/12 bg-surface-elevated/40 hover:bg-surface-elevated/80"
+            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] hover:bg-[color:var(--glass-bg)]"
             aria-label="Business Logic Sandbox"
           >
             <Icon d={Icons.sliders} size={22} />
@@ -57,7 +57,7 @@ export default function AppTopNav() {
           </Link>
           <Link
             href="/settings/user"
-            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-white/12 bg-surface-elevated/40 hover:bg-surface-elevated/80"
+            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] hover:bg-[color:var(--glass-bg)]"
             aria-label="User & Team Settings"
           >
             <Icon d={Icons.user} size={22} />
@@ -72,7 +72,8 @@ export default function AppTopNav() {
         <button
           type="button"
           onClick={onAnalyze}
-          className="inline-flex items-center gap-2 rounded-lg border border-accent-blue/70 bg-accent-blue/15 px-4 py-2 text-xs font-semibold text-accent-blue shadow-sm hover:bg-accent-blue/25"
+          className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--accent-color)] px-4 py-2 text-xs font-semibold text-[color:var(--accent-color)] shadow-sm transition-colors"
+          style={{ backgroundColor: "color-mix(in srgb, var(--accent-color) 20%, transparent)" }}
           aria-label="Analyze with AI"
         >
           <Icon d={Icons.playbook} size={16} />
