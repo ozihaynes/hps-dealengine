@@ -128,14 +128,14 @@ export function DualAgentLauncher() {
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-transparent p-0 shadow-none transition-transform hover:scale-[1.02] focus:outline-none"
+            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0b1e33] via-[#0f2f4d] to-[#123961] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-2 ring-white/10 transition-transform hover:scale-[1.03] focus:outline-none"
           >
             <Image
-              src="/agents-mascot.png"
-              alt=""
+              src="/real_DealEngine_Mascot.png"
+              alt="DealEngine dual agent launcher"
               width={192}
               height={192}
-              className="h-full w-full object-contain"
+              className="h-full w-full rounded-full object-cover"
               priority
             />
           </button>
@@ -144,27 +144,16 @@ export function DualAgentLauncher() {
         {mobileHidden ? (
           <button
             type="button"
-            className="pointer-events-auto relative inline-flex h-10 w-10 items-center justify-center bg-transparent p-0 shadow-none transition-transform hover:scale-[1.03] md:hidden"
-            onClick={() => setMobileHidden(false)}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={(e) => handleTouchEnd(e, "show")}
-          >
-            <span
-              className="arrow-indicator block h-full w-full"
-              style={{
-                WebkitMaskImage: 'url("/ChatGPT Image Dec 11, 2025, 06_58_16 AM.png")',
-                maskImage: 'url("/ChatGPT Image Dec 11, 2025, 06_58_16 AM.png")',
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-                WebkitMaskPosition: "center",
-                maskPosition: "center",
-                backgroundColor: "#60c9ff",
-              }}
-            />
-          </button>
-        ) : null}
+          className="pointer-events-auto relative inline-flex h-10 w-10 items-center justify-center bg-transparent p-0 shadow-none transition-transform hover:scale-[1.03] md:hidden"
+          onClick={() => setMobileHidden(false)}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={(e) => handleTouchEnd(e, "show")}
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(0,150,255,0.18)] ring-2 ring-[#60c9ff] ring-offset-2 ring-offset-[rgba(0,0,0,0.55)]">
+            <ChevronLeft className="h-5 w-5 text-[#60c9ff]" />
+          </span>
+        </button>
+      ) : null}
 
         <div
           className={`flex flex-col space-y-4 transition-all duration-300 ${
@@ -241,19 +230,6 @@ export function DualAgentLauncher() {
           animation: agent-glow-spin 1.6s linear infinite;
           opacity: 1;
           box-shadow: 0 0 16px rgba(0, 150, 255, 0.6);
-        }
-        .arrow-indicator {
-          background: linear-gradient(90deg, #8ee2ff 0%, #32c3ff 50%, #8ee2ff 100%);
-          background-size: 200% 100%;
-          animation: arrow-glow 1.2s linear infinite;
-        }
-        @keyframes arrow-glow {
-          0% {
-            background-position: 100% 0;
-          }
-          100% {
-            background-position: 0 0;
-          }
         }
       `}</style>
     </>
