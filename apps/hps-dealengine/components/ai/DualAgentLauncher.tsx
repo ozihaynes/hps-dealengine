@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronLeft, Crown, Handshake, ScanEye } from "lucide-react";
+import { Crown, Handshake, ScanEye } from "lucide-react";
 import { useDealSession } from "@/lib/dealSessionContext";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 import DealAnalystWindow from "./DealAnalystWindow";
@@ -144,16 +144,23 @@ export function DualAgentLauncher() {
         {mobileHidden ? (
           <button
             type="button"
-          className="pointer-events-auto relative inline-flex h-10 w-10 items-center justify-center bg-transparent p-0 shadow-none transition-transform hover:scale-[1.03] md:hidden"
-          onClick={() => setMobileHidden(false)}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={(e) => handleTouchEnd(e, "show")}
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(0,150,255,0.18)] ring-2 ring-[#60c9ff] ring-offset-2 ring-offset-[rgba(0,0,0,0.55)]">
-            <ChevronLeft className="h-5 w-5 text-[#60c9ff]" />
-          </span>
-        </button>
-      ) : null}
+            className="pointer-events-auto relative inline-flex h-10 w-10 items-center justify-center bg-transparent p-0 shadow-none transition-transform hover:scale-[1.03] md:hidden"
+            onClick={() => setMobileHidden(false)}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={(e) => handleTouchEnd(e, "show")}
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(0,150,255,0.18)] ring-2 ring-[#60c9ff] ring-offset-2 ring-offset-[rgba(0,0,0,0.55)]">
+              <Image
+                src="/left_arrow.png"
+                alt="Show agent launcher"
+                width={40}
+                height={40}
+                className="h-8 w-8 object-contain"
+                priority
+              />
+            </span>
+          </button>
+        ) : null}
 
         <div
           className={`flex flex-col space-y-4 transition-all duration-300 ${
