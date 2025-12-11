@@ -175,37 +175,56 @@ type DocMeta = {
 
 let registryCache: DocMeta[] | null = null;
 
-function resolveKbRegistryPath(
-  override?: string | null,
-  rootDir?: string | null,
-): string {
-  const envPath = (override ?? process.env.HPS_KB_REGISTRY_PATH ?? "").trim();
+export function clearKbRegistryCache() {
+  registryCache = null;
+}
+
+function fileExists(p: string): boolean {
+  try {
+    return existsSync(p);
+  } catch {
+    return false;
+  }
+}
+
+function findUpwards(startDir: string, relativePath: string, maxDepth = 6): string | null {
+  let current = startDir;
+  for (let i = 0; i < maxDepth; i += 1) {
+    const candidate = path.join(current, relativePath);
+    if (fileExists(candidate)) return candidate;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return null;
+}
+
+export function resolveKbRegistryPath(override?: string | null): string {
+  const overridePath = (override ?? "").trim();
+  if (overridePath.length > 0) {
+    return path.isAbsolute(overridePath)
+      ? overridePath
+      : path.join(process.cwd(), overridePath);
+  }
+
+  const envPath = (process.env.HPS_KB_REGISTRY_PATH ?? "").trim();
   if (envPath.length > 0) {
     return path.isAbsolute(envPath)
       ? envPath
       : path.join(process.cwd(), envPath);
   }
 
-  // __dirname is expected to be packages/agents/dist/strategist at runtime.
-  // Walk up to repo root, then docs/ai/doc-registry.json.
-  const fromRepoRoot = path.join(
-    __dirname,
-    "..", // strategist
-    "..", // dist or src
-    "..", // packages/agents
-    "..", // repo root
-    "docs",
-    "ai",
-    "doc-registry.json",
-  );
-
-  if (existsSync(fromRepoRoot)) {
-    return fromRepoRoot;
+  const fromDirname = findUpwards(__dirname, path.join("docs", "ai", "doc-registry.json"));
+  if (fromDirname) {
+    return fromDirname;
   }
 
-  // Fallback for tests or alternate environments
-  const root = rootDir ?? process.env.HPS_KB_ROOT ?? process.cwd();
-  return path.join(root, "docs", "ai", "doc-registry.json");
+  const fromCwd = findUpwards(process.cwd(), path.join("docs", "ai", "doc-registry.json"));
+  if (fromCwd) {
+    return fromCwd;
+  }
+
+  return path.join(process.cwd(), "docs", "ai", "doc-registry.json");
 }
 
 function resolveDocPath(docPath: string, rootDir?: string | null): string {
@@ -218,10 +237,20 @@ async function loadRegistry(
   rootDir?: string | null,
 ): Promise<DocMeta[]> {
   if (registryCache) return registryCache;
-  const registryFile = resolveKbRegistryPath(registryOverride, rootDir);
-  const raw = await fs.readFile(registryFile, "utf8");
-  registryCache = JSON.parse(raw) as DocMeta[];
-  return registryCache;
+  const registryFile = resolveKbRegistryPath(registryOverride ?? undefined);
+
+  try {
+    const raw = await fs.readFile(registryFile, "utf8");
+    registryCache = JSON.parse(raw) as DocMeta[];
+  } catch (err: any) {
+    if (err?.code === "ENOENT") {
+      console.warn("[strategist] KB registry not found at", registryFile, "- using empty registry");
+      registryCache = [];
+    } else {
+      throw err;
+    }
+  }
+  return registryCache ?? [];
 }
 
 function tokenize(text: string): string[] {
