@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UnderwriteTab from "@/components/underwrite/UnderwriteTab";
 import { Button } from "@/components/ui";
 import RequestOverrideModal from "@/components/underwrite/RequestOverrideModal";
@@ -27,6 +27,7 @@ import {
 } from "@/lib/evidenceFreshness";
 import { canEditGoverned } from "@/constants/governedTokens";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { Info, CheckCircle } from "lucide-react";
 
 type RunSaveResponse =
   | {
@@ -122,6 +123,8 @@ export default function UnderwritePage() {
     ReturnType<typeof buildEvidenceStatus>
   >([]);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [showChecklist, setShowChecklist] = useState(false);
+  const checklistRef = useRef<HTMLDivElement | null>(null);
   useUnsavedChanges(hasUnsavedDealChanges);
 
   // Load org_id:
@@ -184,6 +187,24 @@ export default function UnderwritePage() {
       publishAnalyzeResult(lastAnalyzeResult as any);
     }
   }, [analysisResult, lastAnalyzeResult]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (!showChecklist) return;
+      if (checklistRef.current && !checklistRef.current.contains(e.target as Node)) {
+        setShowChecklist(false);
+      }
+    }
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowChecklist(false);
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [showChecklist]);
 
   // Load evidence for banners (run-scoped when available)
   const refreshEvidence = useCallback(async () => {
@@ -477,21 +498,21 @@ export default function UnderwritePage() {
           <Button
             size="sm"
             variant="neutral"
+            disabled={isSavingRun || !(analysisResult || lastAnalyzeResult)}
+            onClick={handleSaveRun}
+          >
+            {isSavingRun ? "Saving Run." : "Save Run"}
+          </Button>
+
+          <Button
+            size="sm"
+            variant="neutral"
             onClick={() => {
               setOverridePrefill(null);
               setIsOverrideModalOpen(true);
             }}
           >
             Request Override
-          </Button>
-
-          <Button
-            size="sm"
-            variant="neutral"
-            disabled={isSavingRun || !(analysisResult || lastAnalyzeResult)}
-            onClick={handleSaveRun}
-          >
-            {isSavingRun ? "Saving Run." : "Save Run"}
           </Button>
         </div>
       </div>
@@ -534,38 +555,59 @@ export default function UnderwritePage() {
       )}
 
       {(evidenceStatus.length > 0 || evidenceError) && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-100 space-y-1">
-          <div className="font-semibold text-amber-200">
-            Evidence checklist for this deal {lastRunId ? " / run" : ""}
-          </div>
-          {evidenceError && (
-            <div className="text-red-200">Evidence load error: {evidenceError}</div>
-          )}
-          {!evidenceError && evidenceStatus.length === 0 && (
-            <div className="text-amber-50">No evidence found yet.</div>
-          )}
-          {evidenceStatus.map((row) => {
-            const label = evidenceLabel(row.kind);
-            if (row.status === "missing") {
-              return (
-                <div key={row.kind} className="text-amber-50">
-                  {label}: missing — upload before offer.
-                </div>
-              );
-            }
-            if (row.status === "stale") {
-              return (
-                <div key={row.kind} className="text-amber-50">
-                  {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) — refresh.
-                </div>
-              );
-            }
-            return (
-              <div key={row.kind} className="text-emerald-100">
-                {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
+        <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Evidence checklist"
+            onClick={() => setShowChecklist((prev) => !prev)}
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#FF4500]/50 bg-[#FF4500]/10 text-[#FF4500] hover:bg-[#FF4500]/20 transition"
+          >
+            <Info size={16} />
+          </button>
+          <span className="text-xs text-text-secondary">Evidence checklist</span>
+          {showChecklist && (
+            <div
+              ref={checklistRef}
+              className="absolute z-20 top-10 right-0 min-w-[280px] rounded-lg border border-[#FF4500]/50 bg-[color:var(--glass-bg,strong)]/95 px-3 py-3 text-xs text-text-primary shadow-xl backdrop-blur"
+            >
+              <div className="mb-2 font-semibold text-[#FF4500]">
+                Evidence checklist for this deal {lastRunId ? " / run" : ""}
               </div>
-            );
-          })}
+              {evidenceError && (
+                <div className="text-red-200">Evidence load error: {evidenceError}</div>
+              )}
+              {!evidenceError && evidenceStatus.length === 0 && (
+                <div className="text-text-secondary">No evidence found yet.</div>
+              )}
+              <div className="space-y-1">
+                {evidenceStatus.map((row) => {
+                  const label = evidenceLabel(row.kind);
+                  if (row.status === "missing") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: missing - upload before offer.
+                      </div>
+                    );
+                  }
+                  if (row.status === "stale") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) - refresh.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={row.kind} className="flex items-center gap-1 text-emerald-200">
+                      <CheckCircle size={14} className="text-emerald-300" />
+                      <span>
+                        {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

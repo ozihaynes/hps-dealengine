@@ -10,7 +10,3 @@ declare module "@/types" {
   export type Deal = any;
   export type EngineCalculations = any;
 }
-declare module "@/shims/google-genai" {
-  export const GoogleGenAI: any;
-  export const Type: any;
-}

@@ -144,6 +144,7 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - AI strategist interface on top of engine outputs/trace.
   - Uses Zod contracts from `packages/contracts`.
+  - All persona traffic now routes through the OpenAI-backed bridge (Gemini experiment removed).
 
 - `v1-evidence-start` / `v1-evidence-url`
 
@@ -310,12 +311,21 @@ V1 is complete; new slices should come from v1.1 hardening or v2/v3 themes below
 
 ## 2 V1.1 / Hardening (Near-Term)
 
+Recently shipped (Dec 2025):
+
+- AI agent chat UX polish (Slices A/B): always-visible composers with placeholders, taller chat windows with prompt chips, hamburger menu with Tone + “Your Chats,” auto-titles from first user message, no auto-summary bubbles (Negotiator keeps first-playbook flow).
+- /startup routing (Slice C): “Run New Deal” → `/underwrite?dealId=...`; existing deal rows → `/overview?dealId=...` with session preserved.
+- Underwrite evidence UX (Slice D): checklist moved to compact orange (i) popover; satisfied rows show green checkmark; header buttons order Analyze → Save Run → Request Override.
+- Settings navigation (Slice E): desktop settings keep the main app nav visible with branding; mobile bottom nav unchanged.
+- Theme parity (Slice F): Burgundy/Green shells match Blue’s dark glass depth while retaining accent borders/rings.
+
 Fast-follow items that do not change V1 behavior:
 
 - Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals; run env-gated Playwright specs and consider enabling in CI.
 - Repairs UX/ergonomics: fix org alignment for repair profiles/rates, tighten RepairsTab meta and presentation.
 - Overrides/governance: light UI for override request/review, keep governance RLS and trace visibility.
-- Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math.
+- AI surfaces: Base tri-agent chat history + UX shipped; remaining hardening is tone/copy and matrix coverage, not wiring.
+- Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math (null-backed numeric input foundation in shared components/defaults is done; rollout across all forms still pending).
 
 ## 3 V2 Themes (Planned)
 
@@ -331,8 +341,8 @@ Fast-follow items that do not change V1 behavior:
   - Fill in placeholders: `domain.risk-gates-and-compliance`, `engine.knobs-and-sandbox-mapping`, `app.routes-overview`.
   - Confirm each gate/knob is wired to trace and KPIs.
 - **AI Persona Voice Tuning**:
-  - Refine default tones for Deal Analyst (candid, direct) and Deal Strategist (visionary, strategic).
-  - Add copy guidelines and examples to `docs/ai/assistant-behavior-guide.md`.
+  - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
+  - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
 
 ## 4 V3 Themes (Planned)
 

@@ -75,6 +75,7 @@ export interface ButtonProps {
   size?: "sm" | "md";
   variant?: "primary" | "danger" | "ghost" | "neutral";
   className?: string;
+  type?: "button" | "submit" | "reset";
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   children?: ReactNode;
   disabled?: boolean;

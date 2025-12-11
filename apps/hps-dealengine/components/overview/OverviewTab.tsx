@@ -2,7 +2,7 @@ import React from 'react';
 import type { Deal, EngineCalculations } from "../../types";
 import type { Flags } from '../../types';
 import { fmt$, roundHeadline, getDealHealth } from '../../utils/helpers';
-import { GlassCard, Badge, Icon } from '../ui';
+import { GlassCard, Badge, Icon, Button } from '../ui';
 import StatCard from './StatCard';
 import MarketTempGauge from './MarketTempGauge';
 import DealStructureChart from './DealStructureChart';
@@ -11,23 +11,23 @@ import {
   getDealAnalysisView,
   getDealStructureView,
   getMarketTempView,
-  getNegotiationContextView,
   getWholesaleFeeView,
   type DealAnalysisView,
   type DealStructureView,
   type MarketTempView,
-  type NegotiationContextView,
   type WholesaleFeeView,
 } from "../../lib/overviewExtras";
+import { useDealSession } from "@/lib/dealSessionContext";
+import { askDealNegotiatorGeneratePlaybook } from "@/lib/aiBridge";
+import type { AiChatMessage } from "@/lib/ai/types";
+import { useAiWindows } from "@/lib/ai/aiWindowsContext";
+import DealNegotiatorPanel from "../ai/DealNegotiatorPanel";
 
 interface OverviewTabProps {
   deal: Deal;
   calc: EngineCalculations;
   flags: Flags;
   hasUserInput: boolean;
-  playbookContent: string;
-  isAnalyzing: boolean;
-  analysisRun: boolean;
 }
 
 const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -35,16 +35,30 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   calc,
   flags,
   hasUserInput,
-  playbookContent,
-  isAnalyzing,
-  analysisRun,
 }) => {
-  const effectiveHasInput = hasUserInput && analysisRun;
+  const effectiveHasInput = hasUserInput;
+  const {
+    dbDeal,
+    lastRunId,
+    negotiationPlaybook,
+    negotiatorLogicRowIds,
+    setNegotiationPlaybook,
+  setNegotiatorMessages,
+  setNegotiatorLogicRowIds,
+  appendNegotiatorMessage,
+  clearNegotiatorThread,
+  posture,
+  } = useDealSession();
+  const { state: aiWindowState, dispatch: aiWindowDispatch } = useAiWindows();
+  const negotiatorWindow = aiWindowState.windows.dealNegotiator;
+  const [isGeneratingPlaybook, setIsGeneratingPlaybook] = React.useState(false);
+  const [negotiatorError, setNegotiatorError] = React.useState<string | null>(null);
+  const dealId = dbDeal?.id ?? null;
+  const latestRunId = lastRunId;
   const wholesaleFeeView: WholesaleFeeView = getWholesaleFeeView(calc as any, deal);
   const dealAnalysisView: DealAnalysisView = getDealAnalysisView(calc as any, deal);
   const marketTempView: MarketTempView = getMarketTempView(calc as any);
   const dealStructureView: DealStructureView = getDealStructureView(calc as any, deal);
-  const negotiationView: NegotiationContextView = getNegotiationContextView(calc as any, deal);
   const minSpread = Number(deal.policy?.min_spread ?? NaN);
   const isCashShortfall =
     effectiveHasInput && isFinite(calc.dealSpread) && isFinite(minSpread) && calc.dealSpread < minSpread;
@@ -54,8 +68,119 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     Critical: 'orange',
     High: 'blue',
     Low: 'green',
-    '—': 'blue',
+    '-': 'blue',
   };
+
+  const createMessage = React.useCallback(
+    (role: "user" | "assistant" | "system", content: string): AiChatMessage => ({
+      id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      role,
+      content,
+      createdAt: new Date().toISOString(),
+    }),
+    [],
+  );
+
+  const handleGeneratePlaybook = React.useCallback(async () => {
+    if (!dealId) {
+      setNegotiatorError("Deal ID missing. Save the deal before generating a playbook.");
+      return;
+    }
+    if (!latestRunId) {
+      setNegotiatorError("No completed run found. Run the analysis first, then generate a playbook.");
+      return;
+    }
+    setIsGeneratingPlaybook(true);
+    setNegotiatorError(null);
+    clearNegotiatorThread();
+
+    try {
+      const result = await askDealNegotiatorGeneratePlaybook({
+        dealId,
+        runId: latestRunId ?? null,
+      });
+
+      setNegotiationPlaybook(result);
+      setNegotiatorLogicRowIds(result.logicRowIds ?? []);
+
+      const { sections } = result;
+      const lines: string[] = [];
+      lines.push("Here is your negotiation playbook for this deal.\n");
+
+      if (sections.anchor) {
+        lines.push("**The Anchor**");
+        lines.push(sections.anchor.triggerPhrase);
+        lines.push("");
+        lines.push(sections.anchor.scriptBody);
+        if (sections.anchor.followupQuestion) {
+          lines.push("");
+          lines.push(`Follow-up: ${sections.anchor.followupQuestion}`);
+        }
+        lines.push("");
+      }
+
+      if (sections.script) {
+        lines.push("**The Script**");
+        lines.push(sections.script.triggerPhrase);
+        lines.push("");
+        lines.push(sections.script.scriptBody);
+        if (sections.script.followupQuestion) {
+          lines.push("");
+          lines.push(`Follow-up: ${sections.script.followupQuestion}`);
+        }
+        lines.push("");
+      }
+
+      if (sections.pivot) {
+        lines.push("**The Pivot**");
+        lines.push(sections.pivot.triggerPhrase);
+        lines.push("");
+        lines.push(sections.pivot.scriptBody);
+        if (sections.pivot.followupQuestion) {
+          lines.push("");
+          lines.push(`Follow-up: ${sections.pivot.followupQuestion}`);
+        }
+      }
+
+      const firstMessage = createMessage("assistant", lines.join("\n"));
+      const secondMessage = createMessage(
+        "assistant",
+        "If you have any questions or client objections regarding this strategy, let me know!",
+      );
+      setNegotiatorMessages([firstMessage, secondMessage]);
+    } catch (err) {
+      console.error("Negotiator playbook generation failed", err);
+      setNegotiatorError("Could not generate a playbook. Ensure a run exists, then try again.");
+    } finally {
+      setIsGeneratingPlaybook(false);
+    }
+  }, [
+    clearNegotiatorThread,
+    createMessage,
+    dealId,
+    latestRunId,
+    setNegotiationPlaybook,
+    setNegotiatorLogicRowIds,
+    setNegotiatorMessages,
+  ]);
+
+  const handleOpenNegotiatorWindow = React.useCallback(() => {
+    if (!dealId || !negotiationPlaybook) return;
+
+    if (negotiatorWindow.visibility === "closed") {
+      aiWindowDispatch({
+        type: "START_NEW_SESSION",
+        id: "dealNegotiator",
+        sessionId: crypto.randomUUID(),
+        context: { dealId, orgId: dbDeal?.org_id, runId: latestRunId ?? undefined, posture },
+      });
+      aiWindowDispatch({ type: "OPEN_WINDOW", id: "dealNegotiator" });
+    } else if (negotiatorWindow.visibility === "minimized") {
+      aiWindowDispatch({ type: "OPEN_WINDOW", id: "dealNegotiator" });
+    } else {
+      aiWindowDispatch({ type: "MINIMIZE_WINDOW", id: "dealNegotiator" });
+    }
+  }, [aiWindowDispatch, dealId, negotiatorWindow.visibility]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,17 +194,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatCard
           label="Wholesale Fee"
-          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFee)) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFee)) : '-'}
           icon={<Icon d={Icons.dollar} size={20} />}
         />
         <StatCard
           label="Wholesale Fee w/ DC"
-          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFeeWithDc)) : '—'}
+          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFeeWithDc)) : '-'}
           icon={<Icon d={Icons.dollar} size={20} />}
         />
       </div>
 
-      {/* Deal Analysis — presenter-backed snapshot */}
+      {/* Deal Analysis - presenter-backed snapshot */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2">
           <GlassCard className="p-5 md:p-6">
@@ -116,7 +241,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <span className="text-text-primary font-mono">
                           {dealAnalysisView.buyerMarginPct != null
                             ? `${(dealAnalysisView.buyerMarginPct * 100).toFixed(1)}%`
-                            : '—'}
+                            : '-'}
                         </span>
                       </p>
                       <p>
@@ -124,7 +249,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <span className="text-text-primary font-mono">
                           {dealAnalysisView.contingencyPct != null
                             ? `${(dealAnalysisView.contingencyPct * 100).toFixed(0)}%`
-                            : '—'}
+                            : '-'}
                         </span>
                       </p>
                       <p>
@@ -132,7 +257,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                         <span className="text-text-primary font-mono">
                           {dealAnalysisView.carryMonths != null
                             ? `${dealAnalysisView.carryMonths.toFixed(2)} mos`
-                            : '—'}
+                            : '-'}
                         </span>
                       </p>
                       <p>
@@ -199,38 +324,42 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         </div>
       </div>
       <DealStructureChart view={dealStructureView} hasUserInput={effectiveHasInput} />
-      <GlassCard className="p-5 md:p-6">
-        <h3 className="text-text-primary font-semibold text-lg mb-3 flex items-center gap-2">
-          <Icon d={Icons.playbook} size={18} className="text-accent-blue" /> Negotiation Playbook
-        </h3>
-        {isAnalyzing ? (
-          <div className="text-center p-8">
-            <p className="animate-pulse text-text-secondary font-semibold">
-              Generating AI Playbook...
+      <GlassCard className="p-5 md:p-6 flex flex-col gap-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-text-primary font-semibold text-lg flex items-center gap-2">
+              <Icon d={Icons.playbook} size={18} className="text-accent-blue" /> Negotiator
+            </h3>
+            <p className="text-sm text-text-secondary">
+              Pre-emptive objection handling and talk tracks grounded in the Negotiation Matrix.
             </p>
           </div>
-        ) : !analysisRun ? (
-          <p className="muted text-base">
-            Enter deal data and click 'Analyze with AI' to generate negotiation points.
-          </p>
-        ) : playbookContent ? (
-          <div
-            className="prose prose-invert max-w-none text-sm leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: playbookContent }}
-          />
-        ) : (
-          <div className="prose prose-invert max-w-none text-sm leading-relaxed space-y-2">
-            <p>
-              Spread status: {negotiationView.spreadStatus} (policy min {fmt$(negotiationView.minSpread ?? NaN, 0)}),
-              DTM {negotiationView.dtm ?? '—'} days, urgency {negotiationView.urgencyLabel}.
-            </p>
-            <ul className="list-disc pl-4">
-              <li>Floor {fmt$(negotiationView.respectFloor ?? NaN, 0)} vs Buyer Ceiling {fmt$(negotiationView.buyerCeiling ?? NaN, 0)}</li>
-              <li>MAO {fmt$(negotiationView.mao ?? NaN, 0)}; Payoff {fmt$(negotiationView.payoff ?? NaN, 0)}</li>
-              <li>Risk: {String(negotiationView.riskOverall ?? 'unknown')}; Evidence: {negotiationView.evidenceStatus ?? 'unknown'}</li>
-            </ul>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleGeneratePlaybook}
+              disabled={isGeneratingPlaybook || !dealId}
+            >
+              {isGeneratingPlaybook ? "Generating..." : "Generate Playbook"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenNegotiatorWindow}
+              disabled={!dealId || !negotiationPlaybook}
+            >
+              Open in window
+            </Button>
+          </div>
+        </div>
+
+        {negotiatorError && (
+          <div className="rounded-md border border-brand-red-subtle bg-brand-red-subtle/20 px-3 py-2 text-sm text-brand-red-light">
+            {negotiatorError}
           </div>
         )}
+        <DealNegotiatorPanel inline />
       </GlassCard>
     </div>
   );

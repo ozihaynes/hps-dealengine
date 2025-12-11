@@ -24,8 +24,8 @@ export default function Page() {
     setResp(null);
     const body =
       persona === "dealAnalyst"
-        ? { persona, dealId, runId, userPrompt: prompt }
-        : { persona, userPrompt: prompt, route: "/ai-bridge/debug" };
+        ? { persona, dealId, runId, posture: "base", userPrompt: prompt, prompt }
+        : { persona, userPrompt: prompt, posture: "base", route: "/ai-bridge/debug" };
 
     const { data, error } = await supa.functions.invoke("v1-ai-bridge", { body });
     if (error) setErr(error.message);

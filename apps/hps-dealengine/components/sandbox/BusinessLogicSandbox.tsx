@@ -103,6 +103,7 @@ const StrategistChat = ({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,17 +129,39 @@ const StrategistChat = ({
 
     try {
       const payload = buildStrategistPayload(userText, posture, settings as any);
-      const response = await askSandboxStrategist(payload);
+      const response = await askSandboxStrategist({
+        ...payload,
+        threadId,
+      });
 
-      if (!response.ok) {
-        throw new Error(response.error);
+      if (response.ok) {
+        if (response.threadId) {
+          setThreadId(response.threadId);
+        }
+        const aiMessage = {
+          role: "model" as const,
+          content: toHtml(response.markdown),
+        };
+        setMessages([...nextMessages, aiMessage]);
+        return;
       }
 
-      const aiMessage = {
-        role: "model" as const,
-        content: toHtml(response.markdown),
-      };
-      setMessages([...nextMessages, aiMessage]);
+      const nextThreadId = response.threadId ?? threadId ?? null;
+      if (nextThreadId !== threadId) {
+        setThreadId(nextThreadId);
+      }
+      setError(
+        response.error ??
+          "Strategist is unavailable right now. Please try again.",
+      );
+      setMessages([
+        ...nextMessages,
+        {
+          role: "model" as const,
+          content:
+            '<p class="text-accent-orange">Sorry, I hit an error. Please try again shortly.</p>',
+        },
+      ]);
     } catch (err) {
       console.error("[Sandbox Strategist] failed", err);
       setError("Strategist is unavailable right now. Please try again.");

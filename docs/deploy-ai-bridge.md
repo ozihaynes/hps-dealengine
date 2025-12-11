@@ -7,7 +7,6 @@ Audience: Operator running in `C:\Users\oziha\Documents\hps-dealengine` with Sup
   - `NEXT_PUBLIC_SUPABASE_URL`
   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - AI bridge / server-side:
-  - `GEMINI_API_KEY`
   - `OPENAI_API_KEY`
 - Supabase (already in use):
   - `SUPABASE_URL`
@@ -20,7 +19,6 @@ NEXT_PUBLIC_SUPABASE_URL=    # set locally, do not commit
 NEXT_PUBLIC_SUPABASE_ANON_KEY=    # set locally, do not commit
 SUPABASE_URL=    # set locally, do not commit
 SUPABASE_ANON_KEY=    # set locally, do not commit
-GEMINI_API_KEY=    # set locally, do not commit
 OPENAI_API_KEY=    # set locally, do not commit
 ```
 
@@ -31,7 +29,7 @@ Set-Location "C:\Users\oziha\Documents\hps-dealengine"
 supabase functions deploy v1-ai-bridge
 ```
 Notes:
-- Set `GEMINI_API_KEY` (and `OPENAI_API_KEY` if used) as Supabase secrets/config; never in git.
+- Set `OPENAI_API_KEY` as a Supabase secret/config; never in git.
 - `v1-ai-bridge` uses `verify_jwt` via the anon client and respects RLS; caller JWT must be present.
 
 ## 4) Test / tripwire checklist

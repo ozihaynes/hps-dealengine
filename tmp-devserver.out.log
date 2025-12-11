@@ -1,0 +1,19 @@
+
+> hps-dealengine@0.0.0 dev C:\Users\oziha\Documents\hps-dealengine
+> pnpm --filter "./apps/hps-dealengine" dev
+
+
+> hps-dealengine@0.1.0 dev C:\Users\oziha\Documents\hps-dealengine\apps\hps-dealengine
+> next dev
+
+  ▲ Next.js 14.2.5
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 1863ms
+ ○ Compiling /api/agents/analyst ...
+ ✓ Compiled /api/agents/analyst in 2.1s (762 modules)
+ POST /api/agents/analyst 500 in 4095ms
+ POST /api/agents/analyst 500 in 577ms
+[?25h

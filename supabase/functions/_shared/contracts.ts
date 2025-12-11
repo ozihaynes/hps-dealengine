@@ -40,27 +40,45 @@ export type RunOutputEnvelope = z.infer<typeof RunOutputEnvelopeSchema>;
 export const PolicySnapshotSchema = z.unknown();
 export type PolicySnapshot = z.infer<typeof PolicySnapshotSchema>;
 
+const DealAnalystInputSchema = z.object({
+  persona: z.literal("dealAnalyst"),
+  dealId: z.string().uuid(),
+  runId: z.string().uuid(),
+  posture: z.string().optional(),
+  userPrompt: z.string().min(1),
+  tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
+  isStale: z.boolean().optional(),
+});
+
+const DealStrategistInputSchema = z.object({
+  persona: z.literal("dealStrategist"),
+  userPrompt: z.string().min(1),
+  posture: z.string().optional(),
+  sandboxSettings: z.unknown().optional(),
+  route: z.string().optional(),
+  tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
+});
+
+const DealNegotiatorInputSchema = z.object({
+  persona: z.literal("dealNegotiator"),
+  mode: z.enum(["generate_playbook", "chat"]),
+  dealId: z.string().uuid(),
+  runId: z.string().uuid().optional().nullable(),
+  userMessage: z.string().optional(),
+  logicRowIds: z.array(z.string()).optional(),
+  tone: z.enum(["objective", "empathetic", "assertive"]).optional(),
+});
+
 export const AiBridgeInputSchema = z.discriminatedUnion("persona", [
-  z.object({
-    persona: z.literal("dealAnalyst"),
-    dealId: z.string().uuid(),
-    runId: z.string().uuid(),
-    posture: z.string().optional(),
-    userPrompt: z.string().min(1),
-    tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
-    isStale: z.boolean().optional(),
-  }),
-  z.object({
-    persona: z.literal("dealStrategist"),
-    userPrompt: z.string().min(1),
-    posture: z.string().optional(),
-    sandboxSettings: z.unknown().optional(),
-    route: z.string().optional(),
-    tone: z.enum(["neutral", "punchy", "visionary", "direct", "empathetic"]).optional(),
-  }),
+  DealAnalystInputSchema,
+  DealStrategistInputSchema,
+  DealNegotiatorInputSchema,
 ]);
 
-export type AiBridgeInput = z.infer<typeof AiBridgeInputSchema>;
+export type DealAnalystPayload = z.infer<typeof DealAnalystInputSchema>;
+export type DealStrategistPayload = z.infer<typeof DealStrategistInputSchema>;
+export type DealNegotiatorPayload = z.infer<typeof DealNegotiatorInputSchema>;
+export type AiBridgeInput = DealAnalystPayload | DealStrategistPayload | DealNegotiatorPayload;
 
 export const SaveRunArgsSchema = z.object({
   orgId: z.string().uuid(),

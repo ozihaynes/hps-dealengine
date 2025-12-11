@@ -60,23 +60,23 @@
   --accent-blue: var(--accent-color);
 }
 
-/* Theme 2: Burgundy – deep wine base, warm glass cards */
+/* Theme 2: Burgundy - deep wine base, warm glass cards */
 [data-theme="burgundy"] {
   /* Base + text */
-  --bg-primary: #3d0d0d;
+  --bg-primary: #120609;
   --text-primary: #ffffff;
 
   /* Accents: pulled from Burgundy wine palettes (Burgundy/Wine Red) */
-  --accent-color: #b11225;
-  --accent-secondary: #e37a8b;
+  --accent-color: #990000;
+  --accent-secondary: color-mix(in srgb, #990000 65%, #ff4500 35%);
 
   /* Glass surfaces: burgundy-tinted, same opacity pattern as Navy */
-  --glass-bg: rgba(61, 13, 13, 0.55);
-  --glass-border: rgba(177, 18, 37, 0.32);
+  --glass-bg: rgba(18, 6, 9, 0.6);
+  --glass-border: rgba(153, 0, 0, 0.24);
 
   /* Inputs */
-  --input-bg: rgba(61, 13, 13, 0.60);
-  --input-border: rgba(177, 18, 37, 0.32);
+  --input-bg: rgba(18, 6, 9, 0.62);
+  --input-border: rgba(153, 0, 0, 0.24);
 
   /* Typography */
   --text-secondary: rgba(255, 241, 241, 0.78);
@@ -87,32 +87,32 @@
 
   /* Derived surfaces for dashboards/cards */
   --bg-main: var(--bg-primary);
-  --surface-1: rgba(61, 13, 13, 0.55);
-  --surface-2: rgba(177, 18, 37, 0.12);
-  --line: rgba(177, 18, 37, 0.22);
-  --ring: rgba(177, 18, 37, 0.45);
+  --surface-1: rgba(18, 6, 9, 0.6);
+  --surface-2: rgba(153, 0, 0, 0.1);
+  --line: rgba(153, 0, 0, 0.22);
+  --ring: rgba(153, 0, 0, 0.38);
 
   /* Alias for existing usage */
   --accent-blue: var(--accent-color);
 }
 
-/* Theme 3: Pine Green – pine base, teal glass accents */
+/* Theme 3: Pine Green - pine base, teal glass accents */
 [data-theme="green"] {
   /* Base + text */
-  --bg-primary: #0d1f19;
+  --bg-primary: #071412;
   --text-primary: #f4fffc;
 
   /* Accents: teal/seafoam, inspired by pine glass UI palettes */
-  --accent-color: #1abc9c;
-  --accent-secondary: #e0f7f4;
+  --accent-color: #00bf63;
+  --accent-secondary: color-mix(in srgb, #00bf63 70%, white 30%);
 
   /* Glass surfaces: pine-tinted with teal edge lighting */
-  --glass-bg: rgba(5, 27, 21, 0.55);
-  --glass-border: rgba(26, 188, 156, 0.28);
+  --glass-bg: rgba(7, 20, 18, 0.6);
+  --glass-border: rgba(0, 191, 99, 0.22);
 
   /* Inputs */
-  --input-bg: rgba(5, 27, 21, 0.60);
-  --input-border: rgba(26, 188, 156, 0.28);
+  --input-bg: rgba(7, 20, 18, 0.62);
+  --input-border: rgba(0, 191, 99, 0.22);
 
   /* Typography */
   --text-secondary: rgba(214, 242, 236, 0.78);
@@ -123,10 +123,10 @@
 
   /* Derived surfaces */
   --bg-main: var(--bg-primary);
-  --surface-1: rgba(5, 27, 21, 0.55);
-  --surface-2: rgba(26, 188, 156, 0.12);
-  --line: rgba(26, 188, 156, 0.22);
-  --ring: rgba(26, 188, 156, 0.45);
+  --surface-1: rgba(7, 20, 18, 0.6);
+  --surface-2: rgba(0, 191, 99, 0.1);
+  --line: rgba(0, 191, 99, 0.2);
+  --ring: rgba(0, 191, 99, 0.38);
 
   --accent-blue: var(--accent-color);
 }
@@ -311,6 +311,7 @@ textarea.dark-input {
   transition: box-shadow 0.15s ease, border-color 0.15s ease;
   backdrop-filter: blur(18px) saturate(130%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
+  color-scheme: dark;
 }
 
 :where(.dark-input, .dark-select, textarea.dark-input):focus-visible {
@@ -322,6 +323,21 @@ textarea.dark-input {
 .dark-select option {
   background-color: var(--bg-main);
   color: var(--text-primary);
+}
+
+/* Native date/time pickers should match our glass tokens and contrast */
+input.dark-input[type="date"],
+input.dark-input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+input.dark-input[type="date"]::-webkit-calendar-picker-indicator,
+input.dark-input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.85;
+  padding: 4px;
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--surface-2) 70%, transparent);
 }
 
 .dark-input.prefixed {
@@ -498,4 +514,76 @@ input[type="number"] {
 
 .prose li {
   margin-bottom: 0.5rem;
+}
+
+/* Print-friendly adjustments */
+@media print {
+  .print-hidden {
+    display: none !important;
+  }
+
+  body,
+  html {
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Only print the target area (company name + deals table) */
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible !important;
+  }
+
+  .print-area {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* Hide common chrome elements */
+  .sidebar,
+  .top-nav,
+  .dual-agent-fab,
+  .pagination,
+  .action-buttons,
+  .app-footer {
+    display: none !important;
+  }
+
+  /* Expand main app shell */
+  .app-shell,
+  .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--bg-main) !important;
+  }
+
+  table {
+    width: 100% !important;
+    border-collapse: collapse;
+    background: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+  }
+
+  th,
+  td {
+    padding: 4px 6px;
+    border-color: color-mix(in srgb, var(--text-primary) 20%, transparent);
+    background: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+  }
 }

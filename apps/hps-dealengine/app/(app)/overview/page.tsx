@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Button, GlassCard } from "@/components/ui";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GlassCard, Icon } from "@/components/ui";
 import OverviewTab from "@/components/overview/OverviewTab";
 import { DealHealthStrip } from "@/components/overview/DealHealthStrip";
 import { GuardrailsCard } from "@/components/overview/GuardrailsCard";
@@ -20,19 +20,19 @@ import {
 import { RiskComplianceCard } from "@/components/overview/RiskComplianceCard";
 import { TimelineCarryCard } from "@/components/overview/TimelineCarryCard";
 import { DataEvidenceCard } from "@/components/overview/DataEvidenceCard";
+import { ClientProfileModal } from "@/components/overview/ClientProfileModal";
 import KnobFamilySummary from "@/components/overview/KnobFamilySummary";
 import TopDealKpis from "@/components/overview/TopDealKpis";
 import { createInitialEstimatorState } from "../../../lib/ui-v2-constants";
 import type { Deal } from "../../../types";
 import { DoubleClose, type DoubleCloseCalcs } from "../../../services/engine";
-import { fmt$ } from "../../../utils/helpers";
 import { useDealSession } from "@/lib/dealSessionContext";
-import { mergePostureAwareValues } from "@/lib/sandboxPolicy";
 import {
   extractContactFromDeal,
   extractContactFromPayload,
   formatAddressLine,
 } from "@/lib/deals";
+import { Icons } from "@/constants";
 
 /**
  * Layout V1 spec (overview): hero KPIs at top, then a 2x2 grid of cards:
@@ -114,7 +114,7 @@ function makeInitialDeal(): Deal {
 
 export default function Page() {
   // Shared state coming from DealSession (same session as /underwrite)
-  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture, sandbox } =
+  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture } =
     useDealSession();
 
   // Always normalize the shape so the overview cards + engine get what they expect
@@ -122,15 +122,9 @@ export default function Page() {
     () => normalizeDealShape(rawDeal ?? makeInitialDeal()),
     [rawDeal],
   );
-  const effectiveSandbox = useMemo(
-    () => mergePostureAwareValues(sandbox, posture),
-    [sandbox, posture],
-  );
-
-  const [playbookContent, setPlaybookContent] = useState<string>("");
-  const [analysisRun, setAnalysisRun] = useState(false);
-  const isAnalyzing = false;
-  const [showContactCard, setShowContactCard] = useState(false);
+  const [isClientProfileOpen, setIsClientProfileOpen] = useState(false);
+  const clientButtonRef = useRef<HTMLButtonElement | null>(null);
+  const wasClientModalOpen = useRef(false);
 
   const contactInfo = useMemo(() => {
     return (
@@ -151,10 +145,63 @@ export default function Page() {
   const contactName = hasContactInfo
     ? contactInfo?.name?.trim() || "Client"
     : "Client info not set";
-  const contactPhone =
-    hasContactInfo && contactInfo?.phone ? contactInfo.phone : "Phone not provided";
-  const contactEmail =
-    hasContactInfo && contactInfo?.email ? contactInfo.email : "Email not provided";
+
+  const clientProfile = useMemo(() => {
+    const payload =
+      typeof dbDeal?.payload === "object" && dbDeal?.payload !== null
+        ? (dbDeal.payload as Record<string, unknown>)
+        : null;
+    const payloadContact =
+      (payload as any)?.contact ?? (payload as any)?.client ?? null;
+    const toOptional = (value: unknown): string | undefined => {
+      const str = typeof value === "string" ? value.trim() : "";
+      return str.length > 0 ? str : undefined;
+    };
+    const tagsCandidate =
+      (payloadContact as any)?.tags ??
+      (payload as any)?.client_tags ??
+      (payload as any)?.tags ??
+      null;
+    const tags =
+      Array.isArray(tagsCandidate) && tagsCandidate.length > 0
+        ? tagsCandidate
+            .map((tag) =>
+              typeof tag === "string" ? tag.trim() : String(tag ?? "").trim(),
+            )
+            .filter((tag) => tag.length > 0)
+        : null;
+
+    return {
+      name:
+        toOptional(contactInfo?.name) ??
+        toOptional((payloadContact as any)?.name) ??
+        toOptional(dbDeal?.client_name),
+      email:
+        toOptional(contactInfo?.email) ??
+        toOptional((payloadContact as any)?.email) ??
+        toOptional(dbDeal?.client_email),
+      phone:
+        toOptional(contactInfo?.phone) ??
+        toOptional((payloadContact as any)?.phone) ??
+        toOptional(dbDeal?.client_phone),
+      entityType:
+        toOptional((payloadContact as any)?.entity_type) ??
+        toOptional((payloadContact as any)?.type) ??
+        toOptional((payload as any)?.entity_type),
+      notes:
+        toOptional((payloadContact as any)?.notes) ??
+        toOptional((payload as any)?.notes),
+      tags,
+    };
+  }, [
+    contactInfo?.email,
+    contactInfo?.name,
+    contactInfo?.phone,
+    dbDeal?.client_email,
+    dbDeal?.client_name,
+    dbDeal?.client_phone,
+    dbDeal?.payload,
+  ]);
 
   const propertyAddress = useMemo(() => {
     const primary = formatAddressLine({
@@ -187,8 +234,15 @@ export default function Page() {
   }, [dbDeal?.id, contactInfo?.name]);
 
   useEffect(() => {
-    setShowContactCard(false);
+    setIsClientProfileOpen(false);
   }, [dbDeal?.id, contactName]);
+
+  useEffect(() => {
+    if (wasClientModalOpen.current && !isClientProfileOpen) {
+      clientButtonRef.current?.focus();
+    }
+    wasClientModalOpen.current = isClientProfileOpen;
+  }, [isClientProfileOpen]);
 
   // Canonical outputs from the last analyze (from Edge/runs)
   const calc: any = useMemo(() => {
@@ -228,6 +282,13 @@ export default function Page() {
     () => buildWorkflowView((lastAnalyzeResult as any)?.outputs ?? null),
     [lastAnalyzeResult],
   );
+  const workflowReasons = workflowView.reasons ?? [];
+
+  const handleSendOffer = useCallback(() => {
+    console.warn(
+      "[overview] Send Offer action is not wired yet. Reuse the canonical Send Offer flow here when it becomes available.",
+    );
+  }, []);
 
   const timelineView = useMemo(
     () => buildTimelineView((lastAnalyzeResult as any)?.outputs ?? null, calc),
@@ -258,80 +319,22 @@ export default function Page() {
 
   const canAnalyze = hasUserInput || !!lastAnalyzeResult;
 
-  const generatePlaybook = useCallback(() => {
-    if (!canAnalyze) return;
-
-    const buyerCeiling = Number(calc.buyerCeiling ?? calc.buyer_ceiling ?? 0);
-    const respectFloor = Number(calc.respectFloorPrice ?? calc.respect_floor ?? 0);
-    const wholesaleFee =
-      isFinite(buyerCeiling) && isFinite(respectFloor)
-        ? buyerCeiling - respectFloor
-        : 0;
-
-    const urgencyDays = Number(calc.urgencyDays ?? calc.carryMonths ?? 0);
-    const dcLoad =
-      Number((dcResult as any).Extra_Closing_Load ?? 0) +
-      Number((dcResult as any).Total_Double_Close_Cost ?? 0);
-
-    const parts: string[] = [];
-
-    parts.push(
-      `<p><strong>Deal snapshot:</strong> Buyer ceiling ${fmt$(
-        buyerCeiling,
-        0,
-      )}, Respect Floor ${fmt$(respectFloor, 0)}, implied spread ${fmt$(
-        wholesaleFee,
-        0,
-      )} before double-close friction.</p>`,
-    );
-
-    if (dcLoad > 0) {
-      parts.push(
-        `<p><strong>Double-close load:</strong> Approx ${fmt$(
-          dcLoad,
-          0,
-        )} in additional closing friction to account for. This reduces true spread to about ${fmt$(
-          wholesaleFee - dcLoad,
-          0,
-        )}.</p>`,
-      );
-    }
-
-    if (urgencyDays > 0) {
-      parts.push(
-        `<p><strong>Urgency:</strong> This deal has roughly ${urgencyDays.toFixed(
-          0,
-        )} days of runway before risk steps up. Present it as "we're in a ${urgencyDays.toFixed(
-          0,
-        )}-day window before we have to re-underwrite and the number can move," not as pressure.</p>`,
-      );
-    }
-
-    parts.push(
-      "<p><strong>Next steps:</strong> 1) Confirm payoffs and arrears. 2) Validate repair scope and timeline. 3) Align exit strategy with capital stack and local DOM.</p>",
-    );
-
-    setPlaybookContent(parts.join(""));
-    setAnalysisRun(true);
-  }, [canAnalyze, calc, dcResult]);
-
-  // Auto-generate the playbook the first time we have a usable analysis
-  useEffect(() => {
-    if (!lastAnalyzeResult) return;
-    if (!canAnalyze) return;
-    if (playbookContent) return;
-
-    generatePlaybook();
-  }, [lastAnalyzeResult, canAnalyze, playbookContent, generatePlaybook]);
-
   return (
     <div className="flex flex-col gap-6">
       <div className="space-y-6">
+        <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+              Dashboard
+            </h1>
+            <p className="text-sm text-text-secondary">
+              One-glance snapshot of where this deal sits in the corridor.
+            </p>
+          </div>
+        </div>
+
         <GlassCard className="p-4 md:p-5">
-          <div
-            className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"
-            onMouseLeave={() => setShowContactCard(false)}
-          >
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <p className="text-xs uppercase text-text-secondary">Property</p>
               <div className="text-lg font-semibold text-text-primary">
@@ -343,66 +346,35 @@ export default function Page() {
                 </p>
               )}
             </div>
-            <div className="relative">
+            <div className="flex flex-col items-start gap-1 md:items-end">
               <p className="text-xs uppercase text-text-secondary">Client</p>
               <button
                 type="button"
-                className="flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary hover:border-accent-blue/60 hover:text-accent-blue"
-                onClick={() => setShowContactCard((prev) => !prev)}
-                onMouseEnter={() => setShowContactCard(true)}
+                ref={clientButtonRef}
+                title="View client details"
+                aria-haspopup="dialog"
+                aria-expanded={isClientProfileOpen}
+                className="group inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary transition hover:border-accent-blue/60 hover:text-accent-blue focus:outline-none focus:ring-2 focus:ring-accent-blue/50 focus:ring-offset-2 focus:ring-offset-black/30"
+                onClick={() => setIsClientProfileOpen(true)}
               >
-                {contactName}
+                <Icon d={Icons.user} size={16} className="text-accent-blue/80" />
+                <span>{contactName}</span>
+                <span className="text-[11px] font-medium uppercase tracking-wide text-accent-blue/80">
+                  View
+                </span>
               </button>
-              {showContactCard && (
-                <div className="absolute right-0 mt-2 w-64 rounded-lg border border-white/10 bg-surface-elevated/90 p-3 shadow-xl">
-                  <div className="flex flex-col gap-2 text-sm text-text-primary">
-                    {hasContactInfo ? (
-                      <>
-                        <div>
-                          <p className="text-[11px] uppercase text-text-secondary">
-                            Phone
-                          </p>
-                          <p className="font-semibold">{contactPhone}</p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] uppercase text-text-secondary">
-                            Email
-                          </p>
-                          <p className="font-semibold break-words">
-                            {contactEmail}
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <p className="text-[13px] text-text-secondary">
-                        Client info not available yet.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </GlassCard>
 
-        <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              Dashboard
-            </h1>
-            <p className="text-sm text-text-secondary">
-              One-glance snapshot of where this deal sits in the corridor.
-            </p>
-          </div>
-
-          <Button
-            variant="primary"
-            disabled={!canAnalyze}
-            onClick={generatePlaybook}
-          >
-            Generate Playbook
-          </Button>
-        </div>
+        <ClientProfileModal
+          open={isClientProfileOpen}
+          onClose={() => setIsClientProfileOpen(false)}
+          client={clientProfile}
+          workflowState={workflowView.state}
+          workflowReasons={workflowReasons}
+          onSendOffer={handleSendOffer}
+        />
 
         <TopDealKpis
           arv={deal.market?.arv ?? null}
@@ -482,15 +454,9 @@ export default function Page() {
           calc={calc}
           flags={{}}
           hasUserInput={canAnalyze}
-          playbookContent={playbookContent}
-          isAnalyzing={isAnalyzing}
-          analysisRun={analysisRun}
         />
 
-        <KnobFamilySummary
-          runOutput={lastAnalyzeResult ?? null}
-          sandbox={effectiveSandbox}
-        />
+        <KnobFamilySummary runOutput={lastAnalyzeResult ?? null} />
       </div>
     </div>
   );

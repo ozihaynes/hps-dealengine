@@ -126,8 +126,30 @@ export const InputField = ({
       )}
       <input
         type={type}
-        value={value}
-        onChange={onChange}
+        value={
+          type === 'number'
+            ? value === null || value === undefined
+              ? ''
+              : value
+            : value
+        }
+        placeholder={type === 'number' ? (props as any)?.placeholder ?? '0' : (props as any)?.placeholder}
+        onChange={(e) => {
+          if (type === 'number') {
+            const raw = e.target.value;
+            const next = raw === '' ? null : raw;
+            const synthetic = {
+              ...e,
+              target: {
+                ...e.target,
+                value: next as any,
+              },
+            };
+            onChange?.(synthetic as any);
+            return;
+          }
+          onChange?.(e);
+        }}
         className={`dark-input ${prefix ? 'prefixed' : ''} ${suffix || warning ? 'pr-12' : ''} ${warning ? 'border-accent-orange' : ''}`}
         {...props}
       />
@@ -187,12 +209,16 @@ export const ToggleSwitch = ({ label, checked, onChange, description }: ToggleSw
         onChange={(e) => onChange?.(e.target.checked)}
       />
       <div
-        className={`block w-10 h-6 rounded-full ${checked ? 'bg-accent-blue' : 'bg-gray-600'}`}
+        className={cn(
+          'block w-10 h-6 rounded-full transition-colors border',
+          checked ? 'bg-accent-blue/80 border-accent-blue/70' : 'bg-gray-700 border-white/20'
+        )}
       ></div>
       <div
-        className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${
+        className={cn(
+          'dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform shadow-sm ring-1 ring-black/10',
           checked ? 'transform translate-x-4' : ''
-        }`}
+        )}
       ></div>
     </div>
   </label>

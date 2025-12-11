@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GlassCard, Button, Icon, Modal } from '../ui';
 import { Icons } from '../../constants';
 import { useRouter } from 'next/navigation';
@@ -10,11 +10,11 @@ import {
     createDealWithClientInfo,
     createEmptyDealForm,
     fetchDealsForOrg,
-    formatAddressLine,
     resolveOrgId,
     validateNewDealForm,
 } from "@/lib/deals";
 import NewDealForm from "../deals/NewDealForm";
+import DealsTable from "../deals/DealsTable";
 
 interface StartupPageProps {
     onEnter?: () => void;
@@ -22,24 +22,11 @@ interface StartupPageProps {
 
 type StartupDealRow = DbDeal;
 
-type DisplayDeal = {
-    id: string;
-    title: string;
-    city: string;
-    created: string;
-    orgLabel: string;
-    raw: StartupDealRow;
-};
-
 const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
     const router = useRouter();
     const { setDbDeal, setDeal } = useDealSession();
 
     const [step, setStep] = useState(0);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [dateFilter, setDateFilter] = useState('');
-    const [sortOrder, setSortOrder] = useState('newest');
-    
     // New Deal Modal State
     const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
     const [newDeal, setNewDeal] = useState(createEmptyDealForm());
@@ -96,62 +83,6 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
         };
     }, []);
 
-    const filteredDeals = useMemo(() => {
-        const formatOrgLabel = (deal: StartupDealRow) => {
-            const orgId = deal.orgId ?? deal.org_id ?? "";
-            if (deal.orgName && deal.orgName.length > 0) return deal.orgName;
-            if (orgId) return `${orgId.slice(0, 8)}…`;
-            return "Unknown org";
-        };
-
-        const mapped: DisplayDeal[] = deals.map((deal) => {
-            const clientLabel =
-                formatAddressLine({
-                    address: deal.address ?? "",
-                    city: deal.city ?? undefined,
-                    state: deal.state ?? undefined,
-                    zip: deal.zip ?? undefined,
-                }) || "Untitled deal";
-            const cityState = [deal.city, deal.state, deal.zip].filter(Boolean).join(", ");
-            const createdString = new Date(deal.created_at).toLocaleString();
-
-            return {
-                id: deal.id,
-                title: clientLabel,
-                city: cityState,
-                created: createdString,
-                orgLabel: formatOrgLabel(deal),
-                raw: deal,
-            };
-        });
-
-        let data = [...mapped];
-        
-        if (searchTerm) {
-            const lower = searchTerm.toLowerCase();
-            data = data.filter(d => d.title.toLowerCase().includes(lower) || d.city.toLowerCase().includes(lower));
-        }
-        
-        if (dateFilter) {
-            // Simple string match for the date part "M/D/YYYY"
-            const dateStr = new Date(dateFilter).toISOString().split('T')[0];
-            data = data.filter(d => {
-                const dealDate = new Date(d.created);
-                return dealDate.toISOString().startsWith(dateStr);
-            });
-        }
-
-        if (sortOrder === 'newest') {
-            data.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-        } else if (sortOrder === 'oldest') {
-            data.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
-        } else if (sortOrder === 'az') {
-            data.sort((a, b) => a.title.localeCompare(b.title));
-        }
-
-        return data;
-    }, [deals, searchTerm, dateFilter, sortOrder]);
-
     const handleRunNewDeal = async () => {
         setCreateError(null);
         const validationError = validateNewDealForm(newDeal);
@@ -202,7 +133,7 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                 onEnter();
             }
 
-            router.push(`/overview?dealId=${inserted.id}`);
+            router.push(`/underwrite?dealId=${inserted.id}`);
             router.refresh();
         } catch (err: any) {
             console.error("[startup] create deal error", err);
@@ -264,127 +195,50 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
 
                 {/* Recent Deals Dashboard */}
                 <div className={`border-t border-white/10 pt-8 transition-all duration-700 delay-500 transform ${step >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
-                            <Icon d={Icons.briefcase} size={20} className="text-text-secondary" />
-                            Recent Deals
-                        </h3>
-                        
-                        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                            <div className="relative w-full md:w-64 group">
-                                <input 
-                                    type="text"
-                                    placeholder="Search..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="dark-input h-10 text-sm w-full pl-10 transition-all focus:ring-2 focus:ring-accent-blue/50"
-                                />
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Icon d={Icons.search} size={16} className="text-text-secondary group-focus-within:text-accent-blue transition-colors" />
-                                </div>
-                            </div>
-                            <div className="w-full md:w-40">
-                                <input 
-                                    type="date" 
-                                    className="dark-input h-10 text-sm w-full"
-                                    value={dateFilter}
-                                    onChange={(e) => setDateFilter(e.target.value)}
-                                />
-                            </div>
-                            <div className="w-full md:w-40">
-                                <select 
-                                    value={sortOrder} 
-                                    onChange={(e) => setSortOrder(e.target.value)} 
-                                    className="dark-select h-10 text-sm w-full py-0 px-3"
-                                >
-                                    <option value="newest">Sort: Newest</option>
-                                    <option value="oldest">Sort: Oldest</option>
-                                    <option value="az">Sort: Address (A-Z)</option>
-                                </select>
-                            </div>
-                            <Button
-                              variant="neutral"
-                              className="whitespace-nowrap"
-                              onClick={() => router.push("/deals")}
-                            >
-                              View all deals
-                            </Button>
-                        </div>
-                    </div>
-
-                    {!dealsLoading && !dealsError && deals.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-white/10 bg-black/30 p-6 text-center text-text-secondary space-y-2">
-                        <p className="text-lg font-semibold text-text-primary">No deals yet</p>
-                        <p className="text-sm">
-                          Create your first deal to start underwriting, or jump to the full deals list.
-                        </p>
+                    <DealsTable
+                      deals={deals}
+                      loading={dealsLoading}
+                      error={dealsError}
+                      onRetry={() => {
+                        setDealsError(null);
+                        setDealsLoading(true);
+                        const reload = async () => {
+                          try {
+                            const supabase = getSupabaseClient();
+                            const callerOrgId = orgId ?? (await resolveOrgId(supabase));
+                            const rows = await fetchDealsForOrg(supabase, callerOrgId);
+                            setOrgId(callerOrgId);
+                            setDeals(rows);
+                          } catch (err) {
+                            console.error("[startup] retry load deals error", err);
+                            setDealsError("Unable to load deals for your org.");
+                          } finally {
+                            setDealsLoading(false);
+                          }
+                        };
+                        void reload();
+                      }}
+                      onRowClick={handleSelectDeal}
+                      actionsSlot={
+                        <Button
+                          variant="neutral"
+                          className="whitespace-nowrap"
+                          onClick={() => router.push("/deals")}
+                        >
+                          View all deals
+                        </Button>
+                      }
+                      emptyCta={
                         <div className="flex flex-wrap items-center justify-center gap-3">
-                          <Button variant="primary" onClick={() => setIsNewDealModalOpen(true)}>Create new deal</Button>
-                          <Button variant="neutral" onClick={() => router.push("/deals")}>View all deals</Button>
+                          <Button variant="primary" onClick={() => setIsNewDealModalOpen(true)}>
+                            Create new deal
+                          </Button>
+                          <Button variant="neutral" onClick={() => router.push("/deals")}>
+                            View all deals
+                          </Button>
                         </div>
-                      </div>
-                    ) : (
-                    <div className="overflow-hidden rounded-lg border border-white/10 bg-black/20">
-                        <div className="overflow-x-auto max-h-[400px]">
-                            <table className="w-full text-left text-sm border-collapse">
-                                <thead className="sticky top-0 bg-brand-navy/95 backdrop-blur-md z-10 text-xs uppercase tracking-wider text-text-secondary font-semibold">
-                                    <tr>
-                                        <th className="p-4 border-b border-white/10">Property</th>
-                                        <th className="p-4 border-b border-white/10 whitespace-nowrap">Org</th>
-                                        <th className="p-4 border-b border-white/10">City / State</th>
-                                        <th className="p-4 border-b border-white/10 text-right">Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {dealsLoading && (
-                                        <tr>
-                                            <td colSpan={4} className="p-8 text-center text-text-secondary">
-                                                Loading deals.
-                                            </td>
-                                        </tr>
-                                    )}
-                                    {dealsError && !dealsLoading && (
-                                        <tr>
-                                            <td colSpan={4} className="p-8 text-center text-accent-red">
-                                                {dealsError}
-                                            </td>
-                                        </tr>
-                                    )}
-                                    {!dealsLoading && !dealsError && filteredDeals.map((deal) => (
-                                        <tr 
-                                            key={deal.id} 
-                                            onClick={() => handleSelectDeal(deal.raw)}
-                                            className="group cursor-pointer hover:bg-accent-blue/10 transition-colors duration-150"
-                                        >
-                                            <td className="p-4 text-text-primary font-medium group-hover:text-accent-blue transition-colors">
-                                                {deal.title}
-                                            </td>
-                                            <td className="p-4 text-text-secondary whitespace-nowrap">
-                                                {deal.orgLabel}
-                                            </td>
-                                            <td className="p-4 text-text-secondary">
-                                                {deal.city}
-                                            </td>
-                                            <td className="p-4 text-text-secondary text-right font-mono text-xs">
-                                                {deal.created}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {!dealsLoading && !dealsError && filteredDeals.length === 0 && (
-                                        <tr>
-                                            <td colSpan={4} className="p-8 text-center text-text-secondary">
-                                                No deals found matching your filters.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    )}
-                    <div className="mt-2 text-right text-xs text-text-secondary/50">
-                        Showing {filteredDeals.length} records
-                    </div>
+                      }
+                    />
                 </div>
             </GlassCard>
 

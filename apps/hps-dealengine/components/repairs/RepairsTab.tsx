@@ -88,6 +88,12 @@ const RatesMetaBar: React.FC<{
   status = "idle",
   error,
 }) => {
+  const displayVersion = version
+    ? version.startsWith("v")
+      ? version
+      : `v${version}`
+    : "";
+
   if (status === "loading") {
     return (
       <div className="info-card flex items-center justify-between mb-2 border border-white/5">
@@ -100,7 +106,7 @@ const RatesMetaBar: React.FC<{
   return (
     <div className="info-card flex flex-col gap-1 md:flex-row md:items-center md:justify-between mb-2 border border-white/5 px-3 py-2">
       <div className="label-xs">
-        Repair unit rates - {market ?? "ORL"} {version ? `v${version}` : ""} - posture {posture ?? "base"} - last update:{" "}
+        Repair unit rates - {market ?? "ORL"} {displayVersion} - posture {posture ?? "base"} - last update:{" "}
         <strong className="text-text-primary/90">{asOf ?? "unknown"}</strong>
         {profileName ? ` - ${profileName}` : ""}
       </div>
@@ -557,8 +563,8 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
         asOf={effectiveAsOf}
         market={effectiveMarket}
         posture={effectivePosture}
-        profileName={effectiveProfileName}
-        version={effectiveVersion}
+        profileName={effectiveProfileName ?? undefined}
+        version={effectiveVersion ?? undefined}
         status={ratesStatus}
         error={ratesError}
       />
@@ -570,15 +576,6 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
         psfTiers={psfTiers}
         big5Rates={big5Rates}
       />
-      {process.env.NODE_ENV !== "production" && repairRates && (
-        <div className="text-xs text-text-secondary bg-white/5 border border-white/10 rounded-lg p-2">
-          <div className="font-semibold text-text-primary">Active Repair Profile (dev)</div>
-          <div>
-            {repairRates.profileId} | {repairRates.profileName ?? "unnamed"} | {repairRates.marketCode} | {repairRates.posture}
-          </div>
-          <div>Big5 roof/hvac/repipe/electrical/foundation: {JSON.stringify(repairRates.big5)}</div>
-        </div>
-      )}
       <GlassCard className="p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-text-primary flex items-center gap-2">

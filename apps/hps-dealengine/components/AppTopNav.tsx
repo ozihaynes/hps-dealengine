@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { Icon } from "./ui";
@@ -22,9 +23,14 @@ export default function AppTopNav() {
     <div className="flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)]">
       {/* Brand lockup */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)]">
-          <Icon d={Icons.calculator} size={22} className="text-[color:var(--accent-color)]" />
-        </div>
+        <Image
+          src="/hps_flat_logo.png"
+          alt="HPS DealEngine logo"
+          width={1024}
+          height={364}
+          className="h-[3.25rem] w-auto"
+          priority
+        />
         <div className="flex flex-col leading-tight">
           <span className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
             Haynes Property Solutions

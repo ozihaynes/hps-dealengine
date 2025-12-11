@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getSupabaseClient } from "../../lib/supabaseClient";
@@ -16,7 +17,7 @@ export default function LoginForm({
   const searchParams = useSearchParams();
 
   const [email, setEmail] = useState("qa-policy-test@yourdomain.com");
-  const [password, setPassword] = useState("Password123!");
+  const [password, setPassword] = useState("Password");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -84,7 +85,14 @@ export default function LoginForm({
       >
         <div className="space-y-2 text-center">
           <div className={`${styles.logoIcon} mx-auto`}>
-            <span>DE</span>
+            <Image
+              src="/real_DealEngine_Mascot.png"
+              alt="DealEngine mascot"
+              width={1024}
+              height={1024}
+              className="h-24 w-24 object-cover"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
             Welcome back

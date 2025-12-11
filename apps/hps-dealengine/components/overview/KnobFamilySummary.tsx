@@ -4,7 +4,6 @@ import { fmt$ } from "@/utils/helpers";
 
 type Props = {
   runOutput: any;
-  sandbox?: any;
   title?: string;
 };
 
@@ -51,7 +50,7 @@ const Bar = ({
   );
 };
 
-export default function KnobFamilySummary({ runOutput, sandbox, title = "Knob Families" }: Props) {
+export default function KnobFamilySummary({ runOutput, title = "Quick Glance" }: Props) {
   const outputs = runOutput?.outputs ?? {};
   const traces: any[] = runOutput?.trace ?? [];
   const findTrace = (rule: string) => traces.find((t) => t?.rule === rule) ?? null;
@@ -81,22 +80,6 @@ export default function KnobFamilySummary({ runOutput, sandbox, title = "Knob Fa
   const minSpread = outputs?.min_spread_required ?? null;
 
   const workflowPolicy = (findTrace("WORKFLOW_STATE_POLICY") as any)?.details?.workflow_policy ?? null;
-  const uxPolicy = sandbox ?? {};
-  const roundingMode =
-    uxPolicy?.bankersRoundingModeNumericSafety ??
-    uxPolicy?.ux_policy?.bankersRoundingModeNumericSafety ??
-    uxPolicy?.ux_policy?.bankers_rounding_mode ??
-    null;
-  const buyerCostsScenario =
-    uxPolicy?.buyerCostsAllocationDualScenarioRenderingWhenUnknown ??
-    uxPolicy?.ux_policy?.buyerCostsAllocationDualScenarioRenderingWhenUnknown ??
-    uxPolicy?.ux_policy?.buyer_costs_dual_scenario_when_unknown ??
-    null;
-  const buyerCostsMethod =
-    uxPolicy?.buyerCostsLineItemModelingMethod ??
-    uxPolicy?.ux_policy?.buyerCostsLineItemModelingMethod ??
-    uxPolicy?.ux_policy?.buyer_costs_line_item_modeling_method ??
-    null;
 
   const barMax = Math.max(
     1,
@@ -203,32 +186,6 @@ export default function KnobFamilySummary({ runOutput, sandbox, title = "Knob Fa
         </div>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-[12px] uppercase text-text-secondary">UX & Presentation</p>
-        <div className="grid gap-2 md:grid-cols-3">
-          <div className="rounded-lg border border-white/5 bg-white/5 p-3 text-[12px] text-text-secondary">
-            <div className="text-[11px] uppercase">Rounding mode</div>
-            <div className="font-semibold text-text-primary">{roundingMode ?? "default"}</div>
-            <div className="text-[11px] text-text-secondary/80">Display rounding for offers & summaries.</div>
-          </div>
-          <div className="rounded-lg border border-white/5 bg-white/5 p-3 text-[12px] text-text-secondary">
-            <div className="text-[11px] uppercase">Buyer costs scenario</div>
-            <div className="font-semibold text-text-primary">
-              {buyerCostsScenario === true
-                ? "Dual scenarios"
-                : buyerCostsScenario === false
-                ? "Single scenario"
-                : "Auto"}
-            </div>
-            <div className="text-[11px] text-text-secondary/80">Whether to show dual scenarios when unknown.</div>
-          </div>
-          <div className="rounded-lg border border-white/5 bg-white/5 p-3 text-[12px] text-text-secondary">
-            <div className="text-[11px] uppercase">Buyer costs detail</div>
-            <div className="font-semibold text-text-primary">{buyerCostsMethod ?? "aggregate"}</div>
-            <div className="text-[11px] text-text-secondary/80">Line-item vs aggregate buyer cost display.</div>
-          </div>
-        </div>
-      </div>
     </GlassCard>
   );
 }

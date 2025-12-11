@@ -1,0 +1,17 @@
+
+> @hps/hps-mcp@0.1.0 prestart C:\Users\oziha\Documents\hps-dealengine\packages\hps-mcp
+> pnpm --filter "@hps/agents" build && pnpm --filter "@hps/hps-mcp" build
+
+
+> @hps/agents@0.1.0 build C:\Users\oziha\Documents\hps-dealengine\packages\agents
+> tsc -p tsconfig.json
+
+
+> @hps/hps-mcp@0.1.0 build C:\Users\oziha\Documents\hps-dealengine\packages\hps-mcp
+> tsc -p tsconfig.json
+
+
+> @hps/hps-mcp@0.1.0 start C:\Users\oziha\Documents\hps-dealengine\packages\hps-mcp
+> node dist/hps-mcp/src/index.js
+
+hps-mcp server running on stdio (analyst tools enabled).

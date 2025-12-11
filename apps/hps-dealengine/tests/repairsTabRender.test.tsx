@@ -67,7 +67,8 @@ describe("RepairsTab renders live repair rates", () => {
 
     expect(first).toContain("Default Profile");
     expect(first).toContain("2024-01-01");
-    expect(first).toContain("&quot;roof&quot;:1");
+    expect(first).toContain("roof");
+    expect(first).toContain("+$1/sqft");
 
     const second = renderToStaticMarkup(
       <RepairsTab
@@ -88,7 +89,7 @@ describe("RepairsTab renders live repair rates", () => {
 
     expect(second).toContain("Profile 99");
     expect(second).toContain("2024-02-02");
-    expect(second).toContain("&quot;roof&quot;:9");
+    expect(second).toContain("+$9/sqft");
     expect(second).not.toContain("Default Profile");
   });
 });

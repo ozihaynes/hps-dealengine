@@ -79,13 +79,49 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
-### 2025-Q4 — Dual-Agent AI, Theming, and Dashboard Brain
+### 2025-12-20 - AI chat UX + routing + underwrite evidence + settings nav + theming (Slices A–F)
+
+- **AI Agent Chat:** Composer always mounted with guidance in placeholders; no auto-summary bubbles for Analyst/Strategist; Negotiator keeps Playbook as the first seeded response with send gated until available; chat windows open taller with prompt chips visible; Tone + “Your Chats” live in a hamburger menu; sessions auto-title from the first user message (trimmed/truncated with playbook fallback).
+- **Startup & Routing:** “Run New Deal” now routes to `/underwrite?dealId=...`; selecting an existing deal routes to `/overview?dealId=...` while preserving session/deal context.
+- **Underwrite Evidence & Actions:** Evidence Checklist is a compact orange (i) popover; satisfied evidence rows show a green checkmark; header buttons order Analyze → Save Run → Request Override.
+- **Settings Navigation:** Desktop settings views now keep the main app nav inline with the HPS header; mobile bottom nav unchanged.
+- **Theme Parity:** Burgundy and Green themes use the same dark glass shell depth as Blue while keeping their own accent borders/rings.
+
+### 2025-Q4 - Dual-Agent AI, Theming, and Dashboard Brain
 
 - Implemented 5-theme design system (Navy/Burgundy/Green/Black/White) with CSS variables and ThemeProvider; Navy stays source-of-truth and other themes follow the electric-navy glass aesthetic.
 - Simplified dashboard headline KPIs: removed ARV / Buyer Ceiling / Respect Floor / AIV stat cards from the top grid; wholesale fee pair remains primary. Documented dashboard KPIs and inputs (kpi-inventory, input-surfaces, kpi-input-matrix) and added coverage check (`check:dashboard-coverage`).
-- Built trust-tiered docs (product/domain/engine/app/dashboard/glossary/ai/ops) with frontmatter and `ai.index-for-ai` as the sitemap; audited AI surfaces and standardized on the Dual-Agent model (Deal Analyst vs Deal Strategist) via `v1-ai-bridge` with structured outputs, tone hooks, and stale-run awareness.
-- Added global draggable, modeless AI windows (react-rnd) with FAB launchers, per-persona sessions (title/pin/tone/history), localStorage persistence, and Analyst run-freshness gating (no-run + stale consent).
+- Built trust-tiered docs (product/domain/engine/app/dashboard/glossary/ai/ops) with frontmatter and `ai.index-for-ai` as the sitemap; audited AI surfaces and standardized on the tri-agent model (Deal Analyst, Deal Strategist, Deal Negotiator) via persona-aware `v1-ai-bridge` (OpenAI-only) with structured outputs, tone hooks, and stale-run awareness; client helpers now match `packages/contracts/src/aiBridge.ts` payloads and Strategist 400s are gone.
+- Added global draggable, modeless AI windows (react-rnd) with FAB launchers; per-persona sessions (title/pin/tone/history) now persist chat via Supabase (30-day TTL, RLS) while layout/pinned state remains localStorage; Analyst run-freshness gating (no-run + stale consent) remains.
 - Kept tests/typecheck/build green; no changes to engine math or contracts.
+
+### 2025-12-19 - AI tri-agent chat history, Negotiator pipeline, and UX polish
+
+- Context: moved AI history off localStorage into Supabase with RLS and finished the tri-agent pipeline (Analyst, Strategist, Negotiator) on the shared bridge.
+- Chat history: Supabase-backed history keyed by org/user/persona/session with automatic 30-day TTL; `apps/hps-dealengine/lib/ai/chatHistory.ts` handles CRUD/purge; `docs/ai/chat-history.md` documents table shape, RLS posture, and TTL. Analyst/Strategist/Negotiator hydrate/persist the same server thread; layout/pin state stays localStorage.
+- Edge/contracts: `packages/contracts/src/aiBridge.ts` now enforces persona-aware payloads (persona/dealId/runId/posture/tone + prompts); client helpers send typed payloads so Strategist 400s are resolved; `pnpm -w typecheck`, `pnpm -w build`, `pnpm -w test` green.
+- Provider consolidation: removed Gemini Strategist route/shims/types; all personas route through the OpenAI-backed `v1-ai-bridge`; `docs/deploy-ai-bridge.md` and `docs/ai/surfaces-audit.md` updated accordingly.
+- Negotiator: Edge contracts add `dealNegotiator`; `v1-ai-bridge` routes Negotiator through a negotiation pipeline (logic tree + matrix) with tone-aware prompts; `supabase/functions/v1-ai-bridge/negotiation/*` + `data/negotiation_logic_tree.json` drive deterministic selection; negotiation matrix docs package lives at `docs/ai/negotiation-matrix/`; matrix matcher test covers deterministic selection.
+- UI/UX: Shared `DealNegotiatorPanel` (inline and window) with tone selector (Objective/Empathetic/Assertive); DualAgentLauncher is effectively tri-agent with Negotiator FAB gated until playbook generation; chat panes are scrollable with anchored inputs, unified `AgentSessionHeader` chrome, colorized FABs, and AGENTS toggle glow; Analyst stale-run warnings use brand dark orange (“Analyze deal to chat”); Negotiator gating copy reads “Generate playbook to chat.” Chat history persists server-side; layout persistence stays localStorage.
+- Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (pass).
+
+### 2025-12-18 - Dashboard/Repairs/Deals UX hardening + null-backed numeric foundation
+
+- Context: production polish for Repairs/Dashboard/Deals plus numeric input groundwork.
+- Repairs: removed the dev-only “Active Repair Profile (dev)” block from `RepairsTab`; production Quick Estimate/Big 5 UI unchanged; Big 5 test expectations updated to match current labels (math unchanged).
+- Dashboard/Trace: header + summary now sit above the address; guardrails helper tagline removed; knob summary renamed “Quick Glance”; UX & Presentation settings block removed from Dashboard and Trace.
+- UI primitives: switches gain visible borders/contrast; native date/select controls themed for dark usage with glassy calendar indicator and inverted dropdown colors.
+- Deals table: new shared `DealsTable` used by `/startup` and `/deals` from a single Supabase fetch; optional print button (`window.print()`) with print CSS that hides controls, removes scroll height limits, sets white page background, and preserves dark table contrast.
+- Inputs: shared numeric inputs and default deal state now use null-backed semantics (empty == placeholder, not 0) so zeros only commit when typed; foundation in `components/ui.tsx` + `dealSessionContext.tsx` for broader rollout.
+- Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` green after test alignment.
+
+### 2025-12-17 - Dashboard contact modal, nav dedupe, and AI window stacking
+
+- Context: Dashboard contact UX plus nav/window stability.
+- Client profile: Dashboard “CLIENT” pill now opens `ClientProfileModal` showing deal contact info with `—` for missing fields and a gated “Send Offer” button (logs TODO when workflow_state is ready); `ButtonProps` widened for modal actions without breaking existing buttons.
+- Nav: MobileBottomNav duplication fixed via stable keys/single render when `dealId` is missing; nav renders once per view.
+- AI windows: normalized z-index/stacking so Analyst/Strategist/Negotiator windows stay above nav/content on desktop and mobile; minimize/open order is deterministic.
+- Commands: `pnpm -w typecheck`, `pnpm -w test` (pass); build not rerun in this slice.
 
 ### 2025-12-15 - V1 field-ready (Dashboard, Sandbox, traces, QA harness)
 
@@ -99,10 +135,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ### 2025-12-14 - QA E2E alignment (login, deep-links, Supabase gating)
 
 - Login/UI: `/login` renders LoginForm (placeholders `email` / `password`, button "Sign in"); Playwright specs updated to use the same selectors with `.first()` safety.
+- Login styling: refactored LoginForm + LoginClient to a glassy gradient card via `app/login/login.module.css`, animated background layers, and icon-decorated inputs/button; Supabase auth behavior unchanged (same auto-signup/redirect/validation as before).
 - DealSession/nav: Deep-link hydration from `?dealId=` exercised via E2E specs; guarded routes defer redirect while hydration is in flight and nav tabs preserve `dealId`.
 - QA env fixtures: Specs now expect env-driven QA deal IDs (READY, STALE_EVIDENCE, HARD_GATE, TIMELINE) plus QA user creds/API URL; IDs are passed via env, not hard-coded.
 - Playwright/E2E status (at time): golden path green locally with QA envs; timeline/carry and risk/evidence gated on env and app availability; underwrite/analyze API spec gated on QA API URL + anon key.
 - Commands this session: `pnpm -w typecheck` (pass), `pnpm -w test` (pass); `pnpm -w build` not run in that block.
+
 ### 2025-12-13 - Slice QA-OptionA - Deal deep-link hydration & nav persistence
 
 - DealSession now hydrates `dbDeal` from `?dealId=` on guarded routes using the caller JWT (RLS-safe); URL takes precedence over localStorage, and hydration is tracked to avoid premature redirects.
@@ -681,7 +719,7 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 #### UX & Flow Hardening - Deferred to v1.1 ((pending))
 
 - Numeric input UX:
-  - Treat "no value" as an empty string rather than a hard 0.
+  - Shared numeric input + default deal shape now null-backed (empty == placeholder, not 0); rollout to all forms/engine contracts still pending.
   - Use `placeholder="0"` for numeric fields and auto-select on focus so typing replaces the visible 0.
 
 - Governed UX for Debt & Liens / Timeline & Legal / Policy & Fees:
@@ -825,9 +863,3 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
     - `pnpm -w test` (includes glossary invariants)
     - `pnpm run check:glossary`
 - **Result:** Glossary + tooltips v1 is now **locked** — single source of truth, tests + alignment script, and a consistent, portal-based tooltip UX across Overview/Underwrite/Repairs/Trace/Sandbox. Future tooltip work must go through `GlossaryKey` + `GLOSSARY` and respect these guardrails.
-
-
-
-
-
-

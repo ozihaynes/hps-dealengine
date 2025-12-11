@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "CommonJS",
+    "declaration": true,
+    "sourceMap": false,
+    "outDir": "dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@hps-internal/contracts": ["../contracts/src"],
+      "@hps-internal/contracts/*": ["../contracts/src/*"]
+    }
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

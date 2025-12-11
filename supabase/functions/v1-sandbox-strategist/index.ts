@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").trim();
+const SUPABASE_ANON_KEY = (Deno.env.get("SUPABASE_ANON_KEY") ?? "").trim();
+const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
 const MODEL = "gpt-4o-mini";
 
 const Postures = ["conservative", "base", "aggressive"] as const;
@@ -79,10 +79,7 @@ Guardrails:
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     console.error("[v1-sandbox-strategist] OpenAI error", res.status, text);
-    throw new HttpError(
-      502,
-      "Upstream AI provider error. Please try again later.",
-    );
+    throw new HttpError(502, `Upstream AI provider error (${res.status}). Please try again later.`);
   }
 
   const json = await res.json();
@@ -103,6 +100,9 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!OPENAI_API_KEY) {
       throw new HttpError(500, "AI provider is not configured.");
+    }
+    if (!OPENAI_API_KEY.startsWith("sk-")) {
+      throw new HttpError(500, "OPENAI_API_KEY appears malformed (expected to start with \"sk-\").");
     }
 
     const supabase = createSupabaseClient(req);

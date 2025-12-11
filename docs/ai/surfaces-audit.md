@@ -39,7 +39,6 @@ summary: "Inventory of AI surfaces (legacy strategist/docs panels plus current d
 
 ## 4) Other AI hooks / tooling
 - **AI Bridge Debug:** `apps/hps-dealengine/app/ai-bridge/debug/page.tsx` posts `{ prompt }` to `v1-ai-bridge` via Supabase browser client; no deal/run context; uses caller JWT; no docs/trust handling in UI.
-- **strategist-chat API route:** `apps/hps-dealengine/app/api/strategist-chat/route.ts` (Gemini 1.5 Pro) answers sandbox questions using `{ systemInstruction, question, settings }` payload; not currently used by UI; no doc/trust integration.
 - **Doc registry/loader libs:** `apps/hps-dealengine/lib/ai/docRegistry.ts` and `docLoader.ts` ingest `docs/ai/doc-registry.json` but are not yet wired into UI surfaces.
 
 ## 5) Gaps vs Target Behavior
@@ -47,12 +46,12 @@ summary: "Inventory of AI surfaces (legacy strategist/docs panels plus current d
 - StrategistPanel UI still expects legacy `AiBridgeResult` shape and only renders summary; server now returns doc-sourced fields and sources array, so sources are dropped and fields may mismatch.
 - Frontend does not pass route/persona or select doc categories; doc/trust handling lives only in the Edge function.
 - Sandbox Strategist chat is settings-only, not deal-aware, and ignores doc registry/trust tiers.
-- AI Bridge debug page and strategist-chat route bypass doc/trust tiers and run context entirely.
+- AI Bridge debug page bypasses doc/trust tiers and run context entirely.
 
 ## 6) Recommendations for Block B
 - Refactor StrategistPanel/aiBridge client to align with `v1-ai-bridge` modes (`dealExplain`, `docsQna`), surface `sources` and guardrails, and render structured sections.
 - Add a true Docs Assistant surface (likely `/dashboard` or global) that uses doc registry + trust tiers and supports docsQna mode with route context.
-- Decide whether to retire or update `/ai-bridge/debug` and `strategist-chat` to use the same doc-aware prompting or clearly mark them as dev-only.
+- Decide whether to retire or update `/ai-bridge/debug` to use the same doc-aware prompting or clearly mark it as dev-only.
 - Consider wiring `docRegistry`/`docLoader` helpers (app-side) for client-side doc selection hints and telemetry.
 
 ## After Block A (Dual-Agent refresh)

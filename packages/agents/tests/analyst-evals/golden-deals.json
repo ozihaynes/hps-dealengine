@@ -1,0 +1,20 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "label": "Ready deal with passing gates",
+    "outputs": {
+      "arv": 250000,
+      "primary_offer": 180000,
+      "spread_cash": 20000,
+      "respect_floor": 150000,
+      "buyer_ceiling": 200000,
+      "risk_summary": {
+        "overall": "pass",
+        "per_gate": {
+          "insurability": { "status": "pass" },
+          "payoff": { "status": "pass" }
+        }
+      }
+    }
+  }
+]

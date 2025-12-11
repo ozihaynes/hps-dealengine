@@ -19,10 +19,10 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@google/genai": [
-        "apps/hps-dealengine/shims/google-genai.ts"
-      ]
+      "@hps-internal/contracts": ["packages/contracts/src", "packages/contracts/src/*"],
+      "@hps-internal/contracts/*": ["packages/contracts/src/*"],
+      "@hps/agents": ["packages/agents/src", "packages/agents/src/*"],
+      "@hps/agents/*": ["packages/agents/src/*"]
     }
   }
 }
-

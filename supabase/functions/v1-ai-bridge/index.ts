@@ -4,11 +4,28 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
-import { AiBridgeInputSchema } from "../_shared/contracts.ts";
+import {
+  AiBridgeInputSchema,
+  type DealAnalystPayload,
+  type DealStrategistPayload,
+  type DealNegotiatorPayload,
+} from "../_shared/contracts.ts";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { loadDocChunksForCategories, type DocChunk } from "./docLoader.ts";
+import { getNegotiationMatrix } from "./negotiation/matrix-loader.ts";
+import {
+  buildNegotiatorChatResult,
+  buildPlaybookResult,
+} from "./negotiation/prompts.ts";
+import { deriveNegotiationDealFacts, type NegotiationSourceContext } from "./negotiation/deal-facts.ts";
+import type { AnalystRunContext } from "../../../packages/agents/src/analyst/types.ts";
+import type {
+  NegotiationPlaybookResult,
+  NegotiatorChatResult,
+} from "./negotiation/matrix-types.ts";
+import { buildAnalystRunContextFromRow, type RunRow } from "../../../packages/agents/src/analyst/runContext.ts";
 
-type AiPersona = "dealAnalyst" | "dealStrategist";
+type AiPersona = "dealAnalyst" | "dealStrategist" | "dealNegotiator";
 type AiTone = "neutral" | "punchy" | "visionary" | "direct" | "empathetic";
 
 type AiBridgeSection = {
@@ -38,24 +55,12 @@ type AiBridgeResult = {
   sources: AiSourceRef[];
 };
 
-type DealAnalystPayload = z.infer<typeof AiBridgeInputSchema> & { persona: "dealAnalyst" };
-type DealStrategistPayload = z.infer<typeof AiBridgeInputSchema> & { persona: "dealStrategist" };
+type BridgeResult = AiBridgeResult | NegotiationPlaybookResult | NegotiatorChatResult;
 
-const MODEL = "gpt-4o-mini";
+const MODEL = "gpt-5-chat-latest";
 const SUPABASE_URL = (Deno.env.get("SUPABASE_URL") ?? "").trim();
 const SUPABASE_ANON_KEY = (Deno.env.get("SUPABASE_ANON_KEY") ?? "").trim();
 const OPENAI_API_KEY = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
-
-type RunRow = {
-  id: string;
-  org_id: string;
-  posture: string;
-  deal_id?: string | null;
-  output?: unknown;
-  trace?: unknown;
-  policy_snapshot?: unknown;
-  created_at?: string;
-};
 
 type ErrorBody = { ok: false; error: string; message: string; issues?: Array<{ path: string; message: string }> };
 
@@ -70,105 +75,8 @@ function mapZodIssues(error: z.ZodError): Array<{ path: string; message: string 
   }));
 }
 
-function pickOutputs(output: any) {
-  if (!output) return {} as Record<string, unknown>;
-  if (typeof output === "object" && "outputs" in output) return (output as any).outputs ?? output;
-  return output as Record<string, unknown>;
-}
-
-function extractTrace(run: RunRow): any[] {
-  const outputTrace = Array.isArray((run.output as any)?.trace) ? (run.output as any).trace : null;
-  if (outputTrace) return outputTrace as any[];
-  if (Array.isArray(run.trace)) return run.trace as any[];
-  return [];
-}
-
-function summarizeTrace(trace: any[]): Array<{ frameCode: string; summary: string }> {
-  const codes = new Set([
-    "SPREAD_LADDER",
-    "CASH_GATE",
-    "RESPECT_FLOOR",
-    "BUYER_CEILING",
-    "MAO_CLAMP",
-    "TIMELINE_SUMMARY",
-    "DTM_URGENCY",
-    "CARRY_MONTHS_POLICY",
-    "RISK_GATES",
-    "EVIDENCE_FRESHNESS",
-    "WORKFLOW_DECISION",
-    "STRATEGY_RECOMMENDATION",
-  ]);
-  const gateStatuses = new Set(["fail", "watch", "warning", "warn", "error"]);
-  const maxLen = 320;
-
-  return trace.reduce<Array<{ frameCode: string; summary: string }>>((acc, frame) => {
-    const rawCode = (frame?.code ?? frame?.key ?? frame?.id ?? "UNKNOWN").toString();
-    const status = (frame?.status ?? "").toString().toLowerCase();
-    const include = codes.has(rawCode) || gateStatuses.has(status);
-    if (!include) return acc;
-
-    let summary = "";
-
-    if (rawCode === "RISK_GATES" && frame?.details?.per_gate) {
-      const perGate = frame.details.per_gate as Record<string, { status?: string; reasons?: string[] }>;
-      const gated = Object.entries(perGate)
-        .filter(([, v]) => gateStatuses.has((v?.status ?? "").toString().toLowerCase()))
-        .slice(0, 4)
-        .map(
-          ([gate, v]) =>
-            `${gate}:${(v?.status ?? "unknown").toString()}${Array.isArray(v?.reasons) && v?.reasons.length > 0 ? ` (${v.reasons[0]})` : ""}`,
-        );
-      summary = gated.length > 0 ? gated.join("; ") : "Risk gates evaluated; no blocking gates.";
-    } else if (rawCode === "EVIDENCE_FRESHNESS" && frame?.details?.freshness_by_kind) {
-      const freshness = frame.details.freshness_by_kind as Record<string, { status?: string; age_days?: number }>;
-      const blocking = Object.entries(freshness)
-        .filter(([, v]) => gateStatuses.has((v?.status ?? "").toString().toLowerCase()))
-        .slice(0, 4)
-        .map(([kind, v]) => `${kind}:${v?.status ?? "unknown"}${v?.age_days != null ? ` (${v.age_days}d)` : ""}`);
-      summary = blocking.length > 0 ? blocking.join("; ") : "Evidence freshness reviewed; no blocking items.";
-    } else {
-      summary =
-        frame?.message ??
-        frame?.label ??
-        frame?.summary ??
-        frame?.status ??
-        (frame?.data ? JSON.stringify(frame.data) : "");
-    }
-
-    const trimmed = (summary ?? "").toString().replace(/\s+/g, " ").trim();
-    acc.push({
-      frameCode: rawCode,
-      summary: trimmed.length > maxLen ? `${trimmed.slice(0, maxLen)}…` : trimmed,
-    });
-    return acc;
-  }, []);
-}
-
-function buildRunContext(run: RunRow) {
-  const outputs = pickOutputs(run.output);
-  const timelineSummary = (outputs as any)?.timeline_summary ?? {};
-  const riskSummary = (outputs as any)?.risk_summary ?? {};
-  const trace = summarizeTrace(extractTrace(run));
-  return {
-    dealId: run.deal_id ?? "",
-    runId: run.id,
-    outputs,
-    trace,
-    policySnapshot: run.policy_snapshot ?? null,
-    kpis: {
-      mao: (outputs as any)?.primary_offer ?? null,
-      spread: (outputs as any)?.spread_cash ?? (outputs as any)?.spread_wholesale ?? null,
-      respectFloor: (outputs as any)?.respect_floor ?? (outputs as any)?.respectFloorPrice ?? null,
-      buyerCeiling: (outputs as any)?.buyer_ceiling ?? (outputs as any)?.buyerCeiling ?? null,
-      assignmentFee: (outputs as any)?.wholesale_fee ?? (outputs as any)?.wholesale_fee_dc ?? null,
-      payoff: (outputs as any)?.payoff ?? null,
-      dtmDays: timelineSummary?.days_to_money ?? timelineSummary?.dtm_selected_days ?? null,
-      urgencyBand: timelineSummary?.urgency_band ?? timelineSummary?.speed_band ?? null,
-      marketTemp: timelineSummary?.speed_band ?? null,
-      carryMonths: timelineSummary?.carry_months_raw ?? timelineSummary?.carry_months ?? null,
-      riskOverall: riskSummary?.overall ?? null,
-    },
-  };
+function buildRunContext(run: RunRow, opts: { orgId: string; userId: string; isStale: boolean }): AnalystRunContext {
+  return buildAnalystRunContextFromRow(run, opts);
 }
 
 async function callOpenAI(prompt: string) {
@@ -181,14 +89,17 @@ async function callOpenAI(prompt: string) {
     body: JSON.stringify({
       model: MODEL,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
+      temperature: 0,
       response_format: { type: "json_object" },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Upstream error ${res.status}: ${text}`);
+    const err = new Error(`Upstream error ${res.status}: ${text}`);
+    (err as any).status = res.status;
+    (err as any).response_body = text;
+    throw err;
   }
 
   const json = await res.json();
@@ -228,7 +139,7 @@ function renderDocs(docs: DocChunk[]): string {
     .join("\n");
 }
 
-function renderRunContext(ctx: ReturnType<typeof buildRunContext>) {
+function renderRunContext(ctx: AnalystRunContext) {
   return JSON.stringify(
     {
       dealId: ctx.dealId,
@@ -256,7 +167,7 @@ function buildToneInstruction(tone?: AiTone): string {
   }
 }
 
-function buildAnalystPrompt(params: { payload: DealAnalystPayload; ctx: ReturnType<typeof buildRunContext> }) {
+function buildAnalystPrompt(params: { payload: DealAnalystPayload; ctx: AnalystRunContext }) {
   const toneInstruction = buildToneInstruction(params.payload.tone as AiTone | undefined);
   const freshnessInstruction = params.payload.isStale
     ? "WARNING: The user has unsaved changes that are NOT reflected in this run. You must clearly warn that analysis is based on the last completed run and may be out of date compared to on-screen inputs."
@@ -284,9 +195,11 @@ function buildStrategistPrompt(params: {
 }) {
   const toneInstruction = buildToneInstruction(params.payload.tone as AiTone | undefined);
   return [
-    "You are the Deal Strategist for HPS DealEngine.",
-    "Scope: system-level guidance (sandbox knobs, policies, Market Temp, KPIs). Do NOT invent deal-level numbers.",
-    toneInstruction || "Tone: {{strategist_tone_slot}} (calm, professional).",
+    "You are the Deal Strategist persona for HPS DealEngine.",
+    "Stay concise and actionable; avoid flowery language.",
+    "Do NOT invent or adjust numeric underwriting results; if the user wants numbers, tell them you only operate on provided deal outputs or policies.",
+    "Only suggest using external sources/tools when the user explicitly asks; otherwise stay within provided docs/context.",
+    toneInstruction || "Tone: calm, professional.",
     "Return JSON with fields: persona, summary, system_guidance{title,body}, guardrails{title,body}, followups[string[]], sources[{kind,ref,doc_id?,title?,trust_tier?}].",
     "Docs (with trust tiers; prefer lower tier on conflict):",
     renderDocs(params.docs),
@@ -317,19 +230,17 @@ function scoreChunks(chunks: DocChunk[], query: string, max: number): DocChunk[]
     .map((s) => s.chunk);
 }
 
-async function handleDealAnalyst(req: Request, supabase: any, payload: DealAnalystPayload) {
+async function handleDealAnalyst(req: Request, supabase: any, payload: DealAnalystPayload, userId: string) {
   if (!payload.dealId || !payload.runId) {
     return bridgeError(req, 400, "invalid_request", "dealId and runId are required for dealAnalyst.");
   }
 
-  const baseQuery = supabase
+  const { data, error } = await supabase
     .from("runs")
-    .select("id, org_id, posture, deal_id, output, trace, policy_snapshot, created_at")
+    .select("id, org_id, posture, deal_id, input, output, trace, policy_snapshot, created_at")
     .eq("deal_id", payload.dealId)
     .eq("id", payload.runId)
     .maybeSingle();
-
-  const { data, error } = await baseQuery;
   if (error) {
     const message = (error.message ?? "").toLowerCase();
     const code = (error as any)?.code ?? "";
@@ -356,7 +267,11 @@ async function handleDealAnalyst(req: Request, supabase: any, payload: DealAnaly
     return bridgeError(req, 404, "run_not_found", "Run not found for this deal/run.");
   }
 
-  const ctx = buildRunContext(data as RunRow);
+  const ctx = buildRunContext(data as RunRow, {
+    orgId: (data as RunRow).org_id ?? "",
+    userId,
+    isStale: Boolean(payload.isStale),
+  });
   const prompt = buildAnalystPrompt({ payload, ctx });
 
   let parsed: AiBridgeResult | null = null;
@@ -405,6 +320,85 @@ async function handleDealStrategist(req: Request, payload: DealStrategistPayload
   return jsonResponse(req, { ok: true, result: parsed });
 }
 
+async function handleDealNegotiator(req: Request, supabase: any, payload: DealNegotiatorPayload, userId: string) {
+  if (!payload.dealId) {
+    return bridgeError(req, 400, "invalid_request", "dealId is required for dealNegotiator.");
+  }
+
+  const baseQuery = supabase
+    .from("runs")
+    .select("id, org_id, posture, deal_id, input, output, trace, policy_snapshot, created_at")
+    .eq("deal_id", payload.dealId)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  const { data, error } = payload.runId ? await baseQuery.eq("id", payload.runId).maybeSingle() : await baseQuery.single();
+
+  if (error) {
+    const message = (error.message ?? "").toLowerCase();
+    const code = (error as any)?.code ?? "";
+    const isRlsDenied =
+      code === "PGRST116" ||
+      code === "PGRST301" ||
+      code === "PGRST302" ||
+      code === "PGRST305" ||
+      code === "PGRST306" ||
+      code === "42501" ||
+      (error as any)?.status === 401 ||
+      (error as any)?.status === 403 ||
+      message.includes("permission") ||
+      message.includes("rls") ||
+      message.includes("not authorized") ||
+      message.includes("not authorised");
+    if (isRlsDenied) {
+      return bridgeError(req, 403, "run_forbidden", "You do not have access to this run.");
+    }
+    return bridgeError(req, 500, "run_load_failed", "Unexpected error while loading run for negotiator.");
+  }
+
+  if (!data) {
+    return bridgeError(req, 404, "run_not_found", "Run not found for this deal.");
+  }
+
+  const ctx = buildRunContext(data as RunRow, {
+    orgId: (data as RunRow).org_id ?? "",
+    userId,
+    isStale: false,
+  });
+  const matrix = await getNegotiationMatrix();
+  const facts: NegotiationSourceContext["outputs"] = ctx.outputs as Record<string, unknown>;
+  const normalizedFacts = deriveNegotiationDealFacts({
+    dealId: ctx.dealId,
+    runId: ctx.runId,
+    outputs: facts,
+    trace: ctx.trace,
+    input: (ctx as any)?.input ?? null,
+  });
+
+  if (payload.mode === "generate_playbook") {
+    const result = buildPlaybookResult({
+      runId: ctx.runId,
+      facts: normalizedFacts,
+      matrix,
+    });
+    return jsonResponse(req, { ok: true, result });
+  }
+
+  if (payload.mode === "chat") {
+    const result = buildNegotiatorChatResult({
+      runId: ctx.runId,
+      facts: normalizedFacts,
+      matrix,
+      logicRowIds: payload.logicRowIds ?? [],
+      userMessage: payload.userMessage ?? "",
+      tone: (payload as any)?.tone as "objective" | "empathetic" | "assertive" | undefined,
+    });
+    return jsonResponse(req, { ok: true, result });
+  }
+
+  return bridgeError(req, 400, "invalid_request", `Unsupported mode for dealNegotiator: ${payload.mode}`);
+}
+
 serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -420,6 +414,9 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!OPENAI_API_KEY) {
       return bridgeError(req, 500, "config_error", "OPENAI_API_KEY is missing.");
+    }
+    if (!OPENAI_API_KEY.startsWith("sk-")) {
+      return bridgeError(req, 500, "config_error", "OPENAI_API_KEY appears malformed (expected to start with \"sk-\").");
     }
 
     let bodyJson: unknown;
@@ -444,11 +441,18 @@ serve(async (req: Request): Promise<Response> => {
       return bridgeError(req, 401, "unauthorized", "Unauthorized");
     }
 
-    if (input.persona === "dealAnalyst") {
-      return await handleDealAnalyst(req, supabase, input as DealAnalystPayload);
-    }
+    const userId = userData.user.id;
 
-    return await handleDealStrategist(req, input as DealStrategistPayload);
+    switch (input.persona) {
+      case "dealAnalyst":
+        return await handleDealAnalyst(req, supabase, input as DealAnalystPayload, userId);
+      case "dealStrategist":
+        return await handleDealStrategist(req, input as DealStrategistPayload);
+      case "dealNegotiator":
+        return await handleDealNegotiator(req, supabase, input as DealNegotiatorPayload, userId);
+      default:
+        return bridgeError(req, 400, "invalid_request", "Unsupported persona");
+    }
   } catch (err) {
     return bridgeError(
       req,

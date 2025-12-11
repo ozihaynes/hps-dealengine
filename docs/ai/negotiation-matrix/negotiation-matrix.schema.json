@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HPS DealEngine Negotiation Strategy Matrix",
+  "type": "object",
+  "required": ["version", "created_at", "rows"],
+  "properties": {
+    "version": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "description": { "type": "string" },
+    "rows": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Row" }
+    }
+  },
+  "$defs": {
+    "Row": {
+      "type": "object",
+      "required": ["id", "module", "scenario_label", "deal_facts", "trigger_phrase", "script_body"],
+      "properties": {
+        "id": { "type": "string" },
+        "module": {
+          "type": "string",
+          "enum": ["competence", "price_anchor", "objection_pivot", "negative_reverse"]
+        },
+        "scenario_label": { "type": "string" },
+        "deal_facts": {
+          "type": "object",
+          "required": ["condition_band", "repairs_band"],
+          "properties": {
+            "condition_band": {
+              "type": "string",
+              "enum": ["light", "medium", "heavy", "hazardous"]
+            },
+            "repairs_band": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "extreme"]
+            },
+            "repair_evidence": {
+              "type": "string",
+              "enum": ["bids_present", "estimator_only", "photos_only", "none"]
+            },
+            "has_big5_issues": { "type": "boolean" },
+            "status_in_foreclosure": { "type": "boolean" },
+            "seller_motivation_primary": {
+              "type": "string",
+              "enum": [
+                "avoid_auction",
+                "debt_relief",
+                "tired_landlord",
+                "relocation",
+                "inheritance",
+                "equity_cash_out",
+                "divorce",
+                "code_violations",
+                "other"
+              ]
+            },
+            "motivation_strength": {
+              "type": "string",
+              "enum": ["low", "medium", "high"]
+            },
+            "timeline_urgency": {
+              "type": "string",
+              "enum": ["emergency", "critical", "high", "low"]
+            },
+            "timeline_trigger": {
+              "type": "string",
+              "enum": ["auction", "move_date", "tax_sale", "vacancy_burn", "none"]
+            },
+            "arrears_band": {
+              "type": "string",
+              "enum": ["none", "low", "moderate", "high", "critical"]
+            },
+            "shortfall_vs_payoff_band": {
+              "type": "string",
+              "enum": ["big_cushion", "thin", "shortfall"]
+            },
+            "zip_speed_band": {
+              "type": "string",
+              "enum": ["fast", "neutral", "slow"]
+            },
+            "market_temp_label": {
+              "type": "string",
+              "enum": ["hot", "warm", "neutral", "cool"]
+            },
+            "confidence_grade": {
+              "type": "string",
+              "enum": ["A", "B", "C"]
+            },
+            "risk_flags": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "uninsurable",
+                  "condo_sirs",
+                  "pace",
+                  "solar_ucc",
+                  "fha_90_day",
+                  "flood_50pct",
+                  "manufactured",
+                  "firpta",
+                  "scra",
+                  "title_cloudy"
+                ]
+              },
+              "uniqueItems": true
+            },
+            "lead_channel": {
+              "type": "string",
+              "enum": ["inbound_call", "web_form", "sms", "ppc", "referral", "repeat_seller"]
+            },
+            "trust_level": {
+              "type": "string",
+              "enum": ["cold", "lukewarm", "warm", "repeat_seller"]
+            }
+          },
+          "additionalProperties": true
+        },
+        "preemptive_objection": { "type": "string" },
+        "trigger_timing": { "type": "string" },
+        "competence_focus": { "type": ["string", "null"] },
+        "ackerman_stage": { "type": ["string", "null"] },
+        "pivot_focus": { "type": ["string", "null"] },
+        "motivation_context": { "type": ["string", "null"] },
+        "trigger_phrase": { "type": "string" },
+        "script_body": { "type": "string" },
+        "cushioning_statement": { "type": ["string", "null"] },
+        "followup_question": { "type": ["string", "null"] },
+        "notes_for_ai": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    }
+  }
+}

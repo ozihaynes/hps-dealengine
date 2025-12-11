@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Icon } from "../ui";
 
 type MobileNavItem = {
@@ -21,9 +20,23 @@ type MobileBottomNavProps = {
  * - Uses route (pathname) for active state
  */
 const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const router = useRouter();
 
   if (!items?.length) return null;
+
+  const resolvePathname = (href: string) => {
+    try {
+      return new URL(href, typeof window !== "undefined" ? window.location.href : "http://localhost").pathname;
+    } catch {
+      return href.split("?")[0] ?? href;
+    }
+  };
+
+  const handleNavigate = (href: string, isActive: boolean) => {
+    if (isActive) return;
+    router.push(href);
+  };
 
   return (
     <nav
@@ -32,15 +45,17 @@ const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
     >
       <div className="mx-auto flex max-w-6xl items-center justify-around px-3">
         {items.map((item) => {
+          const targetPath = resolvePathname(item.href);
           const isActive =
-            pathname === item.href ||
-            (pathname?.startsWith(item.href + "/") ?? false);
+            pathname === targetPath ||
+            pathname.startsWith(`${targetPath}/`);
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
+            <button
+              key={`${item.label}-${item.href}`}
+              type="button"
               aria-current={isActive ? "page" : undefined}
+              onClick={() => handleNavigate(item.href, isActive)}
               className={[
                 "flex flex-1 flex-col items-center justify-center gap-1 py-3 text-[11px] font-semibold transition-colors",
                 isActive
@@ -60,7 +75,7 @@ const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
               <span className={isActive ? "opacity-100" : "opacity-80"}>
                 {item.label}
               </span>
-            </Link>
+            </button>
           );
         })}
       </div>

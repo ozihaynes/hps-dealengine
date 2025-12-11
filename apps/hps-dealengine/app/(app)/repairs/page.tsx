@@ -11,6 +11,9 @@ import { estimatorSections } from "../../../lib/ui-v2-constants";
 import type { RepairRates } from "@hps-internal/contracts";
 import { createInitialEstimatorState } from "@/lib/repairsEstimator";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
+import { Button, GlassCard } from "@/components/ui";
+import { Check } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 /**
  * Safely set a nested property on the Deal by a dotted path, e.g. "market.arv".
@@ -104,6 +107,7 @@ export default function RepairsPage() {
 
   const [localSqft, setLocalSqft] = useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [sqftSaved, setSqftSaved] = useState(false);
 
   useUnsavedChanges(hasUnsavedChanges);
 
@@ -247,108 +251,114 @@ export default function RepairsPage() {
     }
   };
 
+  const isNoRepairsNeeded = Boolean((deal as any)?.meta?.noRepairsNeeded);
+
+  const handleMarkNoRepairs = useCallback(() => {
+    const next = !Boolean((deal as any)?.meta?.noRepairsNeeded);
+    setDealValue("meta.noRepairsNeeded", next);
+    if (next) {
+      setDealValue("repairs.total", 0);
+      setDealValue("repairs_total", 0);
+      setDealValue("repairsTotal", 0);
+      setDealValue("quickEstimate.total", 0);
+    }
+    setEstimatorState((prev) => {
+      const next: any =
+        typeof structuredClone === "function"
+          ? structuredClone(prev as any)
+          : JSON.parse(JSON.stringify(prev));
+      if (next) {
+        next.costs = {};
+        next.quantities = {};
+      }
+      return next;
+    });
+    setHasUnsavedChanges(true);
+  }, [deal, setDealValue]);
+
   const effectiveSqft = getCurrentSqft(deal as Deal, calc) || Number(localSqft) || 0;
+  const handleSqftChange = useCallback(
+    (value: string) => {
+      setLocalSqft(value);
+      const sqft = Number(value.replace(/[^\d.]/g, ""));
+      if (!isNaN(sqft) && sqft > 0) {
+        setDealValue("property.sqft", sqft);
+        setHasUnsavedChanges(false);
+        setSqftSaved(true);
+      } else {
+        setHasUnsavedChanges(true);
+        setSqftSaved(false);
+      }
+    },
+    [setDealValue],
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-white">
-          Repairs
-        </h1>
-        <p className="mt-1 text-sm text-text-secondary/80">
-          Quick PSF tiers, Big 5 budget killers, and a detailed line-item
-          estimator, all wired to the same deal session as Underwrite.
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1">
-            <label className="block text-xs font-medium text-amber-200 mb-1">
-              Property Square Footage
-            </label>
-            <input
-              type="number"
-              value={localSqft}
-              onChange={(e) => {
-                setLocalSqft(e.target.value);
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="Enter sqft (e.g., 1500)"
-              className="w-full px-3 py-2 bg-surface/80 border border-border/40 rounded-lg text-white"
-            />
-          </div>
-          <button
-            onClick={handleSqftSave}
-            className="mt-5 px-4 py-2 bg-accent-blue hover:bg-accent-blue/80 text-white rounded-lg font-medium"
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-white">
+            Repairs
+          </h1>
+          <Tooltip
+            content="Quick PSF tiers, Big 5 budget killers, and a detailed line-item estimator, all wired to the same deal session as Underwrite."
+            side="top"
+            align="start"
           >
-            Save to Deal
-          </button>
+            <button
+              type="button"
+              aria-label="Repairs info"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-semibold text-text-secondary transition hover:border-white/25 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue/60"
+            >
+              i
+            </button>
+          </Tooltip>
         </div>
-        {effectiveSqft === 0 && (
-          <p className="mt-2 text-xs text-amber-300">
-            Square footage is required for Quick Estimate calculator. Please enter it above.
-          </p>
-        )}
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            variant={isNoRepairsNeeded ? "primary" : "neutral"}
+            size="sm"
+            className="mt-1 flex items-center gap-2"
+            onClick={handleMarkNoRepairs}
+          >
+            {isNoRepairsNeeded && <Check size={14} />}
+            No Repairs Needed
+          </Button>
+          {isNoRepairsNeeded && (
+            <span className="text-[12px] text-emerald-200">Repairs are set to $0</span>
+          )}
+        </div>
       </div>
 
-      <div className="rounded-xl border border-border/40 bg-surface/60 px-4 py-3 text-sm">
-        {ratesStatus === "loading" && (
-          <p className="text-text-secondary">
-            Loading live repair rates for {marketCode} market.
-          </p>
-        )}
-
-        {ratesStatus === "idle" && (
-          <p className="text-amber-200">
-            No live repair profile loaded yet for {marketCode}/{posture}. Activate a profile
-            in Repairs Sandbox and sync to DealSession.
-          </p>
-        )}
-
-        {ratesStatus === "loaded" && rates && (
-          <p className="text-text-secondary">
-            Using{" "}
-            <span className="font-medium text-white">
-              {profileName ?? "Active Profile"}
-            </span>{" "}
-            ({rates.posture}) in{" "}
-            <span className="font-medium text-white">
-              {rates.marketCode}
-            </span>{" "}
-            as of{" "}
-            <span className="font-medium text-white">{rates.asOf}</span>{" "}
-            - source {rates.source ?? "unknown"}, v{rates.version}.
-            <button
-              type="button"
-              className="ml-3 text-xs text-accent-blue underline"
-              onClick={() => void refreshRepairRates()}
+      <GlassCard className="p-4">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm font-medium text-white">
+            <span>Property Square Footage</span>
+            <Tooltip
+              content="Square footage is required for Quick Estimate calculator. Please enter it above."
+              side="top"
+              align="start"
             >
-              Refresh
-            </button>
-          </p>
-        )}
-
-        {ratesStatus === "error" && (
-          <div className="text-amber-300 space-y-1">
-            <p>
-              Could not load live repair rates for {marketCode}/{posture}.
-              {repairRatesError ? ` ${repairRatesError}` : ""}
-            </p>
-            <p className="text-xs text-amber-200">
-              No rates will be applied until a profile is active for this org/market/posture.
-              Use Repairs Sandbox to activate one, then sync.
-            </p>
-            <button
-              type="button"
-              className="text-xs text-accent-blue underline"
-              onClick={() => void refreshRepairRates()}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-      </div>
+              <button
+                type="button"
+                aria-label="Square footage info"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-semibold text-text-secondary transition hover:border-white/25 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue/60"
+              >
+                i
+              </button>
+            </Tooltip>
+            {sqftSaved && <Check size={14} className="text-emerald-400" aria-hidden="true" />}
+          </label>
+          <input
+            type="number"
+            value={localSqft}
+            onChange={(e) => handleSqftChange(e.target.value)}
+            placeholder="Enter sqft"
+            className="w-32 rounded-md border bg-transparent px-2 py-1 text-sm text-white placeholder:text-text-secondary/70 focus:outline-none"
+            style={{ borderColor: "var(--accent-color)" }}
+          />
+        </div>
+      </GlassCard>
 
       <RepairsTab
         key={rates?.profileId ?? "repairs-tab"}

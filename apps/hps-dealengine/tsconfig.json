@@ -10,9 +10,10 @@
         "src/*",
         "*"
       ],
-      "@google/genai": [
-        "shims/google-genai.ts"
-      ]
+      "@hps/agents": ["../../packages/agents/src"],
+      "@hps/agents/*": ["../../packages/agents/src/*"],
+      "@hps-internal/contracts": ["../../packages/contracts/src"],
+      "@hps-internal/contracts/*": ["../../packages/contracts/src/*"]
     },
     "allowJs": true,
     "incremental": true,

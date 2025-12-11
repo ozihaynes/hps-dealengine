@@ -2,29 +2,18 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { askDealAnalyst } from "@/lib/aiBridge";
-import type { AiBridgeResult, AiTone } from "@/lib/ai/types";
+import type { AiBridgeResult } from "@/lib/ai/types";
 import { useRunFreshness } from "@/lib/ai/useRunFreshness";
 import { Button, GlassCard } from "@/components/ui";
 import { useRouter } from "next/navigation";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 import { useDealSession } from "@/lib/dealSessionContext";
+import { ArrowUpRight } from "lucide-react";
 
 type DealAnalystPanelProps = {
   onClose?: () => void;
   onMinimize?: () => void;
 };
-
-type Message = { role: "user" | "assistant"; text: string };
-
-function Section({ section }: { section?: { title: string; body: string } }) {
-  if (!section) return null;
-  return (
-    <div className="space-y-1">
-      <div className="text-[11px] uppercase tracking-wide text-text-secondary">{section.title}</div>
-      <div className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{section.body}</div>
-    </div>
-  );
-}
 
 export function DealAnalystPanel({
   onClose,
@@ -32,8 +21,9 @@ export function DealAnalystPanel({
 }: DealAnalystPanelProps) {
   const { dbDeal, lastRunId, posture } = useDealSession();
   const dealId = useMemo(() => dbDeal?.id ?? "", [dbDeal?.id]);
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [runId, setRunId] = useState(lastRunId ?? "");
-  const [question, setQuestion] = useState("Help me understand spread, guardrails, risk gates, and next steps.");
+  const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AiBridgeResult | null>(null);
@@ -43,16 +33,23 @@ export function DealAnalystPanel({
   const warningRef = useRef<HTMLDivElement | null>(null);
   const { state, dispatch } = useAiWindows();
   const w = state.windows.dealAnalyst;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const activeSession = useMemo(
     () => (w.activeSessionId ? w.sessions.find((s) => s.id === w.activeSessionId) ?? null : null),
     [w.activeSessionId, w.sessions],
   );
   const tone = activeSession?.tone ?? "direct";
+  const scrollToLatest = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
 
   useEffect(() => {
     setError(null);
     setResult(null);
     setAcknowledgedStale(false);
+    setThreadId(null);
   }, []);
 
   useEffect(() => {
@@ -62,11 +59,25 @@ export function DealAnalystPanel({
   useEffect(() => {
     if (!w.activeSessionId) {
       const id = crypto.randomUUID();
-      dispatch({ type: "START_NEW_SESSION", id: "dealAnalyst", sessionId: id });
+      dispatch({
+        type: "START_NEW_SESSION",
+        id: "dealAnalyst",
+        sessionId: id,
+        context: { dealId, orgId: dbDeal?.org_id, runId, posture },
+      });
     }
-  }, [dispatch, w.activeSessionId]);
+  }, [dealId, dispatch, dbDeal?.org_id, posture, runId, w.activeSessionId]);
+
+  useEffect(() => {
+    // Reset thread when switching deals or sessions
+    setThreadId(null);
+  }, [dealId, w.activeSessionId]);
 
   const onAsk = async (prompt: string) => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      return;
+    }
     const isStale = status === "stale";
     if (status === "noRun") {
       setError("Run Analyze at least once before asking the Deal Analyst.");
@@ -83,39 +94,63 @@ export function DealAnalystPanel({
     }
     setLoading(true);
     setError(null);
+    setQuestion("");
     const sessionId = w.activeSessionId ?? crypto.randomUUID();
     if (!w.activeSessionId) {
-      dispatch({ type: "START_NEW_SESSION", id: "dealAnalyst", sessionId });
+      dispatch({
+        type: "START_NEW_SESSION",
+        id: "dealAnalyst",
+        sessionId,
+        context: { dealId, orgId: dbDeal?.org_id, runId, posture },
+      });
     }
 
-    const userMessage: Message = { role: "user", text: prompt };
     const now = new Date().toISOString();
     dispatch({
       type: "APPEND_MESSAGE",
       id: "dealAnalyst",
-      message: { id: crypto.randomUUID(), role: "user", content: userMessage.text, createdAt: now },
+      message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: now },
     });
+    scrollToLatest();
 
     try {
       const res = await askDealAnalyst({
         dealId,
         runId,
         posture,
-        userPrompt: prompt,
+        userPrompt: trimmedPrompt,
         tone,
         isStale,
+        threadId,
       });
-      setResult(res);
-      dispatch({
-        type: "APPEND_MESSAGE",
-        id: "dealAnalyst",
-        message: {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: res.summary ?? "No summary returned.",
-          createdAt: new Date().toISOString(),
-        },
-      });
+      if (res.threadId) {
+        setThreadId(res.threadId);
+      }
+      if ((res as any)?.ok === false) {
+        setError(res.summary ?? "Deal Analyst failed.");
+        dispatch({
+          type: "APPEND_MESSAGE",
+          id: "dealAnalyst",
+          message: {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: res.summary ?? "Deal Analyst failed.",
+            createdAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        setResult(res);
+        dispatch({
+          type: "APPEND_MESSAGE",
+          id: "dealAnalyst",
+          message: {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: res.summary ?? "No summary returned.",
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
     } catch (err: any) {
       setError(err?.message ?? "Deal Analyst failed.");
     } finally {
@@ -123,7 +158,6 @@ export function DealAnalystPanel({
     }
   };
 
-  const sources = useMemo(() => result?.sources ?? [], [result]);
   const isStale = status === "stale";
   const canAsk = status !== "noRun" && (!isStale || acknowledgedStale);
   const runLabel =
@@ -137,119 +171,98 @@ export function DealAnalystPanel({
       ? new Date(lastEditAt).toLocaleString()
       : null;
   const messages = activeSession?.messages ?? [];
-  const toneOptions: { id: AiTone; label: string }[] = [
-    { id: "direct", label: "Direct" },
-    { id: "neutral", label: "Neutral" },
-    { id: "empathetic", label: "Supportive" },
-  ];
+  const guidanceText =
+    "Ask the Analyst for deal math-guardrails, risk gates, spreads, timeline, and next steps grounded in your latest Analyze run.";
+  const trimmedQuestion = question.trim();
+  const canSend = canAsk && Boolean(trimmedQuestion) && !loading;
+
+  useEffect(() => {
+    scrollToLatest();
+  }, [messages.length, scrollToLatest]);
 
   return (
-    <div className="flex h-full flex-col gap-3 bg-transparent p-0 text-text-primary">
-      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--glass-border)] px-2 pb-2 text-xs text-text-secondary">
-        <div className="space-y-0.5">
-          <div className="font-semibold text-text-primary">Deal Analyst</div>
-          <p className="text-[11px] text-text-secondary">Per-deal, per-run guidance. Uses last Analyze run; never recomputes numbers.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => onMinimize?.()}>
-            Minimize
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => onClose?.()}>
-            Close
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 px-2 text-[10px] text-text-secondary">
-        <span>Tone:</span>
-        <div className="inline-flex rounded-full border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] p-0.5">
-          {toneOptions.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                if (!w.activeSessionId) return;
-                dispatch({ type: "SET_SESSION_TONE", id: "dealAnalyst", sessionId: w.activeSessionId, tone: opt.id });
-              }}
-              className={`px-2 py-0.5 rounded-full transition text-[10px] ${
-                tone === opt.id
-                  ? "bg-[color:var(--accent-color)] text-[color:var(--text-primary)]"
-                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--glass-bg)]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 px-2">
-        {w.sessions.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => dispatch({ type: "LOAD_SESSION", id: "dealAnalyst", sessionId: s.id })}
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${s.id === w.activeSessionId ? "border-[color:var(--accent-color)] bg-[color:var(--accent-color)]/10 text-text-primary" : "border-[color:var(--glass-border)] text-text-secondary"}`}
+    <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
+      <div ref={scrollRef} className="flex-1 min-h-[280px] space-y-3 overflow-y-auto pr-1">
+        {isStale && (
+          <div
+            ref={warningRef}
+            className="rounded-lg border border-[color:var(--accent-orange)]/40 bg-[color:var(--accent-orange)]/15 px-3 py-2 text-xs text-[color:var(--text-accent-orange-light)]"
           >
-            {new Date(s.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          </button>
-        ))}
+            <div className="mb-2 font-semibold text-[color:var(--text-accent-orange-light)]">Stale data warning</div>
+            <p className="text-[12px] text-[color:var(--text-accent-orange-light)]/90">
+              Numbers are from your last Analyze run ({runLabel}). Inputs have changed
+              {editLabel ? ` (edited ${editLabel})` : ""}. Re-run Analyze to refresh, or continue knowing advice is based on the last run.
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button size="sm" variant="primary" onClick={() => router.push("/underwrite")}>
+                Re-run Analyze
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setAcknowledgedStale(true)}>
+                Ask anyway (use last run)
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {error && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-2 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
+          {messages.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
+                  <div
+                    className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
+                      m.role === "assistant"
+                        ? "bg-white/5 text-text-primary"
+                        : "bg-accent-blue/20 text-text-primary"
+                    }`}
+                  >
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
+                      {m.role === "user" ? "You" : "Analyst"}
+                    </div>
+                    {m.content ?? ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {isStale ? (
-        <div
-          ref={warningRef}
-          className="mb-1 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-3 py-2 text-xs text-yellow-100"
-        >
-          <div className="mb-2 font-semibold text-yellow-50">Stale data warning</div>
-          <p className="text-[12px] text-yellow-50/90">
-            Numbers are from your last Analyze run ({runLabel}). Inputs have changed
-            {editLabel ? ` (edited ${editLabel})` : ""}. Re-run Analyze to refresh, or continue knowing advice is based on the last run.
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button size="sm" variant="primary" onClick={() => router.push("/underwrite")}>
-              Re-run Analyze
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setAcknowledgedStale(true)}>
-              Ask anyway (use last run)
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {status === "noRun" ? (
-        <div className="mb-1 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-          Run Analyze at least once before asking the Analyst about this deal.
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" variant="primary" onClick={() => router.push("/underwrite")}>
-              Go to Underwrite
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {error && (
-        <div className="mb-1 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-          {error}
-        </div>
-      )}
-
-      <GlassCard className="space-y-2 p-3">
-        <textarea
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          className="w-full rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-primary focus:border-accent-blue focus:outline-none"
-          rows={3}
-          placeholder="Ask about spread, MAO, risk gates, timeline, negotiation stance..."
-          disabled={status === "noRun"}
-        />
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="primary" disabled={loading || !canAsk} onClick={() => onAsk(question)}>
-            {loading ? "Thinking..." : status === "noRun" ? "Run Analyze first" : "Ask Deal Analyst"}
-          </Button>
-          <div className="text-[11px] text-text-secondary">
-            {status === "noRun" ? "No run yet for this deal." : `Using ${runLabel} for deal ${dealId.slice(0, 8)}.`}
-          </div>
+      <div className="space-y-2 border-t border-[color:var(--glass-border)] pt-3">
+        <div className="relative">
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            className="w-full min-h-[96px] rounded-md border border-white/10 bg-white/5 p-3 pr-12 text-sm text-text-secondary outline-none focus:border-accent-blue"
+            rows={4}
+            placeholder={guidanceText}
+            disabled={status === "noRun"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!loading && canAsk) {
+                  void onAsk(question);
+                }
+              }
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => onAsk(question)}
+            disabled={loading || !canAsk}
+            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-accent-blue/80 text-white shadow-lg backdrop-blur transition hover:bg-accent-blue ${
+              loading || !canAsk ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            title={status === "noRun" ? "Run Analyze first" : "Ask Deal Analyst"}
+          >
+            <ArrowUpRight size={18} />
+          </button>
         </div>
         {result?.followups && result.followups.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -267,60 +280,11 @@ export function DealAnalystPanel({
             ))}
           </div>
         )}
-      </GlassCard>
-
-      <div className="space-y-2 overflow-y-auto">
-        {result ? (
-          <GlassCard className="space-y-3 p-3">
-            <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-text-secondary">Summary</div>
-              <div className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{result.summary}</div>
-            </div>
-            <Section section={result.key_numbers} />
-            <Section section={result.guardrails} />
-            <Section section={result.risk_and_evidence} />
-            <Section section={result.negotiation_playbook} />
-
-            {sources.length > 0 && (
-              <div className="space-y-1 border-t border-white/10 pt-2">
-                <div className="text-[11px] uppercase tracking-wide text-text-secondary">Where this came from</div>
-                <ul className="space-y-1 text-xs text-text-secondary">
-                  {sources.map((s, idx) => (
-                    <li key={`${s.ref}-${idx}`} className="flex items-center gap-2">
-                      <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary">{s.kind}</span>
-                      <span className="font-mono text-text-primary">{s.doc_id ?? s.ref}</span>
-                      {typeof s.trust_tier === "number" && (
-                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary">
-                          tier {s.trust_tier}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </GlassCard>
-        ) : (
-          <GlassCard className="p-3 text-sm text-text-secondary">
-            Ask a question to see deal-specific analysis from the last run.
-          </GlassCard>
+        {status === "noRun" && (
+          <div className="text-[11px] text-text-secondary">Analyze deal to chat.</div>
         )}
       </div>
-
-      {messages.length > 0 && (
-        <div className="space-y-2 rounded border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
-          <div className="text-[11px] uppercase tracking-wide">History (this session)</div>
-          <ul className="space-y-1 max-h-32 overflow-y-auto">
-            {messages.map((m) => (
-              <li key={m.id} className="flex gap-2">
-                <span className="font-semibold text-text-primary">{m.role === "user" ? "You" : "Analyst"}:</span>
-                <span className="text-text-secondary">{m.content ?? ""}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    </GlassCard>
   );
 }
 

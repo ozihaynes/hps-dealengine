@@ -547,7 +547,7 @@ export default function TracePage() {
             )}
           </GlassCard>
 
-          <KnobFamilySummary runOutput={knobSummaryOutput} sandbox={sandboxSnapshot} title="Policy & Knob Coverage" />
+          <KnobFamilySummary runOutput={knobSummaryOutput} title="Policy & Knob Coverage" />
 
           <div className="grid gap-3 md:grid-cols-2">
             <GlassCard className="p-3 md:p-4 space-y-2">
@@ -884,7 +884,6 @@ export default function TracePage() {
     </div>
   );
 }
-
 
 
 

@@ -30,16 +30,11 @@ export function GuardrailsCard({ view }: { view: OverviewGuardrailsView }) {
 
   return (
     <GlassCard className="p-4 md:p-5 space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon d={Icons.shield} size={18} className="text-accent-blue" />
-          <h3 className="text-lg font-semibold text-text-primary">
-            Guardrails & Profit
-          </h3>
-        </div>
-        <p className="text-xs text-text-secondary">
-          Floor = Respect Floor; Ceiling = Buyer Ceiling; Offer anchors spread.
-        </p>
+      <div className="flex items-center justify-start gap-3">
+        <Icon d={Icons.shield} size={18} className="text-accent-blue" />
+        <h3 className="text-lg font-semibold text-text-primary">
+          Guardrails & Profit
+        </h3>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

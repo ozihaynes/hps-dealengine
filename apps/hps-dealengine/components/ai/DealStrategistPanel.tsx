@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { askDealStrategist } from "@/lib/aiBridge";
-import type { AiBridgeResult, AiTone } from "@/lib/ai/types";
-import { Button, GlassCard } from "@/components/ui";
+import type { AiBridgeResult } from "@/lib/ai/types";
+import { GlassCard } from "@/components/ui";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
+import { ArrowUpRight } from "lucide-react";
+import { useDealSession } from "@/lib/dealSessionContext";
 
 type DealStrategistPanelProps = {
   posture?: string;
@@ -26,56 +28,105 @@ function Section({ section }: { section?: { title: string; body: string } }) {
 
 export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinimize }: DealStrategistPanelProps) {
   const pathname = usePathname();
-  const [question, setQuestion] = useState("How should we tune spreads and guardrails for the current market?");
+  const { posture: sessionPosture, dbDeal, lastRunId } = useDealSession();
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AiBridgeResult | null>(null);
   const { state, dispatch } = useAiWindows();
   const w = state.windows.dealStrategist;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const activeSession = useMemo(
     () => (w.activeSessionId ? w.sessions.find((s) => s.id === w.activeSessionId) ?? null : null),
     [w.activeSessionId, w.sessions],
   );
   const tone = activeSession?.tone ?? "visionary";
+  const scrollToLatest = React.useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, []);
+
+  useEffect(() => {
+    setThreadId(null);
+  }, [dbDeal?.id, w.activeSessionId]);
 
   React.useEffect(() => {
     if (!w.activeSessionId) {
       const id = crypto.randomUUID();
-      dispatch({ type: "START_NEW_SESSION", id: "dealStrategist", sessionId: id });
+      dispatch({
+        type: "START_NEW_SESSION",
+        id: "dealStrategist",
+        sessionId: id,
+        context: { dealId: dbDeal?.id, orgId: dbDeal?.org_id, runId: lastRunId ?? undefined, posture: posture ?? sessionPosture },
+      });
     }
-  }, [dispatch, w.activeSessionId]);
+  }, [dbDeal?.id, dbDeal?.org_id, dispatch, lastRunId, posture, sessionPosture, w.activeSessionId]);
 
   const onAsk = async (prompt: string) => {
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      return;
+    }
+    const postureValue = posture ?? sessionPosture ?? "base";
     setLoading(true);
     setError(null);
+    setQuestion("");
     if (!w.activeSessionId) {
       const id = crypto.randomUUID();
-      dispatch({ type: "START_NEW_SESSION", id: "dealStrategist", sessionId: id });
+      dispatch({
+        type: "START_NEW_SESSION",
+        id: "dealStrategist",
+        sessionId: id,
+        context: { dealId: dbDeal?.id, orgId: dbDeal?.org_id, runId: lastRunId ?? undefined, posture: postureValue },
+      });
     }
     dispatch({
       type: "APPEND_MESSAGE",
       id: "dealStrategist",
-      message: { id: crypto.randomUUID(), role: "user", content: prompt, createdAt: new Date().toISOString() },
+      message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: new Date().toISOString() },
     });
+    scrollToLatest();
     try {
       const res = await askDealStrategist({
-        userPrompt: prompt,
-        posture,
+        userPrompt: trimmedPrompt,
+        posture: postureValue,
         sandboxSettings,
         route: pathname,
         tone,
+        focusArea: "sandbox",
+        timeRange: null,
+        threadId,
       });
-      setResult(res);
-      dispatch({
-        type: "APPEND_MESSAGE",
-        id: "dealStrategist",
-        message: {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: res.summary ?? "No summary returned.",
-          createdAt: new Date().toISOString(),
-        },
-      });
+      if (res.threadId) {
+        setThreadId(res.threadId);
+      }
+      if ((res as any)?.ok === false) {
+        setError(res.summary ?? "Deal Strategist failed.");
+        dispatch({
+          type: "APPEND_MESSAGE",
+          id: "dealStrategist",
+          message: {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: res.summary ?? "Deal Strategist failed.",
+            createdAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        setResult(res);
+        dispatch({
+          type: "APPEND_MESSAGE",
+          id: "dealStrategist",
+          message: {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: res.summary ?? "No summary returned.",
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
     } catch (err: any) {
       setError(err?.message ?? "Deal Strategist failed.");
     } finally {
@@ -83,88 +134,75 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
     }
   };
 
-  const sources = useMemo(() => result?.sources ?? [], [result]);
   const messages = activeSession?.messages ?? [];
-  const toneOptions: { id: AiTone; label: string }[] = [
-    { id: "visionary", label: "Visionary" },
-    { id: "neutral", label: "Neutral" },
-    { id: "direct", label: "Blunt" },
-  ];
+  const guidanceText =
+    "Ask the Strategist for policy and posture guidance-sandbox knobs, market tweaks, KPI framing, and how inputs and workflows move through the system.";
+  const trimmedQuestion = question.trim();
+  const canSend = Boolean(trimmedQuestion) && !loading;
+
+  useEffect(() => {
+    scrollToLatest();
+  }, [messages.length, scrollToLatest]);
 
   return (
-    <div className="flex h-full flex-col gap-3 bg-transparent p-0 text-text-primary">
-      <div className="flex items-center justify-between gap-2 border-b border-[color:var(--glass-border)] px-2 pb-2 text-xs text-text-secondary">
-        <div className="space-y-0.5">
-          <div className="font-semibold text-text-primary">Deal Strategist</div>
-          <p className="text-[11px] text-text-secondary">
-            System-level guidance: sandbox knobs, posture, market temp, policies, and KPIs.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onClick={() => onMinimize?.()}>
-            Minimize
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => onClose?.()}>
-            Close
-          </Button>
+    <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
+      <div ref={scrollRef} className="flex-1 min-h-[260px] space-y-3 overflow-y-auto pr-1">
+        {error && (
+          <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {error}
+          </div>
+        )}
+
+        <div className="space-y-2 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
+          {messages.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {messages.map((m) => (
+                <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
+                  <div
+                    className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
+                      m.role === "assistant" ? "bg-white/5 text-text-primary" : "bg-accent-blue/20 text-text-primary"
+                    }`}
+                  >
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
+                      {m.role === "user" ? "You" : "Strategist"}
+                    </div>
+                    {m.content ?? ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 px-2 text-[10px] text-text-secondary">
-        <span>Tone:</span>
-        <div className="inline-flex rounded-full border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] p-0.5">
-          {toneOptions.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                if (!w.activeSessionId) return;
-                dispatch({ type: "SET_SESSION_TONE", id: "dealStrategist", sessionId: w.activeSessionId, tone: opt.id });
-              }}
-              className={`px-2 py-0.5 rounded-full transition text-[10px] ${
-                tone === opt.id
-                  ? "bg-[color:var(--accent-color)] text-[color:var(--text-primary)]"
-                  : "text-[color:var(--text-secondary)] hover:bg-[color:var(--glass-bg)]"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 px-2">
-        {w.sessions.map((s) => (
+      <div className="space-y-2 border-t border-[color:var(--glass-border)] pt-3">
+        <div className="relative">
+          <textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            className="w-full min-h-[96px] rounded-md border border-white/10 bg-white/5 p-3 pr-12 text-sm text-text-secondary outline-none focus:border-accent-blue"
+            rows={4}
+            placeholder={guidanceText}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!loading && question.trim()) {
+                  void onAsk(question);
+                }
+              }
+            }}
+          />
           <button
-            key={s.id}
             type="button"
-            onClick={() => dispatch({ type: "LOAD_SESSION", id: "dealStrategist", sessionId: s.id })}
-            className={`rounded-full border px-2 py-0.5 text-[11px] ${s.id === w.activeSessionId ? "border-[color:var(--accent-color)] bg-[color:var(--accent-color)]/10 text-text-primary" : "border-[color:var(--glass-border)] text-text-secondary"}`}
+            onClick={() => onAsk(question)}
+            disabled={!canSend}
+            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-accent-blue/80 text-white shadow-lg backdrop-blur transition hover:bg-accent-blue ${
+              !canSend ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            title="Ask Deal Strategist"
           >
-            {new Date(s.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            <ArrowUpRight size={18} />
           </button>
-        ))}
-      </div>
-
-      {error && (
-        <div className="mb-1 rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-          {error}
-        </div>
-      )}
-
-      <GlassCard className="mb-3 space-y-2 p-3">
-        <textarea
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          className="w-full rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-primary focus:border-accent-blue focus:outline-none"
-          rows={3}
-          placeholder="Ask about policies, sandbox knobs, KPIs, and risk gates..."
-        />
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="primary" disabled={loading} onClick={() => onAsk(question)}>
-            {loading ? "Thinking..." : "Ask Deal Strategist"}
-          </Button>
-          <div className="text-[11px] text-text-secondary">Strategy + docs grounded; no deal math unless provided.</div>
         </div>
         {result?.followups && result.followups.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -182,58 +220,8 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
             ))}
           </div>
         )}
-      </GlassCard>
-
-      <div className="space-y-2 overflow-y-auto">
-        {result ? (
-          <GlassCard className="space-y-3 p-3">
-            <div className="space-y-1">
-              <div className="text-[11px] uppercase tracking-wide text-text-secondary">Summary</div>
-              <div className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{result.summary}</div>
-            </div>
-            <Section section={result.system_guidance} />
-            <Section section={result.guardrails} />
-
-            {sources.length > 0 && (
-              <div className="space-y-1 border-t border-white/10 pt-2">
-                <div className="text-[11px] uppercase tracking-wide text-text-secondary">Sources</div>
-                <ul className="space-y-1 text-xs text-text-secondary">
-                  {sources.map((s, idx) => (
-                    <li key={`${s.ref}-${idx}`} className="flex items-center gap-2">
-                      <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary">{s.kind}</span>
-                      <span className="font-mono text-text-primary">{s.doc_id ?? s.ref}</span>
-                      {typeof s.trust_tier === "number" && (
-                        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-text-secondary">
-                          tier {s.trust_tier}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </GlassCard>
-        ) : (
-          <GlassCard className="p-3 text-sm text-text-secondary">
-            Ask a question to see system-level guidance (knobs, policies, KPIs).
-          </GlassCard>
-        )}
       </div>
-
-      {messages.length > 0 && (
-        <div className="space-y-2 rounded border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
-          <div className="text-[11px] uppercase tracking-wide">History (this session)</div>
-          <ul className="space-y-1 max-h-32 overflow-y-auto">
-            {messages.map((m) => (
-              <li key={m.id} className="flex gap-2">
-                <span className="font-semibold text-text-primary">{m.role === "user" ? "You" : "Strategist"}:</span>
-                <span className="text-text-secondary">{m.content ?? ""}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
+    </GlassCard>
   );
 }
 

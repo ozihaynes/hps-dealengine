@@ -259,14 +259,22 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             label="Price-to-List %"
             type="number"
             suffix="%"
-            value={Number(market["price-to-list-pct"] ?? 0) * 100}
+            value={
+              market["price-to-list-pct"] != null
+                ? Number(market["price-to-list-pct"]) * 100
+                : null
+            }
             onChange={(e: any) => setDealValue("market.price-to-list-pct", e.target.value)}
           />
           <InputField
             label="Local Discount (20th %)"
             type="number"
             suffix="%"
-            value={Number(market.local_discount_20th_pct ?? 0) * 100}
+            value={
+              market.local_discount_20th_pct != null
+                ? Number(market.local_discount_20th_pct) * 100
+                : null
+            }
             onChange={(e: any) => setDealValue("market.local_discount_20th_pct", e.target.value)}
           />
         </div>

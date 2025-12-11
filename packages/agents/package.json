@@ -1,0 +1,29 @@
+{
+  "name": "@hps/agents",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "main": "dist/agents/src/index.js",
+  "types": "dist/agents/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@hps-internal/contracts": "workspace:*",
+    "@openai/agents": "^0.3.4",
+    "@supabase/supabase-js": "^2.80.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^4.0.8"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/agents/src/index.d.ts",
+      "import": "./dist/agents/src/index.js",
+      "require": "./dist/agents/src/index.js"
+    }
+  }
+}

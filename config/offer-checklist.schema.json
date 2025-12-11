@@ -1,0 +1,252 @@
+[
+  {
+    "item_id": "valuation_arv_provided",
+    "label": "ARV (After-Repair Value) estimated",
+    "importance_tag": "MUST_HAVE_FOR_MATH",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "recommended" },
+    "fields": ["arvEstimate", "arv_final", "arvCompCount", "arvCompAgeDays", "arvEvidencePresent"],
+    "policy_knobs": ["arvBoundsPolicy", "valuationConfidenceThreshold"],
+    "placeholder_behavior": "Not allowed – ARV must be provided to run analysis.",
+    "why_it_matters": "ARV drives the projected resale value after rehab, anchoring offer calculations."
+  },
+  {
+    "item_id": "valuation_arv_evidence",
+    "label": "ARV supported by recent comps or appraisal",
+    "importance_tag": "RECOMMENDED_FOR_CONFIDENCE",
+    "scenario_applicability": { "flip": "recommended", "wholetail": "recommended", "as_is": "optional" },
+    "fields": ["arvCompCount", "arvCompAgeDays", "arvEvidencePresent", "bpoAppraisalPresent"],
+    "policy_knobs": ["maxCompAgeDays", "minCompCount"],
+    "placeholder_behavior": "Allowed – but missing comps downgrade confidence grade.",
+    "why_it_matters": "Having up-to-date comparable sales or a BPO/Appraisal justifies the ARV and boosts confidence."
+  },
+  {
+    "item_id": "valuation_aiv_provided",
+    "label": "As-Is Value (AIV) estimated",
+    "importance_tag": "MUST_HAVE_FOR_MATH",
+    "scenario_applicability": { "flip": "recommended", "wholetail": "required", "as_is": "required" },
+    "fields": ["aivEstimate", "aiv_final", "aivCompCount", "aivCompAgeDays", "aivEvidencePresent"],
+    "policy_knobs": ["aivCapPolicy"],
+    "placeholder_behavior": "Allowed – engine can apply defaults (e.g. AIV ≈ ARV if not given), but this can trigger caps on offers.",
+    "why_it_matters": "AIV represents the current market value. It’s critical for as-is or quick sale scenarios and caps excessive offers."
+  },
+  {
+    "item_id": "repairs_estimated",
+    "label": "Repair costs estimated",
+    "importance_tag": "MUST_HAVE_FOR_MATH",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "recommended" },
+    "fields": ["repairsTotal", "repairClass", "quickEstimatePsf", "quickEstimateTotal"],
+    "policy_knobs": ["repairDefaultsPolicy"],
+    "placeholder_behavior": "Allowed – a default/placeholder repair cost can be used, but it lowers confidence if not evidence-backed.",
+    "why_it_matters": "Repair costs impact profit and offer price. A placeholder guess without evidence makes the offer riskier."
+  },
+  {
+    "item_id": "repairs_evidence",
+    "label": "Repair scope evidenced (photos/bids)",
+    "importance_tag": "RECOMMENDED_FOR_CONFIDENCE",
+    "scenario_applicability": { "flip": "recommended", "wholetail": "recommended", "as_is": "optional" },
+    "fields": ["repairsEvidencePresent", "repairClass"],
+    "policy_knobs": ["contingencyBufferPolicy"],
+    "placeholder_behavior": "Allowed – analysis can assume standard repair quality, but confidence grade drops for large rehabs without proof.",
+    "why_it_matters": "Bids, photos or inspections validate the repair budget. Big rehabs without evidence increase uncertainty."
+  },
+  {
+    "item_id": "debt_senior_known",
+    "label": "Senior payoff amount provided",
+    "importance_tag": "MUST_HAVE_FOR_MATH",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["seniorPrincipal", "seniorPerDiem"],
+    "policy_knobs": ["maxDebtAssumptionPolicy"],
+    "placeholder_behavior": "Allowed – if unknown, engine assumes $0 which can misstate profit (not recommended beyond triage).",
+    "why_it_matters": "Outstanding mortgage payoff is subtracted from proceeds. An unknown payoff can invalidate the offer math."
+  },
+  {
+    "item_id": "debt_payoff_evidence",
+    "label": "Payoff letter obtained for senior debt",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["payoffLetterPresent", "goodThruDate"],
+    "policy_knobs": ["requirePayoffEvidenceForReady"],
+    "placeholder_behavior": "Not allowed for ready – missing letter keeps deal in Needs Info (engine will flag infoNeeded).",
+    "why_it_matters": "A payoff letter or statement confirms the exact mortgage payoff. Without it, net proceeds are uncertain and the deal isn’t secure."
+  },
+  {
+    "item_id": "debt_secondary_known",
+    "label": "All junior liens & arrears disclosed",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["juniorLiensTotal", "hoaArrears", "municipalFines", "taxDelinquencies", "juniorLiensDisclosed"],
+    "policy_knobs": ["juniorLiensPolicy"],
+    "placeholder_behavior": "Allowed for math – engine assumes zero if not provided, but this triggers risk flags (placeholder assumption).",
+    "why_it_matters": "Hidden junior liens or tax/HOA arrears can wipe out profit. All known secondary debts must be accounted for to safely present an offer."
+  },
+  {
+    "item_id": "title_evidence",
+    "label": "Preliminary title check completed",
+    "importance_tag": "RECOMMENDED_FOR_CONFIDENCE",
+    "scenario_applicability": { "flip": "recommended", "wholetail": "recommended", "as_is": "recommended" },
+    "fields": ["titleEvidence.isPresent", "titleEvidence.ageDays"],
+    "policy_knobs": ["requireTitleCheckForReady"],
+    "placeholder_behavior": "Allowed – if not done, engine assumes no title issues, but confidence is lower and risk gates may watch for undiscovered issues.",
+    "why_it_matters": "A title search reveals liens or ownership issues. Skipping this could mean surprise costs or deal failure post-offer."
+  },
+  {
+    "item_id": "timeline_set",
+    "label": "Closing timeline set and feasible",
+    "importance_tag": "MUST_HAVE_FOR_MATH",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["targetDtm", "desiredCloseDate"],
+    "policy_knobs": ["maxHoldMonthsPolicy"],
+    "placeholder_behavior": "Allowed – defaults to policy standard (e.g. 30 days) if not provided, but may misalign carry cost.",
+    "why_it_matters": "A target closing date or days-to-money drives holding costs and strategy. Without it, the system must assume a timeline, risking miscalculation."
+  },
+  {
+    "item_id": "timeline_conflicts",
+    "label": "No foreclosure/approval deadlines at risk",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["isAuction", "auctionDate", "boardApprovalRequired", "foreclosureDate"],
+    "policy_knobs": ["auctionBufferDays", "boardApprovalBufferDays"],
+    "placeholder_behavior": "N/A – applies only if property is at auction or requires board approval.",
+    "why_it_matters": "If an auction or board approval is looming, the closing timeline must accommodate it. Deals about to foreclose or awaiting condo board ok cannot proceed without plan."
+  },
+  {
+    "item_id": "carry_inputs",
+    "label": "Carry cost inputs provided or defaulted",
+    "importance_tag": "RECOMMENDED_FOR_CONFIDENCE",
+    "scenario_applicability": { "flip": "recommended", "wholetail": "recommended", "as_is": "recommended" },
+    "fields": ["taxes", "insurance", "hoa", "utilities", "maintenanceBuffer"],
+    "policy_knobs": ["defaultCarryCostsPolicy"],
+    "placeholder_behavior": "Allowed – engine uses policy defaults (e.g. avg taxes/insurance) if missing, with minimal impact on gating if within normal range.",
+    "why_it_matters": "Accurate monthly taxes, insurance, HOA, etc. ensure holding cost calculations are precise. Defaults are used if missing, but custom values improve accuracy."
+  },
+  {
+    "item_id": "economics_spread",
+    "label": "Profit spread meets minimum requirement",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["spread_cash", "min_spread_required", "spread_ladder_band"],
+    "policy_knobs": ["minSpreadPolicy"],
+    "placeholder_behavior": "N/A – derived from outputs; if this fails, the deal is not ready (unless override).",
+    "why_it_matters": "The deal’s profit margin (spread) must meet the minimum policy threshold. A too-thin spread indicates inadequate profit for the risk taken."
+  },
+  {
+    "item_id": "economics_cash_gate",
+    "label": "No negative cash at close (Cash Gate pass)",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["cash_gate_status", "cash_deficit"],
+    "policy_knobs": ["cashGatePolicy"],
+    "placeholder_behavior": "N/A – derived from outputs; engine flags if cash would be needed to close.",
+    "why_it_matters": "If the deal would require bringing cash to closing (negative net proceeds), it fails the cash gate. Such deals are not offer-ready without special approval."
+  },
+  {
+    "item_id": "economics_floor_ceiling",
+    "label": "Offer within Floor & Ceiling constraints",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["respect_floor", "investor_floor", "buyer_ceiling", "aiv_cap_used"],
+    "policy_knobs": ["respectFloorPolicy", "buyerCeilingPolicy"],
+    "placeholder_behavior": "N/A – derived from outputs; engine ensures MAO is clamped to these limits.",
+    "why_it_matters": "The Maximum Allowed Offer must respect the investor’s minimum price (Floor) and not exceed the end-buyer’s max (Ceiling/AIV cap). Deals violating these guardrails are adjusted or not feasible."
+  },
+  {
+    "item_id": "risk_no_failures",
+    "label": "No Risk Gate failures (all critical risks cleared)",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["risk_summary.failCount", "risk_summary.gates"],
+    "policy_knobs": ["riskGatePolicy"],
+    "placeholder_behavior": "N/A – risk gates computed from outputs; any Fail status blocks Ready unless override.",
+    "why_it_matters": "Critical risk factors (title issues, flood, legal barriers, etc.) must be resolved or explicitly overridden. A failed risk gate means the deal is not safe to proceed."
+  },
+  {
+    "item_id": "risk_watch_resolved",
+    "label": "Risk watch items mitigated or documented",
+    "importance_tag": "RECOMMENDED_FOR_CONFIDENCE",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["risk_summary.watchCount", "risk_summary.gates"],
+    "policy_knobs": ["riskGatePolicy"],
+    "placeholder_behavior": "N/A – appears only if any risk gates are in Watch status.",
+    "why_it_matters": "Non-fatal risk flags (e.g. moderate issues) should be addressed or noted. While they don’t block the offer, unmitigated watch items could become problems later."
+  },
+  {
+    "item_id": "risk_condo",
+    "label": "Condo/COOP docs reviewed (SIRS/warrantability)",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["isCondo", "isSirsRequired", "warrantabilityStatus"],
+    "policy_knobs": ["condoRiskPolicy"],
+    "placeholder_behavior": "N/A – only relevant for condo/co-op deals.",
+    "why_it_matters": "Condo-specific risks like structural reports (SIRS) and warrantability can derail deals or financing. These must be vetted for condo properties."
+  },
+  {
+    "item_id": "risk_flood",
+    "label": "Flood zone mitigated (elevation or insurance)",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["floodZone", "elevationCertPresent", "insuranceEvidence.isPresent"],
+    "policy_knobs": ["floodRiskPolicy"],
+    "placeholder_behavior": "N/A – only relevant if property is in a flood zone.",
+    "why_it_matters": "Flood zone properties require extra due diligence (elevation certificate, flood insurance). Without mitigation, flood risk can be a deal-killer or require adjusting offer."
+  },
+  {
+    "item_id": "risk_firpta",
+    "label": "FIRPTA (foreign seller tax) handled",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["sellerResidencyStatus"],
+    "policy_knobs": ["firptaPolicy"],
+    "placeholder_behavior": "N/A – only relevant if seller is foreign (FIRPTA applies).",
+    "why_it_matters": "Foreign sellers trigger FIRPTA tax withholding. If the seller is non-resident, ensure tax implications are accounted for so there are no net proceed surprises."
+  },
+  {
+    "item_id": "risk_scra",
+    "label": "SCRA (active duty protections) not blocking",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["isActiveDuty"],
+    "policy_knobs": ["scraPolicy"],
+    "placeholder_behavior": "N/A – only relevant if occupant/seller is active duty military.",
+    "why_it_matters": "Active duty military status can impede eviction or foreclosure timing under SCRA. Deals involving protected parties need special handling or timeline adjustments."
+  },
+  {
+    "item_id": "risk_bankruptcy",
+    "label": "No active bankruptcy hindering sale",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["bankruptcyStatus"],
+    "policy_knobs": ["bankruptcyPolicy"],
+    "placeholder_behavior": "N/A – only relevant if property owner is in bankruptcy proceedings.",
+    "why_it_matters": "If the owner is in bankruptcy, court approvals or delays may apply. A deal cannot proceed normally unless the bankruptcy is handled (which policy must allow or reflect)."
+  },
+  {
+    "item_id": "risk_pace",
+    "label": "Any PACE or solar liens addressed",
+    "importance_tag": "CONDITIONAL",
+    "scenario_applicability": { "flip": "conditional", "wholetail": "conditional", "as_is": "conditional" },
+    "fields": ["paceLienPresent"],
+    "policy_knobs": ["paceLienPolicy"],
+    "placeholder_behavior": "N/A – only relevant if PACE/solar liens exist.",
+    "why_it_matters": "PACE (energy/solar) liens can be sizable and senior to mortgages. They must be identified and either assumed or cleared; otherwise, the offer may be way off."
+  },
+  {
+    "item_id": "workflow_confidence",
+    "label": "Confidence grade meets policy minimum",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["confidence_grade", "valuation_confidence"],
+    "policy_knobs": ["minConfidenceGradePolicy", "abcConfidenceGradeRubric"],
+    "placeholder_behavior": "N/A – computed from evidence completeness; placeholders or stale data usually drop grade.",
+    "why_it_matters": "The overall confidence in the analysis must be high enough (e.g. B or better by default) to proceed. This grade synthesizes evidence gaps and uncertainty – a low grade signals the deal isn’t ready."
+  },
+  {
+    "item_id": "workflow_run_saved",
+    "label": "Analysis saved with policy snapshot",
+    "importance_tag": "MUST_HAVE_FOR_READY",
+    "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
+    "fields": ["runId", "policy_snapshot"],
+    "policy_knobs": [],
+    "placeholder_behavior": "N/A – relates to process, not an input field.",
+    "why_it_matters": "The latest analysis run must be saved (persisted) with its policy snapshot and hash in the system. This ensures auditability and that the offer decision is backed by a recorded deterministic output."
+  }
+]

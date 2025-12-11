@@ -22,6 +22,7 @@ import { Icons } from "../../lib/ui-v2-constants";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import DualAgentLauncher from "@/components/ai/DualAgentLauncher";
 import { AiWindowsProvider } from "@/lib/ai/aiWindowsContext";
+import OfferChecklistPanel from "@/components/offerChecklist/OfferChecklistPanel";
 
 const NAV_ITEMS = [
   { href: "/overview", label: "Dashboard", icon: Icons.barChart, requireDeal: true, cluster: "left" as const },
@@ -125,14 +126,9 @@ function SessionPersistenceSync() {
   return null;
 }
 
-function AppTabNav() {
+function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
   const pathname = usePathname();
   const { dbDeal } = useDealSession();
-
-  // Do not show the top tab strip on /settings routes
-  if (pathname === "/settings" || pathname?.startsWith("/settings/")) {
-    return null;
-  }
 
   const buildHref = (item: (typeof NAV_ITEMS)[number]) => {
     if (item.requireDeal) {
@@ -181,6 +177,31 @@ function AppTabNav() {
             <span>{item.label}</span>
           </Link>
         ))}
+        {dbDeal?.id ? (
+          <button
+            type="button"
+            onClick={onOpenOffer}
+            className={[
+              "tab-trigger rounded-lg px-3 py-2 transition-colors",
+              "flex items-center gap-2",
+              "border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-[color:var(--text-primary)] hover:border-[color:var(--accent-color)]",
+            ].join(" ")}
+          >
+            <Icon d={Icons.check} size={16} className="text-[color:var(--accent-color)]" />
+            <span>Offer</span>
+          </button>
+        ) : (
+          <Link
+            href="/startup"
+            className={[
+              "tab-trigger rounded-lg px-3 py-2 transition-colors",
+              "flex items-center gap-2",
+            ].join(" ")}
+          >
+            <Icon d={Icons.check} size={16} className="text-[color:var(--text-secondary)]" />
+            <span>Offer</span>
+          </Link>
+        )}
       </div>
     </nav>
   );
@@ -188,6 +209,8 @@ function AppTabNav() {
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { dbDeal } = useDealSession();
+  const pathname = usePathname();
+  const [showOffer, setShowOffer] = React.useState(false);
   const mobileItems = React.useMemo(
     () =>
       MOBILE_NAV_ITEMS.map((item) => {
@@ -216,11 +239,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
                   {/* Desktop-only route tabs */}
                   <div className="hidden md:flex items-center justify-between gap-4">
-                    <AppTabNav />
+                    <AppTabNav onOpenOffer={() => setShowOffer(true)} />
                   </div>
 
                   {/* Wrap route children in Suspense so any useSearchParams usage is safe for prerender */}
                   <Suspense
+                    key={pathname ?? "app-shell"}
                     fallback={
                       <div className="py-8 text-sm text-text-secondary">
                         Loading dashboard.
@@ -236,6 +260,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               {/* Mobile bottom navigation (visible on mobile/tablet only) */}
               <MobileBottomNav items={mobileItems} />
               <DualAgentLauncher />
+              {showOffer && dbDeal?.id ? (
+                <OfferChecklistPanel dealId={dbDeal.id} onClose={() => setShowOffer(false)} />
+              ) : null}
             </div>
           </AiWindowsProvider>
         </ThemeProvider>

@@ -18,6 +18,11 @@ import type {
   RepairRateProfile,
 } from "@hps-internal/contracts";
 import { Postures } from "@hps-internal/contracts";
+import type {
+  NegotiationPlaybookResult,
+  AiChatMessage,
+  NegotiatorTone,
+} from "./ai/types";
 
 import { HPSEngine } from "../services/engine";
 import { getSupabaseClient } from "./supabaseClient";
@@ -74,6 +79,10 @@ type DealSessionValue = {
   activeRepairProfileId: string | null;
   dbDeal: DbDeal | null;
   membershipRole: OrgMembershipRole | null;
+  negotiationPlaybook?: NegotiationPlaybookResult | null;
+  negotiatorMessages?: AiChatMessage[];
+  negotiatorLogicRowIds?: string[] | null;
+  negotiatorTone?: NegotiatorTone;
   setDeal: React.Dispatch<React.SetStateAction<Deal>>;
   setSandbox: React.Dispatch<React.SetStateAction<SandboxConfig>>;
   setPosture: React.Dispatch<
@@ -95,6 +104,12 @@ type DealSessionValue = {
   setActiveRepairProfileId: React.Dispatch<
     React.SetStateAction<string | null>
   >;
+  setNegotiationPlaybook: (result: NegotiationPlaybookResult | null) => void;
+  setNegotiatorMessages: (messages: AiChatMessage[]) => void;
+  appendNegotiatorMessage: (message: AiChatMessage) => void;
+  clearNegotiatorThread: () => void;
+  setNegotiatorLogicRowIds: (ids: string[] | null) => void;
+  setNegotiatorTone: (tone: NegotiatorTone) => void;
   isHydratingActiveDeal: boolean;
   hydratedDealId: string | null;
 };
@@ -105,12 +120,12 @@ function normalizeDealShape(base?: any): Deal {
   const d: any = base ? structuredClone(base) : {};
 
   d.market = {
-    arv: 0,
-    as_is_value: 0,
-    price_to_list_ratio: 0,
-    local_discount_pct: 0,
-    dom: 0,
-    months_of_inventory: 0,
+    arv: d.market?.arv ?? null,
+    as_is_value: d.market?.as_is_value ?? null,
+    price_to_list_ratio: d.market?.price_to_list_ratio ?? null,
+    local_discount_pct: d.market?.local_discount_pct ?? null,
+    dom: d.market?.dom ?? null,
+    months_of_inventory: d.market?.months_of_inventory ?? null,
     ...(d.market ?? {}),
   };
 
@@ -120,7 +135,7 @@ function normalizeDealShape(base?: any): Deal {
   };
 
   d.debt = {
-    senior_principal: 0,
+    senior_principal: d.debt?.senior_principal ?? null,
     ...(d.debt ?? {}),
   };
 
@@ -163,18 +178,18 @@ function makeInitialDeal(): Deal {
   // 3) Final defensive fallback: just the fields Overview/engine touch
   return normalizeDealShape({
     market: {
-      arv: 0,
-      as_is_value: 0,
-      price_to_list_ratio: 0,
-      local_discount_pct: 0,
-      dom: 0,
-      months_of_inventory: 0,
+      arv: null,
+      as_is_value: null,
+      price_to_list_ratio: null,
+      local_discount_pct: null,
+      dom: null,
+      months_of_inventory: null,
     },
     costs: {
       double_close: {},
     },
     debt: {
-      senior_principal: 0,
+      senior_principal: null,
     },
   });
 }
@@ -213,6 +228,11 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const [activeRepairProfileId, setActiveRepairProfileId] = useState<
     string | null
   >(null);
+  const [negotiationPlaybook, setNegotiationPlaybook] =
+    useState<NegotiationPlaybookResult | null>(null);
+  const [negotiatorMessages, setNegotiatorMessages] = useState<AiChatMessage[]>([]);
+  const [negotiatorLogicRowIds, setNegotiatorLogicRowIds] = useState<string[] | null>(null);
+  const [negotiatorTone, setNegotiatorTone] = useState<NegotiatorTone>("objective");
   const [membershipRole, setMembershipRole] = useState<OrgMembershipRole | null>(null);
   const [isHydratingActiveDeal, setIsHydratingActiveDeal] = useState(false);
   const [hydratedDealId, setHydratedDealId] = useState<string | null>(null);
@@ -228,6 +248,17 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const repairRatesRequestRef = React.useRef(0);
   const searchParams = useSearchParams();
   const dealIdFromUrl = searchParams?.get("dealId");
+
+  const appendNegotiatorMessage = React.useCallback((message: AiChatMessage) => {
+    setNegotiatorMessages((prev) => [...prev, message]);
+  }, []);
+
+  const clearNegotiatorThread = React.useCallback(() => {
+    setNegotiationPlaybook(null);
+    setNegotiatorMessages([]);
+    setNegotiatorLogicRowIds(null);
+    setNegotiatorTone("objective");
+  }, []);
 
   const loadSandbox = React.useCallback(async () => {
     setSandboxLoading(true);
@@ -566,6 +597,9 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       repairRatesError,
       activeRepairProfile,
       activeRepairProfileId,
+      negotiationPlaybook,
+      negotiatorMessages,
+      negotiatorLogicRowIds,
       dbDeal,
       setDeal,
       setSandbox,
@@ -578,6 +612,13 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       setLastRunId,
       setDbDeal,
       setActiveRepairProfileId,
+      setNegotiationPlaybook,
+      setNegotiatorMessages,
+      appendNegotiatorMessage,
+      clearNegotiatorThread,
+      setNegotiatorLogicRowIds,
+      negotiatorTone,
+      setNegotiatorTone,
       membershipRole,
       isHydratingActiveDeal,
       hydratedDealId,
@@ -597,9 +638,16 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       repairRatesError,
       activeRepairProfile,
       activeRepairProfileId,
+      negotiationPlaybook,
+      negotiatorMessages,
+      negotiatorLogicRowIds,
+      negotiatorTone,
       dbDeal,
       loadSandbox,
       refreshRepairRates,
+      appendNegotiatorMessage,
+      clearNegotiatorThread,
+      setNegotiatorTone,
       membershipRole,
       isHydratingActiveDeal,
       hydratedDealId,
