@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -34,6 +35,13 @@ import {
 import { fetchSandboxSettings } from "./sandboxSettings";
 import { fetchRepairRates } from "./repairRates";
 import { getActiveOrgMembershipRole, type OrgMembershipRole } from "./orgMembership";
+import {
+  fetchLatestRunForDeal,
+  fetchWorkingState,
+  hashWorkingState,
+  upsertWorkingState,
+  type WorkingStatePayload,
+} from "./workingState";
 
 /**
  * Thin typed view of the canonical deals row in public.deals.
@@ -66,6 +74,12 @@ type DealSessionValue = {
   deal: Deal;
   sandbox: SandboxConfig;
   posture: (typeof Postures)[number];
+  autosaveStatus: {
+    state: "idle" | "saving" | "saved" | "error";
+    lastSavedAt: string | null;
+    error: string | null;
+  };
+  saveWorkingStateNow: (opts?: { payload?: WorkingStatePayload }) => Promise<void>;
   sandboxLoading: boolean;
   sandboxError: string | null;
   lastAnalyzeResult: AnalyzeResult | null;
@@ -116,7 +130,7 @@ type DealSessionValue = {
 
 const DealSessionContext = createContext<DealSessionValue | null>(null);
 
-function normalizeDealShape(base?: any): Deal {
+export function normalizeDealShape(base?: any): Deal {
   const d: any = base ? structuredClone(base) : {};
 
   d.market = {
@@ -212,8 +226,14 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   );
   const [posture, setPosture] = useState<(typeof Postures)[number]>("base");
   const supabase = React.useMemo(() => getSupabaseClient(), []);
+  const [userId, setUserId] = useState<string | null>(null);
   const [sandboxLoading, setSandboxLoading] = useState(false);
   const [sandboxError, setSandboxError] = useState<string | null>(null);
+  const [autosaveStatus, setAutosaveStatus] = useState<{
+    state: "idle" | "saving" | "saved" | "error";
+    lastSavedAt: string | null;
+    error: string | null;
+  }>({ state: "idle", lastSavedAt: null, error: null });
   const [lastAnalyzeResult, setLastAnalyzeResult] =
     useState<AnalyzeResult | null>(null);
   const [lastRunId, setLastRunId] = useState<string | null>(null);
@@ -236,6 +256,9 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const [membershipRole, setMembershipRole] = useState<OrgMembershipRole | null>(null);
   const [isHydratingActiveDeal, setIsHydratingActiveDeal] = useState(false);
   const [hydratedDealId, setHydratedDealId] = useState<string | null>(null);
+  const workingHydratedRef = useRef(false);
+  const lastSavedHashRef = useRef<string | null>(null);
+  const lastSavedDealRef = useRef<string | null>(null);
   const derivedMarketCode = useMemo(
     () => deriveMarketCode(deal as Deal).toUpperCase(),
     [
@@ -248,6 +271,17 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const repairRatesRequestRef = React.useRef(0);
   const searchParams = useSearchParams();
   const dealIdFromUrl = searchParams?.get("dealId");
+
+  useEffect(() => {
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        setUserId(data.user?.id ?? null);
+      })
+      .catch(() => {
+        setUserId(null);
+      });
+  }, [supabase]);
 
   const appendNegotiatorMessage = React.useCallback((message: AiChatMessage) => {
     setNegotiatorMessages((prev) => [...prev, message]);
@@ -359,7 +393,7 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
 
   // When dbDeal changes, sync in-memory deal shape from payload
   useEffect(() => {
-    if (dbDeal?.payload) {
+    if (dbDeal?.payload && !workingHydratedRef.current) {
       setDeal(normalizeDealShape(dbDeal.payload));
     }
   }, [dbDeal?.payload]);
@@ -513,49 +547,291 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     [dbDeal?.org_id, derivedMarketCode, posture, activeRepairProfileId],
   );
 
-  // When dbDeal changes, load the latest run for that deal to seed outputs
+  // Hydrate working state (draft vs latest run) when deal/user changes
   useEffect(() => {
-    if (!dbDeal?.id || !dbDeal.org_id) {
+    if (!dbDeal?.id || !dbDeal.org_id || !userId) {
+      setLastAnalyzeResult(null);
+      setLastRunId(null);
+      setLastRunAt(null);
+      workingHydratedRef.current = false;
+      lastSavedHashRef.current = null;
+      lastSavedDealRef.current = null;
       return;
     }
 
-    const loadRun = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("runs")
-          .select("id, deal_id, input, output, trace, created_at, policy_snapshot")
-          .eq("org_id", dbDeal.org_id)
-          .or(
-            `deal_id.eq.${dbDeal.id},input->>dealId.eq.${dbDeal.id}`,
-          )
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    workingHydratedRef.current = false;
+    lastSavedHashRef.current = null;
+    lastSavedDealRef.current = null;
 
-        if (error || !data) {
-          setLastAnalyzeResult(null);
-          setLastRunId(null);
+    const hydrate = async () => {
+      try {
+        const [working, latestRun] = await Promise.all([
+          fetchWorkingState(supabase, {
+            orgId: dbDeal.org_id,
+            dealId: dbDeal.id,
+            userId,
+          }).catch(() => null),
+          fetchLatestRunForDeal(supabase, {
+            orgId: dbDeal.org_id,
+            dealId: dbDeal.id,
+          }).catch(() => null),
+        ]);
+
+        const workingPayload: WorkingStatePayload =
+          (working?.payload as WorkingStatePayload) ?? {};
+        const workingPosture =
+          (working?.posture as (typeof Postures)[number]) ?? posture ?? "base";
+        const workingHash =
+          working && workingPayload
+            ? hashWorkingState({
+                dealId: dbDeal.id,
+                posture: workingPosture,
+                payload: workingPayload,
+              })
+            : null;
+        const workingUpdatedAt = working?.updated_at
+          ? new Date(working.updated_at).getTime()
+          : -1;
+
+        const runInput = (latestRun?.input as any) ?? null;
+        const runPosture =
+          (runInput?.posture as (typeof Postures)[number]) ??
+          (latestRun?.posture as (typeof Postures)[number]) ??
+          "base";
+        const runHash =
+          latestRun?.input_hash ??
+          (runInput
+            ? hashWorkingState({
+                dealId: dbDeal.id,
+                posture: runPosture,
+                payload: {
+                  deal: runInput.deal,
+                  sandbox: runInput.sandbox,
+                  repairProfile: runInput.repairProfile ?? null,
+                },
+              })
+            : null);
+        const runCreatedAt = latestRun?.created_at
+          ? new Date(latestRun.created_at).getTime()
+          : -1;
+
+        const workingIsNewer = working && workingUpdatedAt >= runCreatedAt;
+
+        if (working && workingIsNewer) {
+          const nextDeal = normalizeDealShape(
+            (workingPayload.deal as Deal | undefined) ??
+              (dbDeal.payload ? normalizeDealShape(dbDeal.payload) : makeInitialDeal()),
+          );
+          setDeal(nextDeal);
+          setSandbox(
+            mergeSandboxConfig(
+              (workingPayload.sandbox as SandboxConfig | undefined) ??
+                DEFAULT_SANDBOX_CONFIG,
+            ),
+          );
+          setPosture(workingPosture);
+          if (typeof workingPayload.activeRepairProfileId !== "undefined") {
+            setActiveRepairProfileId(workingPayload.activeRepairProfileId ?? null);
+          } else {
+            setActiveRepairProfileId(null);
+          }
+
+          if (runHash && workingHash && runHash === workingHash && latestRun?.output) {
+            setLastAnalyzeResult(latestRun.output as AnalyzeResult);
+            setLastRunId(latestRun.id ?? null);
+            setLastRunAt(latestRun.created_at ?? null);
+            lastSavedHashRef.current = workingHash;
+            lastSavedDealRef.current = dbDeal.id;
+          } else {
+            setLastAnalyzeResult(null);
+            setLastRunId(latestRun?.id ?? null);
+            setLastRunAt(latestRun?.created_at ?? null);
+            lastSavedHashRef.current = workingHash;
+            lastSavedDealRef.current = dbDeal.id;
+          }
+          setHasUnsavedDealChanges(false);
+          workingHydratedRef.current = true;
           return;
         }
-        const output = (data as any).output ?? null;
-        if (output) {
-          setLastAnalyzeResult(output as AnalyzeResult);
-          setLastRunId((data as any).id ?? null);
-          setLastRunAt((data as any).created_at ?? null);
-        } else {
-          setLastAnalyzeResult(null);
-          setLastRunId(null);
-          setLastRunAt(null);
+
+        if (latestRun) {
+          const nextDeal = normalizeDealShape(
+            (runInput?.deal as Deal | undefined) ??
+              (dbDeal.payload ? normalizeDealShape(dbDeal.payload) : makeInitialDeal()),
+          );
+          setDeal(nextDeal);
+          setSandbox(
+            mergeSandboxConfig(
+              (runInput?.sandbox as SandboxConfig | undefined) ??
+                DEFAULT_SANDBOX_CONFIG,
+            ),
+          );
+          setPosture(runPosture);
+          if (runInput?.repairProfile?.profileId) {
+            setActiveRepairProfileId(runInput.repairProfile.profileId);
+          } else {
+            setActiveRepairProfileId(null);
+          }
+          setLastAnalyzeResult(
+            (latestRun.output as AnalyzeResult | null | undefined) ?? null,
+          );
+          setLastRunId(latestRun.id ?? null);
+          setLastRunAt(latestRun.created_at ?? null);
+          lastSavedHashRef.current = runHash ?? null;
+          lastSavedDealRef.current = dbDeal.id;
+          setHasUnsavedDealChanges(false);
+          workingHydratedRef.current = true;
+          return;
         }
-      } catch {
+
+        // Fallback: payload from deals row or defaults
+        if (dbDeal.payload) {
+          setDeal(normalizeDealShape(dbDeal.payload));
+        } else {
+          setDeal(makeInitialDeal());
+        }
+        setSandbox(mergeSandboxConfig(DEFAULT_SANDBOX_CONFIG));
+        setActiveRepairProfileId(null);
+        setActiveRepairProfile(null);
+        setRepairRates(null);
+        setRepairRatesError(null);
+        setPosture("base");
         setLastAnalyzeResult(null);
         setLastRunId(null);
         setLastRunAt(null);
+        lastSavedHashRef.current = null;
+        lastSavedDealRef.current = dbDeal.id;
+        setHasUnsavedDealChanges(false);
+      } catch (err) {
+        console.error("[DealSession] hydrate working state failed", err);
+        setLastAnalyzeResult(null);
+        setLastRunId(null);
+        setLastRunAt(null);
+        lastSavedHashRef.current = null;
+      } finally {
+        workingHydratedRef.current = true;
       }
     };
 
-    void loadRun();
-  }, [dbDeal?.id, dbDeal?.org_id, supabase]);
+    void hydrate();
+  }, [dbDeal?.id, dbDeal?.org_id, userId, supabase]);
+
+  // Autosave working state (deal + sandbox + repair profile) per user/deal/org
+  const persistWorkingState = useCallback(
+    async (opts?: { payload?: WorkingStatePayload; debounceMs?: number }) => {
+      if (!workingHydratedRef.current) return;
+      if (!dbDeal?.id || !dbDeal.org_id || !userId) return;
+
+      const outputsAny = (lastAnalyzeResult as any)?.outputs ?? lastAnalyzeResult ?? null;
+      const hasOffer =
+        outputsAny &&
+        typeof outputsAny.primary_offer !== "undefined" &&
+        outputsAny.primary_offer !== null;
+
+      const payload: WorkingStatePayload =
+        opts?.payload ??
+        {
+          deal,
+          sandbox,
+          repairProfile: repairRates ?? null,
+          activeRepairProfileId,
+          activeOfferRunId: hasOffer ? lastRunId ?? null : null,
+        };
+      const postureValue = posture ?? "base";
+      const hash = hashWorkingState({
+        dealId: dbDeal.id,
+        posture: postureValue,
+        payload,
+      });
+
+      if (
+        lastSavedHashRef.current === hash &&
+        lastSavedDealRef.current === dbDeal.id
+      ) {
+        return;
+      }
+
+      setAutosaveStatus((prev) => ({
+        state: "saving",
+        lastSavedAt: prev.lastSavedAt ?? null,
+        error: null,
+      }));
+
+      const delay = typeof opts?.debounceMs === "number" ? opts.debounceMs : 800;
+
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          upsertWorkingState(supabase, {
+            orgId: dbDeal.org_id,
+            dealId: dbDeal.id,
+            userId,
+            posture: postureValue,
+            payload,
+            sourceRunId: lastRunId ?? null,
+          })
+            .then(() => {
+              lastSavedHashRef.current = hash;
+              lastSavedDealRef.current = dbDeal.id;
+              setHasUnsavedDealChanges(false);
+              setAutosaveStatus({
+                state: "saved",
+                lastSavedAt: new Date().toISOString(),
+                error: null,
+              });
+            })
+            .catch((err) => {
+              console.error("[DealSession] autosave working state failed", err);
+              setAutosaveStatus((prev) => ({
+                state: "error",
+                lastSavedAt: prev.lastSavedAt ?? null,
+                error: err instanceof Error ? err.message : "Autosave failed",
+              }));
+            })
+            .finally(() => resolve());
+        }, delay);
+
+        // Clear if a new persist is scheduled before this one fires
+        return () => clearTimeout(timeout);
+      });
+    },
+    [
+      activeRepairProfileId,
+      dbDeal?.id,
+      dbDeal?.org_id,
+      deal,
+      lastAnalyzeResult,
+      lastRunId,
+      posture,
+      repairRates,
+      sandbox,
+      supabase,
+      userId,
+    ],
+  );
+
+  // Autosave working state (debounced)
+  useEffect(() => {
+    void persistWorkingState();
+  }, [
+    deal,
+    sandbox,
+    posture,
+    repairRates,
+    activeRepairProfileId,
+    dbDeal?.id,
+    dbDeal?.org_id,
+    userId,
+    supabase,
+    lastRunId,
+    persistWorkingState,
+  ]);
+
+  const saveWorkingStateNow = useCallback(
+    async (opts?: { payload?: WorkingStatePayload }) => {
+      await persistWorkingState({ payload: opts?.payload, debounceMs: 0 });
+    },
+    [persistWorkingState],
+  );
 
   // Load membership role for the active org
   useEffect(() => {
@@ -586,6 +862,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       deal,
       sandbox,
       posture,
+      autosaveStatus,
+      saveWorkingStateNow,
       sandboxLoading,
       sandboxError,
       lastAnalyzeResult,
@@ -627,6 +905,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       deal,
       sandbox,
       posture,
+      autosaveStatus,
+      saveWorkingStateNow,
       sandboxLoading,
       sandboxError,
       lastAnalyzeResult,

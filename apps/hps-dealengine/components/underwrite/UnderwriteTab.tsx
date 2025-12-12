@@ -189,38 +189,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <h2 className="text-2xl font-bold text-text-primary tracking-tight">Underwrite Deal</h2>
-
-      {/* Engine Analysis Snapshot */}
-      <UnderwritingSection title="Engine Analysis Snapshot" icon={Icons.barChart}>
-        {analysisOutputs ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="space-y-1">
-              <div className="label-xs text-text-secondary flex items-center gap-1">
-                AIV Safety Cap
-                <InfoTooltip helpKey="aiv_safety_cap" />
-              </div>
-              <div className="text-lg font-semibold">
-                {aivSafetyCap != null ? fmt$(aivSafetyCap, 0) : "-"}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="label-xs text-text-secondary flex items-center gap-1">
-                Carry Months
-                <InfoTooltip helpKey="carry_months" />
-              </div>
-              <div className="text-lg font-semibold">
-                {carryMonths != null ? num(carryMonths, 1) : "-"}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-text-secondary">
-            Run Analyze with Engine to populate these numbers from the underwriting engine.
-          </p>
-        )}
-      </UnderwritingSection>
-
       {/* Market & Valuation */}
       <UnderwritingSection title="Market & Valuation" icon={Icons.barChart}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -264,7 +232,14 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 ? Number(market["price-to-list-pct"]) * 100
                 : null
             }
-            onChange={(e: any) => setDealValue("market.price-to-list-pct", e.target.value)}
+            onChange={(e: any) => {
+              const raw = e.target.value;
+              const next =
+                raw === "" || raw === null || raw === undefined
+                  ? null
+                  : parseFloat(raw) / 100;
+              setDealValue("market.price-to-list-pct", next);
+            }}
           />
           <InputField
             label="Local Discount (20th %)"

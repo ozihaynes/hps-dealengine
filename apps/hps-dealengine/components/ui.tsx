@@ -55,8 +55,8 @@ export const GlassCard = ({ children, className = '' }: CardProps) => (
 
 export const Badge = ({ color, children }: BadgeProps) => {
   const colors = {
-    green: 'bg-green-500/20 text-green-300 border border-green-500/30',
-    blue: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+    green: 'border border-[color:var(--accent-green)]/40 bg-[color:var(--accent-green)]/15 text-[color:var(--text-primary)]',
+    blue: 'border border-[color:var(--accent-color)]/35 bg-[color:var(--accent-color)]/15 text-[color:var(--text-primary)]',
     orange: 'bg-accent-orange-subtle text-accent-orange-light border border-accent-orange-subtle',
     red: 'bg-brand-red-subtle text-brand-red-light border border-brand-red-subtle',
   };

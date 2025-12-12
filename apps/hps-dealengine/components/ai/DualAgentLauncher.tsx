@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Image from "next/image";
-import { Crown, Handshake, ScanEye } from "lucide-react";
+import { ArrowLeft, Crown, Handshake, ScanEye } from "lucide-react";
 import { useDealSession } from "@/lib/dealSessionContext";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 import DealAnalystWindow from "./DealAnalystWindow";
@@ -40,8 +40,8 @@ const AGENTS: AgentConfig[] = [
     name: "The Strategist",
     role: "THE GENERAL",
     icon: Crown,
-    gradient: "from-purple-600 to-amber-500",
-    textColor: "text-purple-400",
+    gradient: "from-[#008f4a] to-[#006b36]",
+    textColor: "text-[#00bf63]",
   },
   {
     id: "negotiator",
@@ -128,7 +128,7 @@ export function DualAgentLauncher() {
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0b1e33] via-[#0f2f4d] to-[#123961] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-2 ring-white/10 transition-transform hover:scale-[1.03] focus:outline-none"
+            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full fab-theme p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-2 ring-[color:var(--glass-border)] transition-transform hover:scale-[1.03] focus:outline-none"
           >
             <Image
               src="/real_DealEngine_Mascot.png"
@@ -149,15 +149,8 @@ export function DualAgentLauncher() {
             onTouchStart={handleTouchStart}
             onTouchEnd={(e) => handleTouchEnd(e, "show")}
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[rgba(0,150,255,0.18)] ring-2 ring-[#60c9ff] ring-offset-2 ring-offset-[rgba(0,0,0,0.55)]">
-              <Image
-                src="/left_arrow.png"
-                alt="Show agent launcher"
-                width={40}
-                height={40}
-                className="h-8 w-8 object-contain"
-                priority
-              />
+            <span className="fab-arrow flex h-10 w-10 items-center justify-center rounded-full">
+              <ArrowLeft size={22} className="text-[color:var(--text-primary)] drop-shadow" />
             </span>
           </button>
         ) : null}
@@ -185,11 +178,11 @@ export function DualAgentLauncher() {
                   type="button"
                   disabled={isDisabled}
                   onClick={() => handleToggle(agent)}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 border-2 ${
+                  className={`w-14 h-14 min-w-[56px] min-h-[56px] rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 border-2 ${
                     isOpen
                       ? "scale-110 border-white ring-4 ring-white/20"
                       : "border-slate-700 hover:scale-110 hover:border-slate-500"
-                  } bg-gradient-to-br ${agent.gradient} ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                  } bg-gradient-to-br ${agent.gradient} ${isDisabled ? "cursor-not-allowed" : ""}`}
                   title={
                     isDisabled
                       ? "Open a deal and run Analyze to unlock this agent"

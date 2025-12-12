@@ -1,13 +1,30 @@
 "use client";
 
 import { useTheme } from "@/components/theme/ThemeProvider";
+import type { ThemeSetting } from "@/components/theme/ThemeProvider";
 import { cn } from "@/components/ui";
 import { THEME_METADATA } from "@/lib/themeTokens";
 
-const THEME_ORDER: Array<keyof typeof THEME_METADATA> = ["navy", "burgundy", "green", "black", "white"];
+const THEME_ORDER: Array<ThemeSetting> = [
+  "system",
+  "navy",
+  "burgundy",
+  "green",
+  "black",
+  "white",
+];
+
+const LABELS: Record<string, string> = {
+  system: "System",
+};
 
 export function ThemeSwitcher() {
-  const { theme, setTheme } = useTheme();
+  const { theme, themeSetting, setTheme, saving } = useTheme();
+
+  const isSelected = (key: string) => {
+    if (key === "system") return themeSetting === "system";
+    return themeSetting === key || theme === key;
+  };
 
   return (
     <section className="space-y-3">
@@ -17,11 +34,15 @@ export function ThemeSwitcher() {
       </p>
       <div className="flex flex-wrap gap-3">
         {THEME_ORDER.map((key) => {
-          const meta = THEME_METADATA[key];
-          const selected = theme === key;
+          const isSystem = key === "system";
+          const meta = isSystem
+            ? { label: "System", description: "Follow your device preference." }
+            : THEME_METADATA[key as keyof typeof THEME_METADATA];
+          const selected = isSelected(key);
 
-          const gradientClass =
-            key === "navy"
+          const gradientClass = isSystem
+            ? "bg-gradient-to-br from-[#0f172a] to-[#f8fafc]"
+            : key === "navy"
               ? "bg-gradient-to-br from-[#00070f] to-[#0096FF]"
               : key === "burgundy"
                 ? "bg-gradient-to-br from-[#3d0d0d] to-[#b11225]"
@@ -41,12 +62,17 @@ export function ThemeSwitcher() {
                 gradientClass,
                 selected
                   ? "border-white shadow-[0_0_0_3px_rgba(255,255,255,0.5)]"
-                  : "border-transparent hover:-translate-y-0.5 hover:shadow-lg"
+                  : "border-transparent hover:-translate-y-0.5 hover:shadow-lg",
+                saving ? "opacity-70 cursor-wait" : ""
               )}
               aria-label={meta.label}
               title={meta.label}
+              disabled={saving}
             >
-              <span className="sr-only">{meta.label}</span>
+              <span className="sr-only">{LABELS[key] ?? meta.label}</span>
+              {isSystem ? (
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white">Sys</span>
+              ) : null}
             </button>
           );
         })}

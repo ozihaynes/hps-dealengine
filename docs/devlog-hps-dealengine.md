@@ -23,7 +23,7 @@ When something significant ships, changes direction, or gets blocked, add a date
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-15)
+## 0.1 Current Status Snapshot (as of 2025-12-20)
 
 **V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
@@ -52,6 +52,11 @@ When something significant ships, changes direction, or gets blocked, add a date
   - `docs/QA_ENV_V1.md` defines QA Supabase setup, required env vars (QA user + READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals), and how to run specs.
   - Playwright specs (`golden-path`, `timeline-and-carry`, `risk-and-evidence`) align to Startup -> Deals -> Dashboard IA, assert Dashboard heading and current risk/evidence/workflow surfaces, and skip cleanly when env vars are absent.
   - Core commands green: `pnpm -w typecheck`, `pnpm -w build` (Sentry/require-in-the-middle warning only), `pnpm -w test`.
+- **AI & Agents (v1 + vNext)**
+  - Tri-agent UI (Analyst/Strategist/Negotiator) is live with Supabase chat history + run freshness gating; client calls hit `/api/agents/*` with caller JWT (no service_role).
+  - @hps/agents package backs the routes; `agent_runs` table logs persona/agent/workflow_version/model/input/output/error/tokens under memberships-scoped RLS.
+  - HPS MCP server exists (stdio + Streamable HTTP); tools include deal/run/evidence loaders, negotiation matcher, KPI/risk aggregations, sandbox fetch, and KB search; HTTP auth via `HPS_MCP_HTTP_TOKEN` env.
+  - Known blocker: Negotiator “Generate playbook” can hit provider rate limits (429) on the OpenAI responses endpoint; UI surfaces a rate-limit message when triggered.
 
 ---
 
@@ -79,10 +84,15 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
-### 2025-12-20 - AI chat UX + routing + underwrite evidence + settings nav + theming (Slices A–F)
+### 2025-12-12 - Slice 1 — Valuation Spine: Truth Map + Target Model
+- Added `docs/app/valuation-spine-v1-spec.md` covering current-state map, target valuation_run/contracts, org-scoped property_snapshot cache expectations, and plan tweaks (min closed comps configurable default 3, “Valuation Confidence” wording, address edits create new valuation_run).
+- Inventory captured: Market & Valuation block at `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (DealSession state → autosave to `deal_working_states`), Underwrite orchestration at `app/(app)/underwrite/page.tsx`, deal intake flow (`StartupPage`, `/deals` pages, `lib/deals.ts` write to `public.deals` + payload), no Comps UI today (only sandbox knobs/offer checklist references).
+- Slice 2 preview: add valuation_run + property_snapshots tables/migrations, org-scoped caching, address-edit append-only runs, provider stub for comps/market stats, UI hydration from persisted valuation runs.
 
-- **AI Agent Chat:** Composer always mounted with guidance in placeholders; no auto-summary bubbles for Analyst/Strategist; Negotiator keeps Playbook as the first seeded response with send gated until available; chat windows open taller with prompt chips visible; Tone + “Your Chats” live in a hamburger menu; sessions auto-title from the first user message (trimmed/truncated with playbook fallback).
-- **Startup & Routing:** “Run New Deal” now routes to `/underwrite?dealId=...`; selecting an existing deal routes to `/overview?dealId=...` while preserving session/deal context.
+### 2025-12-20 - AI chat UX + routing + underwrite evidence + settings nav + theming (Slices A-F)
+
+- **AI Agent Chat:** Composer always mounted with guidance in placeholders; no auto-summary bubbles for Analyst/Strategist; Negotiator keeps Playbook as the first seeded response with send gated until available; chat windows open taller with prompt chips visible; Tone + "Your Chats" live in a hamburger menu; sessions auto-title from the first user message (trimmed/truncated with playbook fallback).
+- **Startup & Routing:** "Run New Deal" now routes to `/underwrite?dealId=...`; selecting an existing deal routes to `/overview?dealId=...` while preserving session/deal context.
 - **Underwrite Evidence & Actions:** Evidence Checklist is a compact orange (i) popover; satisfied evidence rows show a green checkmark; header buttons order Analyze → Save Run → Request Override.
 - **Settings Navigation:** Desktop settings views now keep the main app nav inline with the HPS header; mobile bottom nav unchanged.
 - **Theme Parity:** Burgundy and Green themes use the same dark glass shell depth as Blue while keeping their own accent borders/rings.
@@ -778,6 +788,18 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Tests/commands: Typecheck/test/build all green after wiring; existing engine/app tests updated. (No new e2e added; TODO(e2e) to cover Timeline & Carry panels.)
 - TODO(policy/data): Urgency thresholds and auction DTM remain TODO(policy/data) pending explicit knobs and deterministic "today" reference; clear-to-close buffers and role/evidence signals should be expanded when data is available.
 
+### 2025-12-11 - Dev auth reset script + Underwrite header/Recent Runs (v1.1 hardening)
+
+- Context: v1.1 hardening for dev auth hygiene + underwrite ergonomics.
+- Done:
+  - `scripts/reset-dev-auth-users.ts`: dev guard enforces Supabase ref `zjkihnihhqmnhpxkecpy`; backs up auth.users/memberships/organizations to `supabase/backups/dev-auth-users-<timestamp>.json`; deletes memberships/auth users; upserts dev org `033ff93d-ff97-4af9-b3a1-a114d3c04da6` / "HPS DealEngine Dev Org"; reseeds 6 accounts (owner@hps.test.local -> owner, manager@hps.test.local -> manager, policy@hps.test.local -> vp, qa-policy@hps.test.local -> analyst, underwriter@hps.test.local -> analyst, viewer@hps.test.local -> analyst) with dev-only password `HpsDev!2025` (service role env required).
+  - Audit logs: `audit_logs.actor_user_id` NOT NULL dropped manually in dev console (no migration in repo). SQL to codify later: `alter table public.audit_logs alter column actor_user_id drop not null;`.
+  - Underwrite UX: themed dark posture select; header actions renamed to "Analyze Deal" / "Save"; header Request Override button removed (OverridesPanel + field-level overrides remain); Recent Runs card on `/underwrite` queries org+deal runs newest-first limit 5 with "View all" link; file-level nav comment added.
+- Code touched: `scripts/reset-dev-auth-users.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`.
+- DB: manual audit_logs nullability change not yet in a migration.
+- Commands: `pnpm -w lint` (fail - script missing), `pnpm -w typecheck` (pass), `pnpm -w test` (pass), `pnpm -w build` (fail - Windows EPERM opening `.next/trace`), `pnpm -w test:agents:analyst` (pass).
+- Notes/TODO: promote the audit_logs nullability change into a migration; fix Windows Next build EPERM; dev role tiers stay owner/manager/vp/analyst for seeded accounts.
+
 ### 2025-12-11 - Slice E2-W3 - DTM/Urgency policy wiring + Timeline & Carry trace
 
 - Engine: UnderwritingPolicy extended with DTM policy fields (max DTM, selection method, default cash/wholesale days, roll-forward, buffers, urgency bands). `computeDaysToMoneyPolicy` now selects DTM via policy, applies clear-to-close/board buffers, maps urgency via policy bands, and emits enriched DTM_URGENCY_POLICY trace with candidates/selection. Speed/carry helpers reused; timeline_summary populated with per-path DTM/source/buffer plus carry + hold dollars.
@@ -791,6 +813,18 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Added Playwright test scaffold (`tests/e2e/timeline-and-carry.spec.ts`) and root script `pnpm -w test:e2e`. The spec is currently skipped pending a deterministic seeded deal/auth harness but documents the intended assertions for Timeline & Carry on /overview and /trace (speed band, days_to_money, urgency, carry months, hold monthly, carry total).
 - No engine/UI behavior changes; existing `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` remain green.
 - TODO(e2e): wire a seeded deal + auth fixture to enable the spec and assert engine-driven timeline_summary values end-to-end.
+
+### 2025-12-12 - Agent Platform vNext groundwork: agent_runs + @hps/agents + HPS MCP + /api/agents (Negotiator playbook still unstable)
+
+- Context: v1 tri-agent UX stays live; this slice lays vNext infra (logging, shared agents SDK, MCP) without changing engine math.
+- DB: Migration `supabase/migrations/20251209120000_agent_runs.sql` adds `agent_runs` with org/user/persona/agent_name/workflow_version/deal_id/run_id/thread_id/trace_id/model/status/input/output/error/latency_ms/total_tokens + RLS (memberships + `auth.uid()`) + audit trigger.
+- Next.js routes: `/api/agents/analyst`, `/api/agents/strategist`, `/api/agents/negotiator` (runtime=node) accept `Authorization: Bearer <Supabase access_token>`, resolve org via memberships, forbid cross-org deals, and log success/error rows to `agent_runs` with workflow_version ids. No `service_role` in user flows.
+- Client wiring: `apps/hps-dealengine/lib/aiBridge.ts` now hits `/api/agents/*` (no feature flag); DualAgentLauncher + persona panels keep Supabase chat history and stale-run gating.
+- Packages: `packages/agents` exports runAnalyst/Strategist/Negotiator + RLS Supabase client; Strategist KB resolver `resolveKbRegistryPath` walks upward to `docs/ai/doc-registry.json` with ENOENT-tolerant fallback + tests (`packages/agents/tests/strategist-kb.test.ts`, `tests/analyst-evals/runAnalystEval.test.ts`); dataset search tolerates missing registry.
+- Negotiator: dataset loader checks `data/negotiation-matrix/negotiation-matrix.data.json` then `docs/ai/negotiation-matrix/negotiation-matrix.example.json`; OpenAI Responses API w/ retry and rate-limit detection -> route surfaces `rate_limited` (429) and UI copy shows provider rate limit message.
+- MCP: `packages/hps-mcp` ships stdio + Streamable HTTP server; dev harness `packages/hps-mcp/dev/mcpClient.cjs`; root script `dev:hps-mcp:http` starts HTTP endpoint (auth via `HPS_MCP_HTTP_TOKEN`). Tools include `hps_get_deal_by_id`, `hps_get_latest_run_for_deal`, `hps_list_evidence_for_run`, `hps_get_negotiation_strategy`, `hps_get_kpi_snapshot`, `hps_get_risk_gate_stats`, `hps_get_sandbox_settings`, `hps_kb_search_strategist`. No tunnel script in package.json (resolves prior prompt conflict).
+- Agent Builder: workflows remain external/out-of-band; workflow_version ids are logged in `agent_runs` rows.
+- Commands: `pnpm -w test` (pass), `pnpm -w test:agents:analyst` (pass).
 
 ### 2025-12-12 - Slice E3-W2 - Engine confidence/workflow/risk/evidence wiring
 

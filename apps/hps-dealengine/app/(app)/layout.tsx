@@ -19,7 +19,6 @@ import {
   saveLastSession,
 } from "@/lib/sessionPersistence";
 import { Icons } from "../../lib/ui-v2-constants";
-import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import DualAgentLauncher from "@/components/ai/DualAgentLauncher";
 import { AiWindowsProvider } from "@/lib/ai/aiWindowsContext";
 import OfferChecklistPanel from "@/components/offerChecklist/OfferChecklistPanel";
@@ -226,46 +225,44 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <AuthGate>
       <DealGuard>
-        <ThemeProvider>
-          <AiWindowsProvider>
-            <div className="flex min-h-screen flex-col">
-              <header className="border-b border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] backdrop-blur">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-                  <AppTopNav />
+        <AiWindowsProvider>
+          <div className="flex min-h-screen flex-col">
+            <header className="border-b border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] backdrop-blur">
+              <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+                <AppTopNav />
+              </div>
+            </header>
+
+            <main className="flex-1 bg-[color:var(--bg-primary)]">
+              <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
+                {/* Desktop-only route tabs */}
+                <div className="hidden md:flex items-center justify-between gap-4">
+                  <AppTabNav onOpenOffer={() => setShowOffer(true)} />
                 </div>
-              </header>
 
-              <main className="flex-1 bg-[color:var(--bg-primary)]">
-                <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
-                  {/* Desktop-only route tabs */}
-                  <div className="hidden md:flex items-center justify-between gap-4">
-                    <AppTabNav onOpenOffer={() => setShowOffer(true)} />
-                  </div>
+                {/* Wrap route children in Suspense so any useSearchParams usage is safe for prerender */}
+                <Suspense
+                  key={pathname ?? "app-shell"}
+                  fallback={
+                    <div className="py-8 text-sm text-text-secondary">
+                      Loading dashboard.
+                    </div>
+                  }
+                >
+                  {children}
+                </Suspense>
+                <SessionPersistenceSync />
+              </div>
+            </main>
 
-                  {/* Wrap route children in Suspense so any useSearchParams usage is safe for prerender */}
-                  <Suspense
-                    key={pathname ?? "app-shell"}
-                    fallback={
-                      <div className="py-8 text-sm text-text-secondary">
-                        Loading dashboard.
-                      </div>
-                    }
-                  >
-                    {children}
-                  </Suspense>
-                  <SessionPersistenceSync />
-                </div>
-              </main>
-
-              {/* Mobile bottom navigation (visible on mobile/tablet only) */}
-              <MobileBottomNav items={mobileItems} />
-              <DualAgentLauncher />
-              {showOffer && dbDeal?.id ? (
-                <OfferChecklistPanel dealId={dbDeal.id} onClose={() => setShowOffer(false)} />
-              ) : null}
-            </div>
-          </AiWindowsProvider>
-        </ThemeProvider>
+            {/* Mobile bottom navigation (visible on mobile/tablet only) */}
+            <MobileBottomNav items={mobileItems} />
+            <DualAgentLauncher />
+            {showOffer && dbDeal?.id ? (
+              <OfferChecklistPanel dealId={dbDeal.id} onClose={() => setShowOffer(false)} />
+            ) : null}
+          </div>
+        </AiWindowsProvider>
       </DealGuard>
     </AuthGate>
   );

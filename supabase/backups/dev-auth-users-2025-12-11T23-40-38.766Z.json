@@ -1,0 +1,38 @@
+{
+  "exportedAt": "2025-12-11T23:40:38.771Z",
+  "supabaseUrl": "https://zjkihnihhqmnhpxkecpy.supabase.co",
+  "counts": {
+    "users": 0,
+    "memberships": 0,
+    "organizations": 5
+  },
+  "users": [],
+  "memberships": [],
+  "organizations": [
+    {
+      "id": "6f3f2b0e-7f24-4f9d-a9e1-7c6e2e7160a2",
+      "name": "Haynes Property Systems",
+      "created_at": "2025-11-04T19:04:40.686635+00:00"
+    },
+    {
+      "id": "6dc153c2-6f6d-4076-afe1-e8b0aad97fe9",
+      "name": "HPS DealEngine",
+      "created_at": "2025-11-06T10:41:12.542771+00:00"
+    },
+    {
+      "id": "ed6ae332-2d15-44be-a8fb-36005522ad60",
+      "name": "QA Org (2025-11-11)",
+      "created_at": "2025-11-12T04:41:42.269625+00:00"
+    },
+    {
+      "id": "ca31a8a8-eeaa-4b6f-a9fa-8d7cfd6ff930",
+      "name": "HPS Dev Org",
+      "created_at": "2025-11-16T21:12:23+00:00"
+    },
+    {
+      "id": "033ff93d-ff97-4af9-b3a1-a114d3c04da6",
+      "name": "HPS DealEngine Dev Org",
+      "created_at": "2025-11-11T01:55:08.077271+00:00"
+    }
+  ]
+}

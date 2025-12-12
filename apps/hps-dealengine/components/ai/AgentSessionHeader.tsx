@@ -25,8 +25,8 @@ const AGENT_CONFIG: Record<AgentId, AgentConfig> = {
     name: "The Strategist",
     role: "THE GENERAL",
     icon: Crown,
-    gradient: "from-purple-600 to-amber-500",
-    textColor: "text-purple-400",
+    gradient: "from-[#008f4a] to-[#006b36]",
+    textColor: "text-[#00bf63]",
   },
   negotiator: {
     name: "The Negotiator",
@@ -39,11 +39,12 @@ const AGENT_CONFIG: Record<AgentId, AgentConfig> = {
 
 export function AgentSessionHeader({ agentId }: { agentId: AgentId }) {
   const config = AGENT_CONFIG[agentId];
+  const iconClass = "text-white";
 
   return (
     <div className="flex items-center gap-3 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)]/70 px-3 py-3">
       <div className={`rounded-lg bg-gradient-to-br ${config.gradient} p-3 shadow`}>
-        <config.icon size={20} className="text-white" />
+        <config.icon size={20} className={iconClass} />
       </div>
       <div className="space-y-1">
         <div className="text-base font-bold text-text-primary">{config.name}</div>

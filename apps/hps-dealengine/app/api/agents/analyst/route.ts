@@ -89,8 +89,24 @@ function createSupabaseWithJwt(accessToken: string) {
   });
 }
 
+type SupabaseClient = ReturnType<typeof createSupabaseWithJwt>;
+
+async function resolveOrgId(supabase: SupabaseClient): Promise<string> {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("org_id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.org_id) {
+    throw new Error("No org membership found for user");
+  }
+  return data.org_id as string;
+}
+
 async function ensureThread(
-  supabase: ReturnType<typeof createSupabaseWithJwt>,
+  supabase: SupabaseClient,
   params: { threadId: string; orgId: string; userId: string; dealId: string; runId: string | null },
 ) {
   const now = new Date().toISOString();
@@ -112,7 +128,7 @@ async function ensureThread(
 }
 
 async function insertMessages(
-  supabase: ReturnType<typeof createSupabaseWithJwt>,
+  supabase: SupabaseClient,
   threadId: string,
   userMessage: string,
   assistantMessage: string,
@@ -182,7 +198,7 @@ export async function POST(req: NextRequest) {
 
   const userId = parseSubFromJwt(accessToken);
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "invalid_token" }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "auth_missing" }, { status: 401 });
   }
 
   const body = await req.json().catch(() => null);
@@ -193,6 +209,14 @@ export async function POST(req: NextRequest) {
   const { dealId, question, threadId: incomingThreadId, runId, isStale } = parsed.data;
 
   const supabase = createSupabaseWithJwt(accessToken);
+
+  let orgId: string;
+  try {
+    orgId = await resolveOrgId(supabase);
+  } catch (err: any) {
+    console.error("[agents/analyst] org resolution failed", err?.message ?? err);
+    return NextResponse.json({ ok: false, error: "org_missing" }, { status: 403 });
+  }
 
   const { data: deal, error: dealError } = await supabase
     .from("deals")
@@ -205,13 +229,16 @@ export async function POST(req: NextRequest) {
   if (!deal) {
     return NextResponse.json({ ok: false, error: "deal_not_found" }, { status: 404 });
   }
+  if (deal.org_id && deal.org_id !== orgId) {
+    return NextResponse.json({ ok: false, error: "forbidden_deal_org_mismatch" }, { status: 403 });
+  }
 
   const start = Date.now();
   let traceId: string | null = null;
   let agentResult: Awaited<ReturnType<typeof runAnalystAgent>>;
   try {
     agentResult = await runAnalystAgent({
-      orgId: deal.org_id,
+      orgId,
       userId,
       dealId,
       runId,
@@ -225,19 +252,20 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     const latencyMs = Date.now() - start;
     const normalizedError = normalizeAgentError(err);
+    console.error("[agents/analyst] runAnalystAgent failed", normalizedError);
     try {
       await supabase.from("agent_runs").insert({
-        org_id: deal.org_id,
+        org_id: orgId,
         user_id: userId,
         persona: "analyst",
-        agent_name: "HPS – Deal Analyst v2",
+        agent_name: "HPS - Deal Analyst v2",
         workflow_version: "wf_6939e31f09bc8190b7c7c486389377e4066a586984412bb5",
         deal_id: dealId,
         run_id: runId ?? null,
         thread_id: incomingThreadId ?? null,
         trace_id: traceId,
         model: null,
-        status: "failed",
+        status: "error",
         input: { dealId, runId, question, isStale },
         error: normalizedError,
         latency_ms: latencyMs,
@@ -249,17 +277,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: "agent_failed",
-        message: normalizedError.message,
+        error: "failed_to_run_analyst",
+        details: normalizedError,
       },
-      {
-        status:
-          normalizedError.type === "openai_error" && normalizedError.status === 401
-            ? 500
-            : normalizedError.status && normalizedError.status >= 400 && normalizedError.status < 600
-              ? normalizedError.status
-              : 500,
-      },
+      { status: 500 },
     );
   }
   const latencyMs = Date.now() - start;
@@ -268,7 +289,7 @@ export async function POST(req: NextRequest) {
   try {
     await ensureThread(supabase, {
       threadId,
-      orgId: deal.org_id,
+      orgId,
       userId,
       dealId,
       runId: agentResult.runContext?.runId ?? null,
@@ -282,17 +303,17 @@ export async function POST(req: NextRequest) {
 
   try {
     await supabase.from("agent_runs").insert({
-      org_id: deal.org_id,
+      org_id: orgId,
       user_id: userId,
       persona: "analyst",
-      agent_name: "HPS – Deal Analyst v2",
+      agent_name: "HPS - Deal Analyst v2",
       workflow_version: "wf_6939e31f09bc8190b7c7c486389377e4066a586984412bb5",
       deal_id: dealId,
       run_id: agentResult.runContext?.runId ?? null,
       thread_id: threadId,
       trace_id: traceId,
       model: agentResult.model,
-      status: agentResult.status,
+      status: "success",
       input: {
         dealId,
         runId,
@@ -301,6 +322,7 @@ export async function POST(req: NextRequest) {
       },
       output: agentResult.aiResult,
       latency_ms: latencyMs,
+      total_tokens: (agentResult as any)?.aiResult?.total_tokens ?? null,
     });
   } catch (err) {
     console.error("[agents/analyst] agent_runs insert failed", err);
@@ -308,9 +330,11 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    answer: agentResult.aiResult?.summary ?? "Analysis ready.",
+    threadId,
+    model: agentResult.model ?? null,
     aiBridgeResult: agentResult.aiResult,
     runId: agentResult.runContext?.runId ?? null,
     traceId,
-    threadId,
   });
 }

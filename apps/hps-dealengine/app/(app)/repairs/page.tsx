@@ -3,7 +3,7 @@
 
 export const dynamic = "force-dynamic";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deal, EngineCalculations, EstimatorState } from "../../../types";
 import RepairsTab from "@/components/repairs/RepairsTab";
 import { useDealSession } from "@/lib/dealSessionContext";
@@ -14,6 +14,8 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Button, GlassCard } from "@/components/ui";
 import { Check } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
+import { computeSectionTotals } from "@/lib/repairsMath";
+import { AutosaveIndicator } from "@/components/shared/AutosaveIndicator";
 
 /**
  * Safely set a nested property on the Deal by a dotted path, e.g. "market.arv".
@@ -94,6 +96,9 @@ export default function RepairsPage() {
     repairRates,
     repairRatesLoading,
     repairRatesError,
+    dbDeal,
+    autosaveStatus,
+    saveWorkingStateNow,
   } = useDealSession();
   console.log("[Repairs] render", {
     activeRepairProfileId,
@@ -104,6 +109,7 @@ export default function RepairsPage() {
   const [estimatorState, setEstimatorState] = useState<EstimatorState>(() =>
     createInitialEstimatorState(),
   );
+  const estimatorHydratedKeyRef = useRef<string | null>(null);
 
   const [localSqft, setLocalSqft] = useState<string>("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -175,15 +181,29 @@ export default function RepairsPage() {
   }, [deal, calc, localSqft]);
 
   useEffect(() => {
-    setEstimatorState(
-      createInitialEstimatorState((rates?.lineItemRates as any) ?? undefined),
-    );
+    const currentProfile = rates?.profileId ?? activeRepairProfileId ?? "default";
+    const hydrationKey = `${dbDeal?.id ?? "none"}|${currentProfile}`;
+    if (estimatorHydratedKeyRef.current === hydrationKey) return;
+
+    const savedEstimator = (deal as any)?.repairs?.estimatorState;
+    const savedProfileId = (deal as any)?.repairs?.estimatorProfileId ?? null;
+
+    if (savedEstimator && savedProfileId === currentProfile) {
+      setEstimatorState(savedEstimator as EstimatorState);
+    } else {
+      setEstimatorState(
+        createInitialEstimatorState((rates?.lineItemRates as any) ?? undefined),
+      );
+    }
     setHasUnsavedChanges(false);
+    estimatorHydratedKeyRef.current = hydrationKey;
   }, [
+    dbDeal?.id,
     rates?.profileId,
     rates?.marketCode,
     rates?.posture,
-    JSON.stringify(rates?.lineItemRates ?? {}),
+    rates?.lineItemRates,
+    activeRepairProfileId,
   ]);
 
   const setDealValue = useCallback(
@@ -293,6 +313,58 @@ export default function RepairsPage() {
     [setDealValue],
   );
 
+  const quickEstimateApplied = (deal as any)?.repairs?.quickEstimate?.total ?? null;
+
+  const { sectionTotals, totalRepairCost } = useMemo(
+    () =>
+      computeSectionTotals(
+        estimatorState.costs,
+        estimatorState.quantities,
+        (rates?.lineItemRates as any) ?? undefined,
+      ),
+    [estimatorState, rates?.lineItemRates],
+  );
+
+  useEffect(() => {
+    const profileIdToPersist = rates?.profileId ?? activeRepairProfileId ?? null;
+    const appliedTotal =
+      totalRepairCost > 0
+        ? totalRepairCost
+        : quickEstimateApplied != null
+        ? Number(quickEstimateApplied)
+        : 0;
+
+    const currentApplied = (deal as any)?.costs?.repairs_base ?? null;
+    const savedEstimator = (deal as any)?.repairs?.estimatorState;
+    const savedProfileId = (deal as any)?.repairs?.estimatorProfileId ?? null;
+
+    const estimatorChanged =
+      JSON.stringify(savedEstimator ?? {}) !==
+      JSON.stringify(estimatorState ?? {});
+    const shouldUpdateTotals = currentApplied !== appliedTotal;
+    const shouldUpdateProfile = savedProfileId !== profileIdToPersist;
+
+    if (!(shouldUpdateTotals || estimatorChanged || shouldUpdateProfile)) {
+      return;
+    }
+
+    setDealValue("repairs.estimatorState", estimatorState);
+    setDealValue("repairs.estimatorProfileId", profileIdToPersist);
+    setDealValue("repairs.total", appliedTotal);
+    setDealValue("repairs_total", appliedTotal);
+    setDealValue("repairsTotal", appliedTotal);
+    setDealValue("costs.repairs_base", appliedTotal);
+    setDealValue("costs.repairs", appliedTotal);
+  }, [
+    estimatorState,
+    totalRepairCost,
+    quickEstimateApplied,
+    rates?.profileId,
+    activeRepairProfileId,
+    setDealValue,
+    deal,
+  ]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-3">
@@ -315,6 +387,11 @@ export default function RepairsPage() {
           </Tooltip>
         </div>
         <div className="flex flex-col items-end gap-1">
+          <AutosaveIndicator
+            state={autosaveStatus.state}
+            lastSavedAt={autosaveStatus.lastSavedAt}
+            error={autosaveStatus.error}
+          />
           <Button
             variant={isNoRepairsNeeded ? "primary" : "neutral"}
             size="sm"
@@ -380,6 +457,16 @@ export default function RepairsPage() {
         ratesStatus={ratesStatus}
         ratesError={repairRatesError ?? undefined}
         meta={repairMeta ?? undefined}
+        onQuickApply={() => {
+          void saveWorkingStateNow().catch(() => {
+            /* status indicator handles error */
+          });
+        }}
+        onDetailedApply={() => {
+          void saveWorkingStateNow().catch(() => {
+            /* status indicator handles error */
+          });
+        }}
       />
     </div>
   );
