@@ -15,6 +15,7 @@ import {
   validateNewDealForm,
 } from "@/lib/deals";
 import DealsTable from "@/components/deals/DealsTable";
+import { invokeValuationRun } from "@/lib/valuation";
 
 type DealsStatus =
   | { kind: "loading" }
@@ -105,6 +106,9 @@ export default function DealsPage() {
       setCreateError(null);
 
       // For now, send the user into Overview for the selected deal.
+      invokeValuationRun(inserted.id, "base").catch((err) =>
+        console.warn("[/deals] valuation run failed", err),
+      );
       router.push(`/overview?dealId=${inserted.id}`);
     } catch (err: any) {
       console.error("[/deals] create deal error", err);

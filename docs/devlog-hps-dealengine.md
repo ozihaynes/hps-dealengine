@@ -84,6 +84,20 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-12 - Slice 2.1 — Valuation Spine Hardening (Provider fidelity, policy-driven thresholds)
+- RentCast adapter aligned to official fields (AVM price/range, comparables distance/daysOld/correlation/status/listingType/pricePerSqFt) with raw payload preserved; market stats pulled from RentCast /markets when ZIP present.
+- Snapshot TTL is policy-driven (`valuation.snapshot_ttl_hours`); property_snapshots now expire/refresh per policy with force_refresh override; provenance includes endpoints and stub flag.
+- Valuation runs now enforce policy tokens (min_closed_comps_required, confidence_rubric) with no hard-coded defaults; confidence rubric derives grade from comp count, correlation, AVM range width; status fails with explicit reasons when tokens/evidence missing.
+- Contracts/UI hardened: typed valuation schemas, Underwrite shows Valuation Confidence, ARV range, comp stats, provenance badge, and policy-driven gating; Comps panel renders correlation/daysOld/status/listingType without fallback mins.
+- Deferred to roadmap: richer provider mix and MOI/sale-to-list from Redfin; address normalization upgrade; flood/climate connector.
+
+### 2025-12-12 - Slice 2 — Valuation Spine v1 (Address → Snapshot → Valuation Run → UI)
+- Added org-scoped `property_snapshots` cache and append-only `valuation_runs` tables (RLS, audit, dedupe via hashes); policy default `valuation.min_closed_comps_required` seeded to 3.
+- Implemented `v1-connectors-proxy` (RentCast + deterministic stub fallback) and `v1-valuation-run` (policy-driven min comps, append-only runs, valuation confidence surfaced) with JWT-only Supabase clients.
+- UI: Underwrite Market & Valuation hydrates suggested ARV + comps panel, preserves user ARV, and adds a Refresh Valuation action; new Comps display with provenance/badging; address creation triggers valuation run post-deal creation.
+- Contracts: Added valuation schemas (PropertySnapshot, MarketSnapshot, Comp, ValuationRun) in `packages/contracts`.
+- Next slice targets: multi-provider connectors + richer confidence rubric; UI polish for valuation provenance badges; MOI ingestion (Redfin) deferred to v2.
+
 ### 2025-12-12 - Slice 1 — Valuation Spine: Truth Map + Target Model
 - Added `docs/app/valuation-spine-v1-spec.md` covering current-state map, target valuation_run/contracts, org-scoped property_snapshot cache expectations, and plan tweaks (min closed comps configurable default 3, “Valuation Confidence” wording, address edits create new valuation_run).
 - Inventory captured: Market & Valuation block at `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (DealSession state → autosave to `deal_working_states`), Underwrite orchestration at `app/(app)/underwrite/page.tsx`, deal intake flow (`StartupPage`, `/deals` pages, `lib/deals.ts` write to `public.deals` + payload), no Comps UI today (only sandbox knobs/offer checklist references).

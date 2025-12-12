@@ -7,6 +7,8 @@ import DoubleCloseCalculator from "./DoubleCloseCalculator";
 import { num, fmt$ } from "../../utils/helpers";
 import { Icons } from "../../constants";
 import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeBus";
+import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
+import CompsPanel from "./CompsPanel";
 
 const UnderwritingSection: React.FC<{ title: string; children: React.ReactNode; icon: string }> = ({
   title,
@@ -38,6 +40,12 @@ interface UnderwriteTabProps {
   sandbox: SandboxConfig;
   canEditPolicy: boolean;
   onRequestOverride: (tokenKey: string, newValue: unknown) => void;
+  valuationRun?: ValuationRun | null;
+  valuationSnapshot?: PropertySnapshot | null;
+  minClosedComps?: number | null;
+  onRefreshValuation?: () => void;
+  refreshingValuation?: boolean;
+  valuationError?: string | null;
 }
 
 const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
@@ -47,6 +55,12 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   sandbox,
   canEditPolicy,
   onRequestOverride,
+  valuationRun,
+  valuationSnapshot,
+  minClosedComps,
+  onRefreshValuation,
+  refreshingValuation,
+  valuationError,
 }) => {
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
@@ -91,6 +105,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const market = (baseDeal.market ?? {}) as any;
   const legal = (baseDeal.legal ?? {}) as any;
   const timeline = (baseDeal.timeline ?? {}) as any;
+  const suggestedArv = valuationRun?.output?.suggested_arv ?? null;
+  const arvRangeLow = valuationRun?.output?.arv_range_low ?? null;
+  const arvRangeHigh = valuationRun?.output?.arv_range_high ?? null;
+  const compCount = valuationRun?.output?.comp_count ?? null;
+  const valuationConfidence = valuationRun?.output?.valuation_confidence ?? null;
+  const compStats = valuationRun?.output?.comp_set_stats ?? null;
+  const provenance = valuationRun?.provenance ?? null;
 
   // Live engine outputs from Edge (via /underwrite/debug → analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
@@ -189,6 +210,47 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-text-secondary">
+          <span className="font-semibold text-text-primary">Valuation Confidence:</span>{" "}
+          {valuationConfidence ?? "-"}{" "}
+          {compCount != null
+            ? `(Comps: ${compCount}${
+                minClosedComps != null ? ` / min ${minClosedComps}` : " / policy missing"
+              })`
+            : ""}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="neutral"
+            size="sm"
+            onClick={() => onRefreshValuation?.()}
+            disabled={refreshingValuation || !onRefreshValuation}
+          >
+            {refreshingValuation ? "Refreshing..." : "Refresh Valuation"}
+          </Button>
+          {suggestedArv != null && (market.arv == null || market.arv === "") && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setDealValue("market.arv", suggestedArv)}
+            >
+              Use Suggested ARV
+            </Button>
+          )}
+        </div>
+      </div>
+      {valuationError && (
+        <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+          {valuationError}
+        </div>
+      )}
+      {minClosedComps == null && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          Policy token missing: valuation.min_closed_comps_required
+        </div>
+      )}
+
       {/* Market & Valuation */}
       <UnderwritingSection title="Market & Valuation" icon={Icons.barChart}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -253,7 +315,56 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             onChange={(e: any) => setDealValue("market.local_discount_20th_pct", e.target.value)}
           />
         </div>
+        {suggestedArv != null && (
+          <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
+            <span>
+              Suggested ARV:{" "}
+              <span className="font-semibold text-text-primary">{fmt$(suggestedArv, 0)}</span>
+            </span>
+            {arvRangeLow != null && arvRangeHigh != null && (
+              <span>
+                Range: {fmt$(arvRangeLow, 0)} - {fmt$(arvRangeHigh, 0)}
+              </span>
+            )}
+            <span>
+              Valuation Confidence:{" "}
+              <span className="font-semibold text-text-primary">
+                {valuationConfidence ?? "-"}
+              </span>
+            </span>
+            {compStats && (
+              <span>
+                Comp Stats: {compCount ?? "-"} comps, med dist {compStats.median_distance_miles ?? "-"} mi, med corr{" "}
+                {compStats.median_correlation ?? "-"}, med days-old {compStats.median_days_old ?? "-"}
+              </span>
+            )}
+            <span className="rounded border border-white/10 px-2 py-1">
+              Provider: {provenance?.provider_name ?? provenance?.source ?? "-"}{" "}
+              {provenance?.stub ? "(stub)" : ""}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1">
+              As of: {valuationSnapshot?.as_of ? new Date(valuationSnapshot.as_of).toLocaleDateString() : "-"}
+            </span>
+            {market.arv != null && market.arv !== "" && (
+              <Button
+                size="sm"
+                variant="neutral"
+                onClick={() => setDealValue("market.arv", suggestedArv)}
+              >
+                Use Suggested
+              </Button>
+            )}
+          </div>
+        )}
       </UnderwritingSection>
+
+      {valuationSnapshot && Array.isArray(valuationSnapshot.comps) && (
+        <CompsPanel
+          comps={valuationSnapshot.comps as any}
+          snapshot={valuationSnapshot}
+          minClosedComps={minClosedComps}
+        />
+      )}
 
       {/* Property & Risk */}
       <UnderwritingSection title="Property & Risk" icon={Icons.shield}>

@@ -348,6 +348,8 @@ Fast-follow items that do not change V1 behavior:
 
 - **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
+- **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
+- **Valuation data fidelity**: clarify listing vs closed comps provenance in UI/contracts; extend confidence rubric tuning per policy.
 - **Deeper economics and policy refinements**: uninsurable margin adders in offer selection; deterministic hold-cost per track/speed/zip; deterministic repairs totals by track; explicit AIV override % knob; richer DTM/gap tokens; doc-stamp/closing-cost tables feeding disposition math.
 - **UX/presentation refinements**: full consumption of UX-only knobs (bankers rounding, buyer-cost dual scenarios, line-item vs aggregate); richer cost stack/scenario presentation.
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.
@@ -367,3 +369,4 @@ Fast-follow items that do not change V1 behavior:
 - **Advanced financing and ROI layers**: cash-on-cash, IRR, financing scenarios, lender views.
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
+- **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.

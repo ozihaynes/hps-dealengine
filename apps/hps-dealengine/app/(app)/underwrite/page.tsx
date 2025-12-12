@@ -31,6 +31,12 @@ import {
 import { canEditGoverned } from "@/constants/governedTokens";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Info, CheckCircle } from "lucide-react";
+import {
+  fetchLatestValuationRun,
+  invokeValuationRun,
+  type ValuationRunResponse,
+} from "@/lib/valuation";
+import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 
 type RunSaveResponse =
   | {
@@ -128,6 +134,12 @@ export default function UnderwritePage() {
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [showChecklist, setShowChecklist] = useState(false);
   const checklistRef = useRef<HTMLDivElement | null>(null);
+  const [valuationRun, setValuationRun] = useState<ValuationRun | null>(null);
+  const [valuationSnapshot, setValuationSnapshot] = useState<PropertySnapshot | null>(null);
+  const [minClosedComps, setMinClosedComps] = useState<number | null>(null);
+  const [isRefreshingValuation, setIsRefreshingValuation] = useState(false);
+  const [valuationError, setValuationError] = useState<string | null>(null);
+  const hasPrefilledArvRef = useRef(false);
   useUnsavedChanges(hasUnsavedDealChanges);
 
   // Load org_id:
@@ -244,6 +256,61 @@ export default function UnderwritePage() {
   useEffect(() => {
     setHasUnsavedDealChanges(false);
   }, [dbDeal?.id, setHasUnsavedDealChanges]);
+
+  const hydrateValuation = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setValuationRun(null);
+      setValuationSnapshot(null);
+      setMinClosedComps(null);
+      return;
+    }
+    try {
+      setValuationError(null);
+      const latest = await fetchLatestValuationRun(dbDeal.id);
+      if (latest) {
+        setValuationRun(latest as ValuationRun);
+        const snapshot = (latest as any)?.property_snapshots ?? null;
+        setValuationSnapshot(snapshot ?? null);
+        const minComps = (latest as any)?.input?.min_closed_comps_required ?? null;
+        setMinClosedComps(
+          typeof minComps === "number" && Number.isFinite(minComps) ? minComps : null,
+        );
+      } else {
+        setValuationRun(null);
+        setValuationSnapshot(null);
+        setMinClosedComps(null);
+      }
+    } catch (err: any) {
+      setValuationError(err?.message ?? "Failed to load valuation");
+    }
+  }, [dbDeal?.id]);
+
+  useEffect(() => {
+    void hydrateValuation();
+  }, [hydrateValuation]);
+
+  const handleRefreshValuation = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setValuationError("Select a deal before refreshing valuation.");
+      return;
+    }
+    setIsRefreshingValuation(true);
+    setValuationError(null);
+    try {
+      const data = (await invokeValuationRun(dbDeal.id, posture)) as ValuationRunResponse;
+      setValuationRun(data.valuation_run);
+      setValuationSnapshot(data.snapshot);
+      const minComps =
+        (data.valuation_run as any)?.input?.min_closed_comps_required ?? null;
+      setMinClosedComps(
+        typeof minComps === "number" && Number.isFinite(minComps) ? minComps : null,
+      );
+    } catch (err: any) {
+      setValuationError(err?.message ?? "Valuation refresh failed");
+    } finally {
+      setIsRefreshingValuation(false);
+    }
+  }, [dbDeal?.id, posture]);
 
   // Wire UnderwriteTab's setDealValue helper
   const handleSetDealValue = useCallback(
@@ -453,6 +520,21 @@ export default function UnderwritePage() {
     [],
   );
 
+  // Prefill ARV once from suggested valuation if empty
+  useEffect(() => {
+    if (hasPrefilledArvRef.current) return;
+    if (!valuationRun) return;
+    const suggested = (valuationRun as any)?.output?.suggested_arv;
+    if (
+      (deal as any)?.market?.arv == null &&
+      suggested != null &&
+      Number.isFinite(Number(suggested))
+    ) {
+      handleSetDealValue("market.arv", suggested);
+      hasPrefilledArvRef.current = true;
+    }
+  }, [deal, handleSetDealValue, valuationRun]);
+
   return (
     <div className="container mx-auto max-w-7xl px-4 py-6 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -595,6 +677,12 @@ export default function UnderwritePage() {
           sandbox={effectiveSandbox}
           canEditPolicy={canEditPolicy}
           onRequestOverride={openOverrideModal}
+          valuationRun={valuationRun}
+          valuationSnapshot={valuationSnapshot}
+          minClosedComps={minClosedComps}
+          onRefreshValuation={handleRefreshValuation}
+          refreshingValuation={isRefreshingValuation}
+          valuationError={valuationError}
         />
 
         <OverridesPanel

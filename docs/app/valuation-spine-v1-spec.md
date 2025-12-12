@@ -5,9 +5,10 @@ Anchor the valuation flow with a clear current-state map, target contracts, and 
 
 ## Non-Negotiables & Plan Tweaks
 - Min closed comps must be configurable (default 3). Do **not** hard-code thresholds in UI/business logic; store as a policy token or org/provider config.
-- Rename “Confidence” to “Valuation Confidence” in all UI/spec language to avoid collision with engine Confidence Grade.
+- Rename "Confidence" to "Valuation Confidence" in all UI/spec language to avoid collision with engine Confidence Grade.
 - Address edits must create a new `valuation_run` and preserve history (no overwrites).
 - `property_snapshots` caching must be org-scoped for v1 (no cross-tenant sharing).
+- Snapshot TTL is policy-driven (`valuation.snapshot_ttl_hours`); confidence rubric is policy-driven (`valuation.confidence_rubric`).
 
 ## Inventory (Current State)
 - **Market & Valuation block:** `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (`UnderwritingSection` → `InputField` labels “ARV”, “As-Is Value”, “DOM (Zip, days)”, “MOI (Zip, months)”, “Price-to-List %”, “Local Discount (20th %)”); state set via `setDealValue` → `DealSession`.
@@ -110,15 +111,17 @@ type PropertySnapshot = {
   id: string;
   org_id: string;
   address_fingerprint: string; // normalized address hash
-  source: "mls" | "county" | "tax" | "manual";
+  source: "mls" | "county" | "tax" | "manual" | "rentcast";
+  provider?: string | null;
   as_of: string;
   window_days?: number | null;
   sample_n?: number | null;
   comps?: Comp[];
-  market?: MarketSnapshot;
+  market?: MarketSnapshot | null;
   raw?: Record<string, unknown>;
   created_at: string;
   expires_at?: string | null;
+  stub?: boolean;
 };
 
 type MarketSnapshot = {
@@ -126,6 +129,9 @@ type MarketSnapshot = {
   moi_zip_months?: number | null;
   price_to_list_pct?: number | null;
   local_discount_pct_p20?: number | null;
+  avm_price?: number | null;
+  avm_price_range_low?: number | null;
+  avm_price_range_high?: number | null;
   source: string;
   as_of: string;
   window_days?: number | null;
@@ -135,15 +141,25 @@ type MarketSnapshot = {
 type Comp = {
   id: string;
   address: string;
-  close_date: string;
-  close_price: number;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  close_date?: string | null;
+  price?: number | null;
+  price_per_sqft?: number | null;
   sqft?: number | null;
   beds?: number | null;
   baths?: number | null;
   lot_sqft?: number | null;
   year_built?: number | null;
   distance_miles?: number | null;
-  adjustments?: Record<string, number | null>;
+  correlation?: number | null;
+  days_old?: number | null;
+  days_on_market?: number | null;
+  status?: string | null;
+  listing_type?: string | null;
   source: string; // provider id/name
   as_of: string;
   hash?: string; // for determinism
@@ -172,24 +188,37 @@ type ValuationRun = {
       local_discount_pct_p20?: number | null;
     };
     comps?: Comp[] | null;
-    policy_version?: string | null;
+    policy_version_id?: string | null;
+    property_snapshot_id?: string | null;
+    property_snapshot_hash?: string | null;
+    min_closed_comps_required?: number | null;
     posture: "conservative" | "base" | "aggressive";
     source: "user" | "connector";
   };
   output: {
     arv?: number | null;
+    arv_range_low?: number | null;
+    arv_range_high?: number | null;
     as_is_value?: number | null;
-    valuation_confidence?: "A" | "B" | "C" | null; // UI label uses “Valuation Confidence”
+    valuation_confidence?: "A" | "B" | "C" | null; // UI label uses "Valuation Confidence"
+    comp_count?: number | null;
+    comp_set_stats?: {
+      median_distance_miles?: number | null;
+      median_correlation?: number | null;
+      median_days_old?: number | null;
+    };
     rationale?: string | null;
   };
   provenance: {
     provider_id?: string | null;
     provider_name?: string | null;
+    endpoints?: string[] | null;
     source: "connector" | "user" | "policy";
     as_of: string;
     window_days?: number | null;
     sample_n?: number | null;
     min_closed_comps_required?: number | null;
+    property_snapshot_id?: string | null;
   };
   hashes: {
     input_hash: string;
