@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-15)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-20)
 
 ---
 
@@ -31,6 +31,12 @@ The following tables are **live with RLS and real data** and must be treated as 
     - `policy_hash`
 
   - Uniqueness constraint on `(org_id, posture, input_hash, policy_hash)` enforces deterministic dedupe/replay.
+
+- `agent_runs`
+
+  - Logging table for persona agents (Analyst/Strategist/Negotiator).
+  - Columns include org_id, user_id, persona, agent_name, workflow_version, deal_id/run_id/thread_id/trace_id, model, status, input/output/error, latency_ms, total_tokens, created_at.
+  - Indexed by org/persona, user/persona, deal, run. RLS via memberships + `auth.uid()`; audit trigger enabled.
 
 - `repair_rate_sets` (and related normalized structures)
 
@@ -189,6 +195,12 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - GET/POST/PUT for repair rate profiles (org/market/posture scoped) with caller JWT, membership/org resolution, and CORS headers shared via `_shared/cors.ts`.
 
+### Agent / MCP Infra (runtime endpoints)
+
+- `/api/agents/{analyst|strategist|negotiator}` are Next.js runtime routes (node) that require `Authorization: Bearer <Supabase access_token>`, resolve org_id via memberships, guard deal orgs, and log to `agent_runs`; no `service_role` in user flows.
+- `@hps/agents` backs the personas (RLS Supabase client, Strategist KB resolver tolerant to missing registry, Negotiator dataset loader + rate-limit handling).
+- `@hps/hps-mcp` server runs on stdio + Streamable HTTP (`pnpm --filter "@hps/hps-mcp" start:http` or root `dev:hps-mcp:http`), HTTP auth via `HPS_MCP_HTTP_TOKEN`; tools include `hps_get_deal_by_id`, `hps_get_latest_run_for_deal`, `hps_list_evidence_for_run`, `hps_get_negotiation_strategy`, `hps_get_kpi_snapshot`, `hps_get_risk_gate_stats`, `hps_get_sandbox_settings`, `hps_kb_search_strategist`; dev client: `packages/hps-mcp/dev/mcpClient.cjs`. No tunnel script present.
+
 ---
 
 ### 0.3 App Structure
@@ -313,18 +325,23 @@ V1 is complete; new slices should come from v1.1 hardening or v2/v3 themes below
 
 Recently shipped (Dec 2025):
 
-- AI agent chat UX polish (Slices A/B): always-visible composers with placeholders, taller chat windows with prompt chips, hamburger menu with Tone + “Your Chats,” auto-titles from first user message, no auto-summary bubbles (Negotiator keeps first-playbook flow).
-- /startup routing (Slice C): “Run New Deal” → `/underwrite?dealId=...`; existing deal rows → `/overview?dealId=...` with session preserved.
-- Underwrite evidence UX (Slice D): checklist moved to compact orange (i) popover; satisfied rows show green checkmark; header buttons order Analyze → Save Run → Request Override.
+- AI agent chat UX polish (Slices A/B): always-visible composers with placeholders, taller chat windows with prompt chips, hamburger menu with Tone + "Your Chats," auto-titles from first user message, no auto-summary bubbles (Negotiator keeps first-playbook flow).
+- /startup routing (Slice C): "Run New Deal" -> `/underwrite?dealId=...`; existing deal rows -> `/overview?dealId=...` with session preserved.
+- Underwrite header/evidence (Slice D): dark-styled posture select; evidence checklist stays a compact orange (i) popover with green checks when satisfied; header actions renamed to "Analyze Deal" / "Save" with the Request Override header button removed (OverridesPanel still available); new Recent Runs card (org+deal scoped, newest-first limit 5, links to /runs).
 - Settings navigation (Slice E): desktop settings keep the main app nav visible with branding; mobile bottom nav unchanged.
 - Theme parity (Slice F): Burgundy/Green shells match Blue’s dark glass depth while retaining accent borders/rings.
+- Dev auth hygiene: `scripts/reset-dev-auth-users.ts` (dev guard on Supabase ref, backup -> wipe -> reseed dev org `033ff93d-ff97-4af9-b3a1-a114d3c04da6` + owner/manager/vp/analyst test accounts, dev-only password); audit_logs.actor_user_id nullable hotfix is currently manual (no migration yet).
+- Agent platform infra: `/api/agents/{analyst|strategist|negotiator}` run under caller JWT with `agent_runs` logging; @hps/agents SDK + HPS MCP server (stdio + Streamable HTTP) available for vNext tooling (auth via `HPS_MCP_HTTP_TOKEN`).
 
 Fast-follow items that do not change V1 behavior:
 
 - Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals; run env-gated Playwright specs and consider enabling in CI.
+- Valuation Spine (Address → Comps → ARV → Prefill): document and wire address versioning → valuation_run history, org-scoped property_snapshot caching, and UI hydration from persisted valuations.
 - Repairs UX/ergonomics: fix org alignment for repair profiles/rates, tighten RepairsTab meta and presentation.
 - Overrides/governance: light UI for override request/review, keep governance RLS and trace visibility.
-- AI surfaces: Base tri-agent chat history + UX shipped; remaining hardening is tone/copy and matrix coverage, not wiring.
+- AI surfaces: Tri-agent chat with Supabase history is live; `/api/agents` + @hps/agents/HPS MCP groundwork exists. Remaining hardening is tone/copy plus strategist/negotiator stability without changing engine math/policy.
+- Agent Platform vNext: ✅ `/api/agents` tri personas with caller JWT + `agent_runs` logging; ✅ @hps/agents SDK (strategist KB resolver tests, negotiation dataset loader); ✅ HPS MCP server (stdio + Streamable HTTP) with deal/run/evidence/negotiation/KPI/risk/sandbox/KB tools; ⭕ expand Strategist/Negotiator evals/tools and UI retries/backoff.
+- Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math (null-backed numeric input foundation in shared components/defaults is done; rollout across all forms still pending).
 
 ## 3 V2 Themes (Planned)
@@ -343,6 +360,7 @@ Fast-follow items that do not change V1 behavior:
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
+  - Agent Platform vNext: migrate tri-agent behavior off legacy `v1-ai-bridge` into explicit agents backed by @hps/agents, HPS MCP tools, `agent_runs` logging, and Agent Builder workflows, while keeping numeric/policy behavior identical to the existing engine.
 
 ## 4 V3 Themes (Planned)
 

@@ -679,11 +679,11 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
                   <button
                     key={page.title}
                     onClick={() => setCurrentPage(index)}
-                    className={`group flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
-                      pageConfig?.title === page.title
-                        ? "bg-accent-blue text-white"
-                        : "text-text-secondary hover:bg-accent-blue/10 hover:text-text-primary"
-                    }`}
+                    className={`group flex w-full items-center justify-between text-left text-sm font-medium tab-trigger ${
+                        pageConfig?.title === page.title
+                          ? "active"
+                          : ""
+                      }`}
                     aria-current={
                       pageConfig?.title === page.title ? "page" : undefined
                     }

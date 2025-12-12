@@ -16,8 +16,8 @@ export default function LoginForm({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [email, setEmail] = useState("qa-policy-test@yourdomain.com");
-  const [password, setPassword] = useState("Password");
+  const [email, setEmail] = useState("owner@hps.test.local");
+  const [password, setPassword] = useState("HpsDev!2025");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 

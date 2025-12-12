@@ -35,6 +35,18 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AiBridgeResult | null>(null);
   const { state, dispatch } = useAiWindows();
+  const strategistWelcomes = useMemo(
+    () => [
+      "What's the game plan?",
+      "Let's tune the sandbox!",
+      "Want a smarter approach?",
+    ],
+    [],
+  );
+  const welcomeCopy = useMemo(
+    () => strategistWelcomes[Math.floor(Math.random() * strategistWelcomes.length)],
+    [strategistWelcomes],
+  );
   const w = state.windows.dealStrategist;
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const activeSession = useMemo(
@@ -135,6 +147,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
   };
 
   const messages = activeSession?.messages ?? [];
+  const hasMessages = messages.length > 0;
   const guidanceText =
     "Ask the Strategist for policy and posture guidance-sandbox knobs, market tweaks, KPI framing, and how inputs and workflows move through the system.";
   const trimmedQuestion = question.trim();
@@ -145,8 +158,11 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
   }, [messages.length, scrollToLatest]);
 
   return (
-    <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
-      <div ref={scrollRef} className="flex-1 min-h-[260px] space-y-3 overflow-y-auto pr-1">
+      <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
+        <div
+          ref={scrollRef}
+          className={`flex-1 min-h-0 space-y-3 pr-1 ${hasMessages ? "overflow-y-auto" : "overflow-hidden"}`}
+        >
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
             {error}
@@ -154,7 +170,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         )}
 
         <div className="space-y-2 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
-          {messages.length > 0 && (
+          {messages.length > 0 ? (
             <div className="flex flex-col gap-2">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
@@ -171,6 +187,10 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
                 </div>
               ))}
             </div>
+          ) : (
+            <div className="flex h-full w-full items-center justify-center py-12 text-lg text-text-secondary">
+              {welcomeCopy}
+            </div>
           )}
         </div>
       </div>
@@ -180,7 +200,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            className="w-full min-h-[96px] rounded-md border border-white/10 bg-white/5 p-3 pr-12 text-sm text-text-secondary outline-none focus:border-accent-blue"
+            className="w-full min-h-[96px] rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
             rows={4}
             placeholder={guidanceText}
             onKeyDown={(e) => {

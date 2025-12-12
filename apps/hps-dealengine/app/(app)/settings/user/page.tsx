@@ -9,11 +9,13 @@ import { Button, GlassCard, Icon, SelectField } from "@/components/ui";
 import { Icons } from "@/constants";
 import { fetchUserSettings, upsertUserSettings } from "@/lib/userSettings";
 import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
+import type { ThemeSetting } from "@/components/theme/ThemeProvider";
+import { THEME_METADATA } from "@/lib/themeTokens";
 
 type FormState = {
   defaultPosture: string;
   defaultMarket: string;
-  theme: string;
+  theme: ThemeSetting;
 };
 
 type LocalProfile = {
@@ -39,22 +41,17 @@ const DEFAULTS: FormState = {
   theme: "system",
 };
 
-const themeOptions = [
+const themeOptions: Array<{ value: ThemeSetting; label: string; helper: string }> = [
   {
     value: "system",
     label: "System",
     helper: "Follow your device preference.",
   },
-  {
-    value: "dark",
-    label: "Dark",
-    helper: "High-contrast, night-friendly UI.",
-  },
-  {
-    value: "light",
-    label: "Light",
-    helper: "Bright background for daylight work.",
-  },
+  ...Object.entries(THEME_METADATA).map(([value, meta]) => ({
+    value: value as ThemeSetting,
+    label: meta.label,
+    helper: meta.description,
+  })),
 ];
 
 const marketOptions = [{ value: "ORL", label: "Orlando (ORL)" }];
@@ -670,7 +667,7 @@ function mapSettingsToForm(settings: UserSettings): FormState {
   return {
     defaultPosture: settings.defaultPosture ?? DEFAULTS.defaultPosture,
     defaultMarket: settings.defaultMarket ?? DEFAULTS.defaultMarket,
-    theme: settings.theme ?? DEFAULTS.theme,
+    theme: (settings.theme as ThemeSetting) ?? DEFAULTS.theme,
   };
 }
 
@@ -679,7 +676,7 @@ function capitalize(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
-function themeLabel(value: string) {
+function themeLabel(value: ThemeSetting) {
   const fromList = themeOptions.find((opt) => opt.value === value)?.label;
   if (fromList) return fromList;
   return capitalize(value || DEFAULTS.theme);

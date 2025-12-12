@@ -1,7 +1,6 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { runNegotiatorAgent } from "@hps/agents";
 
 export const runtime = "nodejs";
@@ -37,6 +36,77 @@ function sanitizeDetails(details: unknown): unknown {
     );
   }
   return details;
+}
+
+function parseAuthHeader(req: NextRequest): string | null {
+  const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
+  if (!header) return null;
+  const [scheme, token] = header.split(" ");
+  if (!scheme || !token || scheme.toLowerCase() !== "bearer") return null;
+  return token.trim();
+}
+
+function parseSubFromJwt(token: string): string | null {
+  try {
+    const [, payloadB64] = token.split(".");
+    const padded = payloadB64
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(payloadB64.length + ((4 - (payloadB64.length % 4)) % 4), "=");
+    const json = Buffer.from(padded, "base64").toString("utf8");
+    const payload = JSON.parse(json);
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+function createSupabaseWithJwt(accessToken: string) {
+  const pickEnv = (keys: string[]) => {
+    for (const key of keys) {
+      const val = process.env[key]?.trim();
+      if (val) return val;
+    }
+    return null;
+  };
+
+  const supabaseUrl = pickEnv(["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]);
+  const supabaseAnonKey = pickEnv(["SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    const err = new Error("Missing Supabase environment variables.");
+    (err as any).code = "SUPABASE_CONFIG_MISSING";
+    throw err;
+  }
+  if (!supabaseAnonKey.includes(".")) {
+    const err = new Error("Supabase anon key appears malformed.");
+    (err as any).code = "SUPABASE_ANON_KEY_MALFORMED";
+    throw err;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  });
+}
+
+type SupabaseClient = ReturnType<typeof createSupabaseWithJwt>;
+
+async function resolveOrgId(supabase: SupabaseClient): Promise<string> {
+  const { data, error } = await supabase
+    .from("memberships")
+    .select("org_id")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.org_id) {
+    throw new Error("No org membership found for user");
+  }
+  return data.org_id as string;
 }
 
 function normalizeAgentError(err: unknown): AgentErrorPayload {
@@ -87,47 +157,8 @@ function normalizeAgentError(err: unknown): AgentErrorPayload {
   return base;
 }
 
-function createSupabaseFromCookies() {
-  const cookieStore = cookies();
-  const pickEnv = (keys: string[]) => {
-    for (const key of keys) {
-      const val = process.env[key]?.trim();
-      if (val) return val;
-    }
-    return null;
-  };
-
-  const supabaseUrl = pickEnv(["SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL"]);
-  const supabaseAnonKey = pickEnv(["SUPABASE_ANON_KEY", "NEXT_PUBLIC_SUPABASE_ANON_KEY"]);
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    const err = new Error("Missing Supabase environment variables.");
-    (err as any).code = "SUPABASE_CONFIG_MISSING";
-    throw err;
-  }
-  if (!supabaseAnonKey.includes(".")) {
-    const err = new Error("Supabase anon key appears malformed.");
-    (err as any).code = "SUPABASE_ANON_KEY_MALFORMED";
-    throw err;
-  }
-
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: any) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: any) {
-        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
-      },
-    },
-  });
-}
-
 async function ensureThread(
-  supabase: ReturnType<typeof createSupabaseFromCookies>,
+  supabase: SupabaseClient,
   params: { threadId: string; orgId: string; userId: string; dealId: string; runId: string | null },
 ) {
   const now = new Date().toISOString();
@@ -149,7 +180,7 @@ async function ensureThread(
 }
 
 async function insertMessages(
-  supabase: ReturnType<typeof createSupabaseFromCookies>,
+  supabase: SupabaseClient,
   threadId: string,
   userMessage: string,
   assistantMessage: string,
@@ -164,22 +195,25 @@ async function insertMessages(
 }
 
 export async function POST(req: NextRequest) {
-  let supabase;
-  try {
-    supabase = createSupabaseFromCookies();
-  } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, error: "supabase_config_missing", message: err?.message ?? "Supabase not configured" },
-      { status: 500 },
-    );
-  }
-
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !sessionData?.session?.access_token) {
+  const accessToken = parseAuthHeader(req);
+  if (!accessToken) {
     return NextResponse.json({ ok: false, error: "auth_missing" }, { status: 401 });
   }
-  const accessToken = sessionData.session.access_token;
-  const userId = sessionData.session.user.id;
+
+  const userId = parseSubFromJwt(accessToken);
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "auth_missing" }, { status: 401 });
+  }
+
+  const supabase = createSupabaseWithJwt(accessToken);
+
+  let orgId: string;
+  try {
+    orgId = await resolveOrgId(supabase);
+  } catch (err: any) {
+    console.error("[agents/negotiator] org resolution failed", err?.message ?? err);
+    return NextResponse.json({ ok: false, error: "org_missing" }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => null);
   const parsed = BodySchema.safeParse(body);
@@ -199,7 +233,9 @@ export async function POST(req: NextRequest) {
   if (!dealRow) {
     return NextResponse.json({ ok: false, error: "deal_not_found" }, { status: 404 });
   }
-  const orgId = dealRow.org_id as string;
+  if (dealRow.org_id && dealRow.org_id !== orgId) {
+    return NextResponse.json({ ok: false, error: "forbidden_deal_org_mismatch" }, { status: 403 });
+  }
 
   const start = Date.now();
   let agentResult: Awaited<ReturnType<typeof runNegotiatorAgent>>;
@@ -217,19 +253,25 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     const latencyMs = Date.now() - start;
     const normalizedError = normalizeAgentError(err);
+    console.error("[agents/negotiator] runNegotiatorAgent failed", normalizedError);
+    const code = normalizedError.code ?? (normalizedError as any)?.error?.code ?? null;
+    const isRateLimit =
+      code === "rate_limit_exceeded" ||
+      normalizedError.status === 429 ||
+      (typeof normalizedError.message === "string" && normalizedError.message.toLowerCase().includes("rate limit"));
     try {
       await supabase.from("agent_runs").insert({
         org_id: orgId,
         user_id: userId,
         persona: "negotiator",
-        agent_name: "HPS – Deal Negotiator v2",
+        agent_name: "HPS - Deal Negotiator v2",
         workflow_version: "wf_6939e36f4ca08190b3f344325a4aca4e0a1c02199b62b694",
         deal_id: dealId,
         run_id: runId ?? null,
         thread_id: incomingThreadId ?? null,
         trace_id: null,
         model: null,
-        status: "error",
+        status: isRateLimit ? "rate_limited" : "error",
         input: { dealId, question, sellerContext, runId },
         error: normalizedError,
         latency_ms: latencyMs,
@@ -238,20 +280,24 @@ export async function POST(req: NextRequest) {
       console.error("[agents/negotiator] agent_runs failure log failed", logErr);
     }
 
+    if (isRateLimit) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "rate_limited",
+          details: normalizedError,
+        },
+        { status: 429 },
+      );
+    }
+
     return NextResponse.json(
       {
         ok: false,
-        error: "agent_failed",
-        message: normalizedError.message,
+        error: "failed_to_run_negotiator",
+        details: normalizedError,
       },
-      {
-        status:
-          normalizedError.type === "openai_error" && normalizedError.status === 401
-            ? 500
-            : normalizedError.status && normalizedError.status >= 400 && normalizedError.status < 600
-              ? normalizedError.status
-              : 500,
-      },
+      { status: 500 },
     );
   }
 
@@ -281,7 +327,7 @@ export async function POST(req: NextRequest) {
       org_id: orgId,
       user_id: userId,
       persona: "negotiator",
-      agent_name: "HPS – Deal Negotiator v2",
+      agent_name: "HPS - Deal Negotiator v2",
       workflow_version: "wf_6939e36f4ca08190b3f344325a4aca4e0a1c02199b62b694",
       deal_id: dealId,
       run_id: runId ?? null,
@@ -301,6 +347,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     threadId,
-    answer: agentResult.answer,
+    answer: agentResult.answer ?? "Negotiation plan ready.",
+    model: (agentResult as any)?.model ?? null,
   });
 }

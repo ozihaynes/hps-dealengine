@@ -5,6 +5,7 @@ import Link from "next/link";
 import React from "react";
 import { Icon } from "./ui";
 import { Icons } from "../lib/ui-v2-constants";
+import { usePathname } from "next/navigation";
 
 /**
  * Top application header:
@@ -15,9 +16,11 @@ import { Icons } from "../lib/ui-v2-constants";
  * existing listeners keep working.
  */
 export default function AppTopNav() {
-  const onAnalyze = () => {
-    window.dispatchEvent(new CustomEvent("hps:analyze-now"));
-  };
+  const pathname = usePathname();
+  const isActive = (href: string) =>
+    pathname === href ||
+    (pathname?.startsWith(href + "/") ?? false) ||
+    (pathname?.startsWith(href + "?") ?? false);
 
   return (
     <div className="flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)]">
@@ -52,10 +55,10 @@ export default function AppTopNav() {
         <div className="hidden sm:flex items-center gap-2 text-[color:var(--text-secondary)]">
           <Link
             href="/sandbox"
-            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] hover:bg-[color:var(--glass-bg)]"
+            className={`group relative flex h-12 w-12 items-center justify-center tab-trigger ${isActive("/sandbox") ? "active" : ""}`}
             aria-label="Business Logic Sandbox"
           >
-            <Icon d={Icons.sliders} size={22} />
+            <Icon d={Icons.sliders} size={42} className="stroke-[2.5]" />
             <span className="sr-only">Business Logic Sandbox</span>
             <span className="pointer-events-none absolute -bottom-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-[11px] text-white shadow-lg group-hover:block">
               Business Logic Sandbox
@@ -63,28 +66,24 @@ export default function AppTopNav() {
           </Link>
           <Link
             href="/settings/user"
-            className="group relative flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] hover:bg-[color:var(--glass-bg)]"
+            className={`group relative flex h-12 w-12 items-center justify-center tab-trigger ${isActive("/settings") ? "active" : ""}`}
             aria-label="User & Team Settings"
           >
-            <Icon d={Icons.user} size={22} />
+            <Icon d={Icons.user} size={42} className="stroke-[2.5]" />
             <span className="sr-only">User/Team Settings</span>
             <span className="pointer-events-none absolute -bottom-9 left-1/2 z-10 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-black/80 px-2 py-1 text-[11px] text-white shadow-lg group-hover:block">
               User/Team Settings
             </span>
           </Link>
         </div>
-
-        {/* Analyze CTA */}
-        <button
-          type="button"
-          onClick={onAnalyze}
-          className="inline-flex items-center gap-2 rounded-lg border border-[color:var(--accent-color)] px-4 py-2 text-xs font-semibold text-[color:var(--accent-color)] shadow-sm transition-colors"
-          style={{ backgroundColor: "color-mix(in srgb, var(--accent-color) 20%, transparent)" }}
-          aria-label="Analyze with AI"
+        {/* Logout button */}
+        <Link
+          href="/logout"
+          className="rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)] shadow-sm transition hover:border-accent-blue hover:text-accent-blue"
+          aria-label="Log out"
         >
-          <Icon d={Icons.playbook} size={16} />
-          Analyze with AI
-        </button>
+          Log out
+        </Link>
       </div>
     </div>
   );

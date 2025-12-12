@@ -33,12 +33,16 @@ export function DealAnalystWindow() {
   }, [menuOpen]);
 
   const maxHeight = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.85) : 900;
+  const minHeight = 400;
 
   if (w.visibility === "closed" || !w.activeSessionId) return null;
   if (w.visibility === "minimized") return null;
 
   const { x, y, width } = w.geometry;
-  const height = Math.max(w.geometry.height ?? 0, 640);
+  const height = Math.min(
+    maxHeight,
+    Math.max(w.geometry.height ?? 520, minHeight),
+  );
 
   const handleDragStop = (_: any, data: { x: number; y: number }) => {
     dispatch({ type: "UPDATE_GEOMETRY", id: "dealAnalyst", geometry: { x: data.x, y: data.y } });
@@ -59,7 +63,7 @@ export function DealAnalystWindow() {
       size={{ width, height }}
       position={{ x, y }}
       bounds="window"
-      minHeight={560}
+      minHeight={minHeight}
       maxHeight={maxHeight}
       onDragStop={handleDragStop}
       onResizeStop={handleResizeStop}
@@ -111,13 +115,11 @@ export function DealAnalystWindow() {
           </div>
           <AgentChatMenu agentId="analyst" isOpen={menuOpen} onClose={() => setMenuOpen(false)} />
         </div>
-        <div className="flex flex-col gap-2 overflow-hidden p-2">
-          <div className="flex-1 overflow-hidden">
-            <DealAnalystPanel
-              onClose={() => dispatch({ type: "CLOSE_WINDOW", id: "dealAnalyst" })}
-              onMinimize={() => dispatch({ type: "MINIMIZE_WINDOW", id: "dealAnalyst" })}
-            />
-          </div>
+        <div className="flex flex-1 flex-col gap-3 p-3">
+          <DealAnalystPanel
+            onClose={() => dispatch({ type: "CLOSE_WINDOW", id: "dealAnalyst" })}
+            onMinimize={() => dispatch({ type: "MINIMIZE_WINDOW", id: "dealAnalyst" })}
+          />
         </div>
       </div>
     </Rnd>

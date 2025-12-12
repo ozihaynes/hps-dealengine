@@ -38,6 +38,20 @@ export function DealAnalystPanel({
     () => (w.activeSessionId ? w.sessions.find((s) => s.id === w.activeSessionId) ?? null : null),
     [w.activeSessionId, w.sessions],
   );
+  const messages = activeSession?.messages ?? [];
+  const hasMessages = messages.length > 0;
+  const analystWelcomes = useMemo(
+    () => [
+      "Let's run the numbers!",
+      "Deal time - show me the data!",
+      "Ready for a quick verdict?",
+    ],
+    [],
+  );
+  const welcomeCopy = useMemo(
+    () => analystWelcomes[Math.floor(Math.random() * analystWelcomes.length)],
+    [analystWelcomes],
+  );
   const tone = activeSession?.tone ?? "direct";
   const scrollToLatest = React.useCallback(() => {
     const el = scrollRef.current;
@@ -159,7 +173,10 @@ export function DealAnalystPanel({
   };
 
   const isStale = status === "stale";
-  const canAsk = status !== "noRun" && (!isStale || acknowledgedStale);
+  const hasRunContext = Boolean(dealId && runId);
+  const canAsk = hasRunContext && status !== "noRun" && status !== "unknown" && (!isStale || acknowledgedStale);
+  const shouldShowAnalyzeGate =
+    !hasRunContext || status === "noRun" || status === "unknown" || (isStale && !acknowledgedStale);
   const runLabel =
     lastRunAt && !Number.isNaN(new Date(lastRunAt).getTime())
       ? new Date(lastRunAt).toLocaleString()
@@ -170,7 +187,6 @@ export function DealAnalystPanel({
     lastEditAt && !Number.isNaN(new Date(lastEditAt).getTime())
       ? new Date(lastEditAt).toLocaleString()
       : null;
-  const messages = activeSession?.messages ?? [];
   const guidanceText =
     "Ask the Analyst for deal math-guardrails, risk gates, spreads, timeline, and next steps grounded in your latest Analyze run.";
   const trimmedQuestion = question.trim();
@@ -181,8 +197,11 @@ export function DealAnalystPanel({
   }, [messages.length, scrollToLatest]);
 
   return (
-    <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
-      <div ref={scrollRef} className="flex-1 min-h-[280px] space-y-3 overflow-y-auto pr-1">
+      <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
+        <div
+          ref={scrollRef}
+          className={`flex-1 min-h-0 space-y-3 pr-1 ${hasMessages ? "overflow-y-auto" : "overflow-hidden"}`}
+        >
         {isStale && (
           <div
             ref={warningRef}
@@ -211,7 +230,7 @@ export function DealAnalystPanel({
         )}
 
         <div className="space-y-2 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
-          {messages.length > 0 && (
+          {messages.length > 0 ? (
             <div className="flex flex-col gap-2">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
@@ -230,16 +249,20 @@ export function DealAnalystPanel({
                 </div>
               ))}
             </div>
-          )}
+            ) : (
+              <div className="flex h-full w-full items-center justify-center py-12 text-lg text-text-secondary">
+                {welcomeCopy}
+              </div>
+            )}
         </div>
       </div>
 
-      <div className="space-y-2 border-t border-[color:var(--glass-border)] pt-3">
+      <div className="mt-3 flex flex-col gap-2 border-t border-[color:var(--glass-border)] pt-3">
         <div className="relative">
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            className="w-full min-h-[96px] rounded-md border border-white/10 bg-white/5 p-3 pr-12 text-sm text-text-secondary outline-none focus:border-accent-blue"
+            className="w-full min-h-[96px] rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
             rows={4}
             placeholder={guidanceText}
             disabled={status === "noRun"}
@@ -280,9 +303,7 @@ export function DealAnalystPanel({
             ))}
           </div>
         )}
-        {status === "noRun" && (
-          <div className="text-[11px] text-text-secondary">Analyze deal to chat.</div>
-        )}
+        {shouldShowAnalyzeGate && <div className="text-[11px] text-text-secondary">Analyze the deal to chat.</div>}
       </div>
     </GlassCard>
   );

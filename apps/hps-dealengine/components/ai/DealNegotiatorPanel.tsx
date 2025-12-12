@@ -20,6 +20,18 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
   const [threadId, setThreadId] = React.useState<string | null>(null);
   const [messages, setMessages] = React.useState<AiChatMessage[]>([]);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const negotiatorWelcomes = React.useMemo(
+    () => [
+      "Let's get this signed!",
+      "Need a killer counter?",
+      "Objection? I've got you!",
+    ],
+    [],
+  );
+  const welcomeCopy = React.useMemo(
+    () => negotiatorWelcomes[Math.floor(Math.random() * negotiatorWelcomes.length)],
+    [negotiatorWelcomes],
+  );
 
   const scrollToLatest = React.useCallback(() => {
     const el = scrollRef.current;
@@ -110,14 +122,17 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
         </div>
       )}
 
-      <div ref={scrollRef} className="mt-3 flex-1 min-h-[260px] space-y-3 overflow-y-auto pr-1">
-        <div className="space-y-2 rounded-md border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2">
-          {hasMessages && (
-            <div className="flex flex-col gap-2">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
-                  <div
-                    className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
+        <div
+          ref={scrollRef}
+          className={`mt-3 flex-1 min-h-0 space-y-3 pr-1 ${hasMessages ? "overflow-y-auto" : "overflow-hidden"}`}
+        >
+          <div className="space-y-2 rounded-md border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2">
+            {hasMessages ? (
+              <div className="flex flex-col gap-2">
+                {messages.map((m) => (
+                  <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
+                    <div
+                      className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
                       m.role === "assistant" ? "bg-white/5 text-text-primary" : "bg-accent-blue/20 text-text-primary"
                     }`}
                   >
@@ -126,18 +141,22 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
                     </div>
                     {m.content}
                   </div>
+                  </div>
+                ))}
+              </div>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center py-12 text-lg text-text-secondary">
+                  {welcomeCopy}
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+          </div>
         </div>
-      </div>
 
       <div className="mt-3 flex flex-col gap-2 border-t border-[color:var(--glass-border)] pt-3">
         <div className="relative">
           <textarea
-            className="min-h-[96px] w-full rounded-md border border-white/10 bg-white/5 p-3 pr-12 text-sm text-text-primary outline-none focus:border-accent-blue"
-            placeholder="Ask the Negotiator for seller language—draft replies, handle objections, and sharpen offer positioning to communicate with your client."
+            className="min-h-[96px] w-full rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
+            placeholder="Ask the Negotiator for seller language, draft replies, handle objections, and sharpen offer positioning to communicate with your client."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {

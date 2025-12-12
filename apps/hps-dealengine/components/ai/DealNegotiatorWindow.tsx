@@ -33,12 +33,16 @@ export function DealNegotiatorWindow() {
   }, [menuOpen]);
 
   const maxHeight = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.85) : 900;
+  const minHeight = 400;
 
   if (w.visibility === "closed") return null;
   if (w.visibility === "minimized") return null;
 
   const { x, y, width } = w.geometry;
-  const height = Math.max(w.geometry.height ?? 0, 640);
+  const height = Math.min(
+    maxHeight,
+    Math.max(w.geometry.height ?? 520, minHeight),
+  );
 
   const handleDragStop = (_: any, data: { x: number; y: number }) => {
     dispatch({ type: "UPDATE_GEOMETRY", id: "dealNegotiator", geometry: { x: data.x, y: data.y } });
@@ -59,7 +63,7 @@ export function DealNegotiatorWindow() {
       size={{ width, height }}
       position={{ x, y }}
       bounds="window"
-      minHeight={560}
+      minHeight={minHeight}
       maxHeight={maxHeight}
       onDragStop={handleDragStop}
       onResizeStop={handleResizeStop}

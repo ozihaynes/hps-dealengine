@@ -124,13 +124,13 @@ export default function SandboxSettingsPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <button
-          className={`px-3 py-2 rounded-lg text-sm ${activeTab === "business" ? "bg-accent-blue text-white" : "bg-surface/60 text-text-secondary"}`}
+          className={`tab-trigger text-sm ${activeTab === "business" ? "active" : ""}`}
           onClick={() => setActiveTab("business")}
         >
           Business Logic Sandbox
         </button>
         <button
-          className={`px-3 py-2 rounded-lg text-sm ${activeTab === "repairs" ? "bg-accent-blue text-white" : "bg-surface/60 text-text-secondary"}`}
+          className={`tab-trigger text-sm ${activeTab === "repairs" ? "active" : ""}`}
           onClick={() => setActiveTab("repairs")}
         >
           Repairs Sandbox

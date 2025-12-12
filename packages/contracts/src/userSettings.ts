@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { Postures } from "./posture";
 
-const ThemeOptions = ["dark", "light", "system"] as const;
+// Allow legacy values (dark/light/system) and the full app palette.
+const ThemeOptions = ["system", "dark", "light", "navy", "burgundy", "green", "black", "white"] as const;
 
 export const UserSettingsSchema = z.object({
   id: z.string().uuid().optional(),

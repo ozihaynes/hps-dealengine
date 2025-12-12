@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import type { RepairRates } from "@hps-internal/contracts";
 import type {
   Deal,
@@ -42,6 +42,8 @@ interface RepairsTabProps {
     source?: string | null;
     version?: string | null;
   } | null;
+  onQuickApply?: () => void;
+  onDetailedApply?: () => void;
 }
 
 interface EstimatorRowProps {
@@ -131,7 +133,8 @@ const QuickEstimate: React.FC<{
   setDealValue: (path: string, value: any) => void;
   psfTiers: RepairRates["psfTiers"];
   big5Rates: RepairRates["big5"];
-}> = ({ deal, calc, setDealValue, psfTiers, big5Rates }) => {
+  onApply?: () => void;
+}> = ({ deal, calc, setDealValue, psfTiers, big5Rates, onApply }) => {
   const [rehabLevel, setRehabLevel] = useState<string>("none");
   const [big5, setBig5] = useState<{
     roof: boolean;
@@ -146,6 +149,8 @@ const QuickEstimate: React.FC<{
     electrical: false,
     foundation: false,
   });
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const hydratedRef = React.useRef(false);
 
   /**
    * ROBUST SQFT RESOLUTION - FIXED VERSION
@@ -224,6 +229,42 @@ const QuickEstimate: React.FC<{
   const toggle = (k: keyof typeof big5) =>
     setBig5((prev) => ({ ...prev, [k]: !prev[k] }));
 
+  // Hydrate quick estimate selections from saved deal state without triggering apply
+  React.useEffect(() => {
+    const saved = (deal as any)?.repairs?.quickEstimate;
+    if (!saved || hydratedRef.current) return;
+    if (saved.rehabLevel) {
+      setRehabLevel(saved.rehabLevel);
+    }
+    if (saved.big5) {
+      setBig5((prev) => ({ ...prev, ...saved.big5 }));
+    }
+    hydratedRef.current = true;
+  }, [deal]);
+
+  const applyBudget = React.useCallback(() => {
+    const snapshot = {
+      rehabLevel,
+      big5,
+      sqft: resolveSqft(),
+      total: quickEstimateTotal,
+    };
+    setDealValue("repairs.quickEstimate", snapshot);
+    setDealValue("repairs.total", quickEstimateTotal);
+    setDealValue("repairs_total", quickEstimateTotal);
+    setDealValue("repairsTotal", quickEstimateTotal);
+    setDealValue("costs.repairs_base", quickEstimateTotal);
+    setDealValue("costs.repairs", quickEstimateTotal);
+    onApply?.();
+  }, [big5, rehabLevel, quickEstimateTotal, resolveSqft, setDealValue, onApply]);
+
+  // Auto-apply when the user has interacted with the calculator
+  React.useEffect(() => {
+    if (hasInteracted) {
+      applyBudget();
+    }
+  }, [applyBudget, hasInteracted]);
+
   return (
     <GlassCard className="p-5 md:p-6 space-y-3">
       <h3 className="text-lg font-bold text-text-primary flex items-center gap-2">
@@ -234,7 +275,10 @@ const QuickEstimate: React.FC<{
         <SelectField
           label="Rehab Level (PSF Tiers)"
           value={rehabLevel}
-          onChange={(e: any) => setRehabLevel(e.target.value)}
+          onChange={(e: any) => {
+            setHasInteracted(true);
+            setRehabLevel(e.target.value);
+          }}
         >
           <option value="none">
             None (${psfTiers?.none ?? 0}/sqft)
@@ -273,7 +317,10 @@ const QuickEstimate: React.FC<{
                     type="checkbox"
                     className="h-3.5 w-3.5 accent-accent-blue"
                     checked={big5[item]}
-                    onChange={() => toggle(item)}
+                    onChange={() => {
+                      setHasInteracted(true);
+                      toggle(item);
+                    }}
                   />
                   <span className="text-text-primary capitalize">
                     {item}
@@ -287,18 +334,23 @@ const QuickEstimate: React.FC<{
           </div>
         </div>
       </div>
-      <div className="mt-2 p-3 info-card border border-white/5 flex items-center justify-between rounded-lg">
+      <div className="highlight-card flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <div className="label-xs">Quick Estimate Total</div>
-          <div className="text-xl font-bold">
+          <div className="text-sm text-text-secondary font-bold uppercase">
+            Quick Estimate Total
+          </div>
+          <div className="text-xl font-extrabold">
             {fmt$(quickEstimateTotal, 0)}
           </div>
         </div>
         <Button
           size="sm"
-          onClick={() => setDealValue("costs.repairs_base", quickEstimateTotal)}
+          onClick={() => {
+            setHasInteracted(true);
+            applyBudget();
+          }}
         >
-          Apply as Repair Budget
+          Use as Repair Budget
         </Button>
       </div>
     </GlassCard>
@@ -503,6 +555,8 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
   ratesStatus,
   ratesError,
   meta,
+  onQuickApply,
+  onDetailedApply,
 }) => {
   const { costs, quantities } = estimatorState;
   const effectiveMarket = meta?.marketCode ?? repairRates?.marketCode ?? marketCode;
@@ -557,6 +611,16 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
     [costs, quantities, repairRates?.lineItemRates]
   );
 
+  const applyDetailedBudget = useCallback(() => {
+    const applied = totalRepairCost || 0;
+    setDealValue("repairs.total", applied);
+    setDealValue("repairs_total", applied);
+    setDealValue("repairsTotal", applied);
+    setDealValue("costs.repairs_base", applied);
+    setDealValue("costs.repairs", applied);
+    onDetailedApply?.();
+  }, [setDealValue, totalRepairCost, onDetailedApply]);
+
   return (
     <div className="space-y-4 repairs-scope">
       <RatesMetaBar
@@ -575,6 +639,7 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
         setDealValue={setDealValue}
         psfTiers={psfTiers}
         big5Rates={big5Rates}
+        onApply={onQuickApply}
       />
       <GlassCard className="p-5 md:p-6 space-y-4">
         <div className="flex items-center justify-between mb-3">
@@ -610,13 +675,18 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
               </div>
             </div>
           ))}
-          <div className="highlight-card col-span-2 md:col-span-4 flex justify-between items-center">
-            <div className="text-sm text-text-secondary font-bold">
-              DETAILED REPAIR SUBTOTAL
+          <div className="highlight-card col-span-2 md:col-span-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="text-sm text-text-secondary font-bold">
+                DETAILED REPAIR SUBTOTAL
+              </div>
+              <div className="text-xl font-extrabold">
+                {fmt$(totalRepairCost, 0)}
+              </div>
             </div>
-            <div className="text-lg font-extrabold">
-              {fmt$(totalRepairCost, 0)}
-            </div>
+            <Button size="sm" onClick={applyDetailedBudget}>
+              Use as Repair Budget
+            </Button>
           </div>
         </div>
         <div className="mt-3 text-xs text-text-secondary/80">

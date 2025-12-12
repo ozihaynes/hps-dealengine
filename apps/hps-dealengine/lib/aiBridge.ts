@@ -33,9 +33,25 @@ export async function askDealAnalyst(params: {
   }
 
   try {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) {
+      return {
+        persona: "dealAnalyst",
+        summary: "You are not signed in. Please refresh and sign in again.",
+        sources: [],
+        ok: false,
+        threadId: params.threadId ?? null,
+      };
+    }
+
     const res = await fetch("/api/agents/analyst", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         dealId: params.dealId,
         runId: params.runId,
@@ -169,9 +185,25 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
     throw new Error("dealId and runId are required for deal negotiator.");
   }
 
+  const supabase = getSupabaseClient();
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (!accessToken) {
+    return {
+      persona: "dealNegotiator",
+      mode: "generate_playbook",
+      runId: params.runId,
+      logicRowIds: [],
+      sections: { anchor: null, script: null, pivot: null, all: [] },
+    };
+  }
+
   const res = await fetch("/api/agents/negotiator", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
     body: JSON.stringify({
       dealId: params.dealId,
       question: "Generate full negotiation playbook.",
@@ -179,22 +211,54 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
     }),
   }).catch(() => null);
 
-  if (res && res.ok) {
-    const json = await res.json().catch(() => null);
-    if (json?.ok && json?.answer) {
+  const json = await res?.json().catch(() => null);
+  const error = json?.error;
+  const threadId = json?.threadId ?? null;
+  const rateLimitSummary =
+    "The Negotiator agent is temporarily rate-limited by the AI provider. Please wait a few seconds and try again.";
+
+  if (!res || !json?.ok) {
+    if (error === "rate_limited") {
       return {
         persona: "dealNegotiator",
         mode: "generate_playbook",
         runId: params.runId,
         logicRowIds: [],
-        sections: {
-          anchor: null,
-          script: null,
-          pivot: null,
-          all: [{ id: "playbook", module: "competence", scenarioLabel: "auto", triggerPhrase: "", scriptBody: json.answer }],
-        },
+        sections: { anchor: null, script: null, pivot: null, all: [] },
+        ok: false,
+        summary: rateLimitSummary,
+        threadId,
       };
     }
+
+    return {
+      persona: "dealNegotiator",
+      mode: "generate_playbook",
+      runId: params.runId,
+      logicRowIds: [],
+      sections: { anchor: null, script: null, pivot: null, all: [] },
+      ok: false,
+      summary: error ?? "Negotiator is unavailable. Please try again.",
+      threadId,
+    };
+  }
+
+  if (json?.answer) {
+    return {
+      persona: "dealNegotiator",
+      mode: "generate_playbook",
+      runId: params.runId,
+      logicRowIds: [],
+      sections: {
+        anchor: null,
+        script: null,
+        pivot: null,
+        all: [{ id: "playbook", module: "competence", scenarioLabel: "auto", triggerPhrase: "", scriptBody: json.answer }],
+      },
+      ok: true,
+      threadId,
+      model: json?.model ?? null,
+    };
   }
 
   return {
@@ -203,6 +267,9 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
     runId: params.runId,
     logicRowIds: [],
     sections: { anchor: null, script: null, pivot: null, all: [] },
+    ok: false,
+    summary: "Negotiator is unavailable. Please try again.",
+    threadId,
   };
 }
 
@@ -241,29 +308,51 @@ export async function askDealNegotiatorChat(params: {
   }
 
   try {
-    const res = await fetch("/api/agents/negotiator", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        dealId: params.dealId,
-        question: params.userMessage,
-        sellerContext: params.sellerContext ?? null,
-        runId: params.runId ?? null,
-        threadId: params.threadId ?? null,
-      }),
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok || !json?.ok) {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+    if (!accessToken) {
       return {
         persona: "dealNegotiator",
         mode: "chat",
         runId: params.runId ?? null,
-      logicRowIds: params.logicRowIds ?? [],
-      messages: [buildMessage("assistant", json?.error ?? "Negotiator is unavailable. Please try again.")],
-      ok: false,
-      threadId: json?.threadId ?? params.threadId ?? null,
-    };
-  }
+        logicRowIds: params.logicRowIds ?? [],
+        messages: [buildMessage("assistant", "You are not signed in. Please refresh and sign in again.")],
+        ok: false,
+        threadId: params.threadId ?? null,
+      };
+    }
+
+    const res = await fetch("/api/agents/negotiator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+    body: JSON.stringify({
+      dealId: params.dealId,
+      question: params.userMessage,
+      sellerContext: params.sellerContext ?? null,
+      runId: params.runId ?? null,
+      threadId: params.threadId ?? null,
+    }),
+  });
+  const json = await res.json().catch(() => null);
+    const error = json?.error;
+    const rateLimitMessage =
+      "The Negotiator agent is temporarily rate-limited by the AI provider. Please wait a few seconds and try again.";
+    if (!res.ok || !json?.ok) {
+      const message = error === "rate_limited" ? rateLimitMessage : json?.error ?? "Negotiator is unavailable. Please try again.";
+      return {
+        persona: "dealNegotiator",
+        mode: "chat",
+        runId: params.runId ?? null,
+        logicRowIds: params.logicRowIds ?? [],
+        messages: [buildMessage("assistant", message)],
+        ok: false,
+        threadId: json?.threadId ?? params.threadId ?? null,
+      };
+    }
     return {
       persona: "dealNegotiator",
       mode: "chat",

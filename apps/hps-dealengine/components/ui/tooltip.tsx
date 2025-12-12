@@ -117,16 +117,18 @@ export function Tooltip({
               }}
             >
               <div
-                className={`inline-flex min-w-[200px] max-w-[280px] flex-row items-start gap-1 whitespace-normal rounded-xl border-[0.5px] border-[var(--brand-navy)] bg-[rgba(0,127,224,0.92)] px-2 py-1.25 text-[11px] leading-snug text-[color:var(--brand-navy)] shadow-md shadow-sky-300/70`}
+                className={`inline-flex min-w-[200px] max-w-[280px] flex-row items-start gap-1 whitespace-normal rounded-xl border px-2 py-1.5 text-[11px] leading-snug text-[color:var(--text-primary)] shadow-lg`}
                 style={{
-                  boxShadow:
-                    "0 0 10px rgba(0, 127, 224, 0.25), 0 4px 12px rgba(0, 0, 0, 0.15)",
-                  backdropFilter: "blur(4px)",
-                  WebkitBackdropFilter: "blur(4px)",
+                  borderColor: "var(--glass-border)",
+                  background:
+                    "linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 16%, transparent) 0%, color-mix(in srgb, var(--glass-bg) 90%, transparent) 100%)",
+                  boxShadow: "0 8px 24px -10px rgba(0,0,0,0.45)",
+                  backdropFilter: "blur(10px)",
+                  WebkitBackdropFilter: "blur(10px)",
                   overflow: "visible",
                 }}
               >
-                <div className="w-full rounded-md bg-[rgba(0,0,0,0.6)] px-1.5 py-1 text-[11px] leading-snug text-white">
+                <div className="w-full rounded-md bg-[color:var(--glass-bg)] px-1.5 py-1 text-[11px] leading-snug text-[color:var(--text-primary)]">
                   {content}
                 </div>
               </div>

@@ -69,6 +69,10 @@ export type NegotiationPlaybookResult = {
     pivot?: NegotiationPlaybookSection | null;
     all: NegotiationPlaybookSection[];
   };
+  ok?: boolean;
+  summary?: string;
+  threadId?: string | null;
+  model?: string | null;
 };
 
 export type NegotiatorChatResult = {

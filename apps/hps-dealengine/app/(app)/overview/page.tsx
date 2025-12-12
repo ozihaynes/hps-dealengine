@@ -321,48 +321,34 @@ export default function Page() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="space-y-6">
-        <div className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-4">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
-              Dashboard
-            </h1>
-            <p className="text-sm text-text-secondary">
-              One-glance snapshot of where this deal sits in the corridor.
-            </p>
-          </div>
-        </div>
+        <div className="space-y-6">
 
-        <GlassCard className="p-4 md:p-5">
-          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-            <div>
-              <p className="text-xs uppercase text-text-secondary">Property</p>
-              <div className="text-lg font-semibold text-text-primary">
-                {propertyAddress}
+          <GlassCard className="p-4 md:p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-6">
+              <div className="flex h-full flex-col justify-center gap-1 md:gap-1.5">
+                <p className="text-xs uppercase text-text-secondary">Property</p>
+                <div className="text-lg font-semibold text-text-primary">
+                  {propertyAddress}
+                </div>
               </div>
-              {dbDeal?.id && (
-                <p className="text-xs text-text-secondary">
-                  Deal ID {dbDeal.id.slice(0, 8)}.
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col items-start gap-1 md:items-end">
-              <p className="text-xs uppercase text-text-secondary">Client</p>
-              <button
-                type="button"
-                ref={clientButtonRef}
-                title="View client details"
-                aria-haspopup="dialog"
-                aria-expanded={isClientProfileOpen}
-                className="group inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary transition hover:border-accent-blue/60 hover:text-accent-blue focus:outline-none focus:ring-2 focus:ring-accent-blue/50 focus:ring-offset-2 focus:ring-offset-black/30"
-                onClick={() => setIsClientProfileOpen(true)}
-              >
-                <Icon d={Icons.user} size={16} className="text-accent-blue/80" />
-                <span>{contactName}</span>
-                <span className="text-[11px] font-medium uppercase tracking-wide text-accent-blue/80">
-                  View
-                </span>
-              </button>
+              <div className="flex h-full flex-col items-start gap-1 md:items-end md:justify-center">
+                <p className="text-xs uppercase text-text-secondary">Client</p>
+                <button
+                  type="button"
+                  ref={clientButtonRef}
+                  title="View client details"
+                  aria-haspopup="dialog"
+                  aria-expanded={isClientProfileOpen}
+                  className="group relative inline-flex h-[28px] min-h-[28px] w-full items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-[var(--accent-blue,#0096ff)] to-[#00b8ff] px-4 text-sm font-semibold leading-tight text-white shadow-[0_4px_12px_rgba(0,150,255,0.18)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_rgba(0,150,255,0.22)] focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:ring-offset-2 focus:ring-offset-black/30 md:w-auto md:px-5"
+                  onClick={() => setIsClientProfileOpen(true)}
+                >
+                  <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 transition duration-700 ease-out group-hover:translate-x-[120%] group-hover:opacity-100" />
+                  <Icon d={Icons.user} size={16} className="text-white" />
+                  <span>{contactName}</span>
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-white/90">
+                    View
+                  </span>
+                </button>
             </div>
           </div>
         </GlassCard>

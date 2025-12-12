@@ -1,5 +1,7 @@
 "use client";
 
+// Underwrite header/actions live here; main form is components/underwrite/UnderwriteTab.tsx and overrides UI lives in components/underwrite/OverridesPanel.tsx + components/underwrite/RequestOverrideModal.tsx.
+
 export const dynamic = "force-dynamic";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -8,7 +10,8 @@ import { Button } from "@/components/ui";
 import RequestOverrideModal from "@/components/underwrite/RequestOverrideModal";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { Deal } from "../../../types";
-import { Postures } from "@hps-internal/contracts";
+import { Tooltip } from "@/components/ui/tooltip";
+import { AutosaveIndicator } from "@/components/shared/AutosaveIndicator";
 
 import { getSupabase } from "@/lib/supabaseClient";
 import { publishAnalyzeResult } from "@/lib/analyzeBus";
@@ -93,13 +96,13 @@ export default function UnderwritePage() {
     setLastRunAt,
     dbDeal,
     posture,
-    setPosture,
     sandboxLoading,
     sandboxError,
     repairRates,
     membershipRole,
     hasUnsavedDealChanges,
     setHasUnsavedDealChanges,
+    autosaveStatus,
   } = useDealSession();
   const [orgId, setOrgId] = useState<string>("");
   const canEditPolicy = useMemo(
@@ -454,68 +457,98 @@ export default function UnderwritePage() {
     <div className="container mx-auto max-w-7xl px-4 py-6 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">
-            Underwrite
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Tweak the deal inputs, then run the engine to publish results across
-            the app.
-          </p>
-          <p className="mt-1 text-xs text-text-tertiary">
-            Role: {membershipRole ?? "loading..."} | Policy edits:{" "}
-            {canEditPolicy ? "allowed (manager/vp/owner)" : "locked (analyst/unknown)"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2 text-xs text-text-secondary">
-            <span>Posture</span>
-            <select
-              className="rounded border border-border-subtle bg-surface-elevated px-2 py-1 text-xs"
-              value={posture}
-              onChange={(e) =>
-                setPosture(
-                  e.target.value as (typeof Postures)[number],
-                )
-              }
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold text-text-primary">Underwrite</h1>
+            <Tooltip
+              content="Tweak the deal inputs, then run the engine to publish results across the app."
+              side="top"
+              align="start"
             >
-              {Postures.map((p) => (
-                <option key={p} value={p}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={isAnalyzing}
-            onClick={handleAnalyze}
-          >
-            {isAnalyzing ? "Analyzing." : "Analyze with Engine"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="neutral"
-            disabled={isSavingRun || !(analysisResult || lastAnalyzeResult)}
-            onClick={handleSaveRun}
-          >
-            {isSavingRun ? "Saving Run." : "Save Run"}
-          </Button>
-
-          <Button
-            size="sm"
-            variant="neutral"
-            onClick={() => {
-              setOverridePrefill(null);
-              setIsOverrideModalOpen(true);
-            }}
-          >
-            Request Override
-          </Button>
+              <button
+                type="button"
+                aria-label="Underwrite info"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-white/15 bg-white/10 text-[10px] font-semibold text-text-secondary transition hover:border-white/25 hover:text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue/60"
+              >
+                i
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1">
+            <AutosaveIndicator
+              state={autosaveStatus.state}
+              lastSavedAt={autosaveStatus.lastSavedAt}
+              error={autosaveStatus.error}
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={isAnalyzing}
+              onClick={handleAnalyze}
+            >
+              {isAnalyzing ? "Analyzing..." : "Analyze Deal"}
+            </Button>
+          </div>
         </div>
       </div>
+
+      {(evidenceStatus.length > 0 || evidenceError) && (
+        <div className="relative mb-2 flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Evidence checklist"
+            onClick={() => setShowChecklist((prev) => !prev)}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-[#FF4500]/40 bg-[#FF4500]/10 text-[#FF4500] hover:bg-[#FF4500]/20 transition"
+          >
+            <Info size={14} />
+          </button>
+          <span className="text-[11px] text-text-secondary">Evidence checklist</span>
+          {showChecklist && (
+            <div
+              ref={checklistRef}
+              className="absolute z-20 top-9 left-0 min-w-[260px] rounded-lg border border-[#FF4500]/50 bg-[color:var(--glass-bg,strong)]/95 px-3 py-3 text-[11px] text-text-primary shadow-xl backdrop-blur"
+            >
+              <div className="mb-2 font-semibold text-[#FF4500]">
+                Evidence checklist for this deal {lastRunId ? " / run" : ""}
+              </div>
+              {evidenceError && (
+                <div className="text-red-200">Evidence load error: {evidenceError}</div>
+              )}
+              {!evidenceError && evidenceStatus.length === 0 && (
+                <div className="text-text-secondary">No evidence found yet.</div>
+              )}
+              <div className="space-y-1">
+                {evidenceStatus.map((row) => {
+                  const label = evidenceLabel(row.kind);
+                  if (row.status === "missing") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: missing - upload before offer.
+                      </div>
+                    );
+                  }
+                  if (row.status === "stale") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) - refresh.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={row.kind} className="flex items-center gap-1 text-emerald-200">
+                      <CheckCircle size={12} className="text-emerald-300" />
+                      <span>
+                        {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-red-200">
@@ -554,92 +587,35 @@ export default function UnderwritePage() {
         </div>
       )}
 
-      {(evidenceStatus.length > 0 || evidenceError) && (
-        <div className="relative flex items-center gap-2">
-          <button
-            type="button"
-            aria-label="Evidence checklist"
-            onClick={() => setShowChecklist((prev) => !prev)}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-[#FF4500]/50 bg-[#FF4500]/10 text-[#FF4500] hover:bg-[#FF4500]/20 transition"
-          >
-            <Info size={16} />
-          </button>
-          <span className="text-xs text-text-secondary">Evidence checklist</span>
-          {showChecklist && (
-            <div
-              ref={checklistRef}
-              className="absolute z-20 top-10 right-0 min-w-[280px] rounded-lg border border-[#FF4500]/50 bg-[color:var(--glass-bg,strong)]/95 px-3 py-3 text-xs text-text-primary shadow-xl backdrop-blur"
-            >
-              <div className="mb-2 font-semibold text-[#FF4500]">
-                Evidence checklist for this deal {lastRunId ? " / run" : ""}
-              </div>
-              {evidenceError && (
-                <div className="text-red-200">Evidence load error: {evidenceError}</div>
-              )}
-              {!evidenceError && evidenceStatus.length === 0 && (
-                <div className="text-text-secondary">No evidence found yet.</div>
-              )}
-              <div className="space-y-1">
-                {evidenceStatus.map((row) => {
-                  const label = evidenceLabel(row.kind);
-                  if (row.status === "missing") {
-                    return (
-                      <div key={row.kind} className="text-amber-200">
-                        {label}: missing - upload before offer.
-                      </div>
-                    );
-                  }
-                  if (row.status === "stale") {
-                    return (
-                      <div key={row.kind} className="text-amber-200">
-                        {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) - refresh.
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={row.kind} className="flex items-center gap-1 text-emerald-200">
-                      <CheckCircle size={14} className="text-emerald-300" />
-                      <span>
-                        {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       <div className="space-y-6">
-          <UnderwriteTab
-            deal={deal}
-            calc={calc}
-            setDealValue={handleSetDealValue}
-            sandbox={effectiveSandbox}
-            canEditPolicy={canEditPolicy}
-            onRequestOverride={openOverrideModal}
-          />
+        <UnderwriteTab
+          deal={deal}
+          calc={calc}
+          setDealValue={handleSetDealValue}
+          sandbox={effectiveSandbox}
+          canEditPolicy={canEditPolicy}
+          onRequestOverride={openOverrideModal}
+        />
 
-          <OverridesPanel
-            orgId={orgId || null}
-            dealId={dbDeal?.id ?? null}
-            posture={posture}
-            lastRunId={lastRunId}
-            refreshKey={overrideRefreshKey}
-            membershipRole={membershipRole}
-          />
+        <OverridesPanel
+          orgId={orgId || null}
+          dealId={dbDeal?.id ?? null}
+          posture={posture}
+          lastRunId={lastRunId}
+          refreshKey={overrideRefreshKey}
+          membershipRole={membershipRole}
+        />
 
-          {dbDeal?.id && (
-            <EvidenceUpload
-              dealId={dbDeal.id}
-              runId={lastRunId}
-              title="Evidence for this deal/run"
-              onUploadComplete={() => {
-                void refreshEvidence();
-              }}
-            />
-          )}
+        {dbDeal?.id && (
+          <EvidenceUpload
+            dealId={dbDeal.id}
+            runId={lastRunId}
+            title="Evidence for this deal/run"
+            onUploadComplete={() => {
+              void refreshEvidence();
+            }}
+          />
+        )}
       </div>
 
       <RequestOverrideModal
