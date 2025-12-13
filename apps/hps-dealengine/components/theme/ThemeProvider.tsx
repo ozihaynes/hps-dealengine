@@ -23,10 +23,9 @@ const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefine
 
 const ALLOWED_THEMES: DealEngineThemeName[] = ["burgundy", "green", "navy", "pink", "black"];
 const THEME_ALIASES: Record<string, DealEngineThemeName> = {
-  system: DEFAULT_THEME,
-  white: DEFAULT_THEME,
   pink2: "pink",
   pink3: "pink",
+  white: DEFAULT_THEME,
 };
 const ALLOWED_SETTINGS: ThemeSetting[] = ["system", "dark", "light", ...ALLOWED_THEMES];
 const SYSTEM_DARK_THEME: DealEngineThemeName = DEFAULT_THEME;
@@ -154,11 +153,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const settings = await fetchUserSettings().catch(() => null);
         if (cancelled || !settings?.theme) return;
 
-        const normalized = normalizeSetting(settings.theme);
+        const remoteRaw = settings.theme as ThemeSetting | string | undefined;
+        const normalized = normalizeSetting(remoteRaw);
         const current = themeSettingRef.current;
-        // If remote is default/system but we already have a user-picked theme, keep local and sync later.
-        if (normalized === "system" && current !== "system") {
-          remoteThemeRef.current = normalized;
+        const legacyDefault = remoteRaw === "system" || remoteRaw === "dark" || remoteRaw === "light" || remoteRaw === "white";
+        // If remote is a legacy default but user already chose a concrete theme, keep local and persist it back.
+        if (legacyDefault && current && !["system", "dark", "light", DEFAULT_THEME].includes(current as any)) {
+          remoteThemeRef.current = remoteRaw as ThemeSetting;
           pendingPersistRef.current = true;
           return;
         }
