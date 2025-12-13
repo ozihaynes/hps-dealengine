@@ -126,6 +126,11 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     (valuationRun as any)?.provenance?.min_closed_comps_required ??
     (valuationRun as any)?.input?.min_closed_comps_required ??
     null;
+  const suggestedApplied = Boolean(
+    market?.arv_source === "valuation_run" &&
+      valuationRun?.id &&
+      market?.arv_valuation_run_id === valuationRun.id,
+  );
 
   // Live engine outputs from Edge (via /underwrite/debug → analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
@@ -255,16 +260,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           >
             {refreshingValuation ? "Refreshing..." : "Refresh Valuation"}
           </Button>
-          {suggestedArv != null && (market.arv == null || market.arv === "") && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleApplySuggested}
-              disabled={applyingSuggestedArv}
-            >
-              {applyingSuggestedArv ? "Applying..." : "Use Suggested ARV"}
-            </Button>
-          )}
         </div>
       </div>
       {valuationError && (
@@ -387,14 +382,18 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <span className="rounded border border-white/10 px-2 py-1">
               As of: {valuationSnapshot?.as_of ? new Date(valuationSnapshot.as_of).toLocaleDateString() : "-"}
             </span>
-            {market.arv != null && market.arv !== "" && (
+            {suggestedArv != null && (
               <Button
                 size="sm"
                 variant="neutral"
                 onClick={handleApplySuggested}
-                disabled={applyingSuggestedArv}
+                disabled={applyingSuggestedArv || suggestedApplied}
               >
-                {applyingSuggestedArv ? "Applying..." : "Use Suggested ARV"}
+                {suggestedApplied
+                  ? "Applied"
+                  : applyingSuggestedArv
+                  ? "Applying..."
+                  : "Use Suggested ARV"}
               </Button>
             )}
           </div>

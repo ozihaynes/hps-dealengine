@@ -93,14 +93,28 @@ export function CompsPanel({ comps, snapshot, minClosedComps }: CompsPanelProps)
                 {comp.city ?? ""} {comp.state ?? ""} {comp.postal_code ?? ""}
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
+                {(() => {
+                  const isListing = (comp as any)?.comp_kind === "sale_listing";
+                  const priceLabel = isListing ? "List Price" : "Close Price";
+                  const dateLabel = isListing ? "Listed" : "Closed";
+                  return (
+                    <>
+                      <span>
+                        {priceLabel}:{" "}
+                        {Number.isFinite(Number(comp.price))
+                          ? `$${Number(comp.price).toLocaleString()}`
+                          : "-"}
+                      </span>
+                      <span>
+                        {dateLabel}:{" "}
+                        {comp.close_date ? new Date(comp.close_date).toLocaleDateString() : "-"}
+                      </span>
+                    </>
+                  );
+                })()}
                 <span>
-                  Price:{" "}
-                  {Number.isFinite(Number(comp.price))
-                    ? `$${Number(comp.price).toLocaleString()}`
-                    : "-"}
+                  Correlation: {comp.correlation ?? "-"}
                 </span>
-                <span>Date: {comp.close_date ? new Date(comp.close_date).toLocaleDateString() : "-"}</span>
-                <span>Correlation: {comp.correlation ?? "-"}</span>
                 <span>Days Old: {comp.days_old ?? "-"}</span>
                 <span>Status: {comp.status ?? "-"}</span>
                 <span>Listing: {comp.listing_type ?? "-"}</span>

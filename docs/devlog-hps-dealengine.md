@@ -84,6 +84,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-13 - Slice 2.2.1 — UI semantics bugfix + release hygiene
+- Comps panel now labels price/date based on evidence kind (listings show “List Price” / “Listed”, future closed_sales will show “Close Price” / “Closed”); header remains “Comparable sale listings (RentCast)” with listing-based gating copy.
+- “Use Suggested ARV” reduced to a single button in Market & Valuation with an “Applied” state when already persisted via valuation_run provenance.
+- Added root lint runner (`pnpm -w lint`) and a drift doctor script (`scripts/doctor-valuation-spine.ps1`, `pnpm doctor:valuation`) to detect missing valuation tables/functions without exposing secrets.
+- Commands: `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
+
 ### 2025-12-12 - Slice 2.2 — Valuation Spine Correctness Patch
 - Policy lookup now org + posture scoped in `v1-connectors-proxy` and `v1-valuation-run` via a shared helper; missing/multiple active policies return explicit errors instead of posture-only fallbacks.
 - RentCast mapping hardened: comps marked `comp_kind=sale_listing` with status/correlation/daysOld/listingType preserved; market snapshot includes `/markets` stats when ZIP is present; correlation missing now caps confidence at C with a `missing_correlation_signal` warning; TTL remains policy-driven.

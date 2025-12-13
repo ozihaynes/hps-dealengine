@@ -275,16 +275,10 @@ export default function UserSettingsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Link
-              href="/settings/sandbox"
-              className="rounded-md border border-accent-blue/40 bg-accent-blue/10 px-3 py-2 text-sm font-semibold text-accent-blue hover:border-accent-blue/60 hover:bg-accent-blue/15"
+              href="/logout"
+              className="rounded-md border border-accent-orange/40 bg-accent-orange/10 px-3 py-2 text-sm font-semibold text-accent-orange hover:border-accent-orange/60 hover:bg-accent-orange/15"
             >
-              Open Sandbox Settings
-            </Link>
-            <Link
-              href="/settings/policy-overrides"
-              className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary hover:border-white/20 hover:bg-white/10"
-            >
-              View Overrides
+              Sign out
             </Link>
           </div>
         </div>
@@ -630,7 +624,15 @@ export default function UserSettingsPage() {
               org. Use these entry points for team-level controls.
             </p>
           </div>
-          <BadgePill label="RLS enforced" />
+          <div className="flex items-center gap-2">
+            <BadgePill label="RLS enforced" />
+            <Link
+              href="/settings/policy-overrides"
+              className="rounded-md border border-accent-blue/50 bg-accent-blue/10 px-3 py-2 text-sm font-semibold text-accent-blue hover:border-accent-blue/70 hover:bg-accent-blue/15"
+            >
+              View overrides queue
+            </Link>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {quickLinks.map((link) => (

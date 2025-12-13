@@ -360,6 +360,7 @@ Fast-follow items that do not change V1 behavior:
 - **Policy Docs Hardening**:
   - Fill in placeholders: `domain.risk-gates-and-compliance`, `engine.knobs-and-sandbox-mapping`, `app.routes-overview`.
   - Confirm each gate/knob is wired to trace and KPIs.
+- **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early.
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
