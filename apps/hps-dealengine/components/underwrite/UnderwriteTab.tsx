@@ -1,7 +1,7 @@
 import React from "react";
 import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
-import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon } from "../ui";
-import { InfoTooltip } from "../ui/InfoTooltip";
+import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon, Modal } from "../ui";
+import { Tooltip } from "../ui/tooltip";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";
 import { num, fmt$ } from "../../utils/helpers";
@@ -49,6 +49,20 @@ interface UnderwriteTabProps {
   valuationStatus?: string | null;
   onApplySuggestedArv?: () => void;
   applyingSuggestedArv?: boolean;
+  onOverrideMarketValue?: (
+    field: "arv" | "as_is_value",
+    value: number,
+    reason: string,
+    valuationRunId?: string | null,
+  ) => Promise<void>;
+  overrideStatus?: string | null;
+  overrideError?: string | null;
+  overrideSaving?: boolean;
+  autosaveStatus?: {
+    state: "idle" | "saving" | "saved" | "error";
+    lastSavedAt: string | null;
+    error: string | null;
+  };
 }
 
 const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
@@ -67,6 +81,11 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   valuationStatus,
   onApplySuggestedArv,
   applyingSuggestedArv,
+  onOverrideMarketValue,
+  overrideStatus,
+  overrideError,
+  overrideSaving,
+  autosaveStatus,
 }) => {
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
@@ -114,6 +133,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const suggestedArv = valuationRun?.output?.suggested_arv ?? null;
   const arvRangeLow = valuationRun?.output?.arv_range_low ?? null;
   const arvRangeHigh = valuationRun?.output?.arv_range_high ?? null;
+  const contractPrice = market.contract_price ?? "";
+  const valuationBasis = market.valuation_basis ?? "";
   const compCount = valuationRun?.output?.comp_count ?? null;
   const valuationConfidence = valuationRun?.output?.valuation_confidence ?? null;
   const compStats = valuationRun?.output?.comp_set_stats ?? null;
@@ -131,6 +152,54 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       valuationRun?.id &&
       market?.arv_valuation_run_id === valuationRun.id,
   );
+  const comps = Array.isArray(valuationSnapshot?.comps) ? valuationSnapshot.comps : [];
+  const marketSnapshot: any = (valuationSnapshot as any)?.market ?? null;
+  const compStatusCounts = React.useMemo(
+    () =>
+      comps.reduce(
+        (acc, comp) => {
+          const status = (comp.status || "").toLowerCase();
+          if (status.includes("active")) {
+            acc.active += 1;
+          } else if (
+            status.includes("inactive") ||
+            status.includes("off") ||
+            status.includes("expired")
+          ) {
+            acc.inactive += 1;
+          } else if (status) {
+            acc.other += 1;
+          } else {
+            acc.unknown += 1;
+          }
+          return acc;
+        },
+        { active: 0, inactive: 0, other: 0, unknown: 0 },
+      ),
+    [comps],
+  );
+  const compsGating = displayMinComps != null ? comps.length < displayMinComps : false;
+  const providerLabel =
+    provenance?.provider_name ??
+    valuationSnapshot?.provider ??
+    provenance?.source ??
+    valuationSnapshot?.source ??
+    "-";
+  const snapshotAsOf = valuationSnapshot?.as_of
+    ? new Date(valuationSnapshot.as_of).toLocaleDateString()
+    : "-";
+  const marketSnapshotAsOf =
+    (marketSnapshot?.as_of && new Date(marketSnapshot.as_of).toLocaleDateString()) || snapshotAsOf;
+  const marketSnapshotSource = marketSnapshot?.source ?? providerLabel;
+  const missingContractPrice =
+    contractPrice === "" ||
+    contractPrice === null ||
+    (typeof contractPrice === "string" && contractPrice.trim() === "");
+  const [overrideTarget, setOverrideTarget] = React.useState<"arv" | "as_is_value" | null>(null);
+  const [overrideValue, setOverrideValue] = React.useState<string>("");
+  const [overrideReason, setOverrideReason] = React.useState<string>("");
+  const [overrideLocalError, setOverrideLocalError] = React.useState<string | null>(null);
+  const [overrideSubmitting, setOverrideSubmitting] = React.useState(false);
 
   // Live engine outputs from Edge (via /underwrite/debug → analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
@@ -188,6 +257,49 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     }
   };
 
+  const openOverrideModal = (field: "arv" | "as_is_value") => {
+    setOverrideTarget(field);
+    const current = field === "arv" ? market.arv : market.as_is_value;
+    setOverrideValue(current ?? "");
+    setOverrideReason("");
+    setOverrideLocalError(null);
+  };
+
+  const closeOverrideModal = () => {
+    setOverrideTarget(null);
+    setOverrideValue("");
+    setOverrideReason("");
+    setOverrideLocalError(null);
+  };
+
+  const handleOverrideSubmit = async () => {
+    if (!overrideTarget) return;
+    const numeric = Number(overrideValue);
+    if (!Number.isFinite(numeric)) {
+      setOverrideLocalError("Enter a valid number.");
+      return;
+    }
+    const trimmedReason = overrideReason.trim();
+    if (trimmedReason.length < 10) {
+      setOverrideLocalError("Reason must be at least 10 characters.");
+      return;
+    }
+    if (!onOverrideMarketValue) {
+      setOverrideLocalError("Override handler is unavailable.");
+      return;
+    }
+    setOverrideSubmitting(true);
+    setOverrideLocalError(null);
+    try {
+      await onOverrideMarketValue(overrideTarget, numeric, trimmedReason, valuationRun?.id ?? null);
+      closeOverrideModal();
+    } catch (err: any) {
+      setOverrideLocalError(err?.message ?? "Failed to save override");
+    } finally {
+      setOverrideSubmitting(false);
+    }
+  };
+
   const warningCopy: Record<string, string> = {
     missing_correlation_signal: "Correlation unavailable; confidence capped at C.",
   };
@@ -241,163 +353,309 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm text-text-secondary">
-          <span className="font-semibold text-text-primary">Valuation Confidence:</span>{" "}
-          {valuationConfidence ?? "-"}{" "}
-          {compCount != null
-            ? `(Comparable listings: ${compCount}${
-                displayMinComps != null ? ` / min ${displayMinComps}` : " / policy missing"
-              })`
-            : ""}
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="neutral"
-            size="sm"
-            onClick={() => onRefreshValuation?.()}
-            disabled={refreshingValuation || !onRefreshValuation}
-          >
-            {refreshingValuation ? "Refreshing..." : "Refresh Valuation"}
-          </Button>
-        </div>
-      </div>
-      {valuationError && (
-        <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-          {valuationError}
-        </div>
-      )}
-      {valuationStatus && (
-        <div className="rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
-          {valuationStatus}
-        </div>
-      )}
-      {!valuationRun && displayMinComps == null && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
-          Policy token missing: valuation.min_closed_comps_required
-        </div>
-      )}
-      {valuationWarnings.length > 0 && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          <div className="font-semibold text-text-primary">Valuation warnings</div>
-          <ul className="list-disc pl-4">
-            {valuationWarnings.map((w) => (
-              <li key={w}>{warningCopy[w] ?? w}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Market & Valuation */}
       <UnderwritingSection title="Market & Valuation" icon={Icons.barChart}>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <InputField
-            label="ARV"
-            type="number"
-            prefix="$"
-            value={market.arv ?? ""}
-            onChange={(e: any) => setDealValue("market.arv", e.target.value)}
-            warning={arvWarning}
-            helpKey="arv"
-          />
-          <InputField
-            label="As-Is Value"
-            type="number"
-            prefix="$"
-            value={market.as_is_value ?? ""}
-            onChange={(e: any) => setDealValue("market.as_is_value", e.target.value)}
-            warning={arvWarning}
-            helpKey="aiv"
-          />
-          {/* Units in label to avoid suffix overlap */}
-          <InputField
-            label="DOM (Zip, days)"
-            type="number"
-            value={market.dom_zip ?? ""}
-            onChange={(e: any) => setDealValue("market.dom_zip", e.target.value)}
-          />
-          <InputField
-            label="MOI (Zip, months)"
-            type="number"
-            value={market.moi_zip ?? ""}
-            onChange={(e: any) => setDealValue("market.moi_zip", e.target.value)}
-          />
-          <InputField
-            label="Price-to-List %"
-            type="number"
-            suffix="%"
-            value={
-              market["price-to-list-pct"] != null
-                ? Number(market["price-to-list-pct"]) * 100
-                : null
-            }
-            onChange={(e: any) => {
-              const raw = e.target.value;
-              const next =
-                raw === "" || raw === null || raw === undefined
-                  ? null
-                  : parseFloat(raw) / 100;
-              setDealValue("market.price-to-list-pct", next);
-            }}
-          />
-          <InputField
-            label="Local Discount (20th %)"
-            type="number"
-            suffix="%"
-            value={
-              market.local_discount_20th_pct != null
-                ? Number(market.local_discount_20th_pct) * 100
-                : null
-            }
-            onChange={(e: any) => setDealValue("market.local_discount_20th_pct", e.target.value)}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+            <span className="font-semibold text-text-primary">Valuation Confidence:</span>
+            <span className="text-lg font-semibold text-text-primary">
+              {valuationConfidence ?? "-"}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1 text-xs">
+              {compCount ?? comps.length ?? 0} comps{" "}
+              {displayMinComps != null ? `(min ${displayMinComps})` : "(policy missing)"}
+            </span>
+            {compsGating && (
+              <span className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-xs text-amber-100">
+                Informational only: insufficient comps
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="neutral"
+              size="sm"
+              onClick={() => onRefreshValuation?.()}
+              disabled={refreshingValuation || !onRefreshValuation}
+            >
+              {refreshingValuation ? "Refreshing..." : "Refresh Valuation"}
+            </Button>
+          </div>
         </div>
-        {suggestedArv != null && (
-          <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary">
-            <span>
-              Suggested ARV:{" "}
-              <span className="font-semibold text-text-primary">{fmt$(suggestedArv, 0)}</span>
-            </span>
-            {arvRangeLow != null && arvRangeHigh != null && (
-              <span>
-                Range: {fmt$(arvRangeLow, 0)} - {fmt$(arvRangeHigh, 0)}
-              </span>
+
+        {valuationError && (
+          <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+            {valuationError}
+          </div>
+        )}
+        {valuationStatus && (
+          <div className="rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+            {valuationStatus}
+          </div>
+        )}
+        {!valuationRun && displayMinComps == null && (
+          <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+            Policy token missing: valuation.min_closed_comps_required
+          </div>
+        )}
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="info-card rounded-lg border border-white/5 bg-white/5 p-4 space-y-3">
+            <div className="flex items-center justify-between text-xs uppercase tracking-wide text-text-secondary">
+              <span>Facts</span>
+              {suggestedApplied && (
+                <span className="rounded border border-emerald-400/40 px-2 py-1 text-[11px] text-emerald-200">
+                  Applied
+                </span>
+              )}
+            </div>
+            {autosaveStatus && (
+              <div className="text-[11px] text-text-secondary">
+                {autosaveStatus.state === "saving" && "Saving..."}
+                {autosaveStatus.state === "error" &&
+                  (autosaveStatus.error ? `Error: ${autosaveStatus.error}` : "Save error")}
+                {autosaveStatus.state !== "saving" &&
+                  autosaveStatus.state !== "error" &&
+                  (autosaveStatus.lastSavedAt ? "Saved" : null)}
+              </div>
             )}
-            <span>
-              Valuation Confidence:{" "}
-              <span className="font-semibold text-text-primary">
-                {valuationConfidence ?? "-"}
-              </span>
-            </span>
-            {compStats && (
-              <span>
-                Listing stats: {compCount ?? "-"} listings, med dist {compStats.median_distance_miles ?? "-"} mi, med
-                corr {compStats.median_correlation ?? "-"}, med days-old {compStats.median_days_old ?? "-"}
-              </span>
-            )}
-            <span className="rounded border border-white/10 px-2 py-1">
-              Provider: {provenance?.provider_name ?? provenance?.source ?? "-"}{" "}
-              {provenance?.stub ? "(stub)" : ""}
-            </span>
-            <span className="rounded border border-white/10 px-2 py-1">
-              As of: {valuationSnapshot?.as_of ? new Date(valuationSnapshot.as_of).toLocaleDateString() : "-"}
-            </span>
-            {suggestedArv != null && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <InputField
+                label="Contract/Offer Price"
+                type="number"
+                prefix="$"
+                value={contractPrice}
+                onChange={(e: any) => setDealValue("market.contract_price", e.target.value)}
+                warning={missingContractPrice ? "Required" : null}
+              />
+              <InputField
+                label="ARV"
+                type="number"
+                prefix="$"
+                value={market.arv ?? ""}
+                disabled
+                warning={arvWarning}
+                helpKey="arv"
+              />
+              <InputField
+                label="As-Is Value"
+                type="number"
+                prefix="$"
+                value={market.as_is_value ?? ""}
+                disabled
+                warning={arvWarning}
+                helpKey="aiv"
+              />
+              <SelectField
+                label="Valuation Basis"
+                value={valuationBasis}
+                onChange={(e: any) => setDealValue("market.valuation_basis", e.target.value)}
+              >
+                <option value="">Select basis</option>
+                <option value="rentcast_avm">RentCast AVM (with comparable sale listings)</option>
+                <option value="manual_override">Manual override</option>
+              </SelectField>
+            </div>
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="neutral"
-                onClick={handleApplySuggested}
-                disabled={applyingSuggestedArv || suggestedApplied}
+                onClick={() => openOverrideModal("arv")}
+                disabled={overrideSaving}
               >
-                {suggestedApplied
-                  ? "Applied"
-                  : applyingSuggestedArv
-                  ? "Applying..."
-                  : "Use Suggested ARV"}
+                Override ARV
               </Button>
+              <Button
+                size="sm"
+                variant="neutral"
+                onClick={() => openOverrideModal("as_is_value")}
+                disabled={overrideSaving}
+              >
+                Override As-Is Value
+              </Button>
+            </div>
+            {overrideError && (
+              <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+                {overrideError}
+              </div>
+            )}
+            {overrideStatus && (
+              <div className="rounded-md border border-blue-400/40 bg-blue-500/10 px-3 py-2 text-xs text-blue-100">
+                {overrideStatus}
+              </div>
+            )}
+            {missingContractPrice && (
+              <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                Contract/Offer Price is required for this slice. Enter the price to keep valuation facts complete.
+              </div>
+            )}
+            {suggestedArv != null && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+                <span>
+                  Suggested:{" "}
+                  <span className="font-semibold text-text-primary">{fmt$(suggestedArv, 0)}</span>
+                </span>
+                {arvRangeLow != null && arvRangeHigh != null && (
+                  <span>
+                    Range: {fmt$(arvRangeLow, 0)} - {fmt$(arvRangeHigh, 0)}
+                  </span>
+                )}
+                <span className="rounded border border-white/10 px-2 py-1">
+                  Provider: {providerLabel} {provenance?.stub ? "(stub)" : ""}
+                </span>
+                <span className="rounded border border-white/10 px-2 py-1">As of: {snapshotAsOf}</span>
+                <Button
+                  size="sm"
+                  variant="neutral"
+                  onClick={handleApplySuggested}
+                  disabled={applyingSuggestedArv || suggestedApplied}
+                >
+                  {suggestedApplied
+                    ? "Applied"
+                    : applyingSuggestedArv
+                    ? "Applying..."
+                    : "Use Suggested ARV"}
+                </Button>
+              </div>
             )}
           </div>
-        )}
+
+          <div className="info-card rounded-lg border border-white/5 bg-white/5 p-4 space-y-3">
+            <div className="text-xs uppercase tracking-wide text-text-secondary">Market</div>
+            <div className="space-y-2 text-sm text-text-secondary">
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">DOM (Zip, days)</span>
+                {marketSnapshot?.dom_zip_days != null ? (
+                  <span className="rounded border border-white/10 px-2 py-1">
+                    {marketSnapshot.dom_zip_days}
+                  </span>
+                ) : (
+                  <Tooltip content="Not available from v1 provider; planned in v2.">
+                    <span className="rounded border border-white/10 px-2 py-1">—</span>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">MOI (Zip, months)</span>
+                {marketSnapshot?.moi_zip_months != null ? (
+                  <span className="rounded border border-white/10 px-2 py-1">
+                    {marketSnapshot.moi_zip_months}
+                  </span>
+                ) : (
+                  <Tooltip content="Not available from v1 provider; planned in v2.">
+                    <span className="rounded border border-white/10 px-2 py-1">—</span>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">Price-to-List %</span>
+                {marketSnapshot?.price_to_list_pct != null ? (
+                  <span className="rounded border border-white/10 px-2 py-1">
+                    {`${Number(marketSnapshot.price_to_list_pct * 100).toFixed(1)}%`}
+                  </span>
+                ) : (
+                  <Tooltip content="Not available from v1 provider; planned in v2.">
+                    <span className="rounded border border-white/10 px-2 py-1">—</span>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">Local Discount (20th %)</span>
+                {marketSnapshot?.local_discount_pct_p20 != null ? (
+                  <span className="rounded border border-white/10 px-2 py-1">
+                    {`${Number(marketSnapshot.local_discount_pct_p20 * 100).toFixed(1)}%`}
+                  </span>
+                ) : (
+                  <Tooltip content="Not available from v1 provider; planned in v2.">
+                    <span className="rounded border border-white/10 px-2 py-1">—</span>
+                  </Tooltip>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">Flood / SFHA</span>
+                <span className="rounded border border-white/10 px-2 py-1">
+                  Not connected (v1)
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded border border-white/10 px-2 py-1">
+                  Source: {marketSnapshotSource ?? "-"}
+                </span>
+                <span className="rounded border border-white/10 px-2 py-1">
+                  As of: {marketSnapshotAsOf}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="info-card rounded-lg border border-white/5 bg-white/5 p-4 space-y-3">
+            <div className="text-xs uppercase tracking-wide text-text-secondary">Comps</div>
+            <div className="text-sm font-semibold text-text-primary">
+              Comparable sale listings (RentCast)
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
+              <span className="font-semibold text-text-primary">{comps.length} listings</span>
+              {displayMinComps != null ? (
+                <span className="rounded border border-white/10 px-2 py-1 text-xs">min {displayMinComps}</span>
+              ) : (
+                <span className="rounded border border-amber-400/40 px-2 py-1 text-xs text-amber-100">
+                  valuation.min_closed_comps_required missing
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
+              <span>Active: {compStatusCounts.active}</span>
+              <span>Inactive: {compStatusCounts.inactive}</span>
+              <span>Other: {compStatusCounts.other}</span>
+              <span>Unknown: {compStatusCounts.unknown}</span>
+            </div>
+            {compStats && (
+              <div className="text-xs text-text-secondary">
+                Listing stats: {compCount ?? "-"} listings, med dist {compStats.median_distance_miles ?? "-"} mi, med
+                corr {compStats.median_correlation ?? "-"}, med days-old {compStats.median_days_old ?? "-"}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 text-xs text-text-secondary">
+              <span className="rounded border border-white/10 px-2 py-1">Provider: {providerLabel}</span>
+              <span className="rounded border border-white/10 px-2 py-1">As of: {snapshotAsOf}</span>
+              {valuationSnapshot?.stub && (
+                <span className="rounded border border-amber-400/40 px-2 py-1 text-amber-100">Stub data</span>
+              )}
+            </div>
+            {compsGating && (
+              <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
+                Insufficient comparable sale listings. Valuation is informational only.
+              </div>
+            )}
+          </div>
+
+          <div className="info-card rounded-lg border border-white/5 bg-white/5 p-4 space-y-3">
+            <div className="text-xs uppercase tracking-wide text-text-secondary">Confidence</div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-2xl font-semibold text-text-primary">
+                {valuationConfidence ?? "-"}
+              </span>
+              <span className="text-xs text-text-secondary">Valuation Confidence</span>
+            </div>
+            <div className="text-xs text-text-secondary">
+              {compCount != null
+                ? `${compCount} comps scored${displayMinComps != null ? ` / min ${displayMinComps}` : ""}`
+                : "No valuation run yet."}
+            </div>
+            {valuationWarnings.length > 0 && (
+              <ul className="list-disc space-y-1 pl-4 text-xs text-amber-100">
+                {valuationWarnings.map((w) => (
+                  <li key={w}>{warningCopy[w] ?? w}</li>
+                ))}
+              </ul>
+            )}
+            {compsGating && (
+              <div className="text-xs text-amber-100">
+                Confidence capped until comps meet policy thresholds.
+              </div>
+            )}
+          </div>
+        </div>
       </UnderwritingSection>
 
       {valuationSnapshot && Array.isArray(valuationSnapshot.comps) && (
@@ -865,6 +1123,51 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       <UnderwritingSection title="HPS Double Closing Cost Calculator" icon={Icons.calculator}>
         <DoubleCloseCalculator deal={deal} calc={calc} setDealValue={setDealValue} />
       </UnderwritingSection>
+
+      <Modal
+        open={overrideTarget !== null}
+        onClose={closeOverrideModal}
+        title={overrideTarget === "arv" ? "Override ARV" : "Override As-Is Value"}
+      >
+        <div className="space-y-3">
+          <InputField
+            label={overrideTarget === "arv" ? "ARV" : "As-Is Value"}
+            type="number"
+            prefix="$"
+            value={overrideValue}
+            onChange={(e: any) => setOverrideValue(e.target.value)}
+          />
+          <div className="space-y-1">
+            <label className="text-sm text-text-primary">Reason (required)</label>
+            <textarea
+              className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-2 text-sm text-text-primary focus:border-accent-blue/60 focus:outline-none"
+              value={overrideReason}
+              onChange={(e) => setOverrideReason(e.target.value)}
+              minLength={10}
+              rows={3}
+            />
+            <p className="text-[11px] text-text-secondary">Minimum 10 characters.</p>
+          </div>
+          {overrideLocalError && (
+            <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+              {overrideLocalError}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={closeOverrideModal} disabled={overrideSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleOverrideSubmit}
+              disabled={overrideSubmitting}
+            >
+              {overrideSubmitting || overrideSaving ? "Saving..." : "Save Override"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

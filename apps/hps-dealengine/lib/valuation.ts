@@ -50,6 +50,29 @@ export async function applySuggestedArv(dealId: string, valuationRunId: string) 
   return data as { ok: boolean; deal?: { payload?: unknown } };
 }
 
+export async function overrideMarketValue(params: {
+  dealId: string;
+  field: "arv" | "as_is_value";
+  value: number;
+  reason: string;
+  valuationRunId?: string | null;
+}) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.functions.invoke("v1-valuation-override-market", {
+    body: {
+      deal_id: params.dealId,
+      field: params.field,
+      value: params.value,
+      reason: params.reason,
+      valuation_run_id: params.valuationRunId ?? null,
+    },
+  });
+  if (error) {
+    throw new Error(error.message ?? "Override failed");
+  }
+  return data as { ok: boolean; deal?: { payload?: unknown } };
+}
+
 export async function fetchLatestValuationRun(dealId: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase

@@ -36,6 +36,7 @@ import {
   invokeValuationRun,
   type ValuationRunResponse,
   applySuggestedArv,
+  overrideMarketValue,
 } from "@/lib/valuation";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 
@@ -142,6 +143,8 @@ export default function UnderwritePage() {
   const [isRefreshingValuation, setIsRefreshingValuation] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
   const [valuationStatus, setValuationStatus] = useState<string | null>(null);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
+  const [overrideSaving, setOverrideSaving] = useState(false);
   const [applyingSuggestedArv, setApplyingSuggestedArv] = useState(false);
   const hasPrefilledArvRef = useRef(false);
   useUnsavedChanges(hasUnsavedDealChanges);
@@ -363,6 +366,44 @@ export default function UnderwritePage() {
       setApplyingSuggestedArv(false);
     }
   }, [dbDeal?.id, valuationRun?.id, setDeal, setDbDeal]);
+
+  const handleOverrideMarketValue = useCallback(
+    async (
+      field: "arv" | "as_is_value",
+      value: number,
+      reason: string,
+      valuationRunId?: string | null,
+    ) => {
+      if (!dbDeal?.id) {
+        setOverrideError("Select a deal before overriding market values.");
+        return;
+      }
+      setOverrideSaving(true);
+      setOverrideError(null);
+      setOverrideStatus(null);
+      try {
+        const resp = await overrideMarketValue({
+          dealId: dbDeal.id,
+          field,
+          value,
+          reason,
+          valuationRunId: valuationRunId ?? null,
+        });
+        const payload: any = (resp as any)?.deal?.payload ?? null;
+        if (payload && dbDeal) {
+          setDbDeal({ ...dbDeal, payload } as any);
+          setDeal((prev) => ({ ...(prev as any), ...(payload as any) }));
+          setHasUnsavedDealChanges(false);
+        }
+        setOverrideStatus("Override saved to deal.");
+      } catch (err: any) {
+        setOverrideError(err?.message ?? "Failed to save override");
+      } finally {
+        setOverrideSaving(false);
+      }
+    },
+    [dbDeal, setDbDeal, setDeal, setHasUnsavedDealChanges],
+  );
 
   const handleAnalyze = useCallback(async () => {
     setError(null);
@@ -729,6 +770,11 @@ export default function UnderwritePage() {
           onApplySuggestedArv={handleApplySuggestedArv}
           applyingSuggestedArv={applyingSuggestedArv}
           valuationStatus={valuationStatus}
+          onOverrideMarketValue={handleOverrideMarketValue}
+          overrideStatus={overrideStatus}
+          overrideError={overrideError}
+          overrideSaving={overrideSaving}
+          autosaveStatus={autosaveStatus}
         />
 
         <OverridesPanel

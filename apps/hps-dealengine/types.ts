@@ -171,6 +171,16 @@ export interface Deal {
   market: {
     arv?: number;
     as_is_value?: number;
+    contract_price?: number;
+    arv_source?: string | null;
+    arv_as_of?: string | null;
+    arv_override_reason?: string | null;
+    arv_valuation_run_id?: string | null;
+    as_is_value_source?: string | null;
+    as_is_value_as_of?: string | null;
+    as_is_value_override_reason?: string | null;
+    as_is_value_valuation_run_id?: string | null;
+    valuation_basis?: string;
     dom_zip?: number;
     moi_zip?: number;
     "price-to-list-pct"?: number;

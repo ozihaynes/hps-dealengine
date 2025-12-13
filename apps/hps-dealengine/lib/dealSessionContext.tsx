@@ -136,6 +136,8 @@ export function normalizeDealShape(base?: any): Deal {
   d.market = {
     arv: d.market?.arv ?? null,
     as_is_value: d.market?.as_is_value ?? null,
+    contract_price: d.market?.contract_price ?? null,
+    valuation_basis: d.market?.valuation_basis ?? null,
     price_to_list_ratio: d.market?.price_to_list_ratio ?? null,
     local_discount_pct: d.market?.local_discount_pct ?? null,
     dom: d.market?.dom ?? null,

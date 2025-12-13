@@ -84,6 +84,11 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-21 - Slice 5 — Market & Valuation UI rebuild (Facts/Market/Comps/Confidence)
+- Market & Valuation rebuilt into four lanes with required Contract/Offer Price + Valuation Basis selector; ARV/As-Is are now read-only with explicit “Override ARV/As-Is Value” modals (reason required) calling new RLS edge `v1-valuation-override-market`. No provider calls on mount; Market lane is read-only from the latest valuation snapshot with provenance and “Not connected (v1)” flood placeholder.
+- Comps panel stays truthful to RentCast sale listings (list price/listed date), keeps stub/provider/as_of badges, and min-comps gating. Confidence/warnings remain sourced from valuation_run output/provenance.
+- Tests added for required contract banner, override reason gating, and “Applied” suggested ARV state; commands run: `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
+
 ### 2025-12-13 - Slice 2.2.1 — UI semantics bugfix + release hygiene
 - Comps panel now labels price/date based on evidence kind (listings show “List Price” / “Listed”, future closed_sales will show “Close Price” / “Closed”); header remains “Comparable sale listings (RentCast)” with listing-based gating copy.
 - “Use Suggested ARV” reduced to a single button in Market & Valuation with an “Applied” state when already persisted via valuation_run provenance.

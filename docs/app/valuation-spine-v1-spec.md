@@ -256,3 +256,5 @@ type ValuationRun = {
 - Should `valuation_run` live alongside `runs` or as a sibling table with a foreign key to `runs`? What retention/TTL applies?
 - How should property normalization be performed (USPS, Smarty, custom) to derive `address_fingerprint`?
 - What hashes should drive dedupe (address_fingerprint + policy_hash + input_hash + org_id?) and how do we replay valuations independently of full underwriting runs?
+- Slice 5 DoD for the “Market & Valuation UI rebuild into Facts / Market / Comps / Confidence” isn’t present (PLAN.docx missing). Which exact fields/actions belong in each lane and what acceptance criteria/gating copy should the UI follow?
+- Should the “Facts” lane surface specific property metrics (beds/baths/sqft/year built/subject fingerprint) and, if so, what is the canonical source (deal payload vs valuation/property snapshot) and formatting?
