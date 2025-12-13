@@ -25,7 +25,6 @@ const ALLOWED_THEMES: DealEngineThemeName[] = ["burgundy", "green", "navy", "pin
 const THEME_ALIASES: Record<string, DealEngineThemeName> = {
   pink2: "pink",
   pink3: "pink",
-  white: DEFAULT_THEME,
 };
 const ALLOWED_SETTINGS: ThemeSetting[] = ["system", "dark", "light", ...ALLOWED_THEMES];
 const SYSTEM_DARK_THEME: DealEngineThemeName = DEFAULT_THEME;

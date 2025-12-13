@@ -45,7 +45,8 @@ const THEME_BOOT_SCRIPT = `
     var normalizedSetting = normalize(setting);
     var resolved = resolve(normalizedSetting);
     document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.setAttribute('data-theme-setting', setting);
+    document.documentElement.setAttribute('data-theme-setting', normalizedSetting);
+    document.documentElement.setAttribute('data-theme-setting-raw', setting);
   } catch (e) {
     // silent failure; defaults remain
   }
