@@ -19,8 +19,8 @@ const THEME_BOOT_SCRIPT = `
 (function() {
   try {
     var KEY = 'dealengine.theme';
-    var allowed = ['system','dark','light','navy','burgundy','green','black','white'];
-    var setting = 'system';
+    var allowed = ['burgundy','green','navy','pink','black','pink2','pink3','system','dark','light','white'];
+    var setting = 'navy';
     try {
       var stored = localStorage.getItem(KEY);
       if (stored && allowed.indexOf(stored) !== -1) {
@@ -33,15 +33,19 @@ const THEME_BOOT_SCRIPT = `
     try {
       prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch (_) {}
-    var resolve = function(val) {
-      if (val === 'system') return prefersDark ? 'navy' : 'white';
-      if (val === 'dark') return 'navy';
-      if (val === 'light') return 'white';
+    var normalize = function(val) {
+      if (val === 'pink2' || val === 'pink3') return 'pink';
+      if (val === 'white' || val === 'system' || val === 'dark' || val === 'light') return 'navy';
       return val;
     };
-    var resolved = resolve(setting);
+    var resolve = function(val) {
+      if (val === 'system' || val === 'dark' || val === 'light') return 'navy';
+      return val;
+    };
+    var normalizedSetting = normalize(setting);
+    var resolved = resolve(normalizedSetting);
     document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.setAttribute('data-theme-setting', setting);
+    document.documentElement.setAttribute('data-theme-setting', normalizedSetting);
   } catch (e) {
     // silent failure; defaults remain
   }
