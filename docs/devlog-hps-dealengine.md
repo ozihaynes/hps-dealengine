@@ -84,6 +84,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-12 - Slice 2.2 — Valuation Spine Correctness Patch
+- Policy lookup now org + posture scoped in `v1-connectors-proxy` and `v1-valuation-run` via a shared helper; missing/multiple active policies return explicit errors instead of posture-only fallbacks.
+- RentCast mapping hardened: comps marked `comp_kind=sale_listing` with status/correlation/daysOld/listingType preserved; market snapshot includes `/markets` stats when ZIP is present; correlation missing now caps confidence at C with a `missing_correlation_signal` warning; TTL remains policy-driven.
+- UI/contracts: comps relabeled “Comparable sale listings (RentCast)” with status counts; valuation warnings surfaced; contracts add `comp_kind` + `warnings`; min comps stays policy token (no hardcoded defaults).
+- New Edge `v1-valuation-apply-arv` + Underwrite buttons persist suggested ARV with provenance (`arv_source=valuation_run`, `arv_valuation_run_id`, `arv_as_of`) via RLS-safe deal update; CompsPanel/Underwrite copy aligned to listing semantics.
+- Secrets/doc hygiene: `supabase/functions/.env` ignored with `.env.example` added; valuation spec/roadmap updated; roadmap v2 tracks closed-sales comps ingestion; checks: `pnpm -w lint` (script missing), `pnpm -w typecheck` ✅, `pnpm -w test` ✅, `pnpm -w build` ✅ (after clearing `.next` lock).
+
 ### 2025-12-12 - Slice 2.1 — Valuation Spine Hardening (Provider fidelity, policy-driven thresholds)
 - RentCast adapter aligned to official fields (AVM price/range, comparables distance/daysOld/correlation/status/listingType/pricePerSqFt) with raw payload preserved; market stats pulled from RentCast /markets when ZIP present.
 - Snapshot TTL is policy-driven (`valuation.snapshot_ttl_hours`); property_snapshots now expire/refresh per policy with force_refresh override; provenance includes endpoints and stub flag.

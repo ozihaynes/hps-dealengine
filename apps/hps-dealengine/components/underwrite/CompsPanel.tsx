@@ -17,13 +17,36 @@ export function CompsPanel({ comps, snapshot, minClosedComps }: CompsPanelProps)
   const minRequired = minClosedComps ?? null;
   const gating = minRequired != null ? comps.length < minRequired : false;
 
+  const statusCounts = comps.reduce(
+    (acc, comp) => {
+      const status = (comp.status || "").toLowerCase();
+      if (status.includes("active")) {
+        acc.active += 1;
+      } else if (
+        status.includes("inactive") ||
+        status.includes("off") ||
+        status.includes("expired")
+      ) {
+        acc.inactive += 1;
+      } else if (status) {
+        acc.other += 1;
+      } else {
+        acc.unknown += 1;
+      }
+      return acc;
+    },
+    { active: 0, inactive: 0, other: 0, unknown: 0 },
+  );
+
   return (
     <GlassCard className="p-4 space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-text-primary">Comps</span>
+          <span className="text-lg font-semibold text-text-primary">
+            Comparable sale listings (RentCast)
+          </span>
           <Badge color={gating ? "orange" : "green"}>
-            {comps.length} comps{" "}
+            {comps.length} listings{" "}
             {minRequired != null
               ? gating
                 ? `(min ${minRequired} required)`
@@ -43,10 +66,16 @@ export function CompsPanel({ comps, snapshot, minClosedComps }: CompsPanelProps)
           )}
         </div>
       </div>
+      <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
+        <span>Active: {statusCounts.active}</span>
+        <span>Inactive: {statusCounts.inactive}</span>
+        <span>Other: {statusCounts.other}</span>
+        <span>Unknown: {statusCounts.unknown}</span>
+      </div>
 
       {gating && (
         <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Insufficient closed comps. Valuation is informational only.
+          Insufficient comparable sale listings (RentCast). Valuation is informational only.
         </div>
       )}
 

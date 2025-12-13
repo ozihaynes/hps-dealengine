@@ -6,6 +6,7 @@ import {
   loadDealAndOrg,
   type ValuationPolicy,
 } from "../_shared/valuationSnapshot.ts";
+import { fetchActivePolicyForOrg } from "../_shared/policy.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -82,22 +83,21 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    const { data: policyRow, error: policyError } = await supabase
-      .from("policies")
-      .select("id, org_id, posture, policy_json")
-      .eq("posture", posture)
-      .eq("is_active", true)
-      .maybeSingle<{ id: string; org_id: string; policy_json: any }>();
-
-    if (policyError) {
-      console.error("[v1-connectors-proxy] policy fetch error", policyError);
-      throw new Error("policy_fetch_failed");
-    }
-    if (!policyRow) {
+    let policyRow;
+    try {
+      policyRow = await fetchActivePolicyForOrg(supabase, deal.org_id, posture);
+    } catch (err: any) {
+      const message =
+        err?.message === "policy_not_found"
+          ? "No active policy for this org/posture"
+          : err?.message === "policy_multiple_active"
+          ? "Multiple active policies found; resolve policy state"
+          : "Failed to load policy";
+      const status = err?.message === "policy_not_found" ? 404 : 400;
       return jsonResponse(
         req,
-        { ok: false, error: "policy_not_found", message: "No active policy for posture" },
-        404,
+        { ok: false, error: err?.message ?? "policy_error", message },
+        status,
       );
     }
 

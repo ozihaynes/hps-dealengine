@@ -9,6 +9,7 @@ Anchor the valuation flow with a clear current-state map, target contracts, and 
 - Address edits must create a new `valuation_run` and preserve history (no overwrites).
 - `property_snapshots` caching must be org-scoped for v1 (no cross-tenant sharing).
 - Snapshot TTL is policy-driven (`valuation.snapshot_ttl_hours`); confidence rubric is policy-driven (`valuation.confidence_rubric`).
+- RentCast v1 evidence is **comparable sale listings**, not guaranteed closed sales; UI/provenance must state this and surface status breakdowns (active/inactive/other).
 
 ## Inventory (Current State)
 - **Market & Valuation block:** `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (`UnderwritingSection` → `InputField` labels “ARV”, “As-Is Value”, “DOM (Zip, days)”, “MOI (Zip, months)”, “Price-to-List %”, “Local Discount (20th %)”); state set via `setDealValue` → `DealSession`.
@@ -160,6 +161,7 @@ type Comp = {
   days_on_market?: number | null;
   status?: string | null;
   listing_type?: string | null;
+  comp_kind?: "sale_listing" | "closed_sale" | "rental" | null;
   source: string; // provider id/name
   as_of: string;
   hash?: string; // for determinism
@@ -207,6 +209,8 @@ type ValuationRun = {
       median_correlation?: number | null;
       median_days_old?: number | null;
     };
+    warnings?: string[] | null;
+    messages?: string[] | null;
     rationale?: string | null;
   };
   provenance: {

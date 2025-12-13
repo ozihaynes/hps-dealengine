@@ -350,6 +350,7 @@ Fast-follow items that do not change V1 behavior:
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
 - **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
 - **Valuation data fidelity**: clarify listing vs closed comps provenance in UI/contracts; extend confidence rubric tuning per policy.
+- **Closed-sales comps ingestion**: ingest true sold comps (e.g., MLS/ATTOM) with policy tokens (min_sold_comps_required or equivalent) and upgrade valuation semantics beyond sale listings.
 - **Deeper economics and policy refinements**: uninsurable margin adders in offer selection; deterministic hold-cost per track/speed/zip; deterministic repairs totals by track; explicit AIV override % knob; richer DTM/gap tokens; doc-stamp/closing-cost tables feeding disposition math.
 - **UX/presentation refinements**: full consumption of UX-only knobs (bankers rounding, buyer-cost dual scenarios, line-item vs aggregate); richer cost stack/scenario presentation.
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.

@@ -15,3 +15,6 @@ apps/hps-dealengine/app/data/
 
 .vercel
 .env*.local
+supabase/functions/.env
+/supabase/.env
+/supabase/functions/.env

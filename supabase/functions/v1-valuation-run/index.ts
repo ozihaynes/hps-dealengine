@@ -7,6 +7,7 @@ import {
   loadDealAndOrg,
   type ValuationPolicy,
 } from "../_shared/valuationSnapshot.ts";
+import { fetchActivePolicyForOrg } from "../_shared/policy.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -88,19 +89,23 @@ serve(async (req: Request): Promise<Response> => {
   try {
     const deal = await loadDealAndOrg(supabase, body.deal_id);
 
-    const { data: policyRow, error: policyError } = await supabase
-      .from("policies")
-      .select("id, org_id, posture, policy_json")
-      .eq("posture", posture)
-      .eq("is_active", true)
-      .maybeSingle<PolicyRow>();
-
-    if (policyError) {
-      console.error("[v1-valuation-run] policy fetch error", policyError);
-      throw new Error("policy_fetch_failed");
-    }
-    if (!policyRow) {
-      throw new Error("policy_not_found");
+    let policyRow: PolicyRow;
+    try {
+      const fetched = await fetchActivePolicyForOrg(supabase, deal.org_id, posture);
+      policyRow = fetched as PolicyRow;
+    } catch (err: any) {
+      const message =
+        err?.message === "policy_not_found"
+          ? "No active policy for this org/posture"
+          : err?.message === "policy_multiple_active"
+          ? "Multiple active policies found; resolve policy state"
+          : "Failed to load policy";
+      const status = err?.message === "policy_not_found" ? 404 : 400;
+      return jsonResponse(
+        req,
+        { ok: false, error: err?.message ?? "policy_error", message },
+        status,
+      );
     }
 
     const valuationPolicy: ValuationPolicyShape =
@@ -174,19 +179,29 @@ serve(async (req: Request): Promise<Response> => {
       { grade: "C", cfg: rubric["C"] },
     ];
 
+    const warnings: string[] = [];
     let valuationConfidence: "A" | "B" | "C" | null = null;
-    for (const band of bands) {
-      if (!band.cfg) continue;
-      const minCompsNeeded = Number(band.cfg.min_comps_multiplier ?? 0) * Number(minClosedComps);
-      const minCorr = Number(band.cfg.min_median_correlation ?? 0);
-      const maxRange = Number(band.cfg.max_range_pct ?? 1);
-      const compsOk = compCount >= minCompsNeeded;
-      const corrOk =
-        stats.median_correlation == null ? false : stats.median_correlation >= minCorr;
-      const rangeOk = rangeWidthPct == null ? true : rangeWidthPct <= maxRange;
-      if (compsOk && corrOk && rangeOk) {
-        valuationConfidence = band.grade;
-        break;
+
+    if (stats.median_correlation == null) {
+      // Missing correlation should not fail the run; cap confidence at C and surface a warning.
+      warnings.push("missing_correlation_signal");
+      valuationConfidence = "C";
+    } else {
+      for (const band of bands) {
+        if (!band.cfg) continue;
+        const minCompsNeeded = Number(band.cfg.min_comps_multiplier ?? 0) * Number(minClosedComps);
+        const minCorr = Number(band.cfg.min_median_correlation ?? 0);
+        const maxRange = Number(band.cfg.max_range_pct ?? 1);
+        const compsOk = compCount >= minCompsNeeded;
+        const corrOk = stats.median_correlation >= minCorr;
+        const rangeOk = rangeWidthPct == null ? true : rangeWidthPct <= maxRange;
+        if (compsOk && corrOk && rangeOk) {
+          valuationConfidence = band.grade;
+          break;
+        }
+      }
+      if (!valuationConfidence) {
+        valuationConfidence = "C";
       }
     }
 
@@ -196,9 +211,6 @@ serve(async (req: Request): Promise<Response> => {
     }
     if (suggestedArv == null) {
       failureReasons.push("missing_suggested_arv");
-    }
-    if (!valuationConfidence) {
-      failureReasons.push("confidence_not_met");
     }
 
     const status = failureReasons.length === 0 ? "succeeded" : "failed";
@@ -222,6 +234,7 @@ serve(async (req: Request): Promise<Response> => {
       valuation_confidence: valuationConfidence,
       comp_count: compCount,
       comp_set_stats: stats,
+      warnings,
       messages: failureReason ? [failureReason] : [],
     };
 

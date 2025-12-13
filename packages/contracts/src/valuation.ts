@@ -22,6 +22,7 @@ export const CompSchema = z.object({
   days_on_market: z.number().optional().nullable(),
   status: z.string().optional().nullable(),
   listing_type: z.string().optional().nullable(),
+  comp_kind: z.enum(["sale_listing"]).optional().nullable(),
   source: z.string(),
   as_of: z.string(),
   raw: z.unknown().optional(),
@@ -81,24 +82,12 @@ export const ValuationRunSchema = z.object({
     deal_id: z.string().optional().nullable(),
     policy_version_id: z.string().optional().nullable(),
     property_snapshot_id: z.string().optional().nullable(),
-    market: z
-      .object({
-        arv: z.number().optional().nullable(),
-        as_is_value: z.number().optional().nullable(),
-        dom_zip_days: z.number().optional().nullable(),
-        moi_zip_months: z.number().optional().nullable(),
-        price_to_list_pct: z.number().optional().nullable(),
-        local_discount_pct_p20: z.number().optional().nullable(),
-      })
-      .passthrough()
-      .optional()
-      .nullable(),
-    comps: z.array(CompSchema).optional().nullable(),
+    address_fingerprint: z.string().optional().nullable(),
+    property_snapshot_hash: z.string().optional().nullable(),
     min_closed_comps_required: z.number().optional().nullable(),
     posture: z.enum(["conservative", "base", "aggressive"]).optional().nullable(),
     source: z.string().optional().nullable(),
-    property_snapshot_hash: z.string().optional().nullable(),
-  }),
+  }).passthrough(),
   output: z.object({
     suggested_arv: z.number().optional().nullable(),
     arv_range_low: z.number().optional().nullable(),
@@ -114,6 +103,7 @@ export const ValuationRunSchema = z.object({
       })
       .optional()
       .nullable(),
+    warnings: z.array(z.string()).optional().nullable(),
     messages: z.array(z.string()).optional().nullable(),
   }),
   provenance: z.object({

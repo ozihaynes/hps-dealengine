@@ -36,6 +36,20 @@ export async function invokeConnectorsProxy(
   return data as { snapshot: PropertySnapshot };
 }
 
+export async function applySuggestedArv(dealId: string, valuationRunId: string) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.functions.invoke("v1-valuation-apply-arv", {
+    body: {
+      deal_id: dealId,
+      valuation_run_id: valuationRunId,
+    },
+  });
+  if (error) {
+    throw new Error(error.message ?? "Apply ARV failed");
+  }
+  return data as { ok: boolean; deal?: { payload?: unknown } };
+}
+
 export async function fetchLatestValuationRun(dealId: string) {
   const supabase = getSupabase();
   const { data, error } = await supabase
