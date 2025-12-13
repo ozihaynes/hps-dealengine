@@ -23,7 +23,7 @@ export default function AppTopNav() {
     (pathname?.startsWith(href + "?") ?? false);
 
   return (
-    <div className="glass-2 flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)] px-4 py-3">
+    <div className="flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)]">
       {/* Brand lockup */}
       <div className="flex items-center gap-3">
         <Image
