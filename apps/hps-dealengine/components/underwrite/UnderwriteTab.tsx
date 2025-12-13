@@ -46,6 +46,9 @@ interface UnderwriteTabProps {
   onRefreshValuation?: () => void;
   refreshingValuation?: boolean;
   valuationError?: string | null;
+  valuationStatus?: string | null;
+  onApplySuggestedArv?: () => void;
+  applyingSuggestedArv?: boolean;
 }
 
 const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
@@ -61,6 +64,9 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   onRefreshValuation,
   refreshingValuation,
   valuationError,
+  valuationStatus,
+  onApplySuggestedArv,
+  applyingSuggestedArv,
 }) => {
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
@@ -112,6 +118,14 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const valuationConfidence = valuationRun?.output?.valuation_confidence ?? null;
   const compStats = valuationRun?.output?.comp_set_stats ?? null;
   const provenance = valuationRun?.provenance ?? null;
+  const valuationWarnings = Array.isArray(valuationRun?.output?.warnings)
+    ? (valuationRun?.output?.warnings ?? []).filter((w): w is string => typeof w === "string")
+    : [];
+  const displayMinComps =
+    minClosedComps ??
+    (valuationRun as any)?.provenance?.min_closed_comps_required ??
+    (valuationRun as any)?.input?.min_closed_comps_required ??
+    null;
 
   // Live engine outputs from Edge (via /underwrite/debug → analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
@@ -160,6 +174,18 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     num(market.arv) < num(market.as_is_value)
       ? "ARV is less than As-Is Value. This is unusual and may indicate a data entry error."
       : null;
+
+  const handleApplySuggested = () => {
+    if (onApplySuggestedArv) {
+      onApplySuggestedArv();
+    } else if (suggestedArv != null) {
+      setDealValue("market.arv", suggestedArv);
+    }
+  };
+
+  const warningCopy: Record<string, string> = {
+    missing_correlation_signal: "Correlation unavailable; confidence capped at C.",
+  };
 
   const getMinSpreadPlaceholder = () => {
     const arv = num(market.arv, 0);
@@ -215,8 +241,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           <span className="font-semibold text-text-primary">Valuation Confidence:</span>{" "}
           {valuationConfidence ?? "-"}{" "}
           {compCount != null
-            ? `(Comps: ${compCount}${
-                minClosedComps != null ? ` / min ${minClosedComps}` : " / policy missing"
+            ? `(Comparable listings: ${compCount}${
+                displayMinComps != null ? ` / min ${displayMinComps}` : " / policy missing"
               })`
             : ""}
         </div>
@@ -233,9 +259,10 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setDealValue("market.arv", suggestedArv)}
+              onClick={handleApplySuggested}
+              disabled={applyingSuggestedArv}
             >
-              Use Suggested ARV
+              {applyingSuggestedArv ? "Applying..." : "Use Suggested ARV"}
             </Button>
           )}
         </div>
@@ -245,9 +272,24 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           {valuationError}
         </div>
       )}
-      {minClosedComps == null && (
+      {valuationStatus && (
+        <div className="rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+          {valuationStatus}
+        </div>
+      )}
+      {!valuationRun && displayMinComps == null && (
         <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
           Policy token missing: valuation.min_closed_comps_required
+        </div>
+      )}
+      {valuationWarnings.length > 0 && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+          <div className="font-semibold text-text-primary">Valuation warnings</div>
+          <ul className="list-disc pl-4">
+            {valuationWarnings.map((w) => (
+              <li key={w}>{warningCopy[w] ?? w}</li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -334,8 +376,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             </span>
             {compStats && (
               <span>
-                Comp Stats: {compCount ?? "-"} comps, med dist {compStats.median_distance_miles ?? "-"} mi, med corr{" "}
-                {compStats.median_correlation ?? "-"}, med days-old {compStats.median_days_old ?? "-"}
+                Listing stats: {compCount ?? "-"} listings, med dist {compStats.median_distance_miles ?? "-"} mi, med
+                corr {compStats.median_correlation ?? "-"}, med days-old {compStats.median_days_old ?? "-"}
               </span>
             )}
             <span className="rounded border border-white/10 px-2 py-1">
@@ -349,9 +391,10 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
               <Button
                 size="sm"
                 variant="neutral"
-                onClick={() => setDealValue("market.arv", suggestedArv)}
+                onClick={handleApplySuggested}
+                disabled={applyingSuggestedArv}
               >
-                Use Suggested
+                {applyingSuggestedArv ? "Applying..." : "Use Suggested ARV"}
               </Button>
             )}
           </div>
@@ -362,7 +405,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         <CompsPanel
           comps={valuationSnapshot.comps as any}
           snapshot={valuationSnapshot}
-          minClosedComps={minClosedComps}
+          minClosedComps={displayMinComps}
         />
       )}
 

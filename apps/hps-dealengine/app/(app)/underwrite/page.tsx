@@ -35,6 +35,7 @@ import {
   fetchLatestValuationRun,
   invokeValuationRun,
   type ValuationRunResponse,
+  applySuggestedArv,
 } from "@/lib/valuation";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 
@@ -98,12 +99,13 @@ export default function UnderwritePage() {
     setLastAnalyzeResult,
     lastAnalyzeResult,
     lastRunId,
-    setLastRunId,
-    setLastRunAt,
-    dbDeal,
-    posture,
-    sandboxLoading,
-    sandboxError,
+  setLastRunId,
+  setLastRunAt,
+  dbDeal,
+  setDbDeal,
+  posture,
+  sandboxLoading,
+  sandboxError,
     repairRates,
     membershipRole,
     hasUnsavedDealChanges,
@@ -139,6 +141,8 @@ export default function UnderwritePage() {
   const [minClosedComps, setMinClosedComps] = useState<number | null>(null);
   const [isRefreshingValuation, setIsRefreshingValuation] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
+  const [valuationStatus, setValuationStatus] = useState<string | null>(null);
+  const [applyingSuggestedArv, setApplyingSuggestedArv] = useState(false);
   const hasPrefilledArvRef = useRef(false);
   useUnsavedChanges(hasUnsavedDealChanges);
 
@@ -262,6 +266,7 @@ export default function UnderwritePage() {
       setValuationRun(null);
       setValuationSnapshot(null);
       setMinClosedComps(null);
+      setValuationStatus(null);
       return;
     }
     try {
@@ -271,10 +276,11 @@ export default function UnderwritePage() {
         setValuationRun(latest as ValuationRun);
         const snapshot = (latest as any)?.property_snapshots ?? null;
         setValuationSnapshot(snapshot ?? null);
-        const minComps = (latest as any)?.input?.min_closed_comps_required ?? null;
-        setMinClosedComps(
-          typeof minComps === "number" && Number.isFinite(minComps) ? minComps : null,
-        );
+        const minComps =
+          (latest as any)?.input?.min_closed_comps_required ??
+          (latest as any)?.provenance?.min_closed_comps_required ??
+          null;
+        setMinClosedComps(typeof minComps === "number" && Number.isFinite(minComps) ? minComps : null);
       } else {
         setValuationRun(null);
         setValuationSnapshot(null);
@@ -296,6 +302,7 @@ export default function UnderwritePage() {
     }
     setIsRefreshingValuation(true);
     setValuationError(null);
+    setValuationStatus(null);
     try {
       const data = (await invokeValuationRun(dbDeal.id, posture)) as ValuationRunResponse;
       setValuationRun(data.valuation_run);
@@ -320,6 +327,42 @@ export default function UnderwritePage() {
     },
     [setDeal, setHasUnsavedDealChanges],
   );
+
+  const handleApplySuggestedArv = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setValuationError("Select a deal before applying valuation.");
+      return;
+    }
+    if (!valuationRun?.id) {
+      setValuationError("No valuation run available to apply.");
+      return;
+    }
+    setValuationError(null);
+    setValuationStatus(null);
+    setApplyingSuggestedArv(true);
+    try {
+      const resp = await applySuggestedArv(dbDeal.id, valuationRun.id);
+      const payload: any = (resp as any)?.deal?.payload ?? null;
+      const nextMarket = payload && typeof payload === "object" ? (payload as any).market ?? null : null;
+      if (nextMarket) {
+        setDeal((prev) => {
+          const prevMarket = (prev as any)?.market ?? {};
+          return {
+            ...(prev as any),
+            market: { ...prevMarket, ...nextMarket },
+          } as any;
+        });
+      }
+      if (payload && dbDeal) {
+        setDbDeal({ ...dbDeal, payload } as any);
+      }
+      setValuationStatus("Suggested ARV applied and saved to deal.");
+    } catch (err: any) {
+      setValuationError(err?.message ?? "Failed to apply suggested ARV");
+    } finally {
+      setApplyingSuggestedArv(false);
+    }
+  }, [dbDeal?.id, valuationRun?.id, setDeal, setDbDeal]);
 
   const handleAnalyze = useCallback(async () => {
     setError(null);
@@ -683,6 +726,9 @@ export default function UnderwritePage() {
           onRefreshValuation={handleRefreshValuation}
           refreshingValuation={isRefreshingValuation}
           valuationError={valuationError}
+          onApplySuggestedArv={handleApplySuggestedArv}
+          applyingSuggestedArv={applyingSuggestedArv}
+          valuationStatus={valuationStatus}
         />
 
         <OverridesPanel
