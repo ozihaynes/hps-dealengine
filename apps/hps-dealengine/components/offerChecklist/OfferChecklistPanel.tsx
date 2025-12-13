@@ -12,12 +12,11 @@ type OfferChecklistPanelProps = {
 };
 
 const THEME = {
-  bg: "var(--glass-bg)",
   border: "var(--glass-border)",
-  surface: "var(--surface-1)",
-  surface2: "var(--surface-2)",
-  surfaceSolid: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
-  tileSolid: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
+  surface: "var(--mat-glass-1, var(--surface-1))",
+  surface2: "var(--mat-glass-2, var(--surface-2))",
+  surfaceSolid: "var(--mat-glass-3, color-mix(in srgb, var(--bg-primary, #000) 88%, black 12%))",
+  tileSolid: "color-mix(in srgb, var(--mat-glass-1, var(--surface-1)) 96%, black 4%)",
   textPrimary: "var(--text-primary)",
   textSecondary: "var(--text-secondary)",
   accent: "var(--accent-color)",
@@ -68,7 +67,10 @@ export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId
     (deal as any)?.address ?? (deal as any)?.address_line_1 ?? (deal as any)?.name ?? "Current deal";
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4 py-6">
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center px-4 py-6"
+      style={{ background: "var(--overlay-mask)" }}
+    >
       <div
         className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-hidden rounded-2xl shadow-2xl flex flex-col border"
         style={{
@@ -85,7 +87,7 @@ export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId
             type="button"
             onClick={onClose}
             className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border text-[color:var(--text-secondary)]"
-            style={{ borderColor: THEME.border, background: "transparent" }}
+            style={{ borderColor: THEME.border, background: THEME.tileSolid }}
             aria-label="Close offer checklist"
           >
             <X size={16} />

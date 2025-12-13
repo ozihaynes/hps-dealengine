@@ -40,14 +40,9 @@ export const Icon = ({ d, size = 20, className = '' }: IconProps) => (
 export const GlassCard = ({ children, className = '' }: CardProps) => (
   <div
     className={cn(
-      'card-icy border-[color:var(--glass-border)] text-[color:var(--text-primary)]',
+      'glass-1 card-icy border-[color:var(--glass-border)] text-[color:var(--text-primary)]',
       className
     )}
-    style={{
-      backgroundColor: 'var(--glass-bg)',
-      borderColor: 'var(--glass-border)',
-      color: 'var(--text-primary)',
-    }}
   >
     {children}
   </div>
@@ -79,19 +74,25 @@ export const Button = ({
   const sizes = { sm: 'px-2 py-1 text-xs', md: 'px-4 py-2 text-sm' };
   const variants = {
     primary: cn(
-      'bg-[color:var(--accent-color)] text-[color:var(--text-primary)]',
-      'hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed'
+      'text-[color:var(--text-primary)]',
+      'hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed'
     ),
     danger:
-      'bg-accent-red text-white hover:bg-red-700 disabled:bg-red-500/50 disabled:cursor-not-allowed',
+      'bg-accent-red text-white hover:bg-red-700 disabled:bg-red-500/50 disabled:cursor-not-allowed glass-interactive',
     ghost:
-      'text-accent-blue/80 hover:bg-accent-blue/10 hover:text-accent-blue disabled:text-accent-blue/50 disabled:cursor-not-allowed',
+      'text-accent-blue/80 hover:bg-accent-blue/10 hover:text-accent-blue disabled:text-accent-blue/50 disabled:cursor-not-allowed glass-interactive',
     neutral:
-      'bg-gray-500/20 hover:bg-gray-500/30 text-text-primary disabled:bg-gray-500/10 disabled:text-text-primary/50 disabled:cursor-not-allowed',
+      'bg-gray-500/20 hover:bg-gray-500/30 text-text-primary disabled:bg-gray-500/10 disabled:text-text-primary/50 disabled:cursor-not-allowed glass-interactive',
   };
   return (
     <button
-      className={`font-semibold rounded-md transition-colors ${sizes[size]} ${variants[variant]} ${className}`}
+      className={cn(
+        'font-semibold rounded-md transition-colors glass-interactive',
+        'bg-[color:var(--accent-color)]/90',
+        sizes[size],
+        variants[variant],
+        className
+      )}
       onClick={onClick}
       disabled={disabled}
     >

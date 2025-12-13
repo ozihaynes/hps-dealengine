@@ -84,8 +84,15 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
-### 2025-12-21 - Slice 5 — Market & Valuation UI rebuild (Facts/Market/Comps/Confidence)
-- Market & Valuation rebuilt into four lanes with required Contract/Offer Price + Valuation Basis selector; ARV/As-Is are now read-only with explicit “Override ARV/As-Is Value” modals (reason required) calling new RLS edge `v1-valuation-override-market`. No provider calls on mount; Market lane is read-only from the latest valuation snapshot with provenance and “Not connected (v1)” flood placeholder.
+### 2025-12-13 - Glass material system refresh
+- **Tokens:** Introduced tiered material variables (`--mat-base`, `--mat-glass-1/2/3`, blur/saturation, gradient borders, shadows, overlay mask, noise) across all five supported themes; removed legacy white/system options and kept pink at `#FF83A6`.
+- **Primitives:** Added `.glass-1/2/3` + `.glass-interactive` primitives with inset highlights, stacked shadows, noise overlay, and fallbacks for no-backdrop-filter, reduced motion, and increased contrast.
+- **Components:** GlassCard/inputs/buttons/top nav now consume the new glass primitives; Offer Checklist overlay uses theme tokens + stronger mask to fully obscure the app while keeping tiles legible in every theme.
+- **Assets:** Added `apps/hps-dealengine/public/ui/noise.png` for subtle surface texture.
+- **Checks:** Run `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` to validate.
+
+### 2025-12-13 - Slice 5 - Market & Valuation UI rebuild (Facts/Market/Comps/Confidence)
+- Market & Valuation rebuilt into four lanes with required Contract/Offer Price + Valuation Basis selector; ARV/As-Is are now read-only with explicit "Override ARV/As-Is Value" modals (reason required) calling new RLS edge `v1-valuation-override-market`. No provider calls on mount; Market lane is read-only from the latest valuation snapshot with provenance and "Not connected (v1)" flood placeholder.
 - Comps panel stays truthful to RentCast sale listings (list price/listed date), keeps stub/provider/as_of badges, and min-comps gating. Confidence/warnings remain sourced from valuation_run output/provenance.
 - Tests added for required contract banner, override reason gating, and “Applied” suggested ARV state; commands run: `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
 
