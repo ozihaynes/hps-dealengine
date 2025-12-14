@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-20)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-13)
 
 ---
 
@@ -343,6 +343,21 @@ Fast-follow items that do not change V1 behavior:
 - Agent Platform vNext: ✅ `/api/agents` tri personas with caller JWT + `agent_runs` logging; ✅ @hps/agents SDK (strategist KB resolver tests, negotiation dataset loader); ✅ HPS MCP server (stdio + Streamable HTTP) with deal/run/evidence/negotiation/KPI/risk/sandbox/KB tools; ⭕ expand Strategist/Negotiator evals/tools and UI retries/backoff.
 - Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math (null-backed numeric input foundation in shared components/defaults is done; rollout across all forms still pending).
+
+### Valuation Spine
+
+- ✅ Done
+  - Offer (Computed) is a read-only engine output on Dashboard/Overview; fallback order: outputs.primary_offer -> outputs.instant_cash_offer -> calc.instantCashOffer; missing renders as an em dash.
+  - Underwrite Market & Valuation is valuation-only with audited overrides (reason >= 10 chars) and a single "Use Suggested ARV" surface (Applied when arv_source === "valuation_run" and IDs match); no Offer Price input or gating banners.
+  - Comps panel shows summary metrics (count/status/date range/median distance/price variance cv), provenance badges, min-comps gating copy, concessions placeholder, and a 30s cooldown on "Re-run comps" wired to the existing refresh handler; no provider calls on mount.
+  - Override save merges only the market subtree into deal payload/state; tests cover TopDealKpis, UnderwriteTab, CompsPanel; vitest includes .test.ts/.test.tsx.
+- 🟦 In progress
+  - None in code; all items above are live in the working tree.
+- ⏭️ Next
+  1) Slice 7 – Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
+  2) Slice 8 – E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
+  3) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
+  4) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.
 
 ## 3 V2 Themes (Planned)
 

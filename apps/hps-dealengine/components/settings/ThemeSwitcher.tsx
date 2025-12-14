@@ -5,8 +5,8 @@ import type { ThemeSetting } from "@/components/theme/ThemeProvider";
 import { cn } from "@/components/ui";
 import { THEME_METADATA } from "@/lib/themeTokens";
 
-// Order: Red (burgundy) → Green → Blue (navy) → Pink → Black
-const THEME_ORDER: Array<ThemeSetting> = ["burgundy", "green", "navy", "pink", "black"];
+// Order: Red (burgundy) → Green → Blue (navy) → Violet → Pink → Black
+const THEME_ORDER: Array<ThemeSetting> = ["burgundy", "green", "navy", "violet", "pink", "black"];
 
 export function ThemeSwitcher({
   onSelect,
@@ -33,11 +33,13 @@ export function ThemeSwitcher({
               ? "bg-gradient-to-br from-[#3d0d0d] to-[#b11225]"
               : key === "green"
                 ? "bg-gradient-to-br from-[#0d1f19] to-[#1ABC9C]"
-                : key === "navy"
-                  ? "bg-gradient-to-br from-[#00070f] to-[#0096FF]"
-                  : key === "pink"
-                    ? "bg-gradient-to-br from-[#2f0f20] to-[#ff83a6]"
-                    : "bg-gradient-to-br from-[#000000] to-[#4b5563]";
+              : key === "navy"
+                ? "bg-gradient-to-br from-[#00070f] to-[#0096FF]"
+                : key === "violet"
+                  ? "bg-gradient-to-br from-[#120c20] to-[#9966cc]"
+                : key === "pink"
+                  ? "bg-gradient-to-br from-[#2f0f20] to-[#ff83a6]"
+                  : "bg-gradient-to-br from-[#000000] to-[#4b5563]";
 
           return (
             <button

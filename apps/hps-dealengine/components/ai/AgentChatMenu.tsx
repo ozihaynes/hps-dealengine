@@ -58,7 +58,7 @@ function ToneButtons({
             onClick={() => onChange(opt.id)}
             className={`px-2 py-0.5 rounded-full transition text-[10px] ${
               activeTone === opt.id
-                ? "bg-[color:var(--accent-color)] text-[color:var(--text-primary)]"
+                ? "bg-[color:var(--accent-color)] text-[color:var(--accent-foreground)]"
                 : "text-[color:var(--text-secondary)] hover:bg-[color:var(--glass-bg)]"
             }`}
           >

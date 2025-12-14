@@ -79,7 +79,7 @@ export const Button = ({
   const sizes = { sm: 'px-2 py-1 text-xs', md: 'px-4 py-2 text-sm' };
   const variants = {
     primary: cn(
-      'bg-[color:var(--accent-color)] text-[color:var(--text-primary)]',
+      'bg-[color:var(--accent-color)] text-[color:var(--accent-foreground)]',
       'hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed'
     ),
     danger:

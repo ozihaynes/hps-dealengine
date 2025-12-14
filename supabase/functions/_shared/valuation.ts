@@ -13,6 +13,9 @@ export type DealAddress = {
 export type ValuationPolicyShape = {
   min_closed_comps_required?: number | null;
   snapshot_ttl_hours?: number | null;
+  closed_sales_sale_date_range_days?: number | null;
+  closed_sales_primary_radius_miles?: number | null;
+  closed_sales_stepout_radius_miles?: number | null;
   confidence_rubric?: Record<
     string,
     {

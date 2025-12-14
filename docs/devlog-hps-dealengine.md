@@ -23,7 +23,7 @@ When something significant ships, changes direction, or gets blocked, add a date
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-20)
+## 0.1 Current Status Snapshot (as of 2025-12-13)
 
 **V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
@@ -84,8 +84,47 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
-### 2025-12-21 - Slice 5 — Market & Valuation UI rebuild (Facts/Market/Comps/Confidence)
-- Market & Valuation rebuilt into four lanes with required Contract/Offer Price + Valuation Basis selector; ARV/As-Is are now read-only with explicit “Override ARV/As-Is Value” modals (reason required) calling new RLS edge `v1-valuation-override-market`. No provider calls on mount; Market lane is read-only from the latest valuation snapshot with provenance and “Not connected (v1)” flood placeholder.
+### 2025-12-30 - Closed-sale comps raw coverage + smoke verifier
+- Policy guardrail: active policies/policy_versions backfilled with closed-sales valuation tokens when missing; valuation snapshots now always persist subject_property, closed_sales (primary + stepout + attempted flag), AVM request/response, and market request/response even when providers error out.
+- Smoke check: `scripts/valuation/coverage-smoke.ps1 -DealId <GUID> -SupabaseAccessToken <JWT>` forces a valuation run, prints comp counts + raw flags, and exits non-zero if `raw.closed_sales` is absent.
+- Deploy (PowerShell):
+  ```powershell
+  supabase db push --project-ref zjkihnihhqmnhpxkecpy
+  supabase functions deploy v1-connectors-proxy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy
+  ```
+
+### 2025-12-13 - Valuation Spine Closeout: Offer-as-output + Underwrite valuation-only + Comps summary/rerun
+
+1) Product decision (canonical truth)
+- Offer is an engine output surfaced on Dashboard as "Offer (Computed)"; Underwrite does not collect Offer Price.
+- Market & Valuation is valuation-first; contract/executed price is read-only and only relevant after a deal is under contract.
+
+2) UI/UX shipped (verified)
+- Dashboard Overview: Offer (Computed) tile formats dollars when present, shows em dash when missing; fallback order is outputs.primary_offer -> outputs.instant_cash_offer -> calc.instantCashOffer; tooltip clarifies it is computed from the latest underwriting run.
+- Underwrite Market & Valuation: ARV/As-Is are read-only with override modal that requires reason >= 10 chars; exactly one "Use Suggested ARV" surface that shows Applied when arv_source === "valuation_run" and arv_valuation_run_id matches the current valuation run; no offer/contract price inputs or "offer required" banners.
+- Comps panel: summary band with count + min-comps gating language, provider/as-of badges, stub badge, status counts, date range, median distance, price variance (cv), concessions placeholder; "Re-run comps" button calls the existing refresh handler with a 30s cooldown and does not fire on mount.
+
+3) Safety and correctness
+- Override save merges only the market subtree into deal payload/in-memory state so other edits remain intact.
+- No provider calls on mount; valuation/comp refresh is user-triggered (Refresh Valuation / Re-run comps).
+
+4) Tests and tooling
+- Tests: apps/hps-dealengine/components/overview/TopDealKpis.test.tsx, apps/hps-dealengine/components/underwrite/UnderwriteTab.test.tsx, apps/hps-dealengine/components/underwrite/CompsPanel.test.tsx.
+- Vitest config includes both apps/**/*.test.ts and apps/**/*.test.tsx patterns.
+
+5) Open questions / next work
+- Canonical offer output key across postures (code currently prefers primary_offer then instant_cash_offer).
+- Where Under Contract status + executed contract price is captured and surfaced.
+- Provider concessions data: whether it will be supplied and the canonical field/type when present.
+- Valuation refresh policy: current behavior is explicit user-triggered; address-change-triggered valuation runs remain to be formalized without violating "no mount calls".
+
+### 2025-12-13 - Slice 6 - Comps summary + re-run control
+- Comps section now shows a summary band (count, date range, median distance, price variance cv) with provenance badges and concessions placeholder; min-comps gating unchanged.
+- Added “Re-run comps” button wired to the existing Refresh Valuation handler with a simple cooldown; no provider calls on mount.
+- Tests cover comps summary rendering and rerun cooldown; commands run: `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
+
+### 2025-12-13 - Slice 5 - Market & Valuation UI rebuild (Facts/Market/Comps/Confidence)
+- Market & Valuation rebuilt into four lanes with Offer Price (Draft) canonical at `market.contract_price` (warning-only when missing) + read-only Contract Price (Executed) display; Valuation Basis selector stays with RentCast AVM/manual options. ARV/As-Is are read-only with explicit "Override ARV/As-Is Value" modals (reason required) calling RLS edge `v1-valuation-override-market`. No provider calls on mount; Market lane is read-only from the latest valuation snapshot with provenance and "Not connected (v1)" flood placeholder.
 - Comps panel stays truthful to RentCast sale listings (list price/listed date), keeps stub/provider/as_of badges, and min-comps gating. Confidence/warnings remain sourced from valuation_run output/provenance.
 - Tests added for required contract banner, override reason gating, and “Applied” suggested ARV state; commands run: `pnpm -w lint`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
 
@@ -121,7 +160,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Inventory captured: Market & Valuation block at `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (DealSession state → autosave to `deal_working_states`), Underwrite orchestration at `app/(app)/underwrite/page.tsx`, deal intake flow (`StartupPage`, `/deals` pages, `lib/deals.ts` write to `public.deals` + payload), no Comps UI today (only sandbox knobs/offer checklist references).
 - Slice 2 preview: add valuation_run + property_snapshots tables/migrations, org-scoped caching, address-edit append-only runs, provider stub for comps/market stats, UI hydration from persisted valuation runs.
 
-### 2025-12-20 - AI chat UX + routing + underwrite evidence + settings nav + theming (Slices A-F)
+### 2025-12-13 - AI chat UX + routing + underwrite evidence + settings nav + theming (Slices A-F)
 
 - **AI Agent Chat:** Composer always mounted with guidance in placeholders; no auto-summary bubbles for Analyst/Strategist; Negotiator keeps Playbook as the first seeded response with send gated until available; chat windows open taller with prompt chips visible; Tone + "Your Chats" live in a hamburger menu; sessions auto-title from the first user message (trimmed/truncated with playbook fallback).
 - **Startup & Routing:** "Run New Deal" now routes to `/underwrite?dealId=...`; selecting an existing deal routes to `/overview?dealId=...` while preserving session/deal context.
@@ -137,7 +176,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Added global draggable, modeless AI windows (react-rnd) with FAB launchers; per-persona sessions (title/pin/tone/history) now persist chat via Supabase (30-day TTL, RLS) while layout/pinned state remains localStorage; Analyst run-freshness gating (no-run + stale consent) remains.
 - Kept tests/typecheck/build green; no changes to engine math or contracts.
 
-### 2025-12-19 - AI tri-agent chat history, Negotiator pipeline, and UX polish
+### 2025-12-13 - AI tri-agent chat history, Negotiator pipeline, and UX polish
 
 - Context: moved AI history off localStorage into Supabase with RLS and finished the tri-agent pipeline (Analyst, Strategist, Negotiator) on the shared bridge.
 - Chat history: Supabase-backed history keyed by org/user/persona/session with automatic 30-day TTL; `apps/hps-dealengine/lib/ai/chatHistory.ts` handles CRUD/purge; `docs/ai/chat-history.md` documents table shape, RLS posture, and TTL. Analyst/Strategist/Negotiator hydrate/persist the same server thread; layout/pin state stays localStorage.
@@ -147,7 +186,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - UI/UX: Shared `DealNegotiatorPanel` (inline and window) with tone selector (Objective/Empathetic/Assertive); DualAgentLauncher is effectively tri-agent with Negotiator FAB gated until playbook generation; chat panes are scrollable with anchored inputs, unified `AgentSessionHeader` chrome, colorized FABs, and AGENTS toggle glow; Analyst stale-run warnings use brand dark orange (“Analyze deal to chat”); Negotiator gating copy reads “Generate playbook to chat.” Chat history persists server-side; layout persistence stays localStorage.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (pass).
 
-### 2025-12-18 - Dashboard/Repairs/Deals UX hardening + null-backed numeric foundation
+### 2025-12-13 - Dashboard/Repairs/Deals UX hardening + null-backed numeric foundation
 
 - Context: production polish for Repairs/Dashboard/Deals plus numeric input groundwork.
 - Repairs: removed the dev-only “Active Repair Profile (dev)” block from `RepairsTab`; production Quick Estimate/Big 5 UI unchanged; Big 5 test expectations updated to match current labels (math unchanged).
@@ -157,7 +196,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Inputs: shared numeric inputs and default deal state now use null-backed semantics (empty == placeholder, not 0) so zeros only commit when typed; foundation in `components/ui.tsx` + `dealSessionContext.tsx` for broader rollout.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` green after test alignment.
 
-### 2025-12-17 - Dashboard contact modal, nav dedupe, and AI window stacking
+### 2025-12-13 - Dashboard contact modal, nav dedupe, and AI window stacking
 
 - Context: Dashboard contact UX plus nav/window stability.
 - Client profile: Dashboard “CLIENT” pill now opens `ClientProfileModal` showing deal contact info with `—` for missing fields and a gated “Send Offer” button (logs TODO when workflow_state is ready); `ButtonProps` widened for modal actions without breaking existing buttons.
@@ -165,7 +204,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - AI windows: normalized z-index/stacking so Analyst/Strategist/Negotiator windows stay above nav/content on desktop and mobile; minimize/open order is deterministic.
 - Commands: `pnpm -w typecheck`, `pnpm -w test` (pass); build not rerun in this slice.
 
-### 2025-12-15 - V1 field-ready (Dashboard, Sandbox, traces, QA harness)
+### 2025-12-13 - V1 field-ready (Dashboard, Sandbox, traces, QA harness)
 
 - Business Sandbox v1: 196 knobs with KEEP/DROP/DROP_BACKLOG classification; coverage tool + JSON snapshot checked in; only three KEEP knobs are UX-only (`abcConfidenceGradeRubric`, `allowAdvisorOverrideWorkflowState`, `buyerCostsLineItemModelingMethod`), all others wired runtime through sandbox -> policy -> engine -> traces -> UI. Sandbox hides DROP backlog knobs and surfaces UX-only in the UX band and KnobFamilySummary.
 - Engine/policy: Shared `buildUnderwritingPolicyFromOptions` used by `v1-analyze`; workflow/guardrail knobs (borderline, cash gate, placeholders, rubric) drive math and traces. Evidence placeholders degrade confidence and workflow, recorded in traces with placeholder kinds.
@@ -174,7 +213,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - QA/E2E: `docs/QA_ENV_V1.md` added; Playwright specs (golden path, timeline/carry, risk/evidence) updated to the new IA and surfaces and skip cleanly when QA env vars are absent.
 - Commands: `pnpm -w typecheck`, `pnpm -w build` (Sentry/require-in-the-middle warning only), `pnpm -w test` all green.
 
-### 2025-12-14 - QA E2E alignment (login, deep-links, Supabase gating)
+### 2025-12-13 - QA E2E alignment (login, deep-links, Supabase gating)
 
 - Login/UI: `/login` renders LoginForm (placeholders `email` / `password`, button "Sign in"); Playwright specs updated to use the same selectors with `.first()` safety.
 - Login styling: refactored LoginForm + LoginClient to a glassy gradient card via `app/login/login.module.css`, animated background layers, and icon-decorated inputs/button; Supabase auth behavior unchanged (same auto-signup/redirect/validation as before).
@@ -880,14 +919,14 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Playwright `tests/e2e/risk-and-evidence.spec.ts` updated with ReadyForOffer vs stale/missing evidence scenarios using the new selectors; still skipped pending deterministic seeded deals/auth harness.
 - TODO(e2e-fixtures): create seeded deals with known risk/evidence states to unskip specs; consider adding gate/evidence reason strings once policy tokens are finalized.
 
-### 2025-12-14 - Slice V - Placeholder gate TODO sweep
+### 2025-12-13 - Slice V - Placeholder gate TODO sweep
 
 - Workflow/evidence knob `assumptionsProtocolPlaceholdersWhenEvidenceMissing` now controls blocking vs downgrade: evidence freshness respects the flag, CONFIDENCE_POLICY adds placeholder reasons (grade downgraded to B when used), and WORKFLOW_STATE_POLICY traces include whether placeholders were allowed/used.
 - Added unit coverage in `packages/engine/src/__tests__/compute_underwriting.risk_timeline.spec.ts` to assert NeedsInfo when placeholders are disallowed vs Ready/Review with downgraded confidence when allowed.
 - Traces (EVIDENCE_FRESHNESS_POLICY, CONFIDENCE_POLICY, WORKFLOW_STATE_POLICY) now emit allow/used/placeholder kinds + rubric context for auditability.
 - Backlog pushed to v2+: (1) policy-driven hold_cost_per_month per speed/track + deterministic repairs totals instead of placeholder constants; (2) explicit AIV override pct knob plus policy tokens for gap bands/DTM urgency thresholds and deterministic "today"; (3) doc-stamp/closing cost tables + UX-only knobs (bankers rounding, dual-scenario buyer costs, line-item vs aggregate) consumed in offer/strategy presenters.
 
-### 2025-12-15 - Slice E4-W1 - QA env doc + E2E harness alignment
+### 2025-12-13 - Slice E4-W1 - QA env doc + E2E harness alignment
 
 - Docs: Added `docs/QA_ENV_V1.md` describing QA Supabase setup, required env vars, and seeded deal expectations for running the gated Playwright specs.
 - E2E: Updated `golden-path`, `timeline-and-carry`, and `risk-and-evidence` specs to follow the v1 IA (Startup hub -> Deals -> Dashboard) and the refreshed evidence/risk/workflow surfaces. Specs remain env-gated and skip cleanly when QA vars are absent.

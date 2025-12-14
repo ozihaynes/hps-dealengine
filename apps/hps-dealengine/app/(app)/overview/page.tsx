@@ -364,6 +364,12 @@ export default function Page() {
 
         <TopDealKpis
           arv={deal.market?.arv ?? null}
+          offer={
+            (lastAnalyzeResult as any)?.outputs?.primary_offer ??
+            (lastAnalyzeResult as any)?.outputs?.instant_cash_offer ??
+            (calc as any)?.instantCashOffer ??
+            null
+          }
           maoFinal={
             (lastAnalyzeResult as any)?.outputs?.primary_offer ??
             (lastAnalyzeResult as any)?.outputs?.mao_wholesale ??

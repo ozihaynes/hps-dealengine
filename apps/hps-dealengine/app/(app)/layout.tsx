@@ -186,7 +186,7 @@ function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
               "border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-[color:var(--text-primary)] hover:border-[color:var(--accent-color)]",
             ].join(" ")}
           >
-            <Icon d={Icons.check} size={16} className="text-[color:var(--accent-color)]" />
+            <Icon d={Icons.check} size={16} className="text-[color:var(--accent-contrast)]" />
             <span>Offer</span>
           </button>
         ) : (

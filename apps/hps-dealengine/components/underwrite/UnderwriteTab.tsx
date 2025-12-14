@@ -43,7 +43,7 @@ interface UnderwriteTabProps {
   valuationRun?: ValuationRun | null;
   valuationSnapshot?: PropertySnapshot | null;
   minClosedComps?: number | null;
-  onRefreshValuation?: () => void;
+  onRefreshValuation?: (forceRefresh?: boolean) => void;
   refreshingValuation?: boolean;
   valuationError?: string | null;
   valuationStatus?: string | null;
@@ -131,15 +131,36 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const legal = (baseDeal.legal ?? {}) as any;
   const timeline = (baseDeal.timeline ?? {}) as any;
   const suggestedArv = valuationRun?.output?.suggested_arv ?? null;
+  const suggestedArvMethod = valuationRun?.output?.suggested_arv_source_method ?? "comps_median_v1";
+  const suggestedArvCompKindUsed = valuationRun?.output?.suggested_arv_comp_kind_used ?? null;
+  const suggestedArvCompCountUsed = valuationRun?.output?.suggested_arv_comp_count_used ?? null;
   const arvRangeLow = valuationRun?.output?.arv_range_low ?? null;
   const arvRangeHigh = valuationRun?.output?.arv_range_high ?? null;
-  const contractPrice = market.contract_price ?? "";
+  const avmReferencePrice =
+    (valuationRun as any)?.output?.avm_reference_price ??
+    (valuationRun as any)?.output?.avmPrice ??
+    (market as any)?.avm_price ??
+    null;
+  const avmReferenceLow =
+    (valuationRun as any)?.output?.avm_reference_range_low ??
+    (market as any)?.avm_price_range_low ??
+    null;
+  const avmReferenceHigh =
+    (valuationRun as any)?.output?.avm_reference_range_high ??
+    (market as any)?.avm_price_range_high ??
+    null;
+  const contractPriceExecuted = market.contract_price_executed ?? null;
   const valuationBasis = market.valuation_basis ?? "";
   const compCount = valuationRun?.output?.comp_count ?? null;
   const valuationConfidence = valuationRun?.output?.valuation_confidence ?? null;
   const compStats = valuationRun?.output?.comp_set_stats ?? null;
   const provenance = valuationRun?.provenance ?? null;
-  const valuationWarnings = Array.isArray(valuationRun?.output?.warnings)
+  const valuationWarningCodes = Array.isArray(valuationRun?.output?.warning_codes)
+    ? (valuationRun.output.warning_codes ?? []).filter((w): w is string => typeof w === "string")
+    : [];
+  const valuationWarnings = valuationWarningCodes.length
+    ? valuationWarningCodes
+    : Array.isArray(valuationRun?.output?.warnings)
     ? (valuationRun?.output?.warnings ?? []).filter((w): w is string => typeof w === "string")
     : [];
   const displayMinComps =
@@ -154,6 +175,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   );
   const comps = Array.isArray(valuationSnapshot?.comps) ? valuationSnapshot.comps : [];
   const marketSnapshot: any = (valuationSnapshot as any)?.market ?? null;
+  const closedSalesCount = comps.filter((c: any) => (c as any)?.comp_kind === "closed_sale").length;
+  const listingCount = comps.filter((c: any) => (c as any)?.comp_kind === "sale_listing").length;
   const compStatusCounts = React.useMemo(
     () =>
       comps.reduce(
@@ -178,7 +201,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       ),
     [comps],
   );
-  const compsGating = displayMinComps != null ? comps.length < displayMinComps : false;
+  const compsGating = displayMinComps != null ? closedSalesCount < displayMinComps : false;
   const providerLabel =
     provenance?.provider_name ??
     valuationSnapshot?.provider ??
@@ -191,10 +214,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const marketSnapshotAsOf =
     (marketSnapshot?.as_of && new Date(marketSnapshot.as_of).toLocaleDateString()) || snapshotAsOf;
   const marketSnapshotSource = marketSnapshot?.source ?? providerLabel;
-  const missingContractPrice =
-    contractPrice === "" ||
-    contractPrice === null ||
-    (typeof contractPrice === "string" && contractPrice.trim() === "");
   const [overrideTarget, setOverrideTarget] = React.useState<"arv" | "as_is_value" | null>(null);
   const [overrideValue, setOverrideValue] = React.useState<string>("");
   const [overrideReason, setOverrideReason] = React.useState<string>("");
@@ -367,7 +386,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             </span>
             {compsGating && (
               <span className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-xs text-amber-100">
-                Informational only: insufficient comps
+                Informational only: insufficient closed-sale comps
               </span>
             )}
           </div>
@@ -375,7 +394,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <Button
               variant="neutral"
               size="sm"
-              onClick={() => onRefreshValuation?.()}
+              onClick={() => onRefreshValuation?.(true)}
               disabled={refreshingValuation || !onRefreshValuation}
             >
               {refreshingValuation ? "Refreshing..." : "Refresh Valuation"}
@@ -420,14 +439,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <InputField
-                label="Contract/Offer Price"
-                type="number"
-                prefix="$"
-                value={contractPrice}
-                onChange={(e: any) => setDealValue("market.contract_price", e.target.value)}
-                warning={missingContractPrice ? "Required" : null}
-              />
               <InputField
                 label="ARV"
                 type="number"
@@ -484,45 +495,87 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 {overrideStatus}
               </div>
             )}
-            {missingContractPrice && (
-              <div className="rounded-md border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                Contract/Offer Price is required for this slice. Enter the price to keep valuation facts complete.
-              </div>
-            )}
-            {suggestedArv != null && (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-                <span>
-                  Suggested:{" "}
-                  <span className="font-semibold text-text-primary">{fmt$(suggestedArv, 0)}</span>
-                </span>
-                {arvRangeLow != null && arvRangeHigh != null && (
-                  <span>
-                    Range: {fmt$(arvRangeLow, 0)} - {fmt$(arvRangeHigh, 0)}
-                  </span>
+            <div className="space-y-2 text-xs text-text-secondary">
+              <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-text-primary">
+                      Suggested ARV (method: {suggestedArvMethod})
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span>
+                        {suggestedArv != null ? fmt$(suggestedArv, 0) : "—"}{" "}
+                        {arvRangeLow != null && arvRangeHigh != null
+                          ? `(range ${fmt$(arvRangeLow, 0)} – ${fmt$(arvRangeHigh, 0)})`
+                          : ""}
+                      </span>
+                      <span className="rounded border border-white/10 px-2 py-1">
+                        Comps: {suggestedArvCompKindUsed ?? "-"} ·{" "}
+                        {suggestedArvCompCountUsed ?? 0} used
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="neutral"
+                    onClick={handleApplySuggested}
+                    disabled={applyingSuggestedArv || suggestedApplied || suggestedArv == null}
+                  >
+                    {suggestedApplied
+                      ? "Applied"
+                      : applyingSuggestedArv
+                      ? "Applying..."
+                      : "Use Suggested ARV"}
+                  </Button>
+                </div>
+                {valuationWarnings.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {valuationWarnings.map((w) => (
+                      <span
+                        key={w}
+                        className="rounded border border-amber-400/40 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-100"
+                      >
+                        {w.replace(/_/g, " ")}
+                      </span>
+                    ))}
+                  </div>
                 )}
-                <span className="rounded border border-white/10 px-2 py-1">
-                  Provider: {providerLabel} {provenance?.stub ? "(stub)" : ""}
-                </span>
-                <span className="rounded border border-white/10 px-2 py-1">As of: {snapshotAsOf}</span>
-                <Button
-                  size="sm"
-                  variant="neutral"
-                  onClick={handleApplySuggested}
-                  disabled={applyingSuggestedArv || suggestedApplied}
-                >
-                  {suggestedApplied
-                    ? "Applied"
-                    : applyingSuggestedArv
-                    ? "Applying..."
-                    : "Use Suggested ARV"}
-                </Button>
               </div>
-            )}
+
+              <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                <div className="text-sm font-semibold text-text-primary">AVM Reference (RentCast)</div>
+                <div className="flex flex-wrap gap-2">
+                  <span>
+                    {avmReferencePrice != null ? fmt$(avmReferencePrice, 0) : "—"}{" "}
+                    {avmReferenceLow != null && avmReferenceHigh != null
+                      ? `(range ${fmt$(avmReferenceLow, 0)} – ${fmt$(avmReferenceHigh, 0)})`
+                      : ""}
+                  </span>
+                  <span className="rounded border border-white/10 px-2 py-1">
+                    Provider: {providerLabel} {provenance?.stub ? "(stub)" : ""}
+                  </span>
+                  <span className="rounded border border-white/10 px-2 py-1">As of: {snapshotAsOf}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="info-card rounded-lg border border-white/5 bg-white/5 p-4 space-y-3">
             <div className="text-xs uppercase tracking-wide text-text-secondary">Market</div>
             <div className="space-y-2 text-sm text-text-secondary">
+              <div className="flex items-center gap-2">
+                <span className="w-40 text-text-primary">Contract Price (Executed)</span>
+                <span className="rounded border border-white/10 px-2 py-1">
+                  {contractPriceExecuted != null && contractPriceExecuted !== ""
+                    ? fmt$(Number(contractPriceExecuted), 0)
+                    : "—"}
+                </span>
+                {contractPriceExecuted == null && (
+                  <Tooltip content="Set when the deal is marked Under Contract.">
+                    <span className="sr-only">No contract price yet</span>
+                  </Tooltip>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="w-40 text-text-primary">DOM (Zip, days)</span>
                 {marketSnapshot?.dom_zip_days != null ? (
@@ -663,6 +716,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           comps={valuationSnapshot.comps as any}
           snapshot={valuationSnapshot}
           minClosedComps={displayMinComps}
+          onRefresh={(force) => onRefreshValuation?.(force)}
+          refreshing={refreshingValuation}
         />
       )}
 

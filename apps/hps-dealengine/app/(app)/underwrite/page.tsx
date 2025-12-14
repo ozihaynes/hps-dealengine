@@ -298,7 +298,7 @@ export default function UnderwritePage() {
     void hydrateValuation();
   }, [hydrateValuation]);
 
-  const handleRefreshValuation = useCallback(async () => {
+  const handleRefreshValuation = useCallback(async (forceRefresh: boolean = false) => {
     if (!dbDeal?.id) {
       setValuationError("Select a deal before refreshing valuation.");
       return;
@@ -307,7 +307,7 @@ export default function UnderwritePage() {
     setValuationError(null);
     setValuationStatus(null);
     try {
-      const data = (await invokeValuationRun(dbDeal.id, posture)) as ValuationRunResponse;
+      const data = (await invokeValuationRun(dbDeal.id, posture, { forceRefresh })) as ValuationRunResponse;
       setValuationRun(data.valuation_run);
       setValuationSnapshot(data.snapshot);
       const minComps =
@@ -390,11 +390,24 @@ export default function UnderwritePage() {
           valuationRunId: valuationRunId ?? null,
         });
         const payload: any = (resp as any)?.deal?.payload ?? null;
-        if (payload && dbDeal) {
-          setDbDeal({ ...dbDeal, payload } as any);
-          setDeal((prev) => ({ ...(prev as any), ...(payload as any) }));
-          setHasUnsavedDealChanges(false);
+        const incomingMarket = payload && typeof payload === "object" ? (payload as any).market ?? {} : {};
+        if (dbDeal) {
+          const existingPayload = (dbDeal as any).payload ?? {};
+          const existingMarket = (existingPayload as any).market ?? {};
+          const nextPayload = {
+            ...existingPayload,
+            market: { ...existingMarket, ...incomingMarket },
+          };
+          setDbDeal({ ...dbDeal, payload: nextPayload } as any);
+          setDeal((prev) => {
+            const prevMarket = (prev as any)?.market ?? {};
+            return {
+              ...(prev as any),
+              market: { ...prevMarket, ...incomingMarket },
+            } as any;
+          });
         }
+        setHasUnsavedDealChanges(false);
         setOverrideStatus("Override saved to deal.");
       } catch (err: any) {
         setOverrideError(err?.message ?? "Failed to save override");
@@ -764,7 +777,7 @@ export default function UnderwritePage() {
           valuationRun={valuationRun}
           valuationSnapshot={valuationSnapshot}
           minClosedComps={minClosedComps}
-          onRefreshValuation={handleRefreshValuation}
+          onRefreshValuation={(force) => handleRefreshValuation(Boolean(force))}
           refreshingValuation={isRefreshingValuation}
           valuationError={valuationError}
           onApplySuggestedArv={handleApplySuggestedArv}

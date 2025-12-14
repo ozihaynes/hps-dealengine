@@ -61,18 +61,16 @@ const defaultProps = {
 };
 
 describe("UnderwriteTab Slice 5 UX", () => {
-  it("shows contract/offer price required banner when missing", () => {
+  it("does not render Offer Price input in Market & Valuation", () => {
     render(
       <UnderwriteTab
         {...defaultProps}
-        deal={{ ...baseDeal, market: { contract_price: "" } }}
+        deal={{ ...baseDeal, market: { arv: 123000 } }}
         autosaveStatus={{ state: "idle", lastSavedAt: null, error: null }}
       />,
     );
 
-    expect(
-      screen.getByText(/Contract\/Offer Price is required for this slice/i),
-    ).toBeTruthy();
+    expect(screen.queryByText(/Offer Price \(Draft\)/i)).toBeNull();
   });
 
   it("prevents override submit without a long enough reason", async () => {
@@ -100,7 +98,13 @@ describe("UnderwriteTab Slice 5 UX", () => {
   it("shows Applied when suggested ARV is already persisted from valuation run", () => {
     const valuationRun: any = {
       id: "run-1",
-      output: { suggested_arv: 150000 },
+      output: {
+        suggested_arv: 150000,
+        avm_reference_price: 140000,
+        avm_reference_range_low: 130000,
+        avm_reference_range_high: 150000,
+        warning_codes: ["listing_based_comps_only"],
+      },
       provenance: { provider_name: "rentcast", as_of: "2025-01-01" },
     };
     render(
@@ -120,5 +124,8 @@ describe("UnderwriteTab Slice 5 UX", () => {
     );
 
     expect(screen.getByText("Applied")).toBeTruthy();
+    expect(screen.getByText(/AVM Reference/i)).toBeTruthy();
+    expect(screen.getByText(/\$140,000/)).toBeTruthy();
+    expect(screen.getByText(/listing based comps only/i)).toBeTruthy();
   });
 });

@@ -9,7 +9,9 @@ export default defineConfig({
     ],
     include: [
       "packages/**/*.test.ts",
+      "packages/**/*.test.tsx",
       "apps/**/*.test.ts",
+      "apps/**/*.test.tsx",
       "supabase/functions/**/*.test.ts",
     ],
     // Use default reporter (fixes "Failed to load custom Reporter from basic")

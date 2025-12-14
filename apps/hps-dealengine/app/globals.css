@@ -7,6 +7,8 @@
   --text-primary: #f2f6ff;
   --accent-color: #007fe0;
   --accent-secondary: #0096ff;
+  --accent-foreground: #050505;
+  --accent-contrast: var(--accent-color);
   --glass-bg: rgba(0, 15, 34, 0.55);
   --glass-border: rgba(0, 150, 255, 0.18);
   --input-bg: rgba(0, 15, 34, 0.6);
@@ -67,16 +69,18 @@
   --text-primary: #ffffff;
 
   /* Accents: pulled from Burgundy wine palettes (Burgundy/Wine Red) */
-  --accent-color: #990000;
-  --accent-secondary: color-mix(in srgb, #990000 65%, #ff4500 35%);
+  --accent-color: #d63535;
+  --accent-secondary: color-mix(in srgb, #d63535 70%, #ff9b71 30%);
+  --accent-foreground: #ffffff;
+  --accent-contrast: color-mix(in srgb, #d63535 90%, white 10%);
 
   /* Glass surfaces: burgundy-tinted, same opacity pattern as Navy */
   --glass-bg: rgba(18, 6, 9, 0.6);
-  --glass-border: rgba(153, 0, 0, 0.24);
+  --glass-border: rgba(214, 53, 53, 0.26);
 
   /* Inputs */
   --input-bg: rgba(18, 6, 9, 0.62);
-  --input-border: rgba(153, 0, 0, 0.24);
+  --input-border: rgba(214, 53, 53, 0.26);
 
   /* Typography */
   --text-secondary: rgba(255, 241, 241, 0.78);
@@ -88,9 +92,9 @@
   /* Derived surfaces for dashboards/cards */
   --bg-main: var(--bg-primary);
   --surface-1: rgba(18, 6, 9, 0.6);
-  --surface-2: rgba(153, 0, 0, 0.1);
-  --line: rgba(153, 0, 0, 0.22);
-  --ring: rgba(153, 0, 0, 0.38);
+  --surface-2: rgba(214, 53, 53, 0.12);
+  --line: rgba(214, 53, 53, 0.26);
+  --ring: rgba(214, 53, 53, 0.42);
 
   /* Alias for existing usage */
   --accent-blue: var(--accent-color);
@@ -151,7 +155,7 @@
 
   /* Typography */
   --text-secondary: rgba(229, 229, 229, 0.78);
-  --text-muted: rgba(163, 163, 163, 0.70);
+  --text-muted: rgba(170, 170, 170, 0.72);
 
   /* Shapes / FX */
   --shape-opacity: 0.05;
@@ -166,7 +170,42 @@
   --accent-blue: var(--accent-color);
 }
 
-/* Theme 5: Pink - deep plum base with bright rose accents (#FF83A6) */
+/* Theme 5: Violet - deep plum base with amethyst highlights (#9966CC) */
+[data-theme="violet"] {
+  /* Base + text */
+  --bg-primary: #0f0a1a;
+  --text-primary: #f7f4ff;
+
+  /* Accents */
+  --accent-color: #9966cc;
+  --accent-secondary: color-mix(in srgb, #9966cc 70%, #d8c7ff 30%);
+
+  /* Glass surfaces */
+  --glass-bg: rgba(15, 10, 26, 0.8);
+  --glass-border: rgba(153, 102, 204, 0.26);
+
+  /* Inputs */
+  --input-bg: rgba(15, 10, 26, 0.82);
+  --input-border: rgba(153, 102, 204, 0.28);
+
+  /* Typography */
+  --text-secondary: rgba(232, 221, 255, 0.82);
+  --text-muted: rgba(204, 184, 235, 0.7);
+
+  /* Shapes / FX */
+  --shape-opacity: 0.05;
+
+  /* Derived surfaces */
+  --bg-main: var(--bg-primary);
+  --surface-1: rgba(15, 10, 26, 0.88);
+  --surface-2: rgba(153, 102, 204, 0.16);
+  --line: rgba(153, 102, 204, 0.3);
+  --ring: rgba(153, 102, 204, 0.46);
+
+  --accent-blue: var(--accent-color);
+}
+
+/* Theme 6: Pink - deep plum base with bright rose accents (#FF83A6) */
 [data-theme="pink"] {
   /* Base + text */
   --bg-primary: #150812;
@@ -259,8 +298,8 @@ body {
 .card-orange {
   background: linear-gradient(
     90deg,
-    var(--accent-orange) 0%,
-    color-mix(in srgb, var(--accent-orange) 80%, black) 100%
+    color-mix(in srgb, var(--accent-orange) 75%, black 25%) 0%,
+    color-mix(in srgb, var(--accent-orange) 45%, black 55%) 100%
   );
   border-radius: 8px;
 }

@@ -21,7 +21,7 @@ type ThemeContextValue = {
 
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined);
 
-const ALLOWED_THEMES: DealEngineThemeName[] = ["burgundy", "green", "navy", "pink", "black"];
+const ALLOWED_THEMES: DealEngineThemeName[] = ["burgundy", "green", "navy", "violet", "pink", "black"];
 const THEME_ALIASES: Record<string, DealEngineThemeName> = {
   pink2: "pink",
   pink3: "pink",

@@ -15,7 +15,7 @@
     "check:dashboard-coverage": "tsx scripts/dashboard-kpi-coverage-report.ts",
     "check:docs-frontmatter": "tsx scripts/check-doc-frontmatter.ts",
     "generate:doc-registry": "tsx scripts/generate-doc-registry.ts",
-    "dev:hps-mcp:http": "set PORT=8787&& set MCP_HTTP_PATH=/mcp&& set HPS_MCP_HTTP_TOKEN=0181fda5-e79b-4086-908e-5e0abeb23a42&& pnpm --filter \"@hps/hps-mcp\" start:http",
+    "dev:hps-mcp:http": "set PORT=8787&& set MCP_HTTP_PATH=/mcp&& set HPS_MCP_HTTP_TOKEN=__SET_ME__&& pnpm --filter \"@hps/hps-mcp\" start:http",
     "start": "pnpm --filter \"@hps/agents\" build && pnpm --filter \"@hps/hps-mcp\" build && pnpm --filter \"@hps/hps-mcp\" start:runtime",
     "doctor:valuation": "powershell -ExecutionPolicy Bypass -File scripts/doctor-valuation-spine.ps1"
   },

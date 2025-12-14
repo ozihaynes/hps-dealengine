@@ -172,6 +172,7 @@ export interface Deal {
     arv?: number;
     as_is_value?: number;
     contract_price?: number;
+    contract_price_executed?: number;
     arv_source?: string | null;
     arv_as_of?: string | null;
     arv_override_reason?: string | null;

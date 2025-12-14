@@ -19,7 +19,7 @@ const THEME_BOOT_SCRIPT = `
 (function() {
   try {
     var KEY = 'dealengine.theme';
-    var allowed = ['burgundy','green','navy','pink','black','pink2','pink3','system','dark','light','white'];
+    var allowed = ['burgundy','green','navy','violet','pink','black','pink2','pink3','system','dark','light','white'];
     var setting = 'navy';
     try {
       var stored = localStorage.getItem(KEY);

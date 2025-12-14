@@ -8,6 +8,7 @@ import {
   type ValuationPolicy,
 } from "../_shared/valuationSnapshot.ts";
 import { fetchActivePolicyForOrg } from "../_shared/policy.ts";
+import { selectArvComps, sortCompsDeterministic } from "../_shared/valuationComps.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -22,15 +23,12 @@ type PolicyRow = {
   policy_json: any;
 };
 
-function median(nums: number[]): number | null {
+const median = (nums: number[]): number | null => {
   if (!nums.length) return null;
   const sorted = [...nums].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    return (sorted[mid - 1] + sorted[mid]) / 2;
-  }
-  return sorted[mid];
-}
+  return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+};
 
 serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
@@ -122,6 +120,11 @@ serve(async (req: Request): Promise<Response> => {
         400,
       );
     }
+    const medianSetSizeRaw = (valuationPolicy as any)?.arv_comps_set_size_for_median;
+    const medianSetSize =
+      medianSetSizeRaw == null || !Number.isFinite(Number(medianSetSizeRaw))
+        ? Number(minClosedComps)
+        : Number(medianSetSizeRaw);
     if (!valuationPolicy.confidence_rubric || Object.keys(valuationPolicy.confidence_rubric).length === 0) {
       return jsonResponse(
         req,
@@ -141,35 +144,37 @@ serve(async (req: Request): Promise<Response> => {
       forceRefresh: !!body.force_refresh,
     });
 
-    const comps = Array.isArray(snapshot.comps) ? snapshot.comps : [];
-    const compCount = comps.length;
+    const rawComps = Array.isArray(snapshot.comps) ? snapshot.comps : [];
+    const comps = sortCompsDeterministic(rawComps as any[]);
+    const selection = selectArvComps({
+      comps: comps as any[],
+      minClosedComps: Number(minClosedComps),
+      medianSetSize: Number(medianSetSize),
+    });
 
     const avmPrice = (snapshot.market as any)?.avm_price ?? null;
     const avmLow = (snapshot.market as any)?.avm_price_range_low ?? null;
     const avmHigh = (snapshot.market as any)?.avm_price_range_high ?? null;
 
-    const medianPrice = median(
-      comps
-        .map((c: any) => Number((c as any)?.price))
-        .filter((n) => Number.isFinite(n)),
-    );
-
+    const compsUsed = selection.compsUsed;
+    const priceSamples = selection.priceSamples;
+    const compCount = compsUsed.length;
     const stats = {
       median_distance_miles: median(
-        comps.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
+        compsUsed.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
       ),
       median_correlation: median(
-        comps.map((c: any) => Number((c as any)?.correlation)).filter((n) => Number.isFinite(n)),
+        compsUsed.map((c: any) => Number((c as any)?.correlation)).filter((n) => Number.isFinite(n)),
       ),
       median_days_old: median(
-        comps.map((c: any) => Number((c as any)?.days_old)).filter((n) => Number.isFinite(n)),
+        compsUsed.map((c: any) => Number((c as any)?.days_old)).filter((n) => Number.isFinite(n)),
       ),
     };
 
-    const suggestedArv = avmPrice ?? medianPrice ?? null;
+    const suggestedArv = selection.suggestedArv ?? null;
     const rangeWidthPct =
-      avmPrice && avmLow != null && avmHigh != null && avmPrice !== 0
-        ? (Number(avmHigh) - Number(avmLow)) / Number(avmPrice)
+      suggestedArv && selection.rangeLow != null && selection.rangeHigh != null && suggestedArv !== 0
+        ? (Number(selection.rangeHigh) - Number(selection.rangeLow)) / Number(suggestedArv)
         : null;
 
     const rubric = valuationPolicy.confidence_rubric ?? {};
@@ -179,13 +184,14 @@ serve(async (req: Request): Promise<Response> => {
       { grade: "C", cfg: rubric["C"] },
     ];
 
-    const warnings: string[] = [];
+    const warningCodes: string[] = [...selection.warningCodes];
+    if (selection.failureReason === "insufficient_comps") {
+      warningCodes.push("insufficient_comps");
+    }
     let valuationConfidence: "A" | "B" | "C" | null = null;
 
     if (stats.median_correlation == null) {
-      // Missing correlation should not fail the run; cap confidence at C and surface a warning.
-      warnings.push("missing_correlation_signal");
-      valuationConfidence = "C";
+      warningCodes.push("missing_correlation_signal");
     } else {
       for (const band of bands) {
         if (!band.cfg) continue;
@@ -193,24 +199,35 @@ serve(async (req: Request): Promise<Response> => {
         const minCorr = Number(band.cfg.min_median_correlation ?? 0);
         const maxRange = Number(band.cfg.max_range_pct ?? 1);
         const compsOk = compCount >= minCompsNeeded;
-        const corrOk = stats.median_correlation >= minCorr;
+        const corrOk = stats.median_correlation == null ? true : stats.median_correlation >= minCorr;
         const rangeOk = rangeWidthPct == null ? true : rangeWidthPct <= maxRange;
         if (compsOk && corrOk && rangeOk) {
           valuationConfidence = band.grade;
           break;
         }
       }
-      if (!valuationConfidence) {
-        valuationConfidence = "C";
-      }
+    }
+
+    if (!valuationConfidence) {
+      valuationConfidence = "C";
+    }
+    if (selection.forceConfidenceC) {
+      valuationConfidence = "C";
+    }
+    if (snapshot.stub) {
+      warningCodes.push("snapshot_stub");
+      valuationConfidence = "C";
     }
 
     const failureReasons: string[] = [];
-    if (compCount < Number(minClosedComps)) {
-      failureReasons.push(`insufficient_comps_${compCount}_of_${minClosedComps}`);
+    if (selection.failureReason) {
+      failureReasons.push(selection.failureReason);
     }
     if (suggestedArv == null) {
       failureReasons.push("missing_suggested_arv");
+    }
+    if ((snapshot.raw as any)?.closed_sales_fetch_failed) {
+      warningCodes.push("closed_sales_fetch_failed");
     }
 
     const status = failureReasons.length === 0 ? "succeeded" : "failed";
@@ -228,20 +245,32 @@ serve(async (req: Request): Promise<Response> => {
 
     const outputPayload = {
       suggested_arv: suggestedArv ?? null,
-      arv_range_low: avmLow ?? null,
-      arv_range_high: avmHigh ?? null,
+      arv_range_low: selection.rangeLow ?? null,
+      arv_range_high: selection.rangeHigh ?? null,
+      avm_reference_price: avmPrice ?? null,
+      avm_reference_range_low: avmLow ?? null,
+      avm_reference_range_high: avmHigh ?? null,
+      suggested_arv_source_method: "comps_median_v1",
+      suggested_arv_comp_kind_used: selection.compKindUsed ?? null,
+      suggested_arv_comp_count_used: priceSamples.length ?? null,
       as_is_value: null,
       valuation_confidence: valuationConfidence,
       comp_count: compCount,
       comp_set_stats: stats,
-      warnings,
+      warnings: warningCodes,
+      warning_codes: warningCodes,
       messages: failureReason ? [failureReason] : [],
     };
+
+    const endpoints = ["rentcast_avm", "rentcast_markets"];
+    if ((snapshot.raw as any)?.closed_sales) {
+      endpoints.push("rentcast_properties");
+    }
 
     const provenance = {
       provider_id: snapshot.provider ?? null,
       provider_name: snapshot.provider ?? null,
-      endpoints: ["rentcast_avm", "rentcast_markets"],
+      endpoints,
       stub: !!snapshot.stub,
       source: snapshot.source ?? null,
       as_of: snapshot.as_of ?? null,

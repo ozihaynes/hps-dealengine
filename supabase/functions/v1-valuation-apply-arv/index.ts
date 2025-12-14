@@ -110,6 +110,10 @@ serve(async (req: Request): Promise<Response> => {
 
     const currentPayload = (deal as any).payload ?? {};
     const currentMarket = (currentPayload as any).market ?? {};
+    const suggestedCompCount =
+      (valuationRun as any)?.output?.suggested_arv_comp_count_used ??
+      (valuationRun as any)?.output?.comp_count ??
+      null;
     const nextPayload = {
       ...currentPayload,
       market: {
@@ -118,6 +122,11 @@ serve(async (req: Request): Promise<Response> => {
         arv_source: "valuation_run",
         arv_valuation_run_id: valuationRun.id,
         arv_as_of: arvAsOf,
+        comps_arv_count: suggestedCompCount,
+        arv_range_low: (valuationRun as any)?.output?.arv_range_low ?? null,
+        arv_range_high: (valuationRun as any)?.output?.arv_range_high ?? null,
+        arv_source_method: (valuationRun as any)?.output?.suggested_arv_source_method ?? null,
+        arv_comp_kind: (valuationRun as any)?.output?.suggested_arv_comp_kind_used ?? null,
       },
     };
 

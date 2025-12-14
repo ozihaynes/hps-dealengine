@@ -7,10 +7,10 @@ export type ValuationRunResponse = {
   deduped?: boolean;
 };
 
-export async function invokeValuationRun(dealId: string, posture: string) {
+export async function invokeValuationRun(dealId: string, posture: string, opts?: { forceRefresh?: boolean }) {
   const supabase = getSupabase();
   const { data, error } = await supabase.functions.invoke("v1-valuation-run", {
-    body: { deal_id: dealId, posture },
+    body: { deal_id: dealId, posture, force_refresh: opts?.forceRefresh ?? false },
   });
   if (error) {
     throw new Error(error.message ?? "Valuation run failed");
