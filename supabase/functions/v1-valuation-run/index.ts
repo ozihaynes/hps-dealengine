@@ -8,7 +8,8 @@ import {
   type ValuationPolicy,
 } from "../_shared/valuationSnapshot.ts";
 import { fetchActivePolicyForOrg } from "../_shared/policy.ts";
-import { selectArvComps, sortCompsDeterministic } from "../_shared/valuationComps.ts";
+import { sortCompsDeterministic } from "../_shared/valuationComps.ts";
+import { runValuationSelection } from "../_shared/valuationSelection.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -30,9 +31,32 @@ const median = (nums: number[]): number | null => {
   return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 };
 
+const safeNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const canonicalizePropertyType = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalized.length > 0 ? normalized : null;
+};
+
 serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
+
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.searchParams.get("health") === "1") {
+    return jsonResponse(req, {
+      ok: true,
+      name: "v1-valuation-run",
+      ts: new Date().toISOString(),
+      version: "selection_v1_1",
+    });
+  }
 
   if (req.method !== "POST") {
     return jsonResponse(
@@ -120,11 +144,6 @@ serve(async (req: Request): Promise<Response> => {
         400,
       );
     }
-    const medianSetSizeRaw = (valuationPolicy as any)?.arv_comps_set_size_for_median;
-    const medianSetSize =
-      medianSetSizeRaw == null || !Number.isFinite(Number(medianSetSizeRaw))
-        ? Number(minClosedComps)
-        : Number(medianSetSizeRaw);
     if (!valuationPolicy.confidence_rubric || Object.keys(valuationPolicy.confidence_rubric).length === 0) {
       return jsonResponse(
         req,
@@ -146,24 +165,78 @@ serve(async (req: Request): Promise<Response> => {
 
     const rawComps = Array.isArray(snapshot.comps) ? snapshot.comps : [];
     const comps = sortCompsDeterministic(rawComps as any[]);
-    const selection = selectArvComps({
-      comps: comps as any[],
-      minClosedComps: Number(minClosedComps),
-      medianSetSize: Number(medianSetSize),
+    const subjectResolved = (snapshot.raw as any)?.subject_property_resolved ?? null;
+
+    const buildSubject = () => ({
+      sqft: safeNumber(subjectResolved?.sqft) ?? null,
+      beds: safeNumber(subjectResolved?.beds) ?? null,
+      baths: safeNumber(subjectResolved?.baths) ?? null,
+      year_built: safeNumber(subjectResolved?.year_built) ?? null,
+      property_type: canonicalizePropertyType(subjectResolved?.property_type) ?? null,
+      latitude: safeNumber(subjectResolved?.latitude) ?? null,
+      longitude: safeNumber(subjectResolved?.longitude) ?? null,
     });
+
+    const closedSaleTotal = comps.filter((c: any) => c.comp_kind === "closed_sale").length;
+    const listingTotal = comps.filter((c: any) => c.comp_kind === "sale_listing").length;
+
+    const pricedComps = comps.filter((c: any) => safeNumber((c as any)?.price) != null);
+    const closedComps = pricedComps.filter((c: any) => c.comp_kind === "closed_sale");
+    const listingComps = pricedComps.filter((c: any) => c.comp_kind === "sale_listing");
+    const closedPriced = closedComps.length;
+    const listingPriced = listingComps.length;
+
+    const closedSelection = runValuationSelection({
+      subject: buildSubject(),
+      comps: closedComps as any[],
+      policyValuation: valuationPolicy,
+      min_closed_comps_required: Number(minClosedComps),
+      comp_kind: "closed_sale",
+    });
+
+    const hasClosed =
+      closedSelection.selected_comp_ids.length >= Number(minClosedComps) &&
+      closedSelection.suggested_arv != null;
+
+    const listingSelection = !hasClosed
+      ? runValuationSelection({
+          subject: buildSubject(),
+          comps: listingComps as any[],
+          policyValuation: valuationPolicy,
+          min_closed_comps_required: Number(minClosedComps),
+          comp_kind: "sale_listing",
+        })
+      : null;
+
+    const activeSelection = hasClosed ? closedSelection : listingSelection;
+
+    const selection = activeSelection ?? {
+      suggested_arv: null,
+      suggested_arv_range_low: null,
+      suggested_arv_range_high: null,
+      selected_comp_ids: [],
+      selected_comps: [] as any[],
+      warning_codes: [] as string[],
+      selection_summary: {},
+      comp_kind_used: null,
+    };
+
+    const warningCodes: string[] = [...(selection.warning_codes ?? [])];
+    if (!hasClosed && listingSelection) {
+      warningCodes.push("insufficient_closed_sales_comps", "listing_based_comps_only");
+    }
 
     const avmPrice = (snapshot.market as any)?.avm_price ?? null;
     const avmLow = (snapshot.market as any)?.avm_price_range_low ?? null;
     const avmHigh = (snapshot.market as any)?.avm_price_range_high ?? null;
 
-    const compsUsed = selection.compsUsed;
-    const priceSamples = selection.priceSamples;
+    const compsUsed = selection.selected_comps ?? [];
     const compCount = compsUsed.length;
     const stats = {
       median_distance_miles: median(
-        compsUsed.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
-      ),
-      median_correlation: median(
+      compsUsed.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
+    ),
+    median_correlation: median(
         compsUsed.map((c: any) => Number((c as any)?.correlation)).filter((n) => Number.isFinite(n)),
       ),
       median_days_old: median(
@@ -171,10 +244,14 @@ serve(async (req: Request): Promise<Response> => {
       ),
     };
 
-    const suggestedArv = selection.suggestedArv ?? null;
+    const suggestedArv = selection.suggested_arv ?? null;
     const rangeWidthPct =
-      suggestedArv && selection.rangeLow != null && selection.rangeHigh != null && suggestedArv !== 0
-        ? (Number(selection.rangeHigh) - Number(selection.rangeLow)) / Number(suggestedArv)
+      suggestedArv &&
+      selection.suggested_arv_range_low != null &&
+      selection.suggested_arv_range_high != null &&
+      suggestedArv !== 0
+        ? (Number(selection.suggested_arv_range_high) - Number(selection.suggested_arv_range_low)) /
+          Number(suggestedArv)
         : null;
 
     const rubric = valuationPolicy.confidence_rubric ?? {};
@@ -184,10 +261,6 @@ serve(async (req: Request): Promise<Response> => {
       { grade: "C", cfg: rubric["C"] },
     ];
 
-    const warningCodes: string[] = [...selection.warningCodes];
-    if (selection.failureReason === "insufficient_comps") {
-      warningCodes.push("insufficient_comps");
-    }
     let valuationConfidence: "A" | "B" | "C" | null = null;
 
     if (stats.median_correlation == null) {
@@ -211,7 +284,7 @@ serve(async (req: Request): Promise<Response> => {
     if (!valuationConfidence) {
       valuationConfidence = "C";
     }
-    if (selection.forceConfidenceC) {
+    if (!hasClosed) {
       valuationConfidence = "C";
     }
     if (snapshot.stub) {
@@ -220,9 +293,6 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const failureReasons: string[] = [];
-    if (selection.failureReason) {
-      failureReasons.push(selection.failureReason);
-    }
     if (suggestedArv == null) {
       failureReasons.push("missing_suggested_arv");
     }
@@ -243,16 +313,43 @@ serve(async (req: Request): Promise<Response> => {
       property_snapshot_hash: hashJson(snapshot),
     };
 
+    const ladderRaw = (snapshot.raw as any)?.closed_sales ?? {};
+    const ladderStages = Array.isArray(ladderRaw?.stages)
+      ? ladderRaw.stages
+          .map((s: any) => (typeof s === "string" ? s : s?.name ?? null))
+          .filter((s: any): s is string => typeof s === "string")
+      : [];
+    const selectionSummary = {
+      ...(selection.selection_summary ?? {}),
+      ladder: {
+        stages: ladderStages,
+        stop_reason: ladderRaw?.stop_reason ?? null,
+      },
+      input_counts: {
+        closed_sale_total: closedSaleTotal,
+        closed_sale_priced: closedPriced,
+        listing_total: listingTotal,
+        listing_priced: listingPriced,
+      },
+      closed_attempt: closedSelection?.selection_summary ?? null,
+      listing_attempt: listingSelection?.selection_summary ?? null,
+      active_attempt: hasClosed ? "closed_sale" : listingSelection ? "sale_listing" : null,
+    };
+
     const outputPayload = {
       suggested_arv: suggestedArv ?? null,
-      arv_range_low: selection.rangeLow ?? null,
-      arv_range_high: selection.rangeHigh ?? null,
+      arv_range_low: selection.suggested_arv_range_low ?? null,
+      arv_range_high: selection.suggested_arv_range_high ?? null,
+      suggested_arv_range_low: selection.suggested_arv_range_low ?? null,
+      suggested_arv_range_high: selection.suggested_arv_range_high ?? null,
+      selected_comp_ids: selection.selected_comp_ids ?? [],
+      selection_summary: selectionSummary ?? null,
       avm_reference_price: avmPrice ?? null,
       avm_reference_range_low: avmLow ?? null,
       avm_reference_range_high: avmHigh ?? null,
-      suggested_arv_source_method: "comps_median_v1",
-      suggested_arv_comp_kind_used: selection.compKindUsed ?? null,
-      suggested_arv_comp_count_used: priceSamples.length ?? null,
+      suggested_arv_source_method: `selection_v1_1_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`,
+      suggested_arv_comp_kind_used: selection.comp_kind_used ?? null,
+      suggested_arv_comp_count_used: compCount ?? null,
       as_is_value: null,
       valuation_confidence: valuationConfidence,
       comp_count: compCount,

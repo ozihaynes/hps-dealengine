@@ -8,6 +8,7 @@ type CompsPanelProps = {
   minClosedComps?: number | null;
   onRefresh?: ((forceRefresh?: boolean) => void) | null;
   refreshing?: boolean;
+  selectedCompIds?: string[];
 };
 
 type Summary = {
@@ -58,10 +59,10 @@ const summarizeComps = (set: Comp[]): Summary => {
   return { minDate, maxDate, medianDistance, priceVariance };
 };
 
-const CompCard: React.FC<{ comp: Comp; isListing: boolean }> = ({ comp, isListing }) => (
+const CompCard: React.FC<{ comp: Comp; isListing: boolean; isSelected?: boolean }> = ({ comp, isListing, isSelected }) => (
   <div
     key={comp.id}
-    className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1 text-sm"
+    className={`rounded-lg border p-3 space-y-1 text-sm ${isSelected ? "border-accent-blue/60 bg-accent-blue/10" : "border-white/5 bg-white/5"}`}
   >
     <div className="font-semibold text-text-primary">{comp.address}</div>
     <div className="text-text-secondary">
@@ -96,10 +97,15 @@ const CompCard: React.FC<{ comp: Comp; isListing: boolean }> = ({ comp, isListin
       <span>Sqft: {comp.sqft ?? "-"}</span>
       <span>Distance: {comp.distance_miles ?? "-"} mi</span>
     </div>
+    {isSelected && (
+      <span className="inline-flex items-center rounded-full bg-accent-blue/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-blue">
+        Selected
+      </span>
+    )}
   </div>
 );
 
-export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refreshing }: CompsPanelProps) {
+export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refreshing, selectedCompIds }: CompsPanelProps) {
   const provider = snapshot?.provider ?? snapshot?.source ?? "unknown";
   const asOf = snapshot?.as_of ? new Date(snapshot.as_of).toLocaleDateString() : "unknown";
   const stub = snapshot?.stub ?? false;
@@ -233,7 +239,12 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {closedSales.map((comp) => (
-            <CompCard key={comp.id} comp={comp} isListing={false} />
+            <CompCard
+              key={comp.id}
+              comp={comp}
+              isListing={false}
+              isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
+            />
           ))}
         </div>
       )}
@@ -266,7 +277,12 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {listings.map((comp) => (
-              <CompCard key={comp.id} comp={comp} isListing={true} />
+              <CompCard
+                key={comp.id}
+                comp={comp}
+                isListing={true}
+                isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
+              />
             ))}
           </div>
         )}

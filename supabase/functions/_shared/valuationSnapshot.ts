@@ -36,7 +36,18 @@ type RequestResponse = { request: string | null; response: unknown };
 type SubjectResult = {
   stub: boolean;
   raw: RequestResponse;
-  subject: { latitude: number | null; longitude: number | null; propertyType: string | null; as_of: string | null } | null;
+  subject:
+    | {
+        latitude: number | null;
+        longitude: number | null;
+        propertyType: string | null;
+        beds: number | null;
+        baths: number | null;
+        sqft: number | null;
+        year_built: number | null;
+        as_of: string | null;
+      }
+    | null;
   request: string | null;
 };
 
@@ -94,8 +105,57 @@ function haversineMiles(a: { lat: number; lon: number }, b: { lat: number; lon: 
 }
 
 function safeNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
   const n = typeof value === "number" ? value : Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function resolvePrice(value: any): number | null {
+  return safeNumber(
+    value?.lastSalePrice ??
+      value?.lastSoldPrice ??
+      value?.last_sale_price ??
+      value?.salePrice ??
+      value?.sale_price ??
+      value?.price,
+  );
+}
+
+function resolveListingPrice(value: any): number | null {
+  return safeNumber(value?.price ?? value?.listPrice ?? value?.listingPrice ?? value?.listing_price);
+}
+
+function resolveSqft(value: any): number | null {
+  return safeNumber(value?.sqft ?? value?.livingArea ?? value?.squareFootage ?? value?.square_footage ?? value?.area);
+}
+
+function resolveCloseDate(value: any): string | null {
+  return (
+    value?.lastSaleDate ??
+    value?.lastSoldDate ??
+    value?.last_sale_date ??
+    value?.closeDate ??
+    value?.close_date ??
+    value?.listedDate ??
+    null
+  );
+}
+
+function resolveId(value: any, idx: number): string {
+  const id = value?.id?.toString?.();
+  if (id) return id;
+  const address = value?.formattedAddress ?? value?.addressLine1 ?? value?.address ?? "";
+  const closeDate = resolveCloseDate(value) ?? "";
+  const price = resolvePrice(value) ?? resolveListingPrice(value) ?? "";
+  const key = [address, closeDate, price].join("|");
+  return key || `rentcast-${idx}`;
+}
+
+function canonicalizePropertyType(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return normalized.length > 0 ? normalized : null;
 }
 
 function buildStubComps(fingerprint: string, asOf: string) {
@@ -173,8 +233,8 @@ async function fetchRentcastSubject(address: DealRow, asOf: string, apiKey: stri
     };
   }
   const json = await res.json();
-  const first = Array.isArray(json) && json.length > 0 ? json[0] : null;
-  if (!first) {
+  const resolved = Array.isArray(json) && json.length > 0 ? json[0] : json;
+  if (!resolved) {
     return {
       stub: true,
       raw: { request, response: json ?? { error: "empty_subject_response" } },
@@ -182,15 +242,22 @@ async function fetchRentcastSubject(address: DealRow, asOf: string, apiKey: stri
       request,
     };
   }
+
+  const resolvedSubject = {
+    latitude: safeNumber((resolved as any)?.latitude),
+    longitude: safeNumber((resolved as any)?.longitude),
+    property_type: canonicalizePropertyType((resolved as any)?.propertyType ?? null),
+    beds: safeNumber((resolved as any)?.bedrooms),
+    baths: safeNumber((resolved as any)?.bathrooms),
+    sqft: safeNumber((resolved as any)?.squareFootage),
+    year_built: safeNumber((resolved as any)?.yearBuilt),
+    as_of: asOf,
+  };
+
   return {
     stub: false,
     raw: { request, response: json },
-    subject: {
-      latitude: safeNumber((first as any)?.latitude),
-      longitude: safeNumber((first as any)?.longitude),
-      propertyType: (first as any)?.propertyType ?? null,
-      as_of: asOf,
-    },
+    subject: resolvedSubject,
     request,
   };
 }
@@ -247,7 +314,7 @@ async function fetchRentcastAvm(address: DealRow, asOf: string, apiKey: string |
   const json = await res.json();
   const comps = Array.isArray((json as any)?.comparables)
     ? ((json as any).comparables as any[]).map((c, idx) => ({
-        id: c.id?.toString?.() ?? `rentcast-${idx}`,
+        id: resolveId(c, idx),
         address: c.formattedAddress ?? c.addressLine1 ?? c.address ?? "",
         city: c.city ?? null,
         state: c.state ?? null,
@@ -255,13 +322,14 @@ async function fetchRentcastAvm(address: DealRow, asOf: string, apiKey: string |
         latitude: safeNumber(c.latitude),
         longitude: safeNumber(c.longitude),
         close_date: c.closeDate ?? c.close_date ?? c.listedDate ?? null,
-        price: safeNumber(c.price),
+        price: resolveListingPrice(c),
         price_per_sqft: safeNumber(c.pricePerSquareFoot),
         beds: safeNumber(c.beds ?? c.bedrooms),
         baths: safeNumber(c.baths ?? c.bathrooms),
-        sqft: safeNumber(c.sqft ?? c.squareFootage ?? c.livingArea),
+        sqft: resolveSqft(c),
         lot_sqft: safeNumber(c.lotSize),
         year_built: safeNumber(c.yearBuilt),
+        property_type: canonicalizePropertyType(c.propertyType ?? c.property_type ?? null),
         distance_miles: safeNumber(c.distance),
         correlation: safeNumber(c.correlation),
         days_old: safeNumber(c.daysOld),
@@ -343,8 +411,9 @@ export async function fetchRentcastClosedSales(opts: {
   saleDateRangeDays: number;
   radiusMiles: number;
   subjectProperty: { latitude: number | null; longitude: number | null; propertyType: string | null } | null;
+  stageName?: string | null;
 }): Promise<ClosedSalesResult> {
-  const { address, asOf, apiKey, saleDateRangeDays, radiusMiles, subjectProperty } = opts;
+  const { address, asOf, apiKey, saleDateRangeDays, radiusMiles, subjectProperty, stageName } = opts;
   const { request, hasAddress } = buildRentcastClosedSalesRequest({
     deal: address,
     radiusMiles,
@@ -392,21 +461,22 @@ export async function fetchRentcastClosedSales(opts: {
   const json = await res.json();
   const comps: BasicComp[] = Array.isArray(json)
     ? (json as any[]).map((c, idx) => ({
-        id: c.id?.toString?.() ?? `rentcast-closed-${idx}`,
+        id: resolveId(c, idx),
         address: c.formattedAddress ?? c.addressLine1 ?? c.address ?? "",
         city: c.city ?? null,
         state: c.state ?? null,
         postal_code: c.zipCode ?? c.zipcode ?? c.postal_code ?? null,
         latitude: safeNumber(c.latitude),
         longitude: safeNumber(c.longitude),
-        close_date: c.lastSaleDate ?? c.closeDate ?? null,
-        price: safeNumber(c.lastSalePrice),
+        close_date: resolveCloseDate(c),
+        price: resolvePrice(c),
         price_per_sqft: safeNumber(c.lastSalePricePerSquareFoot ?? c.pricePerSquareFoot),
         beds: safeNumber(c.beds ?? c.bedrooms),
         baths: safeNumber(c.baths ?? c.bathrooms),
-        sqft: safeNumber(c.sqft ?? c.squareFootage ?? c.livingArea),
+        sqft: resolveSqft(c),
         lot_sqft: safeNumber(c.lotSize),
         year_built: safeNumber(c.yearBuilt),
+        property_type: canonicalizePropertyType(c.propertyType ?? c.property_type ?? null),
         distance_miles:
           subjectProperty?.latitude != null &&
           subjectProperty?.longitude != null &&
@@ -425,6 +495,7 @@ export async function fetchRentcastClosedSales(opts: {
         comp_kind: "closed_sale",
         source: "rentcast",
         as_of: asOf,
+        source_stage_name: stageName ?? null,
         raw: c,
       }))
     : [];
@@ -435,6 +506,104 @@ export async function fetchRentcastClosedSales(opts: {
     raw: { request, response: json },
     fetchFailed: false,
     request,
+  };
+}
+
+export async function fetchClosedSalesLadder(opts: {
+  address: DealRow;
+  asOf: string;
+  apiKey: string | null;
+  policyValuation: ValuationPolicy;
+  subjectProperty: { latitude: number | null; longitude: number | null; propertyType: string | null } | null;
+}): Promise<{
+  comps: BasicComp[];
+  raw: {
+    stages: Array<{
+      name: string;
+      radius_miles: number;
+      sale_date_range_days: number;
+      request: string | null;
+      response: unknown;
+      fetched_count: number;
+      priced_count: number;
+    }>;
+    stop_reason: string;
+  };
+  fetchFailed: boolean;
+}> {
+  const ladder =
+    opts.policyValuation.closed_sales_ladder && Array.isArray(opts.policyValuation.closed_sales_ladder)
+      ? opts.policyValuation.closed_sales_ladder
+      : [
+          { name: "r0_5_d90", radius_miles: 0.5, sale_date_range_days: 90 },
+          { name: "r1_0_d90", radius_miles: 1.0, sale_date_range_days: 90 },
+          { name: "r1_0_d180", radius_miles: 1.0, sale_date_range_days: 180 },
+          { name: "r3_0_d365", radius_miles: 3.0, sale_date_range_days: 365 },
+        ];
+
+  const targetPriced = Number(opts.policyValuation.closed_sales_target_priced ?? 12);
+
+  const seen = new Set<string>();
+  const all: BasicComp[] = [];
+  const stages: Array<{
+    name: string;
+    radius_miles: number;
+    sale_date_range_days: number;
+    request: string | null;
+    response: unknown;
+    fetched_count: number;
+    priced_count: number;
+  }> = [];
+  let totalPriced = 0;
+  let fetchFailed = false;
+
+  for (const stage of ladder) {
+    const stageName = stage.name ?? `stage_${stage.radius_miles ?? 0}_${stage.sale_date_range_days ?? 0}`;
+    const res = await fetchRentcastClosedSales({
+      address: opts.address,
+      asOf: opts.asOf,
+      apiKey: opts.apiKey,
+      saleDateRangeDays: Number(stage.sale_date_range_days ?? 0),
+      radiusMiles: Number(stage.radius_miles ?? 0),
+      subjectProperty: opts.subjectProperty,
+      stageName,
+    });
+    if (res.fetchFailed) {
+      fetchFailed = true;
+    }
+
+    const pricedCount = res.comps.filter((c) => safeNumber((c as any)?.price) != null).length;
+    stages.push({
+      name: stageName,
+      radius_miles: Number(stage.radius_miles ?? 0),
+      sale_date_range_days: Number(stage.sale_date_range_days ?? 0),
+      request: res.raw.request,
+      response: res.raw.response,
+      fetched_count: res.comps.length,
+      priced_count: pricedCount,
+    });
+
+    for (const comp of res.comps) {
+      const key = (comp.id ?? "") || `${comp.address ?? ""}|${comp.close_date ?? ""}|${comp.price ?? ""}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      all.push(comp);
+      if (safeNumber((comp as any)?.price) != null) {
+        totalPriced += 1;
+      }
+    }
+
+    if (totalPriced >= targetPriced) {
+      break;
+    }
+  }
+
+  const stop_reason = totalPriced >= targetPriced ? "target_reached" : "exhausted";
+
+  return {
+    comps: all,
+    raw: { stages, stop_reason },
+    fetchFailed,
   };
 }
 
@@ -533,15 +702,11 @@ export async function ensureSnapshotForDeal(opts: {
   if (ttl == null || !Number.isFinite(Number(ttl))) {
     throw new Error("policy_missing_token:snapshot_ttl_hours");
   }
-  const saleDateRange = opts.policyValuation.closed_sales_sale_date_range_days;
-  if (saleDateRange == null || !Number.isFinite(Number(saleDateRange))) {
-    throw new Error("policy_missing_token:valuation.closed_sales_sale_date_range_days");
-  }
-  const primaryRadius = opts.policyValuation.closed_sales_primary_radius_miles;
-  if (primaryRadius == null || !Number.isFinite(Number(primaryRadius))) {
-    throw new Error("policy_missing_token:valuation.closed_sales_primary_radius_miles");
-  }
-  const stepoutRadius = opts.policyValuation.closed_sales_stepout_radius_miles;
+  const ladder = opts.policyValuation.closed_sales_ladder;
+  const windowDays =
+    ladder && Array.isArray(ladder) && ladder.length
+      ? Math.max(...ladder.map((s) => Number(s.sale_date_range_days ?? 0)))
+      : opts.policyValuation.closed_sales_sale_date_range_days ?? null;
 
   if (!opts.forceRefresh) {
     const existing = await getExistingSnapshot(
@@ -562,44 +727,26 @@ export async function ensureSnapshotForDeal(opts: {
   const asOf = new Date().toISOString();
   const subjectProperty = await fetchRentcastSubject(opts.deal, asOf, apiKey);
 
-  const closedPrimary = await fetchRentcastClosedSales({
+  const closedLadder = await fetchClosedSalesLadder({
     address: opts.deal,
     asOf,
     apiKey,
-    saleDateRangeDays: Number(saleDateRange),
-    radiusMiles: Number(primaryRadius),
-    subjectProperty: subjectProperty.subject,
+    policyValuation: opts.policyValuation,
+    subjectProperty: subjectProperty.subject
+      ? {
+          latitude: subjectProperty.subject.latitude,
+          longitude: subjectProperty.subject.longitude,
+          propertyType: subjectProperty.subject.property_type,
+        }
+      : null,
   });
 
-  let closedComps = closedPrimary.comps;
-  let closedRaw = {
-    primary: closedPrimary.raw,
-    stepout: { request: null, response: { error: "stepout_not_attempted" } },
-    stepout_attempted: false,
+  const closedComps = closedLadder.comps;
+  const closedRaw = {
+    stages: closedLadder.raw.stages,
+    stop_reason: closedLadder.raw.stop_reason,
   };
-  let closedFetchFailed = !!closedPrimary.fetchFailed;
-
-  if (
-    closedComps.filter((c) => Number.isFinite(Number(c.price))).length <
-      Number(opts.policyValuation.min_closed_comps_required ?? 0) &&
-    stepoutRadius != null &&
-    Number.isFinite(Number(stepoutRadius))
-  ) {
-    const closedStepout = await fetchRentcastClosedSales({
-      address: opts.deal,
-      asOf,
-      apiKey,
-      saleDateRangeDays: Number(saleDateRange),
-      radiusMiles: Number(stepoutRadius),
-      subjectProperty: subjectProperty.subject,
-    });
-    closedRaw = { ...closedRaw, stepout: closedStepout.raw, stepout_attempted: true };
-    if (!closedStepout.fetchFailed) {
-      closedComps = closedStepout.comps;
-    } else {
-      closedFetchFailed = true;
-    }
-  }
+  const closedFetchFailed = !!closedLadder.fetchFailed;
 
   const avmPayload = await fetchRentcastAvm(opts.deal, asOf, apiKey);
   const market = await fetchRentcastMarket(opts.deal.zip, asOf, apiKey);
@@ -642,10 +789,16 @@ export async function ensureSnapshotForDeal(opts: {
       closed_sales: closedRaw,
       closed_sales_fetch_failed: closedFetchFailed,
       subject_property: subjectProperty.raw ?? { request: subjectProperty.request, response: { error: "subject_missing" } },
+      subject_property_resolved: subjectProperty.subject
+        ? {
+            ...subjectProperty.subject,
+            property_type: subjectProperty.subject.property_type,
+          }
+        : null,
     },
     stub: avmPayload.stub && closedComps.length === 0,
     asOf,
-    window_days: Number(saleDateRange),
+    window_days: windowDays != null ? Number(windowDays) : null,
     sample_n: sortedComps.length,
     expires_at: expiresAt.toISOString(),
   });

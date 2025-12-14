@@ -16,6 +16,35 @@ export type ValuationPolicyShape = {
   closed_sales_sale_date_range_days?: number | null;
   closed_sales_primary_radius_miles?: number | null;
   closed_sales_stepout_radius_miles?: number | null;
+  closed_sales_ladder?: Array<{
+    name?: string | null;
+    radius_miles?: number | null;
+    sale_date_range_days?: number | null;
+  }>;
+  closed_sales_target_priced?: number | null;
+  arv_comp_use_count?: number | null;
+  selection_method?: string | null;
+  range_method?: string | null;
+  weights?: {
+    distance?: number | null;
+    recency?: number | null;
+    sqft?: number | null;
+    bed_bath?: number | null;
+    year_built?: number | null;
+  } | null;
+  similarity_filters?: {
+    max_sqft_pct_delta?: number | null;
+    max_beds_delta?: number | null;
+    max_baths_delta?: number | null;
+    max_year_built_delta?: number | null;
+    require_property_type_match?: boolean | null;
+  } | null;
+  outlier_ppsf?: {
+    enabled?: boolean | null;
+    method?: string | null;
+    iqr_k?: number | null;
+    min_samples?: number | null;
+  } | null;
   confidence_rubric?: Record<
     string,
     {

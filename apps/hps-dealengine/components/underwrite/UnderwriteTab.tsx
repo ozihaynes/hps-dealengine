@@ -136,6 +136,21 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const suggestedArvCompCountUsed = valuationRun?.output?.suggested_arv_comp_count_used ?? null;
   const arvRangeLow = valuationRun?.output?.arv_range_low ?? null;
   const arvRangeHigh = valuationRun?.output?.arv_range_high ?? null;
+  const selectedCompIds = Array.isArray(valuationRun?.output?.selected_comp_ids)
+    ? (valuationRun?.output?.selected_comp_ids ?? []).map((id) => id?.toString?.() ?? "").filter(Boolean)
+    : [];
+  const selectionSummary: any = valuationRun?.output?.selection_summary ?? null;
+  const ladderSummary = selectionSummary?.ladder ?? {};
+  const ladderStages: string[] = Array.isArray(ladderSummary?.stages)
+    ? ladderSummary.stages
+        .map((s: any) => (typeof s === "string" ? s : s?.name ?? null))
+        .filter((s: any): s is string => typeof s === "string")
+    : [];
+  const stopReason = ladderSummary?.stop_reason ?? selectionSummary?.stop_reason ?? null;
+  const outlierRemovedIds: string[] = Array.isArray(selectionSummary?.outliers?.removed_ids)
+    ? selectionSummary.outliers.removed_ids
+    : [];
+  const outlierRemovedCount = outlierRemovedIds.length;
   const avmReferencePrice =
     (valuationRun as any)?.output?.avm_reference_price ??
     (valuationRun as any)?.output?.avmPrice ??
@@ -513,6 +528,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                         Comps: {suggestedArvCompKindUsed ?? "-"} ·{" "}
                         {suggestedArvCompCountUsed ?? 0} used
                       </span>
+                      <span className="rounded border border-white/10 px-2 py-1">
+                        Selection: {ladderStages.length > 0 ? ladderStages.join(" → ") : "stages unknown"} (stop:{" "}
+                        {stopReason ?? "n/a"})
+                      </span>
+                      <span className="rounded border border-white/10 px-2 py-1">
+                        Outliers removed: {outlierRemovedCount}
+                      </span>
                     </div>
                   </div>
                   <Button
@@ -718,6 +740,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           minClosedComps={displayMinComps}
           onRefresh={(force) => onRefreshValuation?.(force)}
           refreshing={refreshingValuation}
+          selectedCompIds={selectedCompIds}
         />
       )}
 
