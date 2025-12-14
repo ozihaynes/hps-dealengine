@@ -18,3 +18,7 @@ apps/hps-dealengine/app/data/
 supabase/functions/.env
 /supabase/.env
 /supabase/functions/.env
+
+# local smoke logs
+*.log
+
