@@ -51,6 +51,7 @@ type BuildCompAdjustedValueInput = {
 };
 
 const allowedTypes: AdjustmentType[] = ["time", "sqft", "beds", "baths", "lot", "year_built"];
+const sortOrder: AdjustmentType[] = ["time", "sqft", "beds", "baths", "lot", "year_built"];
 
 const safeNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
@@ -144,22 +145,20 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
   const subjectSqft = safeNumber(subject?.sqft);
   const compSqft = safeNumber((comp as any)?.sqft);
 
-  const sqftDeltaPct =
-    subjectSqft && compSqft && subjectSqft > 0 ? Math.abs(compSqft - subjectSqft) / subjectSqft : null;
+  const sqftDeltaUnits = subjectSqft != null && compSqft != null ? subjectSqft - compSqft : null;
+  const sqftDeltaRatio =
+    subjectSqft && compSqft && subjectSqft > 0 ? Math.abs(sqftDeltaUnits ?? 0) / subjectSqft : null;
   const sqftThreshold = caps.sqft_basis_allowed_delta_ratio ?? defaultCaps.sqft_basis_allowed_delta_ratio;
-  const useSqftBasis = !!(
-    time_adjusted_price != null &&
-    subjectSqft &&
-    compSqft &&
-    subjectSqft > 0 &&
-    compSqft > 0 &&
-    sqftDeltaPct != null &&
-    sqftDeltaPct <= sqftThreshold
-  );
 
-  const value_basis_before_adjustments = useSqftBasis && time_adjusted_price != null && compSqft
-    ? roundMoney((time_adjusted_price / compSqft) * subjectSqft!, roundingCents)
-    : roundMoney(time_adjusted_price, roundingCents);
+  const sqftHasValues = subjectSqft != null && compSqft != null && subjectSqft > 0 && compSqft > 0;
+  const sqftDeltaOk = sqftDeltaRatio != null && sqftDeltaRatio <= sqftThreshold;
+  const sqftCanApply = sqftHasValues && sqftDeltaOk && time_adjusted_price != null;
+  const useSqftBasis = sqftCanApply;
+
+  const value_basis_before_adjustments =
+    useSqftBasis && time_adjusted_price != null && compSqft
+      ? roundMoney((time_adjusted_price / compSqft) * subjectSqft!, roundingCents)
+      : roundMoney(time_adjusted_price, roundingCents);
   const value_basis_method = useSqftBasis ? "ppsf_subject" : "time_adjusted_price";
 
   const adjustments: AdjustmentLineItem[] = [];
@@ -175,68 +174,74 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     });
   };
 
-  if (enabledTypes.includes("time")) {
-    const factor =
-      safeNumber((comp as any)?.market_time_adjustment?.factor) ??
-      safeNumber((comp as any)?.market_time_adjustment_factor);
-    const applied = base_price_raw != null && factor != null;
-    const deltaUnits = applied ? factor! - 1 : null;
-    addAdjustment({
-      type: "time",
-      subject_value: asOf ?? null,
-      comp_value: base_price_raw,
-      delta_units_raw: deltaUnits,
-      delta_units_capped: deltaUnits,
-      unit_value: base_price_raw,
-      amount_raw: applied && deltaUnits != null && base_price_raw != null ? base_price_raw * deltaUnits : null,
-      amount_capped: applied && deltaUnits != null && base_price_raw != null ? base_price_raw * deltaUnits : null,
-      applied,
-      skip_reason:
-        applied || missingBehavior !== "skip"
-          ? null
-          : base_price_raw == null
-          ? "missing_comp_price"
-          : "missing_time_factor",
-      source: "policy",
-      notes: null,
-    });
-  }
+  // Time adjustment entry is always present
+  const timeFactor =
+    safeNumber((comp as any)?.market_time_adjustment?.factor) ??
+    safeNumber((comp as any)?.market_time_adjustment_factor);
+  const timeAppliedFlag = (comp as any)?.market_time_adjustment?.applied === true;
+  const timeCanApply = timeAppliedFlag && base_price_raw != null && timeFactor != null;
+  const timeDeltaUnits = timeCanApply ? timeFactor! - 1 : null;
+  const timeAmount = timeCanApply && timeDeltaUnits != null ? base_price_raw! * timeDeltaUnits : null;
+  const timeSkipReason = timeCanApply
+    ? null
+    : base_price_raw == null
+    ? "missing_comp_price"
+    : "missing_time_adjustment";
 
-  if (enabledTypes.includes("sqft")) {
-    const deltaUnitsRaw =
-      subjectSqft != null && compSqft != null ? roundMoney(subjectSqft - compSqft, roundingCents) : null;
-    const canApply = useSqftBasis && deltaUnitsRaw != null && compSqft && compSqft > 0 && time_adjusted_price != null;
-    const unitValue = canApply && time_adjusted_price != null && compSqft ? time_adjusted_price / compSqft : null;
-    const amountRaw =
-      canApply && unitValue != null && deltaUnitsRaw != null ? unitValue * deltaUnitsRaw : null;
-    const amountBasisDiff =
-      value_basis_before_adjustments != null && time_adjusted_price != null
-        ? value_basis_before_adjustments - roundMoney(time_adjusted_price, roundingCents)!
-        : amountRaw;
-    addAdjustment({
-      type: "sqft",
-      subject_value: subjectSqft,
-      comp_value: compSqft,
-      delta_units_raw: deltaUnitsRaw,
-      delta_units_capped: deltaUnitsRaw,
-      unit_value: unitValue,
-      amount_raw: amountRaw,
-      amount_capped: canApply ? amountBasisDiff : amountRaw,
-      applied: !!canApply && unitValue !== 0,
-      skip_reason:
-        canApply || missingBehavior !== "skip"
-          ? null
-          : subjectSqft == null || compSqft == null
-          ? "missing_sqft"
-          : sqftDeltaPct != null && sqftDeltaPct > sqftThreshold
-          ? "sqft_delta_exceeds_threshold"
-          : "invalid_sqft_basis",
-      source: "policy",
-      notes: null,
-    });
-  }
+  addAdjustment({
+    type: "time",
+    subject_value: asOf ?? null,
+    comp_value: base_price_raw,
+    delta_units_raw: timeDeltaUnits,
+    delta_units_capped: timeDeltaUnits,
+    unit_value: base_price_raw,
+    amount_raw: timeAmount,
+    amount_capped: timeAmount,
+    applied: !!timeCanApply,
+    skip_reason: timeSkipReason,
+    source: "policy",
+    notes: timeCanApply
+      ? `factor=${timeFactor}; delta=${timeDeltaUnits}; price=${base_price_raw}`
+      : "time adjustment not applied",
+  });
 
-  const featureAdjustments: Array<{ type: AdjustmentType; subjectVal: number | null; compVal: number | null; cap: number | null; unit: number | null; delta: number | null; missingKey: string }> = [
+  // Sqft adjustment entry is always present
+  const sqftUnitValue = time_adjusted_price != null && compSqft ? time_adjusted_price / compSqft : null;
+  const sqftAmount = sqftCanApply && sqftUnitValue != null && sqftDeltaUnits != null ? sqftUnitValue * sqftDeltaUnits : null;
+  const sqftSkipReason = !sqftHasValues
+    ? "missing_sqft"
+    : !sqftDeltaOk
+    ? "sqft_delta_too_large"
+    : time_adjusted_price == null
+    ? "missing_time_adjusted_price"
+    : null;
+
+  addAdjustment({
+    type: "sqft",
+    subject_value: subjectSqft,
+    comp_value: compSqft,
+    delta_units_raw: sqftDeltaUnits,
+    delta_units_capped: sqftDeltaUnits,
+    unit_value: sqftUnitValue,
+    amount_raw: sqftAmount,
+    amount_capped: sqftAmount,
+    applied: !!sqftCanApply,
+    skip_reason: sqftSkipReason,
+    source: "policy",
+    notes: sqftCanApply
+      ? `basis=ppsf_subject; delta_ratio=${sqftDeltaRatio}`
+      : `basis=time_adjusted_price; reason=${sqftSkipReason}`,
+  });
+
+  const featureAdjustments: Array<{
+    type: AdjustmentType;
+    subjectVal: number | null;
+    compVal: number | null;
+    cap: number | null;
+    unit: number | null;
+    delta: number | null;
+    missingKey: string;
+  }> = [
     {
       type: "beds",
       subjectVal: safeNumber(subject?.beds),
@@ -278,9 +283,7 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
   const subjectLotSqft = safeNumber(subject?.lot_sqft);
   const compLotSqft = safeNumber((comp as any)?.lot_sqft ?? (comp as any)?.lot_size);
   const lotCapAbs =
-    subjectLotSqft != null && caps.lot_delta_cap_ratio != null
-      ? Math.abs(subjectLotSqft * caps.lot_delta_cap_ratio)
-      : null;
+    subjectLotSqft != null && caps.lot_delta_cap_ratio != null ? Math.abs(subjectLotSqft * caps.lot_delta_cap_ratio) : null;
   featureAdjustments.push({
     type: "lot",
     subjectVal: subjectLotSqft,
@@ -297,8 +300,7 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     if (!enabledTypes.includes(adj.type)) continue;
     const hasValues = adj.delta != null && adj.subjectVal != null && adj.compVal != null;
     const unitIsZero = adj.unit === 0;
-    const cappedDelta =
-      adj.cap != null && adj.delta != null ? Math.max(-adj.cap, Math.min(adj.cap, adj.delta)) : adj.delta;
+    const cappedDelta = adj.cap != null && adj.delta != null ? Math.max(-adj.cap, Math.min(adj.cap, adj.delta)) : adj.delta;
     const applied = hasValues && !unitIsZero && adj.unit != null;
     const amountRaw = applied && adj.unit != null && adj.delta != null ? adj.unit * adj.delta : null;
     const amountCapped = applied && adj.unit != null && cappedDelta != null ? adj.unit * cappedDelta : amountRaw;
@@ -325,9 +327,9 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     });
   }
 
-  // Ensure deterministic ordering per enabled_types
+  // Ensure deterministic ordering
   const typeOrder = new Map<AdjustmentType, number>();
-  enabledTypes.forEach((t, idx) => typeOrder.set(t, idx));
+  sortOrder.forEach((t, idx) => typeOrder.set(t, idx));
   adjustments.sort((a, b) => (typeOrder.get(a.type)! - typeOrder.get(b.type)!));
 
   const adjustmentsSum = adjustments
@@ -335,9 +337,7 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     .reduce((acc, cur) => acc + (cur.amount_capped ?? 0), 0);
 
   const adjusted_value =
-    value_basis_before_adjustments != null
-      ? roundMoney(value_basis_before_adjustments + adjustmentsSum, roundingCents)
-      : null;
+    value_basis_before_adjustments != null ? roundMoney(value_basis_before_adjustments + adjustmentsSum, roundingCents) : null;
 
   return {
     base_price_raw: roundMoney(base_price_raw, roundingCents),

@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-13)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-16)
 
 ---
 
@@ -353,7 +353,7 @@ Fast-follow items that do not change V1 behavior:
   - Market time adjustment (FHFA/FRED HPI) with deterministic fallback (effective <= requested), eligibility gating, adjusted factor/price surfaced in selection/output; HPI cache table migration present; proofs (`prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`) pass locally.
   - ATTOM public-records subject normalizer with casing/field fallbacks + contracts/tests; enrichment scripts and policy-set helpers added.
   - Override save merges only the market subtree into deal payload/state; tests cover TopDealKpis, UnderwriteTab, CompsPanel; vitest includes .test.ts/.test.tsx.
-- 🟢 Slice 4 (adjustments ledger v1.2): policy-gated adjustments defaults seeded (enabled=false, caps/unit_values/rounding/missing behavior/ordering), deterministic ledger + weighted-median adjusted ARV when enabled, optional schema fields/tests, Underwrite comps panel + admin valuation QA ledger viewers. Proof script `scripts/valuation/prove-adjustments-ledger.ps1` added (caller JWT required); deploy/db push not run in this session.
+- ✅ Slice 4 (adjustments ledger v1.2): policy-gated adjustments defaults seeded (enabled=false, caps/unit_values/rounding/missing behavior/ordering), deterministic ledger + weighted-median adjusted ARV when enabled, optional schema fields/tests, Underwrite comps panel + admin valuation QA ledger viewers. Ledger now always emits `time` + `sqft` entries (applied/skip with reasons) even with zero unit_values. Proof script hardened to assert `adjusted_v1_2` basis + `selection_v1_2` adjustments_version and presence of time/sqft ledger lines; patches active policy by id and restores; uses policy@hps.test.local (role=vp) to satisfy RLS. Latest proof/deploy (2025-12-16): `supabase db push` linked to zjkihnihhqmnhpxkecpy + `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`, hashes equal (output_hash 3251ffab..., run_hash 7acab050...), coverage-smoke PASS.
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; seeding/QA rollout still to be confirmed.
 - 🟡 Next
@@ -390,3 +390,11 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
+
+
+
+
+
+
+
+

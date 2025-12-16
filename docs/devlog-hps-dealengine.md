@@ -84,12 +84,19 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-16 16:20 ET - Slice 4 proof hardened (time + sqft ledger) and redeployed
+- `_shared/valuationAdjustments.ts` now always emits `time` and `sqft` ledger lines (applied or skipped) with explicit skip reasons/notes; sqft entry reflects basis selection (ppsf_subject vs time_adjusted_price). Feature adjustments remain policy-driven and can skip when unit_value is 0.
+- Proof script `scripts/valuation/prove-adjustments-ledger.ps1` hardened: verifies policy patch by id (no policy_versions), asserts `suggested_arv_basis=adjusted_v1_2`, `adjustments_version=selection_v1_2`, selected comps present, and time+sqft ledger lines exist (fails otherwise). Policies are backed up/restored; uses `policy@hps.test.local` (role=vp) to satisfy RLS update on `policies`.
+- Proof run (Org=033ff93d..., Deal=f84bab8d..., Posture=base) after deploy: `output_hash=3251ffabbe47ba88dcf5410212d5b1c2703e5e3a3cfe07ae3dc783038ad42b39`, `run_hash=7acab0501fd827cc8285c6345709f4c0dac7629a8fe96d0b67f9ff3ee0ba164d`; first comp ledger shows time (skipped: missing_time_adjustment) and sqft (applied) even with zero unit_values.
+- Deploy/DB push executed against zjkihnihhqmnhpxkecpy: `supabase db push` (linked) and `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`. `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea` PASS post-deploy; backups at `supabase/backups/prove-adjustments-ledger-*.json`.
+
 ### 2025-12-16 15:00 ET - Slice 4: adjustments ledger v1.2 (policy-gated, default OFF)
-- New migration `20260107120000_valuation_adjustments_v1_2_tokens.sql` seeds valuation.adjustments tokens (enabled=false, version=selection_v1_2, rounding.cents=2, missing_field_behavior=skip, enabled_types [time,sqft,beds,baths,lot,year_built], caps, unit_values all 0). Nonconforming migrations moved to `supabase/migrations/_bak` for clean db push.
+- New migration `20260107120000_valuation_adjustments_v1_2_tokens.sql` seeds valuation.adjustments tokens (enabled=false, version=selection_v1_2, rounding.cents=2, missing_field_behavior=skip, enabled_types [time,sqft,beds,baths,lot,year_built], caps, unit_values all 0) only on active policies; legacy backups relocated to `supabase/migrations_bak/_bak` to keep push clean.
 - Added deterministic adjustments module `_shared/valuationAdjustments.ts` (roundMoney, weightedMedianDeterministic, buildCompAdjustedValue with caps/skip reasons). `v1-valuation-run` now policy-gates an adjustments ledger and adjusted ARV (weighted median of adjusted_value) when enabled; hashes unchanged when disabled.
 - Contracts updated for optional adjustments fields; CompsPanel shows time-adjusted/adjusted values + expandable ledger per selected comp (date fallback close/listed/listed_at); admin valuation-qa page surfaces adjustments enabled/basis/version and per-comp ledger for recent runs.
-- Proof script added: `scripts/valuation/prove-adjustments-ledger.ps1` (enables adjustments for posture=base via caller JWT, runs valuation twice, asserts output_hash/run_hash equality, prints ledger). Not executed here (caller JWT required).
-- Gates run locally: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`. Deploy/db push not run in this session.
+- Proof script `scripts/valuation/prove-adjustments-ledger.ps1` executed (Org=033ff93d..., Posture=base) via owner@hps.test.local; output_hash/run_hash matched (5ad2fb27... / 495c438d...), policies backed up to `supabase/backups/prove-adjustments-ledger-<timestamp>.json` and restored.
+- Supabase deploys: `supabase db push --include-all` applied migration chain; `supabase functions deploy v1-valuation-run` completed. Coverage smoke `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea` PASS.
+- Gates rerun locally: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
 
 ### 2025-12-30 - Closed-sale comps raw coverage + smoke verifier
 - Policy guardrail: active policies/policy_versions backfilled with closed-sales valuation tokens when missing; valuation snapshots now always persist subject_property, closed_sales (primary + stepout + attempted flag), AVM request/response, and market request/response even when providers error out.

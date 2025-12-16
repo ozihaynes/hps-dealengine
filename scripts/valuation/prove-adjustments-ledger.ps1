@@ -133,11 +133,11 @@ if ($ResolvedCallerJwt -notmatch '^[^.\s]+\.[^.\s]+\.[^.\s]+$') {
 }
 
 $headers = @{
-  apikey          = $ANON_KEY
-  Authorization   = "Bearer $ResolvedCallerJwt"
-  Accept          = "application/json"
-  "Content-Type"  = "application/json"
-  "Prefer"        = "return=representation"
+  apikey         = $ANON_KEY
+  Authorization  = "Bearer $ResolvedCallerJwt"
+  Accept         = "application/json"
+  "Content-Type" = "application/json"
+  Prefer         = "return=representation"
 }
 
 function Invoke-JsonGet {
@@ -201,9 +201,9 @@ function Build-PatchedPolicy {
 
   if (-not $patched.valuation.adjustments.unit_values) {
     $patched.valuation.adjustments.unit_values = @{
-      beds               = 0
-      baths              = 0
-      lot_per_sqft       = 0
+      beds                = 0
+      baths               = 0
+      lot_per_sqft        = 0
       year_built_per_year = 0
     }
   }
@@ -220,6 +220,26 @@ function Invoke-ValuationRun {
   return $payload
 }
 
+function Assert-ProofOutputs {
+  param($Output)
+  if (($Output.suggested_arv_basis ?? "") -ne "adjusted_v1_2") {
+    throw "Proof check failed: expected suggested_arv_basis=adjusted_v1_2, got '$($Output.suggested_arv_basis)'."
+  }
+  if (($Output.adjustments_version ?? "") -ne "selection_v1_2") {
+    throw "Proof check failed: expected adjustments_version=selection_v1_2, got '$($Output.adjustments_version)'."
+  }
+  if (-not $Output.selected_comps -or $Output.selected_comps.Count -le 0) {
+    throw "Proof check failed: selected_comps missing."
+  }
+  $firstComp = $Output.selected_comps[0]
+  if (-not $firstComp.adjustments -or $firstComp.adjustments.Count -lt 2) {
+    throw "Proof check failed: first comp missing adjustments."
+  }
+  $types = @($firstComp.adjustments | ForEach-Object { $_.type })
+  if (-not ($types -contains "time")) { throw "Proof check failed: missing 'time' adjustment line item." }
+  if (-not ($types -contains "sqft")) { throw "Proof check failed: missing 'sqft' adjustment line item." }
+}
+
 $failureMessage = $null
 $runSummary = $null
 
@@ -227,11 +247,20 @@ try {
   foreach ($p in $policies) {
     $patchedPolicy = Build-PatchedPolicy $policyOriginalMap[$p.id]
     $null = Invoke-JsonPatch "$SUPABASE_URL/rest/v1/policies?id=eq.$($p.id)" @{ policy_json = $patchedPolicy }
+    $verify = Invoke-JsonGet "$SUPABASE_URL/rest/v1/policies?id=eq.$($p.id)&select=policy_json"
+    if (-not $verify -or $verify.Count -eq 0) { throw "Policy patch failed to return policy $($p.id)" }
+    $patchedAdjustments = $verify[0].policy_json.valuation.adjustments
+    if (-not $patchedAdjustments.enabled) { throw "Policy patch failed for $($p.id): adjustments.enabled not true" }
+    if (($patchedAdjustments.version ?? "") -ne "selection_v1_2") {
+      throw "Policy patch failed for $($p.id): adjustments.version not selection_v1_2"
+    }
   }
   Write-Host ("Policies patched for proof: {0}" -f $policies.Count) -ForegroundColor Green
 
   Write-Host "Running valuation twice to prove determinism..." -ForegroundColor Cyan
   $run1 = Invoke-ValuationRun -ForceRefresh:$false
+  Assert-ProofOutputs $run1.valuation_run.output
+
   Start-Sleep -Seconds 1
   $run2 = Invoke-ValuationRun -ForceRefresh:$false
 
