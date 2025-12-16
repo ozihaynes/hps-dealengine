@@ -57,6 +57,34 @@ describe("ValuationRunSchema", () => {
                 source: "policy",
                 notes: null,
               },
+              {
+                type: "concessions",
+                subject_value: null,
+                comp_value: null,
+                delta_units_raw: null,
+                delta_units_capped: null,
+                unit_value: null,
+                amount_raw: 1500,
+                amount_capped: 1500,
+                applied: true,
+                skip_reason: null,
+                source: "policy",
+                notes: "manual override",
+              },
+              {
+                type: "condition",
+                subject_value: null,
+                comp_value: null,
+                delta_units_raw: null,
+                delta_units_capped: null,
+                unit_value: null,
+                amount_raw: -5000,
+                amount_capped: -5000,
+                applied: true,
+                skip_reason: null,
+                source: "policy",
+                notes: "condition adjustment",
+              },
             ],
           },
         ],
@@ -93,6 +121,8 @@ describe("ValuationRunSchema", () => {
         eval_tags: ["dataset:test"],
         policy_hash: "policy-hash",
         snapshot_hash: "snapshot-hash",
+        overrides_hash: "overrides-hash",
+        overrides_applied_count: 1,
         output_hash: "output-hash",
       },
       provenance: {
@@ -121,10 +151,13 @@ describe("ValuationRunSchema", () => {
     expect(parsed.output.eval_tags).toEqual(["dataset:test"]);
     expect(parsed.output.policy_hash).toEqual("policy-hash");
     expect(parsed.output.snapshot_hash).toEqual("snapshot-hash");
+    expect(parsed.output.overrides_hash).toEqual("overrides-hash");
+    expect(parsed.output.overrides_applied_count).toEqual(1);
     expect(parsed.output.output_hash).toEqual("output-hash");
     expect(parsed.output.suggested_arv_basis).toEqual("adjusted_v1_2");
     expect(parsed.output.adjustments_version).toEqual("selection_v1_2");
     expect(parsed.output.selected_comps?.length).toBe(1);
+    expect(parsed.output.selected_comps?.[0]?.adjustments?.length).toBe(3);
   });
 
   it("parses legacy output without adjustments fields", () => {

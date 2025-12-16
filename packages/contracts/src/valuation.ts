@@ -1,7 +1,16 @@
 import { z } from "zod";
 
 export const AdjustmentLineItemSchema = z.object({
-  type: z.enum(["time", "sqft", "beds", "baths", "lot", "year_built"]),
+  type: z.enum([
+    "time",
+    "sqft",
+    "beds",
+    "baths",
+    "lot",
+    "year_built",
+    "concessions",
+    "condition",
+  ]),
   subject_value: z.union([z.number(), z.string()]).optional().nullable(),
   comp_value: z.union([z.number(), z.string()]).optional().nullable(),
   delta_units_raw: z.number().optional().nullable(),
@@ -162,6 +171,8 @@ export const ValuationRunSchema = z.object({
     subject_sources: z.array(z.string()).optional().nullable(),
     policy_hash: z.string().optional().nullable(),
     snapshot_hash: z.string().optional().nullable(),
+    overrides_hash: z.string().optional().nullable(),
+    overrides_applied_count: z.number().optional().nullable(),
     output_hash: z.string().optional().nullable(),
   }),
   provenance: z.object({
