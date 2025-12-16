@@ -93,6 +93,18 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
   supabase functions deploy v1-connectors-proxy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy
   ```
 
+### 2025-12-16 04:37 ET - Slice 2/3/QA hardening: market time adjustment + ATTOM enrichment + eval harness
+- Slices touched: Slice 2 (Valuation Spine v1.1 selection/market-time), Slice 3 (public records ATTOM enrichment), QA harness (eval/proof).
+- New artifacts:
+  - Edge/runtime: deterministic market time adjustment (FHFA/FRED HPI fallback, eligibility gating, adjusted price/factor surfaced) in `_shared/marketIndex.ts` + selection passthrough, ATTOM basicprofile normalizer in `_shared/publicRecordsSubject.ts`, valuation confidence helper in `_shared/valuationConfidence.ts`.
+  - Functions deployed: `v1-valuation-run`, `v1-connectors-proxy` (supabase functions deploy ... zjkihnihhqmnhpxkecpy).
+  - Migrations: `20251214182758_market_price_index.sql` (state HPI cache), `20251215140000_public_records_subject_enrichment.sql`, `20260107101500_valuation_ground_truth_eval_runs.sql` (ground-truth/eval harness), plus ATTOM/public-records evidence paths. Nonconforming backup remains: `20251215120000_valuation_ground_truth_eval_runs.sql.bak-20260107` (skip on db push).
+  - Contracts/tests: marketIndex helpers + tests, determinism hash, valuation confidence/determinism/public-records subject tests, ATTOM fixture; valuation selection exposes adjusted comps; docs `valuation-eval-harness.md`.
+  - Scripts: `prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`, `prove-attom-enrichment.ps1`, policy set scripts, eval harness dataset (`scripts/valuation/datasets/orlando-dealids.json`), admin QA page `/admin/valuation-qa`.
+  - UI: comps panel collapse controls; address autocomplete support components.
+- Checks run locally (verified in session): `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`; proofs: `prove-market-time-adjustment.ps1` PASS (fallback 2025Q4 -> 2025Q3, comps_adjusted_count=48, selected comp factor present) and `coverage-smoke.ps1` PASS (shows adjusted comps/factors). Deploy executed as above.
+- Follow-ups/TODOs: clean up nonconforming migration filenames before db push; ensure QA Supabase seeds for ground-truth eval harness; monitor ATTOM enrichment traces in production; consider nulling preserved price_adjusted when factor missing (design choice noted).
+
 ### 2025-12-13 - Valuation Spine Closeout: Offer-as-output + Underwrite valuation-only + Comps summary/rerun
 
 1) Product decision (canonical truth)

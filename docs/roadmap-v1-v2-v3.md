@@ -350,15 +350,16 @@ Fast-follow items that do not change V1 behavior:
   - Offer (Computed) is a read-only engine output on Dashboard/Overview; fallback order: outputs.primary_offer -> outputs.instant_cash_offer -> calc.instantCashOffer; missing renders as an em dash.
   - Underwrite Market & Valuation is valuation-only with audited overrides (reason >= 10 chars) and a single "Use Suggested ARV" surface (Applied when arv_source === "valuation_run" and IDs match); no Offer Price input or gating banners.
   - Comps panel shows summary metrics (count/status/date range/median distance/price variance cv), provenance badges, min-comps gating copy, concessions placeholder, and a 30s cooldown on "Re-run comps" wired to the existing refresh handler; no provider calls on mount.
+  - Market time adjustment (FHFA/FRED HPI) with deterministic fallback (effective <= requested), eligibility gating, adjusted factor/price surfaced in selection/output; HPI cache table migration present; proofs (`prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`) pass locally.
+  - ATTOM public-records subject normalizer with casing/field fallbacks + contracts/tests; enrichment scripts and policy-set helpers added.
   - Override save merges only the market subtree into deal payload/state; tests cover TopDealKpis, UnderwriteTab, CompsPanel; vitest includes .test.ts/.test.tsx.
-- 🟦 In progress
-  - None in code; all items above are live in the working tree.
-- ⏭️ Next
-  1) Slice 7 – Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
-  2) Slice 8 – E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
+- 🟡 In progress
+  - Ground-truth/eval harness migrations and admin QA page are in repo; seeding/QA rollout still to be confirmed.
+- 🟡 Next
+  1) Slice 7 - Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
+  2) Slice 8 - E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
   3) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
   4) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.
-
 ## 3 V2 Themes (Planned)
 
 - **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
