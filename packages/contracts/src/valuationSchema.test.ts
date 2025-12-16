@@ -68,7 +68,7 @@ describe("ValuationRunSchema", () => {
                 amount_capped: 1500,
                 applied: true,
                 skip_reason: null,
-                source: "policy",
+                source: "manual_override",
                 notes: "manual override",
               },
               {
@@ -82,7 +82,7 @@ describe("ValuationRunSchema", () => {
                 amount_capped: -5000,
                 applied: true,
                 skip_reason: null,
-                source: "policy",
+                source: "manual_override",
                 notes: "condition adjustment",
               },
             ],

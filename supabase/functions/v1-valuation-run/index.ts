@@ -175,8 +175,131 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     const rawComps = Array.isArray(snapshot.comps) ? snapshot.comps : [];
-    const comps = sortCompsDeterministic(rawComps as any[]);
+    const sortedComps = sortCompsDeterministic(rawComps as any[]);
     const subjectResolved = (snapshot.raw as any)?.subject_property_resolved ?? null;
+
+    const concessionsConfig = (valuationPolicy as any)?.concessions ?? {};
+    const conditionConfig = (valuationPolicy as any)?.condition ?? {};
+    const concessionsEnabled = concessionsConfig?.enabled === true;
+    const conditionEnabled = conditionConfig?.enabled === true;
+
+    const { data: overrideRows, error: overrideError } = await supabase
+      .from("valuation_comp_overrides")
+      .select("comp_id, comp_kind, seller_credit_pct, seller_credit_usd, condition_adjustment_usd, notes")
+      .eq("org_id", deal.org_id)
+      .eq("deal_id", deal.id)
+      .order("comp_kind", { ascending: true })
+      .order("comp_id", { ascending: true });
+
+    if (overrideError) {
+      console.error("[v1-valuation-run] overrides fetch error", overrideError);
+      throw new Error("overrides_fetch_failed");
+    }
+
+    const overrides = Array.isArray(overrideRows)
+      ? overrideRows.map((o) => ({
+          comp_id: o.comp_id ?? "",
+          comp_kind: o.comp_kind ?? "",
+          seller_credit_pct: safeNumber(o.seller_credit_pct),
+          seller_credit_usd: safeNumber(o.seller_credit_usd),
+          condition_adjustment_usd: safeNumber(o.condition_adjustment_usd),
+          notes: typeof o.notes === "string" ? o.notes : "",
+        }))
+      : [];
+
+    const overridesForHash = overrides.map((o) => ({
+      comp_id: o.comp_id ?? "",
+      comp_kind: o.comp_kind ?? "",
+      seller_credit_pct: o.seller_credit_pct,
+      seller_credit_usd: o.seller_credit_usd,
+      condition_adjustment_usd: o.condition_adjustment_usd,
+      notes: o.notes ?? "",
+    }));
+    const overrides_hash = await stableHash({ overrides: overridesForHash });
+
+    const overridesMap = new Map<string, (typeof overrides)[number]>();
+    for (const o of overrides) {
+      const key = `${o.comp_kind ?? ""}::${o.comp_id ?? ""}`;
+      overridesMap.set(key, o);
+    }
+
+    const precedence = concessionsConfig?.precedence === "pct_over_usd" ? "pct_over_usd" : "usd_over_pct";
+    const thresholdPct = safeNumber(concessionsConfig?.threshold_pct) ?? 0.03;
+    const reactionFactor = safeNumber(concessionsConfig?.reaction_factor) ?? 1.0;
+
+    const applyOverridesToComp = (comp: any) => {
+      if (!concessionsEnabled && !conditionEnabled) return comp;
+      const compId = comp?.id?.toString?.() ?? "";
+      const compKind = comp?.comp_kind ?? "";
+      const key = `${compKind}::${compId}`;
+      const override = overridesMap.get(key);
+      if (!override) return comp;
+
+      const updated = { ...comp };
+
+      if (concessionsEnabled) {
+        const basePrice = safeNumber(updated.price_adjusted) ?? safeNumber(updated.price);
+        const usdRaw = override.seller_credit_usd;
+        const pctRaw = override.seller_credit_pct;
+        const pctEligible = pctRaw != null && pctRaw >= thresholdPct;
+        const usdAmount = usdRaw != null ? usdRaw * reactionFactor : null;
+        const pctAmount = pctEligible && basePrice != null ? basePrice * pctRaw! * reactionFactor : null;
+        let appliedAmount: number | null = null;
+        let method: "usd" | "pct" | null = null;
+        if (precedence === "usd_over_pct") {
+          if (usdAmount != null) {
+            appliedAmount = usdAmount;
+            method = "usd";
+          } else if (pctAmount != null) {
+            appliedAmount = pctAmount;
+            method = "pct";
+          }
+        } else {
+          if (pctAmount != null) {
+            appliedAmount = pctAmount;
+            method = "pct";
+          } else if (usdAmount != null) {
+            appliedAmount = usdAmount;
+            method = "usd";
+          }
+        }
+
+        if (appliedAmount != null && basePrice != null) {
+          const priceBefore = basePrice;
+          const priceAfter = Math.max(0, priceBefore - appliedAmount);
+          updated.price = priceAfter;
+          (updated as any).price_adjusted = priceAfter;
+          (updated as any)._override_concessions = {
+            applied: true,
+            method,
+            seller_credit_pct: pctRaw,
+            seller_credit_usd: usdRaw,
+            threshold_pct: thresholdPct,
+            reaction_factor: reactionFactor,
+            amount_usd_applied: appliedAmount,
+            price_before: priceBefore,
+            price_after: priceAfter,
+            notes: override.notes ?? "",
+            source: "manual_override",
+          };
+        }
+      }
+
+      if (conditionEnabled) {
+        const condAmount = override.condition_adjustment_usd;
+        if (condAmount != null) {
+          (updated as any)._override_condition = {
+            amount_usd: condAmount,
+            source: "manual_override",
+            notes: override.notes ?? "",
+          };
+        }
+      }
+
+      return updated;
+    };
+
+    const comps = sortedComps.map((c) => applyOverridesToComp(c));
 
     const buildSubject = () => ({
       sqft: safeNumber(subjectResolved?.sqft) ?? null,
@@ -378,6 +501,7 @@ serve(async (req: Request): Promise<Response> => {
 
     const status = failureReasons.length === 0 ? "succeeded" : "failed";
     const failureReason = failureReasons.length > 0 ? failureReasons.join("; ") : null;
+    const includeOverridesInHash = concessionsEnabled || conditionEnabled;
 
     const snapshotForHash = {
       address_fingerprint: fingerprint,
@@ -386,7 +510,7 @@ serve(async (req: Request): Promise<Response> => {
       as_of: snapshot.as_of ?? null,
       window_days: snapshot.window_days ?? null,
       sample_n: snapshot.sample_n ?? null,
-      comps,
+      comps: sortedComps,
       market: snapshot.market ?? null,
       raw: snapshot.raw ?? null,
       stub: !!snapshot.stub,
@@ -406,7 +530,22 @@ serve(async (req: Request): Promise<Response> => {
       property_snapshot_hash: snapshotHash,
       min_closed_comps_required: minClosedComps,
       policy_version_id: policyRow.id,
+      ...(includeOverridesInHash ? { overrides_hash } : {}),
     };
+
+    const overridesAppliedCount =
+      includeOverridesInHash && Array.isArray(selectedCompsForOutput)
+        ? selectedCompsForOutput.filter((comp: any) => {
+            const adjustmentsApplied =
+              Array.isArray(comp?.adjustments) &&
+              comp.adjustments.some(
+                (adj: any) => (adj?.type === "concessions" || adj?.type === "condition") && adj?.applied === true,
+              );
+            const metaApplied =
+              !!(comp as any)?._override_concessions?.applied || (comp as any)?._override_condition != null;
+            return adjustmentsApplied || metaApplied;
+          }).length
+        : null;
 
     let outputBase: Record<string, unknown> = {
       suggested_arv: suggestedArv ?? null,
@@ -433,6 +572,14 @@ serve(async (req: Request): Promise<Response> => {
       messages: failureReason ? [failureReason] : [],
       subject_sources: subjectSources,
     };
+
+    if (includeOverridesInHash) {
+      outputBase = {
+        ...outputBase,
+        overrides_hash,
+        overrides_applied_count: overridesAppliedCount ?? 0,
+      };
+    }
 
     if (adjustmentsEnabled) {
       outputBase = {

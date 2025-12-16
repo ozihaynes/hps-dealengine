@@ -20,7 +20,7 @@ export const AdjustmentLineItemSchema = z.object({
   amount_capped: z.number().optional().nullable(),
   applied: z.boolean(),
   skip_reason: z.string().optional().nullable(),
-  source: z.literal("policy"),
+  source: z.enum(["policy", "manual_override"]),
   notes: z.string().optional().nullable(),
 });
 export type AdjustmentLineItem = z.infer<typeof AdjustmentLineItemSchema>;

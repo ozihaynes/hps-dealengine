@@ -1,4 +1,12 @@
-export type AdjustmentType = "time" | "sqft" | "beds" | "baths" | "lot" | "year_built";
+export type AdjustmentType =
+  | "time"
+  | "concessions"
+  | "sqft"
+  | "beds"
+  | "baths"
+  | "lot"
+  | "year_built"
+  | "condition";
 
 export type AdjustmentLineItem = {
   type: AdjustmentType;
@@ -11,7 +19,7 @@ export type AdjustmentLineItem = {
   amount_capped: number | null;
   applied: boolean;
   skip_reason: string | null;
-  source: "policy";
+  source: "policy" | "manual_override";
   notes: string | null;
 };
 
@@ -50,8 +58,19 @@ type BuildCompAdjustedValueInput = {
   asOf?: string | null;
 };
 
-const allowedTypes: AdjustmentType[] = ["time", "sqft", "beds", "baths", "lot", "year_built"];
-const sortOrder: AdjustmentType[] = ["time", "sqft", "beds", "baths", "lot", "year_built"];
+const allowedTypes: AdjustmentType[] = [
+  "time",
+  "concessions",
+  "sqft",
+  "beds",
+  "baths",
+  "lot",
+  "year_built",
+  "condition",
+];
+const sortOrder: AdjustmentType[] = ["time", "concessions", "sqft", "condition", "beds", "baths", "lot", "year_built"];
+const informationalTypes = new Set<AdjustmentType>(["time", "sqft", "concessions"]);
+const contributingTypes = new Set<AdjustmentType>(["beds", "baths", "lot", "year_built", "condition"]);
 
 const safeNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
@@ -204,6 +223,27 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
       : "time adjustment not applied",
   });
 
+  const concessionsMeta = (comp as any)?._override_concessions;
+  const concessionsAmount = safeNumber(concessionsMeta?.amount_usd_applied);
+  const concessionsApplied = concessionsMeta?.applied === true && concessionsAmount != null;
+  if (concessionsApplied) {
+    const amount = concessionsAmount! * -1;
+    addAdjustment({
+      type: "concessions",
+      subject_value: null,
+      comp_value: null,
+      delta_units_raw: null,
+      delta_units_capped: null,
+      unit_value: null,
+      amount_raw: amount,
+      amount_capped: amount,
+      applied: true,
+      skip_reason: null,
+      source: "manual_override",
+      notes: `method=${concessionsMeta?.method ?? "unknown"}; threshold_pct=${concessionsMeta?.threshold_pct}; reaction_factor=${concessionsMeta?.reaction_factor}; before=${concessionsMeta?.price_before}; after=${concessionsMeta?.price_after}`,
+    });
+  }
+
   // Sqft adjustment entry is informational only (amounts null)
   const sqftUnitValue = time_adjusted_price != null && compSqft ? time_adjusted_price / compSqft : null;
   const sqftSkipReason = !sqftHasValues
@@ -230,6 +270,26 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
       ? `basis=ppsf_subject; delta_ratio=${sqftDeltaRatio}`
       : `basis=time_adjusted_price; reason=${sqftSkipReason}`,
   });
+
+  const conditionMeta = (comp as any)?._override_condition;
+  const conditionAmount = safeNumber(conditionMeta?.amount_usd);
+  const conditionApplied = conditionMeta && conditionAmount != null;
+  if (conditionApplied) {
+    addAdjustment({
+      type: "condition",
+      subject_value: null,
+      comp_value: null,
+      delta_units_raw: null,
+      delta_units_capped: null,
+      unit_value: null,
+      amount_raw: conditionAmount,
+      amount_capped: conditionAmount,
+      applied: true,
+      skip_reason: null,
+      source: "manual_override",
+      notes: conditionMeta?.notes ?? null,
+    });
+  }
 
   const featureAdjustments: Array<{
     type: AdjustmentType;
@@ -292,8 +352,6 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     missingKey: subjectLotSqft == null ? "missing_subject_lot_sqft" : "missing_comp_lot_sqft",
   });
 
-  const featureTypes = new Set<AdjustmentType>(["beds", "baths", "lot", "year_built"]);
-
   for (const adj of featureAdjustments) {
     if (!enabledTypes.includes(adj.type)) continue;
     const hasValues = adj.delta != null && adj.subjectVal != null && adj.compVal != null;
@@ -331,7 +389,7 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
   adjustments.sort((a, b) => (typeOrder.get(a.type)! - typeOrder.get(b.type)!));
 
   const adjustmentsSum = adjustments
-    .filter((a) => a.applied && featureTypes.has(a.type))
+    .filter((a) => a.applied && contributingTypes.has(a.type))
     .reduce((acc, cur) => acc + (cur.amount_capped ?? 0), 0);
 
   const adjusted_value =
