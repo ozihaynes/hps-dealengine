@@ -97,6 +97,19 @@ const CompCard: React.FC<{ comp: Comp; isListing: boolean; isSelected?: boolean 
       <span>Sqft: {comp.sqft ?? "-"}</span>
       <span>Distance: {comp.distance_miles ?? "-"} mi</span>
     </div>
+    {(() => {
+      const mta: any = (comp as any)?.market_time_adjustment ?? null;
+      const adjustedPrice = (comp as any)?.price_adjusted ?? mta?.adjusted_price ?? null;
+      const factor = mta?.factor ?? (mta?.applied && mta?.hpi_close && mta?.hpi_asof ? mta.hpi_asof / mta.hpi_close : null);
+      if (adjustedPrice && factor) {
+        return (
+          <div className="text-xs text-accent-blue">
+            Adjusted Price: ${Number(adjustedPrice).toLocaleString()} (factor {factor.toFixed(3)})
+          </div>
+        );
+      }
+      return null;
+    })()}
     {isSelected && (
       <span className="inline-flex items-center rounded-full bg-accent-blue/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-blue">
         Selected

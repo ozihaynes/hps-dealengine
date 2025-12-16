@@ -1,7 +1,8 @@
 param(
   [string]$DealId = $env:DEAL_ID,
   [Alias("SupabaseAccessToken")]
-  [string]$CallerJwt = $null
+  [string]$CallerJwt = $null,
+  [bool]$ForceRefresh = $false
 )
 
 $ErrorActionPreference = "Stop"
@@ -177,7 +178,7 @@ $headers = @{
 Write-Host ("Target Supabase URL: {0}" -f $SUPABASE_URL)
 Write-Host ("Deal: {0}" -f $DealId)
 
-$body = @{ deal_id = $DealId; force_refresh = $true } | ConvertTo-Json -Depth 5
+$body = @{ deal_id = $DealId; force_refresh = [bool]$ForceRefresh } | ConvertTo-Json -Depth 5
 
 # Health check first (cheap, no RentCast)
 try {
@@ -297,6 +298,11 @@ Write-Host ("suggested_arv: {0}" -f (Coalesce $run.output.suggested_arv "null"))
 Write-Host ("suggested_arv_range_low: {0}" -f (Coalesce (Coalesce $run.output.suggested_arv_range_low $run.output.arv_range_low) "null"))
 Write-Host ("suggested_arv_range_high: {0}" -f (Coalesce (Coalesce $run.output.suggested_arv_range_high $run.output.arv_range_high) "null"))
 Write-Host ("valuation_confidence: {0}" -f (Coalesce $run.output.valuation_confidence "null"))
+$confDetails = $run.output.confidence_details
+if ($confDetails) {
+  Write-Host ("confidence_details.grade: {0}" -f (Coalesce $confDetails.grade "null"))
+  if ($confDetails.reasons) { Write-Host ("confidence_details.reasons: {0}" -f ($confDetails.reasons -join ", ")) }
+}
 $warningCodes = $run.output.warning_codes
 if (-not $warningCodes) { $warningCodes = @() }
 Write-Host ("warning_codes: {0}" -f ($warningCodes -join ", "))
@@ -375,6 +381,40 @@ if ($sel -and $sel.listing_attempt) {
       $pairs2 = $rc2.PSObject.Properties | Sort-Object Name | ForEach-Object { "{0}={1}" -f $_.Name, $_.Value }
     }
     Write-Host ("listing_attempt.reasons_count: {0}" -f ($pairs2 -join "; "))
+  }
+}
+
+if ($sel -and $sel.market_time_adjustment) {
+  $mta = $sel.market_time_adjustment
+  Write-Host ("market_time_adjustment.enabled: {0}" -f (Coalesce $mta.enabled "null"))
+  Write-Host ("market_time_adjustment.min_days_old: {0}" -f (Coalesce $mta.min_days_old "null"))
+  Write-Host ("market_time_adjustment.comps_adjusted_count: {0}" -f (Coalesce $mta.comps_adjusted_count "null"))
+  Write-Host ("market_time_adjustment.comps_missing_index_count: {0}" -f (Coalesce $mta.comps_missing_index_count "null"))
+  Write-Host ("market_time_adjustment.geo_key: {0}" -f (Coalesce $mta.geo_key "null"))
+  Write-Host ("market_time_adjustment.series_id: {0}" -f (Coalesce $mta.series_id "null"))
+}
+
+if ($sel -and $sel.selected) {
+  Write-Host ""
+  Write-Host "=== Selected comps (first 5) ===" -ForegroundColor Cyan
+  $sampleSelected = $sel.selected | Select-Object -First 5
+  $idxSel = 1
+  foreach ($c in $sampleSelected) {
+    $compId = Coalesce $c.comp_id (Coalesce $c.id "null")
+    $factor = $null
+    if ($null -ne $c.factor) { $factor = $c.factor }
+    elseif ($null -ne $c.market_time_adjustment_factor) { $factor = $c.market_time_adjustment_factor }
+    Write-Host (
+      "[{0}] comp_id={1} close_date={2} price={3} price_adjusted={4} factor={5} days_old={6}" -f `
+        $idxSel, `
+        $compId, `
+        (Coalesce $c.close_date "null"), `
+        (Coalesce $c.price "null"), `
+        (Coalesce $c.price_adjusted "null"), `
+        (Coalesce $factor "null"), `
+        (Coalesce $c.days_old "null")`
+    )
+    $idxSel += 1
   }
 }
 

@@ -10,7 +10,9 @@ export const CompSchema = z.object({
   longitude: z.number().optional().nullable(),
   close_date: z.string().optional().nullable(),
   price: z.number().optional().nullable(),
+  price_adjusted: z.number().optional().nullable(),
   price_per_sqft: z.number().optional().nullable(),
+  ppsf_adjusted: z.number().optional().nullable(),
   beds: z.number().optional().nullable(),
   baths: z.number().optional().nullable(),
   sqft: z.number().optional().nullable(),
@@ -23,6 +25,7 @@ export const CompSchema = z.object({
   status: z.string().optional().nullable(),
   listing_type: z.string().optional().nullable(),
   comp_kind: z.enum(["sale_listing", "closed_sale"]).optional().nullable(),
+  market_time_adjustment: z.unknown().optional().nullable(),
   source: z.string(),
   as_of: z.string(),
   raw: z.unknown().optional(),
@@ -96,6 +99,21 @@ export const ValuationRunSchema = z.object({
     suggested_arv_range_high: z.number().optional().nullable(),
     selected_comp_ids: z.array(z.string()).optional().nullable(),
     selection_summary: z.unknown().optional().nullable(),
+    confidence_details: z
+      .object({
+        grade: z.enum(["A", "B", "C"]),
+        reasons: z.array(z.string()),
+        metrics: z.object({
+          comp_kind_used: z.enum(["closed_sale", "sale_listing"]).nullable(),
+          comp_count_used: z.number(),
+          range_pct: z.number().nullable(),
+          outliers_removed_count: z.number().nullable(),
+          candidate_after_filters: z.number().nullable(),
+          candidate_after_outliers: z.number().nullable(),
+        }),
+      })
+      .optional()
+      .nullable(),
     avm_reference_price: z.number().optional().nullable(),
     avm_reference_range_low: z.number().optional().nullable(),
     avm_reference_range_high: z.number().optional().nullable(),
@@ -116,6 +134,10 @@ export const ValuationRunSchema = z.object({
     warnings: z.array(z.string()).optional().nullable(),
     warning_codes: z.array(z.string()).optional().nullable(),
     messages: z.array(z.string()).optional().nullable(),
+    eval_tags: z.array(z.string()).optional().nullable(),
+    policy_hash: z.string().optional().nullable(),
+    snapshot_hash: z.string().optional().nullable(),
+    output_hash: z.string().optional().nullable(),
   }),
   provenance: z.object({
     provider_id: z.string().optional().nullable(),

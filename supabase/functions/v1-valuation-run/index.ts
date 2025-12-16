@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { corsHeaders, handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { canonicalJson, hashJson } from "../_shared/contracts.ts";
+import { canonicalJson } from "../_shared/contracts.ts";
 import { createSupabaseClient, type ValuationPolicyShape } from "../_shared/valuation.ts";
 import {
   ensureSnapshotForDeal,
@@ -10,11 +10,15 @@ import {
 import { fetchActivePolicyForOrg } from "../_shared/policy.ts";
 import { sortCompsDeterministic } from "../_shared/valuationComps.ts";
 import { runValuationSelection } from "../_shared/valuationSelection.ts";
+import { applyMarketTimeAdjustment } from "../_shared/marketIndex.ts";
+import { computeValuationConfidence } from "../_shared/valuationConfidence.ts";
+import { stableHash } from "../_shared/determinismHash.ts";
 
 type RequestBody = {
   deal_id: string;
   posture?: "conservative" | "base" | "aggressive";
   force_refresh?: boolean;
+  eval_tags?: string[];
 };
 
 type PolicyRow = {
@@ -86,6 +90,12 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const posture = body.posture ?? "base";
+  const evalTags = Array.isArray(body.eval_tags)
+    ? body.eval_tags
+        .filter((t) => typeof t === "string")
+        .map((t) => (t as string).trim())
+        .filter((t) => t.length > 0)
+    : [];
 
   let supabase;
   try {
@@ -186,9 +196,19 @@ serve(async (req: Request): Promise<Response> => {
     const closedPriced = closedComps.length;
     const listingPriced = listingComps.length;
 
+    const marketAdjustment = await applyMarketTimeAdjustment({
+      supabase,
+      orgId: deal.org_id,
+      dealState: deal.state,
+      comps: closedComps as any[],
+      asOf: snapshot.as_of,
+      policy: (valuationPolicy as any)?.market_time_adjustment,
+      cache: new Map(),
+    });
+
     const closedSelection = runValuationSelection({
       subject: buildSubject(),
-      comps: closedComps as any[],
+      comps: marketAdjustment.comps as any[],
       policyValuation: valuationPolicy,
       min_closed_comps_required: Number(minClosedComps),
       comp_kind: "closed_sale",
@@ -221,10 +241,20 @@ serve(async (req: Request): Promise<Response> => {
       comp_kind_used: null,
     };
 
-    const warningCodes: string[] = [...(selection.warning_codes ?? [])];
+    const subjectSources = Array.isArray((snapshot.raw as any)?.subject_sources)
+      ? ((snapshot.raw as any).subject_sources as unknown[])
+          .map((s) => (typeof s === "string" ? s : null))
+          .filter((s): s is string => !!s)
+      : [];
+
+    const warningCodes: string[] = [...(selection.warning_codes ?? []), ...(marketAdjustment.warning_codes ?? [])];
     if (!hasClosed && listingSelection) {
       warningCodes.push("insufficient_closed_sales_comps", "listing_based_comps_only");
     }
+    if ((snapshot.raw as any)?.closed_sales_fetch_failed) {
+      warningCodes.push("closed_sales_fetch_failed");
+    }
+    const warningCodesSorted = Array.from(new Set(warningCodes)).sort();
 
     const avmPrice = (snapshot.market as any)?.avm_price ?? null;
     const avmLow = (snapshot.market as any)?.avm_price_range_low ?? null;
@@ -234,9 +264,9 @@ serve(async (req: Request): Promise<Response> => {
     const compCount = compsUsed.length;
     const stats = {
       median_distance_miles: median(
-      compsUsed.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
-    ),
-    median_correlation: median(
+        compsUsed.map((c: any) => Number((c as any)?.distance_miles)).filter((n) => Number.isFinite(n)),
+      ),
+      median_correlation: median(
         compsUsed.map((c: any) => Number((c as any)?.correlation)).filter((n) => Number.isFinite(n)),
       ),
       median_days_old: median(
@@ -245,73 +275,6 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     const suggestedArv = selection.suggested_arv ?? null;
-    const rangeWidthPct =
-      suggestedArv &&
-      selection.suggested_arv_range_low != null &&
-      selection.suggested_arv_range_high != null &&
-      suggestedArv !== 0
-        ? (Number(selection.suggested_arv_range_high) - Number(selection.suggested_arv_range_low)) /
-          Number(suggestedArv)
-        : null;
-
-    const rubric = valuationPolicy.confidence_rubric ?? {};
-    const bands: Array<{ grade: "A" | "B" | "C"; cfg: any }> = [
-      { grade: "A", cfg: rubric["A"] },
-      { grade: "B", cfg: rubric["B"] },
-      { grade: "C", cfg: rubric["C"] },
-    ];
-
-    let valuationConfidence: "A" | "B" | "C" | null = null;
-
-    if (stats.median_correlation == null) {
-      warningCodes.push("missing_correlation_signal");
-    } else {
-      for (const band of bands) {
-        if (!band.cfg) continue;
-        const minCompsNeeded = Number(band.cfg.min_comps_multiplier ?? 0) * Number(minClosedComps);
-        const minCorr = Number(band.cfg.min_median_correlation ?? 0);
-        const maxRange = Number(band.cfg.max_range_pct ?? 1);
-        const compsOk = compCount >= minCompsNeeded;
-        const corrOk = stats.median_correlation == null ? true : stats.median_correlation >= minCorr;
-        const rangeOk = rangeWidthPct == null ? true : rangeWidthPct <= maxRange;
-        if (compsOk && corrOk && rangeOk) {
-          valuationConfidence = band.grade;
-          break;
-        }
-      }
-    }
-
-    if (!valuationConfidence) {
-      valuationConfidence = "C";
-    }
-    if (!hasClosed) {
-      valuationConfidence = "C";
-    }
-    if (snapshot.stub) {
-      warningCodes.push("snapshot_stub");
-      valuationConfidence = "C";
-    }
-
-    const failureReasons: string[] = [];
-    if (suggestedArv == null) {
-      failureReasons.push("missing_suggested_arv");
-    }
-    if ((snapshot.raw as any)?.closed_sales_fetch_failed) {
-      warningCodes.push("closed_sales_fetch_failed");
-    }
-
-    const status = failureReasons.length === 0 ? "succeeded" : "failed";
-    const failureReason = failureReasons.length > 0 ? failureReasons.join("; ") : null;
-
-    const inputPayload = {
-      deal_id: deal.id,
-      posture,
-      address_fingerprint: fingerprint,
-      property_snapshot_id: snapshot.id,
-      min_closed_comps_required: minClosedComps,
-      policy_version_id: policyRow.id,
-      property_snapshot_hash: hashJson(snapshot),
-    };
 
     const ladderRaw = (snapshot.raw as any)?.closed_sales ?? {};
     const ladderStages = Array.isArray(ladderRaw?.stages)
@@ -319,6 +282,8 @@ serve(async (req: Request): Promise<Response> => {
           .map((s: any) => (typeof s === "string" ? s : s?.name ?? null))
           .filter((s: any): s is string => typeof s === "string")
       : [];
+    const marketAdjustmentWarnings = Array.from(new Set(marketAdjustment.warning_codes ?? [])).sort();
+
     const selectionSummary = {
       ...(selection.selection_summary ?? {}),
       ladder: {
@@ -331,18 +296,75 @@ serve(async (req: Request): Promise<Response> => {
         listing_total: listingTotal,
         listing_priced: listingPriced,
       },
+      market_time_adjustment: {
+        ...(marketAdjustment.summary ?? {}),
+        warning_codes: marketAdjustmentWarnings,
+      },
       closed_attempt: closedSelection?.selection_summary ?? null,
       listing_attempt: listingSelection?.selection_summary ?? null,
       active_attempt: hasClosed ? "closed_sale" : listingSelection ? "sale_listing" : null,
     };
 
-    const outputPayload = {
+    const confidence = computeValuationConfidence({
+      suggested_arv: suggestedArv,
+      suggested_arv_range_low: selection.suggested_arv_range_low,
+      suggested_arv_range_high: selection.suggested_arv_range_high,
+      comp_kind_used: selection.comp_kind_used ?? null,
+      comp_count_used: compCount,
+      min_closed_comps_required: Number(minClosedComps),
+      median_correlation: stats.median_correlation,
+      selection_summary: selectionSummary,
+      warning_codes: warningCodesSorted,
+      snapshot_stub: snapshot.stub,
+      confidence_rubric: (valuationPolicy as any)?.confidence_rubric,
+    });
+    const valuationConfidence: "A" | "B" | "C" = confidence.grade;
+
+    const failureReasons: string[] = [];
+    if (suggestedArv == null) {
+      failureReasons.push("missing_suggested_arv");
+    }
+
+    const status = failureReasons.length === 0 ? "succeeded" : "failed";
+    const failureReason = failureReasons.length > 0 ? failureReasons.join("; ") : null;
+
+    const snapshotForHash = {
+      address_fingerprint: fingerprint,
+      provider: snapshot.provider ?? null,
+      source: snapshot.source ?? null,
+      as_of: snapshot.as_of ?? null,
+      window_days: snapshot.window_days ?? null,
+      sample_n: snapshot.sample_n ?? null,
+      comps,
+      market: snapshot.market ?? null,
+      raw: snapshot.raw ?? null,
+      stub: !!snapshot.stub,
+      subject_resolved: subjectResolved,
+    };
+
+    const [policyHash, snapshotHash] = await Promise.all([
+      stableHash(policyRow.policy_json ?? {}),
+      stableHash(snapshotForHash),
+    ]);
+
+    const inputPayload = {
+      deal_id: deal.id,
+      posture,
+      address_fingerprint: fingerprint,
+      property_snapshot_id: snapshot.id,
+      property_snapshot_hash: snapshotHash,
+      min_closed_comps_required: minClosedComps,
+      policy_version_id: policyRow.id,
+    };
+
+    const outputBase = {
       suggested_arv: suggestedArv ?? null,
       arv_range_low: selection.suggested_arv_range_low ?? null,
       arv_range_high: selection.suggested_arv_range_high ?? null,
       suggested_arv_range_low: selection.suggested_arv_range_low ?? null,
       suggested_arv_range_high: selection.suggested_arv_range_high ?? null,
       selected_comp_ids: selection.selected_comp_ids ?? [],
+      selected_comps: selection.selected_comps ?? [],
       selection_summary: selectionSummary ?? null,
       avm_reference_price: avmPrice ?? null,
       avm_reference_range_low: avmLow ?? null,
@@ -350,13 +372,33 @@ serve(async (req: Request): Promise<Response> => {
       suggested_arv_source_method: `selection_v1_1_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`,
       suggested_arv_comp_kind_used: selection.comp_kind_used ?? null,
       suggested_arv_comp_count_used: compCount ?? null,
+      confidence_details: confidence,
       as_is_value: null,
       valuation_confidence: valuationConfidence,
       comp_count: compCount,
       comp_set_stats: stats,
-      warnings: warningCodes,
-      warning_codes: warningCodes,
+      warnings: warningCodesSorted,
+      warning_codes: warningCodesSorted,
       messages: failureReason ? [failureReason] : [],
+      subject_sources: subjectSources,
+    };
+
+    if (evalTags.length > 0) {
+      (outputBase as any).eval_tags = evalTags;
+    }
+
+    const outputForHash = {
+      ...outputBase,
+      policy_hash: policyHash,
+      snapshot_hash: snapshotHash,
+      subject_sources: subjectSources,
+    };
+
+    const output_hash = await stableHash(outputForHash);
+
+    const outputPayload = {
+      ...outputForHash,
+      output_hash,
     };
 
     const endpoints = ["rentcast_avm", "rentcast_markets"];
@@ -378,10 +420,8 @@ serve(async (req: Request): Promise<Response> => {
       min_closed_comps_required: minClosedComps,
     };
 
-    const input_hash = hashJson(inputPayload);
-    const output_hash = hashJson(outputPayload);
-    const policy_hash = hashJson(policyRow.policy_json ?? {});
-    const run_hash = hashJson({ input_hash, output_hash, policy_hash });
+    const input_hash = await stableHash(inputPayload);
+    const run_hash = await stableHash({ input_hash, output_hash, policy_hash: policyHash });
 
     const existing = await supabase
       .from("valuation_runs")
@@ -390,7 +430,7 @@ serve(async (req: Request): Promise<Response> => {
       .eq("deal_id", deal.id)
       .eq("posture", posture)
       .eq("input_hash", input_hash)
-      .eq("policy_hash", policy_hash)
+      .eq("policy_hash", policyHash)
       .maybeSingle();
 
     if (existing.data) {
@@ -421,7 +461,7 @@ serve(async (req: Request): Promise<Response> => {
         failure_reason: failureReason,
         input_hash,
         output_hash,
-        policy_hash,
+        policy_hash: policyHash,
         run_hash,
       })
       .select()

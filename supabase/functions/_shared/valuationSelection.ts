@@ -297,10 +297,11 @@ export function runValuationSelection<T extends BasicComp>(opts: {
     const asOf = (comp as any)?.as_of ?? null;
     const days_old = (comp as any)?.days_old ?? daysBetween(closeDate, asOf);
 
-    const ppsf =
-      safeNumber((comp as any)?.price) && safeNumber((comp as any)?.sqft) && safeNumber((comp as any)?.sqft)! > 0
-        ? Number((comp as any)?.price) / Number((comp as any)?.sqft)
-        : null;
+    const priceRaw = safeNumber((comp as any)?.price);
+    const priceAdjusted = safeNumber((comp as any)?.price_adjusted);
+    const priceToUse = priceAdjusted ?? priceRaw;
+    const sqftVal = safeNumber((comp as any)?.sqft);
+    const ppsf = priceToUse != null && sqftVal != null && sqftVal > 0 ? priceToUse / sqftVal : null;
 
     const { score } = computeScore({
       comp,
@@ -406,10 +407,12 @@ export function runValuationSelection<T extends BasicComp>(opts: {
 
   const valueBasis = selected
     .map((c) => {
+      const subjectSqft = safeNumber(opts.subject.sqft);
+      const compPrice = safeNumber((c.comp as any)?.price_adjusted ?? (c.comp as any)?.price);
       const basisValue =
-        usingPpsf && c.ppsf != null && safeNumber(opts.subject.sqft)
-          ? c.ppsf * (safeNumber(opts.subject.sqft) as number)
-          : safeNumber((c.comp as any)?.price);
+        usingPpsf && c.ppsf != null && subjectSqft
+          ? c.ppsf * subjectSqft
+          : compPrice;
       return basisValue != null
         ? {
             value: basisValue,
@@ -481,6 +484,14 @@ export function runValuationSelection<T extends BasicComp>(opts: {
       ppsf: c.ppsf,
       abs_sqft_delta_pct: c.abs_sqft_delta_pct,
       source_stage_name: c.source_stage_name ?? null,
+      close_date: (c.comp as any)?.close_date ?? (c.comp as any)?.list_date ?? null,
+      price: safeNumber((c.comp as any)?.price),
+      price_adjusted: safeNumber((c.comp as any)?.price_adjusted),
+      factor: safeNumber(
+        ((c.comp as any)?.market_time_adjustment as any)?.factor ??
+          (c.comp as any)?.market_time_adjustment_factor ??
+          null,
+      ),
     })),
   };
 
@@ -492,10 +503,20 @@ export function runValuationSelection<T extends BasicComp>(opts: {
     selected_comps: selected.map((c) => ({
       ...(c.comp as T),
       id: c.resolved_id,
+      comp_id: c.resolved_id,
+      close_date: (c.comp as any)?.close_date ?? (c.comp as any)?.list_date ?? null,
+      price: safeNumber((c.comp as any)?.price),
+      price_adjusted: safeNumber((c.comp as any)?.price_adjusted),
+      factor: safeNumber(
+        ((c.comp as any)?.market_time_adjustment as any)?.factor ??
+          (c.comp as any)?.market_time_adjustment_factor ??
+          null,
+      ),
       score: c.score,
       ppsf: c.ppsf,
       days_old: c.days_old,
       abs_sqft_delta_pct: c.abs_sqft_delta_pct,
+       market_time_adjustment: (c.comp as any)?.market_time_adjustment ?? null,
     })),
     warning_codes,
     selection_summary,

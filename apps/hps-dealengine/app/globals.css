@@ -37,8 +37,12 @@
   --repair-scope-text: var(--text-primary);
   --repair-scope-bg: #001831;
   --repair-scope-border: #00386b;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-body-stack: var(--font-body, "Inter"), "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-display-stack: var(--font-display, "Plus Jakarta Sans"), "Plus Jakarta Sans", "Inter",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  --font-sans: var(--font-body-stack);
 }
 
 /* Theme 1: Navy (Default) */
@@ -243,8 +247,18 @@
 body {
   background-color: var(--bg-main);
   color: var(--text-primary);
-  font-family: var(--font-sans);
+  font-family: var(--font-body-stack);
   @apply antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display-stack);
+  letter-spacing: -0.01em;
 }
 
 .text-text-primary {
