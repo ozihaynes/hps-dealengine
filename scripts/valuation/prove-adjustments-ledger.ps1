@@ -189,6 +189,8 @@ foreach ($p in $policies) {
 $policyBackups | ConvertTo-Json -Depth 100 | Set-Content -Path $backupPath -Encoding UTF8
 Write-Host ("Backup saved to {0}" -f $backupPath) -ForegroundColor Yellow
 
+$ProofNonce = Get-Date -Format "yyyyMMddTHHmmssfffZ"
+
 function Build-PatchedPolicy {
   param($Original)
   $patched = DeepCopy $Original
@@ -198,6 +200,11 @@ function Build-PatchedPolicy {
 
   $patched.valuation.adjustments.enabled = $true
   $patched.valuation.adjustments.version = "selection_v1_2"
+  if ($patched.valuation.adjustments.PSObject.Properties.Name -contains "proof_nonce") {
+    $patched.valuation.adjustments.proof_nonce = $ProofNonce
+  } else {
+    $patched.valuation.adjustments | Add-Member -NotePropertyName proof_nonce -NotePropertyValue $ProofNonce
+  }
 
   if (-not $patched.valuation.adjustments.unit_values) {
     $patched.valuation.adjustments.unit_values = @{
@@ -221,7 +228,10 @@ function Invoke-ValuationRun {
 }
 
 function Assert-ProofOutputs {
-  param($Output)
+  param(
+    $Output,
+    $PatchedUnitValues
+  )
   if (($Output.suggested_arv_basis ?? "") -ne "adjusted_v1_2") {
     throw "Proof check failed: expected suggested_arv_basis=adjusted_v1_2, got '$($Output.suggested_arv_basis)'."
   }
@@ -238,14 +248,26 @@ function Assert-ProofOutputs {
   $types = @($firstComp.adjustments | ForEach-Object { $_.type })
   if (-not ($types -contains "time")) { throw "Proof check failed: missing 'time' adjustment line item." }
   if (-not ($types -contains "sqft")) { throw "Proof check failed: missing 'sqft' adjustment line item." }
+
+  $uv = $PatchedUnitValues
+  $allZero = ($uv.beds -eq 0) -and ($uv.baths -eq 0) -and ($uv.lot_per_sqft -eq 0) -and ($uv.year_built_per_year -eq 0)
+  if ($allZero) {
+    $basis = [double](Coalesce $firstComp.value_basis_before_adjustments $firstComp.time_adjusted_price)
+    $adjusted = [double](Coalesce $firstComp.adjusted_value $firstComp.value_basis_before_adjustments)
+    if ([math]::Abs($basis - $adjusted) -gt 0.01) {
+      throw "Proof check failed: adjusted_value ($adjusted) should equal basis ($basis) when unit_values are zero."
+    }
+  }
 }
 
 $failureMessage = $null
 $runSummary = $null
+$patchedUnitValues = $null
 
 try {
   foreach ($p in $policies) {
     $patchedPolicy = Build-PatchedPolicy $policyOriginalMap[$p.id]
+    $patchedUnitValues = $patchedPolicy.valuation.adjustments.unit_values
     $null = Invoke-JsonPatch "$SUPABASE_URL/rest/v1/policies?id=eq.$($p.id)" @{ policy_json = $patchedPolicy }
     $verify = Invoke-JsonGet "$SUPABASE_URL/rest/v1/policies?id=eq.$($p.id)&select=policy_json"
     if (-not $verify -or $verify.Count -eq 0) { throw "Policy patch failed to return policy $($p.id)" }
@@ -259,7 +281,7 @@ try {
 
   Write-Host "Running valuation twice to prove determinism..." -ForegroundColor Cyan
   $run1 = Invoke-ValuationRun -ForceRefresh:$false
-  Assert-ProofOutputs $run1.valuation_run.output
+  Assert-ProofOutputs $run1.valuation_run.output $patchedUnitValues
 
   Start-Sleep -Seconds 1
   $run2 = Invoke-ValuationRun -ForceRefresh:$false

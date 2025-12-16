@@ -174,14 +174,13 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     });
   };
 
-  // Time adjustment entry is always present
+  // Time adjustment entry is informational only (amounts null)
   const timeFactor =
     safeNumber((comp as any)?.market_time_adjustment?.factor) ??
     safeNumber((comp as any)?.market_time_adjustment_factor);
   const timeAppliedFlag = (comp as any)?.market_time_adjustment?.applied === true;
   const timeCanApply = timeAppliedFlag && base_price_raw != null && timeFactor != null;
   const timeDeltaUnits = timeCanApply ? timeFactor! - 1 : null;
-  const timeAmount = timeCanApply && timeDeltaUnits != null ? base_price_raw! * timeDeltaUnits : null;
   const timeSkipReason = timeCanApply
     ? null
     : base_price_raw == null
@@ -195,8 +194,8 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     delta_units_raw: timeDeltaUnits,
     delta_units_capped: timeDeltaUnits,
     unit_value: base_price_raw,
-    amount_raw: timeAmount,
-    amount_capped: timeAmount,
+    amount_raw: null,
+    amount_capped: null,
     applied: !!timeCanApply,
     skip_reason: timeSkipReason,
     source: "policy",
@@ -205,9 +204,8 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
       : "time adjustment not applied",
   });
 
-  // Sqft adjustment entry is always present
+  // Sqft adjustment entry is informational only (amounts null)
   const sqftUnitValue = time_adjusted_price != null && compSqft ? time_adjusted_price / compSqft : null;
-  const sqftAmount = sqftCanApply && sqftUnitValue != null && sqftDeltaUnits != null ? sqftUnitValue * sqftDeltaUnits : null;
   const sqftSkipReason = !sqftHasValues
     ? "missing_sqft"
     : !sqftDeltaOk
@@ -223,8 +221,8 @@ export function buildCompAdjustedValue(input: BuildCompAdjustedValueInput) {
     delta_units_raw: sqftDeltaUnits,
     delta_units_capped: sqftDeltaUnits,
     unit_value: sqftUnitValue,
-    amount_raw: sqftAmount,
-    amount_capped: sqftAmount,
+    amount_raw: null,
+    amount_capped: null,
     applied: !!sqftCanApply,
     skip_reason: sqftSkipReason,
     source: "policy",
