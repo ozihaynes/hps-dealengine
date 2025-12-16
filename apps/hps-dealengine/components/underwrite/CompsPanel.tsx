@@ -122,6 +122,8 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
   const provider = snapshot?.provider ?? snapshot?.source ?? "unknown";
   const asOf = snapshot?.as_of ? new Date(snapshot.as_of).toLocaleDateString() : "unknown";
   const stub = snapshot?.stub ?? false;
+  const [showClosed, setShowClosed] = React.useState(false);
+  const [showListings, setShowListings] = React.useState(false);
   const closedSales = comps.filter((c) => (c as any)?.comp_kind === "closed_sale");
   const listings = comps.filter((c) => (c as any)?.comp_kind !== "closed_sale");
   const minRequired = minClosedComps ?? null;
@@ -209,95 +211,119 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
           >
             {refreshing ? "Refreshing..." : "Re-run comps"}
           </button>
+          <button
+            type="button"
+            onClick={() => setShowClosed((prev) => !prev)}
+            className="rounded-md border border-white/15 px-2 py-1 text-xs text-text-primary hover:border-accent-blue/60"
+          >
+            {showClosed ? "▲ Collapse" : "▼ Expand"}
+          </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
-        <span>Active: {statusCounts.active}</span>
-        <span>Inactive: {statusCounts.inactive}</span>
-        <span>Other: {statusCounts.other}</span>
-        <span>Unknown: {statusCounts.unknown}</span>
-      </div>
+      {showClosed && (
+        <>
+          <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
+            <span>Active: {statusCounts.active}</span>
+            <span>Inactive: {statusCounts.inactive}</span>
+            <span>Other: {statusCounts.other}</span>
+            <span>Unknown: {statusCounts.unknown}</span>
+          </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
-        <span className="rounded border border-white/10 px-2 py-1">
-          Date range:{" "}
-          {closedSummary.minDate && closedSummary.maxDate
-            ? `${closedSummary.minDate.toLocaleDateString()} – ${closedSummary.maxDate.toLocaleDateString()}`
-            : "-"}
-        </span>
-        <span className="rounded border border-white/10 px-2 py-1">
-          Median distance: {closedSummary.medianDistance != null ? `${closedSummary.medianDistance} mi` : "-"}
-        </span>
-        <span className="rounded border border-white/10 px-2 py-1">
-          Price variance:{" "}
-          {closedSummary.priceVariance != null ? `${(closedSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
-        </span>
-        <span
-          className="rounded border border-white/10 px-2 py-1"
-          title="Not available from v1 provider; planned in v2."
-        >
-          Concessions: -
-        </span>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
+            <span className="rounded border border-white/10 px-2 py-1">
+              Date range:{" "}
+              {closedSummary.minDate && closedSummary.maxDate
+                ? `${closedSummary.minDate.toLocaleDateString()} - ${closedSummary.maxDate.toLocaleDateString()}`
+                : "-"}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1">
+              Median distance: {closedSummary.medianDistance != null ? `${closedSummary.medianDistance} mi` : "-"}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1">
+              Price variance:{" "}
+              {closedSummary.priceVariance != null ? `${(closedSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
+            </span>
+            <span
+              className="rounded border border-white/10 px-2 py-1"
+              title="Not available from v1 provider; planned in v2."
+            >
+              Concessions: -
+            </span>
+          </div>
 
-      {gating && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Insufficient comparable closed sales. Valuation is informational only or will fall back to listings.
-        </div>
-      )}
+          {gating && (
+            <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+              Insufficient comparable closed sales. Valuation is informational only or will fall back to listings.
+            </div>
+          )}
 
-      {closedSales.length === 0 ? (
-        <div className="text-sm text-text-secondary">No closed-sale comps available yet.</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {closedSales.map((comp) => (
-            <CompCard
-              key={comp.id}
-              comp={comp}
-              isListing={false}
-              isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
-            />
-          ))}
-        </div>
+          {closedSales.length === 0 ? (
+            <div className="text-sm text-text-secondary">No closed-sale comps available yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {closedSales.map((comp) => (
+                <CompCard
+                  key={comp.id}
+                  comp={comp}
+                  isListing={false}
+                  isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       <div className="mt-4 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold text-text-primary">
-            Comparable sale listings (RentCast /avm/value)
-          </span>
-          <Badge color="blue">{listings.length} listings</Badge>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
-          <span className="rounded border border-white/10 px-2 py-1">
-            Date range:{" "}
-            {listingSummary.minDate && listingSummary.maxDate
-              ? `${listingSummary.minDate.toLocaleDateString()} – ${listingSummary.maxDate.toLocaleDateString()}`
-              : "-"}
-          </span>
-          <span className="rounded border border-white/10 px-2 py-1">
-            Median distance: {listingSummary.medianDistance != null ? `${listingSummary.medianDistance} mi` : "-"}
-          </span>
-          <span className="rounded border border-white/10 px-2 py-1">
-            Price variance:{" "}
-            {listingSummary.priceVariance != null ? `${(listingSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
-          </span>
-          <span className="rounded border border-white/10 px-2 py-1">Concessions: -</span>
-        </div>
-        {listings.length === 0 ? (
-          <div className="text-sm text-text-secondary">No sale listings available.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {listings.map((comp) => (
-              <CompCard
-                key={comp.id}
-                comp={comp}
-                isListing={true}
-                isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
-              />
-            ))}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-semibold text-text-primary">
+              Comparable sale listings (RentCast /avm/value)
+            </span>
+            <Badge color="blue">{listings.length} listings</Badge>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowListings((prev) => !prev)}
+            className="rounded-md border border-white/15 px-2 py-1 text-xs text-text-primary hover:border-accent-blue/60"
+          >
+            {showListings ? "▲ Collapse" : "▼ Expand"}
+          </button>
+        </div>
+        {showListings && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
+              <span className="rounded border border-white/10 px-2 py-1">
+                Date range:{" "}
+                {listingSummary.minDate && listingSummary.maxDate
+                  ? `${listingSummary.minDate.toLocaleDateString()} - ${listingSummary.maxDate.toLocaleDateString()}`
+                  : "-"}
+              </span>
+              <span className="rounded border border-white/10 px-2 py-1">
+                Median distance: {listingSummary.medianDistance != null ? `${listingSummary.medianDistance} mi` : "-"}
+              </span>
+              <span className="rounded border border-white/10 px-2 py-1">
+                Price variance:{" "}
+                {listingSummary.priceVariance != null ? `${(listingSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
+              </span>
+              <span className="rounded border border-white/10 px-2 py-1">Concessions: -</span>
+            </div>
+            {listings.length === 0 ? (
+              <div className="text-sm text-text-secondary">No sale listings available.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {listings.map((comp) => (
+                  <CompCard
+                    key={comp.id}
+                    comp={comp}
+                    isListing={true}
+                    isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </GlassCard>

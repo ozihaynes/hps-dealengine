@@ -116,7 +116,7 @@ export function DealsTable({
   );
 
   return (
-    <GlassCard className="w-full p-8 md:p-10 relative overflow-hidden border-t border-accent-green/30">
+    <GlassCard className="w-full card-padding-lg relative overflow-hidden border-t border-accent-green/30">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-accent-green/10 blur-[80px] rounded-full pointer-events-none" />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 print-hidden">
@@ -132,7 +132,7 @@ export function DealsTable({
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="dark-input h-10 text-sm w-full pl-10 transition-all focus:ring-2 focus:ring-accent-blue/50"
+              className="input-base input-sm pl-10"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Icon
@@ -145,7 +145,7 @@ export function DealsTable({
           <div className="w-full md:w-40">
             <input
               type="date"
-              className="dark-input h-10 text-sm w-full"
+              className="input-base input-sm"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
             />
@@ -154,7 +154,7 @@ export function DealsTable({
             <select
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value as any)}
-              className="dark-select h-10 text-sm w-full py-0 px-3"
+              className="input-base input-sm py-0 px-3"
             >
               <option value="newest">Sort: Newest</option>
               <option value="oldest">Sort: Oldest</option>

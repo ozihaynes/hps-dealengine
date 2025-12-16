@@ -128,7 +128,7 @@ export function DualAgentLauncher() {
           <button
             type="button"
             onClick={() => setIsExpanded((prev) => !prev)}
-            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full fab-theme p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-2 ring-[color:var(--glass-border)] transition-transform hover:scale-[1.03] focus:outline-none"
+            className="relative inline-flex h-24 w-24 items-center justify-center overflow-hidden rounded-full btn btn-fab p-1 shadow-[0_12px_30px_rgba(0,0,0,0.45)] ring-2 ring-[color:var(--glass-border)] transition-transform hover:scale-[1.03] focus:outline-none"
           >
             <Image
               src="/real_DealEngine_Mascot.png"

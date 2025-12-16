@@ -2,6 +2,7 @@ import { createSupabaseClient, fingerprintAddress, toCanonical } from "./valuati
 import type { ValuationPolicyShape } from "./valuation.ts";
 import { sortCompsDeterministic, type BasicComp } from "./valuationComps.ts";
 import { buildRentcastClosedSalesRequest, formatRentcastAddress } from "./rentcastAddress.ts";
+import { fetchPublicRecordsSubject } from "./publicRecordsSubject.ts";
 
 export type SnapshotRow = {
   id: string;
@@ -158,6 +159,30 @@ function canonicalizePropertyType(value: unknown): string | null {
   return normalized.length > 0 ? normalized : null;
 }
 
+const rentcastAllowedPropertyTypes = [
+  "Single Family",
+  "Condo",
+  "Townhouse",
+  "Multi Family",
+  "Apartment",
+  "Manufactured",
+  "Land",
+  "Other",
+] as const;
+
+const normalizeRentcastType = (value: string) => value.toLowerCase().replace(/[^a-z]/g, "");
+
+function rentcastPropertyTypeSafe(raw: string | null | undefined, canonical?: string | null): string | null {
+  const candidates: Array<string | null | undefined> = [raw, canonical];
+  for (const candidate of candidates) {
+    if (typeof candidate !== "string" || candidate.trim() === "") continue;
+    const norm = normalizeRentcastType(candidate);
+    const match = rentcastAllowedPropertyTypes.find((v) => normalizeRentcastType(v) === norm);
+    if (match) return match;
+  }
+  return null;
+}
+
 function buildStubComps(fingerprint: string, asOf: string) {
   const seed = parseInt(fingerprint.slice(0, 8), 16) || 1;
   const basePrice = 200000 + (seed % 50000);
@@ -247,6 +272,7 @@ async function fetchRentcastSubject(address: DealRow, asOf: string, apiKey: stri
     latitude: safeNumber((resolved as any)?.latitude),
     longitude: safeNumber((resolved as any)?.longitude),
     property_type: canonicalizePropertyType((resolved as any)?.propertyType ?? null),
+    property_type_raw: typeof (resolved as any)?.propertyType === "string" ? (resolved as any).propertyType : null,
     beds: safeNumber((resolved as any)?.bedrooms),
     baths: safeNumber((resolved as any)?.bathrooms),
     sqft: safeNumber((resolved as any)?.squareFootage),
@@ -410,7 +436,12 @@ export async function fetchRentcastClosedSales(opts: {
   apiKey: string | null;
   saleDateRangeDays: number;
   radiusMiles: number;
-  subjectProperty: { latitude: number | null; longitude: number | null; propertyType: string | null } | null;
+  subjectProperty: {
+    latitude: number | null;
+    longitude: number | null;
+    propertyType: string | null;
+    propertyTypeRaw?: string | null;
+  } | null;
   stageName?: string | null;
 }): Promise<ClosedSalesResult> {
   const { address, asOf, apiKey, saleDateRangeDays, radiusMiles, subjectProperty, stageName } = opts;
@@ -418,7 +449,7 @@ export async function fetchRentcastClosedSales(opts: {
     deal: address,
     radiusMiles,
     saleDateRangeDays,
-    propertyType: subjectProperty?.propertyType ?? null,
+    propertyType: rentcastPropertyTypeSafe(subjectProperty?.propertyTypeRaw, subjectProperty?.propertyType ?? null),
   });
 
   if (!apiKey) {
@@ -514,7 +545,12 @@ export async function fetchClosedSalesLadder(opts: {
   asOf: string;
   apiKey: string | null;
   policyValuation: ValuationPolicy;
-  subjectProperty: { latitude: number | null; longitude: number | null; propertyType: string | null } | null;
+  subjectProperty: {
+    latitude: number | null;
+    longitude: number | null;
+    propertyType: string | null;
+    propertyTypeRaw?: string | null;
+  } | null;
 }): Promise<{
   comps: BasicComp[];
   raw: {
@@ -726,17 +762,91 @@ export async function ensureSnapshotForDeal(opts: {
   const apiKey = getRentcastApiKey();
   const asOf = new Date().toISOString();
   const subjectProperty = await fetchRentcastSubject(opts.deal, asOf, apiKey);
+  const subjectSources = new Set<string>();
+  if (subjectProperty.subject) subjectSources.add("rentcast");
+
+  let subjectResolved = subjectProperty.subject
+    ? {
+        ...subjectProperty.subject,
+        property_type: subjectProperty.subject.property_type,
+        property_type_raw: (subjectProperty.subject as any)?.property_type_raw ?? null,
+      }
+    : null;
+
+  // Public records subject enrichment (ATTOM-only)
+  const publicRecordsCfg = (opts.policyValuation as any)?.public_records_subject ?? {};
+  let publicRecordsRaw: any = null;
+  const preferPublic = publicRecordsCfg?.prefer_over_rentcast_subject === true;
+  const hasMissingSubjectFields =
+    !subjectResolved ||
+    [subjectResolved.sqft, subjectResolved.beds, subjectResolved.baths, subjectResolved.year_built, subjectResolved.property_type, subjectResolved.latitude, subjectResolved.longitude].some(
+      (v) => v === null || v === undefined,
+    );
+
+  if (publicRecordsCfg?.enabled) {
+    const address = formatRentcastAddress(opts.deal);
+    const shouldAttempt = preferPublic || hasMissingSubjectFields;
+    publicRecordsRaw = {
+      provider: "attom",
+      attempted: shouldAttempt,
+      skipped_reason: shouldAttempt ? null : "not_needed",
+      request: { address, endpoint: "property/basicprofile" },
+      response: null,
+      normalized: null,
+      as_of: asOf,
+      error: null,
+    };
+
+    if (shouldAttempt) {
+      const prResult = await fetchPublicRecordsSubject({ address, provider: "attom" });
+      subjectSources.add("attom");
+      publicRecordsRaw.request = prResult.raw?.request ?? { address, endpoint: "property/basicprofile" };
+      publicRecordsRaw.response = prResult.raw?.response ?? null;
+      publicRecordsRaw.normalized = prResult.normalized ?? null;
+      publicRecordsRaw.as_of = prResult.as_of ?? asOf;
+      publicRecordsRaw.error = prResult.ok ? null : prResult.error ?? "public_records_error";
+
+      if (prResult.ok && prResult.normalized) {
+        const normalized = prResult.normalized;
+        if (!subjectResolved) {
+          subjectResolved = { ...normalized, property_type: normalized.property_type };
+        } else {
+          const mergeField = (key: string, val: any) => {
+            const hasVal = val !== null && val !== undefined;
+            if (preferPublic && hasVal) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (subjectResolved as any)[key] = val;
+              return;
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (((subjectResolved as any)[key] === null || (subjectResolved as any)[key] === undefined) && hasVal) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (subjectResolved as any)[key] = val;
+            }
+          };
+          mergeField("beds", normalized.beds);
+          mergeField("baths", normalized.baths);
+          mergeField("sqft", normalized.sqft);
+          mergeField("year_built", normalized.year_built);
+          mergeField("property_type", normalized.property_type);
+          mergeField("latitude", normalized.latitude);
+          mergeField("longitude", normalized.longitude);
+        }
+      }
+    }
+  }
 
   const closedLadder = await fetchClosedSalesLadder({
     address: opts.deal,
     asOf,
     apiKey,
     policyValuation: opts.policyValuation,
-    subjectProperty: subjectProperty.subject
+    subjectProperty: subjectResolved
       ? {
-          latitude: subjectProperty.subject.latitude,
-          longitude: subjectProperty.subject.longitude,
-          propertyType: subjectProperty.subject.property_type,
+          latitude: subjectResolved.latitude,
+          longitude: subjectResolved.longitude,
+          propertyType: subjectResolved.property_type,
+          propertyTypeRaw: (subjectResolved as any)?.property_type_raw ?? null,
         }
       : null,
   });
@@ -789,10 +899,14 @@ export async function ensureSnapshotForDeal(opts: {
       closed_sales: closedRaw,
       closed_sales_fetch_failed: closedFetchFailed,
       subject_property: subjectProperty.raw ?? { request: subjectProperty.request, response: { error: "subject_missing" } },
-      subject_property_resolved: subjectProperty.subject
+      public_records: {
+        subject: publicRecordsRaw,
+      },
+      subject_sources: Array.from(subjectSources),
+      subject_property_resolved: subjectResolved
         ? {
-            ...subjectProperty.subject,
-            property_type: subjectProperty.subject.property_type,
+            ...subjectResolved,
+            property_type: subjectResolved.property_type,
           }
         : null,
     },

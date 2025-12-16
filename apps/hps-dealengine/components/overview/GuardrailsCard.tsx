@@ -3,17 +3,20 @@
 import React from "react";
 
 import type { OverviewGuardrailsView } from "@/lib/overviewGuardrails";
-import { fmt$ } from "@/utils/helpers";
 import { GlassCard, Icon } from "../ui";
 import StatCard from "./StatCard";
 import { Icons } from "@/constants";
 
-const formatCurrency = (value: number | null): string =>
-  value == null || !Number.isFinite(value) ? "—" : fmt$(value, 0);
+const asNumber = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const formatCurrency = (value: number): string =>
+  value.toLocaleString("en-US", { maximumFractionDigits: 0 });
 
 const formatDelta = (label: string, value: number | null) => {
-  if (value == null || !Number.isFinite(value)) return `${label}: —`;
-  return `${label}: ${fmt$(value, 0)}`;
+  const next = asNumber(value);
+  if (next == null) return `${label}: -`;
+  return `${label}: ${formatCurrency(next)}`;
 };
 
 export function GuardrailsCard({ view }: { view: OverviewGuardrailsView }) {
@@ -40,18 +43,24 @@ export function GuardrailsCard({ view }: { view: OverviewGuardrailsView }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <StatCard
           label="Respect Floor"
-          value={formatCurrency(view.floor)}
+          value={asNumber(view.floor)}
+          prefix="$"
+          format={formatCurrency}
           icon={<Icon d={Icons.shield} size={18} className="text-accent-blue" />}
           helpKey="respect_floor"
         />
         <StatCard
           label="Current Offer"
-          value={formatCurrency(view.offer)}
+          value={asNumber(view.offer)}
+          prefix="$"
+          format={formatCurrency}
           icon={<Icon d={Icons.dollar} size={18} className="text-accent-blue" />}
         />
         <StatCard
           label="Buyer Ceiling"
-          value={formatCurrency(view.ceiling)}
+          value={asNumber(view.ceiling)}
+          prefix="$"
+          format={formatCurrency}
           icon={<Icon d={Icons.trending} size={18} className="text-accent-blue" />}
           helpKey="buyer_ceiling"
         />

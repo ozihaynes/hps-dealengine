@@ -26,7 +26,7 @@ export function NumericInput({
       {...rest}
       type="text"
       inputMode="decimal"
-      className={`dark-input ${className}`}
+      className={`input-base text-right text-numeric ${className}`}
       value={displayValue}
       onChange={(event) => {
         const raw = event.target.value;

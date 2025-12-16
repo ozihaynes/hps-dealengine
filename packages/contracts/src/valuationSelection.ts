@@ -297,10 +297,11 @@ export function runValuationSelection<T extends BasicComp>(opts: {
     const asOf = (comp as any)?.as_of ?? null;
     const days_old = (comp as any)?.days_old ?? daysBetween(closeDate, asOf);
 
-    const ppsf =
-      safeNumber((comp as any)?.price) && safeNumber((comp as any)?.sqft) && safeNumber((comp as any)?.sqft)! > 0
-        ? Number((comp as any)?.price) / Number((comp as any)?.sqft)
-        : null;
+    const priceRaw = safeNumber((comp as any)?.price);
+    const priceAdjusted = safeNumber((comp as any)?.price_adjusted);
+    const priceToUse = priceAdjusted ?? priceRaw;
+    const sqftVal = safeNumber((comp as any)?.sqft);
+    const ppsf = priceToUse != null && sqftVal != null && sqftVal > 0 ? priceToUse / sqftVal : null;
 
     const { score } = computeScore({
       comp,
@@ -406,10 +407,12 @@ export function runValuationSelection<T extends BasicComp>(opts: {
 
   const valueBasis = selected
     .map((c) => {
+      const subjectSqft = safeNumber(opts.subject.sqft);
+      const compPrice = safeNumber((c.comp as any)?.price_adjusted ?? (c.comp as any)?.price);
       const basisValue =
-        usingPpsf && c.ppsf != null && safeNumber(opts.subject.sqft)
-          ? c.ppsf * (safeNumber(opts.subject.sqft) as number)
-          : safeNumber((c.comp as any)?.price);
+        usingPpsf && c.ppsf != null && subjectSqft
+          ? c.ppsf * subjectSqft
+          : compPrice;
       return basisValue != null
         ? {
             value: basisValue,

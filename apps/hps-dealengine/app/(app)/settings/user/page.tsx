@@ -475,7 +475,7 @@ export default function UserSettingsPage() {
                 type="file"
                 accept="image/*"
                 onChange={onLogoChange}
-                className="dark-input"
+                className="input-base"
               />
               {business.logoDataUrl ? (
                 <img
@@ -714,7 +714,7 @@ function LabeledInput({
   return (
     <div className="space-y-1">
       <label className="text-sm font-semibold text-text-primary">{label}</label>
-      <input {...props} className="dark-input" />
+      <input {...props} className="input-base" />
     </div>
   );
 }

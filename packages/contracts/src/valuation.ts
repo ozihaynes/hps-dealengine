@@ -135,6 +135,7 @@ export const ValuationRunSchema = z.object({
     warning_codes: z.array(z.string()).optional().nullable(),
     messages: z.array(z.string()).optional().nullable(),
     eval_tags: z.array(z.string()).optional().nullable(),
+    subject_sources: z.array(z.string()).optional().nullable(),
     policy_hash: z.string().optional().nullable(),
     snapshot_hash: z.string().optional().nullable(),
     output_hash: z.string().optional().nullable(),

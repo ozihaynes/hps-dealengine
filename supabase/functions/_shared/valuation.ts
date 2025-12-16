@@ -45,6 +45,10 @@ export type ValuationPolicyShape = {
     iqr_k?: number | null;
     min_samples?: number | null;
   } | null;
+  market_time_adjustment?: {
+    enabled?: boolean | null;
+    min_days_old?: number | null;
+  } | null;
   confidence_rubric?: Record<
     string,
     {

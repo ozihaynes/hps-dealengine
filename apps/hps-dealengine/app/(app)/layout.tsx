@@ -150,41 +150,29 @@ function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
           <Link
             key={item.href}
             href={buildHref(item)}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              isActive(item.href) ? "active" : "",
-            ].join(" ")}
+            className={`tab-trigger ${isActive(item.href) ? "active" : ""}`}
           >
             <Icon d={item.icon} size={16} className="text-accent-blue" />
             <span>{item.label}</span>
           </Link>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {right.map((item) => (
-          <Link
-            key={item.href}
-            href={buildHref(item)}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              isActive(item.href) ? "active" : "",
-            ].join(" ")}
-          >
-            <Icon d={item.icon} size={16} className="text-accent-blue" />
-            <span>{item.label}</span>
-          </Link>
-        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {right.map((item) => (
+            <Link
+              key={item.href}
+              href={buildHref(item)}
+              className={`tab-trigger ${isActive(item.href) ? "active" : ""}`}
+            >
+              <Icon d={item.icon} size={16} className="text-accent-blue" />
+              <span>{item.label}</span>
+            </Link>
+          ))}
         {dbDeal?.id ? (
           <button
             type="button"
             onClick={onOpenOffer}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              "border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-[color:var(--text-primary)] hover:border-[color:var(--accent-color)]",
-            ].join(" ")}
+            className="tab-trigger"
           >
             <Icon d={Icons.check} size={16} className="text-[color:var(--accent-contrast)]" />
             <span>Offer</span>
@@ -192,10 +180,7 @@ function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
         ) : (
           <Link
             href="/startup"
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-            ].join(" ")}
+            className="tab-trigger"
           >
             <Icon d={Icons.check} size={16} className="text-[color:var(--text-secondary)]" />
             <span>Offer</span>

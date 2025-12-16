@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CompSchema, ValuationRunSchema } from "./valuation";
 import { buildRentcastClosedSalesRequest, formatRentcastAddress } from "./rentcastAddress";
 import { runValuationSelection, type SelectionPolicy, type SelectionSubject } from "./valuationSelection";
+import { periodFromDate } from "./marketIndex";
 
 const basePolicy: SelectionPolicy = {
   closed_sales_ladder: [
@@ -162,6 +163,24 @@ describe("valuation selection (deterministic)", () => {
     const lastScore = ranking[ranking.length - 1]?.score ?? 0;
     expect(firstScore).toBeGreaterThan(lastScore);
   });
+
+  it("uses adjusted price when provided", () => {
+    const adjustedComps = [
+      { id: "c1", price: 400000, price_adjusted: 440000, sqft: 2000, comp_kind: "closed_sale", close_date: "2024-01-01", as_of: "2024-12-15", property_type: "single_family" },
+      { id: "c2", price: 405000, price_adjusted: 445000, sqft: 2010, comp_kind: "closed_sale", close_date: "2024-02-01", as_of: "2024-12-15", property_type: "single_family" },
+      { id: "c3", price: 410000, price_adjusted: 450000, sqft: 2050, comp_kind: "closed_sale", close_date: "2024-03-01", as_of: "2024-12-15", property_type: "single_family" },
+    ];
+    const result = runValuationSelection({
+      subject,
+      comps: adjustedComps as any[],
+      policyValuation: basePolicy,
+      min_closed_comps_required: 3,
+      comp_kind: "closed_sale",
+    });
+    // Subject sqft present, so weighted median PPSF should reflect adjusted prices
+    expect(result.suggested_arv).toBeGreaterThan(430000);
+    expect(result.selection_summary).toBeTruthy();
+  });
 });
 
 describe("rentcast address formatting", () => {
@@ -192,5 +211,9 @@ describe("rentcast address formatting", () => {
     expect(req).not.toMatch(/city=/);
     expect(req).not.toMatch(/zipCode=/);
   });
-});
 
+  it("converts dates to YYYYQ# periods deterministically", () => {
+    expect(periodFromDate("2025-02-15")).toBe("2025Q1");
+    expect(periodFromDate("2025-10-01")).toBe("2025Q4");
+  });
+});

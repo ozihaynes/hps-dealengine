@@ -1,10 +1,23 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { DealSessionProvider } from "@/lib/dealSessionContext";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const dynamic = "force-dynamic";
+
+const displayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
+
+const bodyFont = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-body",
+});
 
 // We changed 'export const metadata' to a function so Sentry can inject data dynamically
 export function generateMetadata(): Metadata {
@@ -54,7 +67,12 @@ const THEME_BOOT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning data-theme="navy">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-theme="navy"
+      className={`${displayFont.variable} ${bodyFont.variable}`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{

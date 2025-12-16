@@ -410,11 +410,11 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
       </td>
       <td className="p-2">
         {item.options ? (
-          <select
-            className="dark-input w-full"
-            value={currentCondition}
-            onChange={handleConditionChange}
-          >
+            <select
+              className="input-base w-full"
+              value={currentCondition}
+              onChange={handleConditionChange}
+            >
             {Object.keys(item.options).map((optKey) => (
               <option key={optKey} value={optKey}>
                 {optKey}
@@ -431,7 +431,7 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
           value={currentNotes}
           onChange={handleNotesChange}
           placeholder="Specifics..."
-          className="dark-input"
+          className="input-base"
         />
       </td>
       <td className="p-2">
@@ -442,7 +442,7 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
               min={0}
               value={quantity ?? 0}
               onChange={handleQuantityChange}
-              className="w-16 text-right dark-input"
+              className="w-16 text-right input-base"
               placeholder="0"
             />
           ) : (
@@ -464,7 +464,7 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
             type="number"
             value={currentCost}
             onChange={handleCostChange}
-            className="dark-input prefixed text-right font-semibold"
+            className="input-base text-right font-semibold text-numeric"
             placeholder={item.isPerUnit ? "Unit $" : "Total $"}
           />
         </div>
