@@ -13,6 +13,7 @@ import { runValuationSelection } from "../_shared/valuationSelection.ts";
 import { applyMarketTimeAdjustment } from "../_shared/marketIndex.ts";
 import { computeValuationConfidence } from "../_shared/valuationConfidence.ts";
 import { stableHash } from "../_shared/determinismHash.ts";
+import { buildCompAdjustedValue, weightedMedianDeterministic } from "../_shared/valuationAdjustments.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -182,6 +183,7 @@ serve(async (req: Request): Promise<Response> => {
       beds: safeNumber(subjectResolved?.beds) ?? null,
       baths: safeNumber(subjectResolved?.baths) ?? null,
       year_built: safeNumber(subjectResolved?.year_built) ?? null,
+      lot_sqft: safeNumber((subjectResolved as any)?.lot_sqft) ?? null,
       property_type: canonicalizePropertyType(subjectResolved?.property_type) ?? null,
       latitude: safeNumber(subjectResolved?.latitude) ?? null,
       longitude: safeNumber(subjectResolved?.longitude) ?? null,
@@ -261,6 +263,7 @@ serve(async (req: Request): Promise<Response> => {
     const avmHigh = (snapshot.market as any)?.avm_price_range_high ?? null;
 
     const compsUsed = selection.selected_comps ?? [];
+    let selectedCompsForOutput = compsUsed;
     const compCount = compsUsed.length;
     const stats = {
       median_distance_miles: median(
@@ -274,7 +277,55 @@ serve(async (req: Request): Promise<Response> => {
       ),
     };
 
-    const suggestedArv = selection.suggested_arv ?? null;
+    const adjustmentsConfig = (valuationPolicy as any)?.adjustments ?? null;
+    const adjustmentsEnabled = adjustmentsConfig?.enabled === true;
+
+    let suggestedArv = selection.suggested_arv ?? null;
+    if (adjustmentsEnabled) {
+      const subjectForAdjustments = {
+        ...buildSubject(),
+      };
+      const adjustedComps = (selection.selected_comps ?? []).map((comp) => {
+        const adjusted = buildCompAdjustedValue({
+          subject: subjectForAdjustments,
+          comp,
+          policy: adjustmentsConfig,
+          asOf: snapshot.as_of ?? null,
+        });
+        return {
+          ...comp,
+          time_adjusted_price: adjusted.time_adjusted_price,
+          value_basis_before_adjustments: adjusted.value_basis_before_adjustments,
+          value_basis_method: adjusted.value_basis_method,
+          adjusted_value: adjusted.adjusted_value,
+          adjustments: adjusted.adjustments,
+        };
+      });
+      selectedCompsForOutput = adjustedComps;
+
+      const samples = adjustedComps
+        .map((comp, idx) => {
+          const val = safeNumber((comp as any)?.adjusted_value);
+          if (val == null) return null;
+          const weight = safeNumber((comp as any)?.score) ?? 1;
+          const id =
+            typeof (comp as any)?.id === "string" && (comp as any).id.trim().length > 0
+              ? (comp as any).id
+              : `comp-${idx}`;
+          return { value: val, weight, id };
+        })
+        .filter((s): s is { value: number; weight: number; id: string } => !!s);
+
+      const adjustedMedian = weightedMedianDeterministic(
+        samples,
+        Number.isInteger(adjustmentsConfig?.rounding?.cents ?? null)
+          ? Number(adjustmentsConfig?.rounding?.cents)
+          : 2,
+      );
+      if (adjustedMedian != null) {
+        suggestedArv = adjustedMedian;
+      }
+    }
 
     const ladderRaw = (snapshot.raw as any)?.closed_sales ?? {};
     const ladderStages = Array.isArray(ladderRaw?.stages)
@@ -357,14 +408,14 @@ serve(async (req: Request): Promise<Response> => {
       policy_version_id: policyRow.id,
     };
 
-    const outputBase = {
+    let outputBase: Record<string, unknown> = {
       suggested_arv: suggestedArv ?? null,
       arv_range_low: selection.suggested_arv_range_low ?? null,
       arv_range_high: selection.suggested_arv_range_high ?? null,
       suggested_arv_range_low: selection.suggested_arv_range_low ?? null,
       suggested_arv_range_high: selection.suggested_arv_range_high ?? null,
       selected_comp_ids: selection.selected_comp_ids ?? [],
-      selected_comps: selection.selected_comps ?? [],
+      selected_comps: selectedCompsForOutput ?? [],
       selection_summary: selectionSummary ?? null,
       avm_reference_price: avmPrice ?? null,
       avm_reference_range_low: avmLow ?? null,
@@ -382,6 +433,16 @@ serve(async (req: Request): Promise<Response> => {
       messages: failureReason ? [failureReason] : [],
       subject_sources: subjectSources,
     };
+
+    if (adjustmentsEnabled) {
+      outputBase = {
+        ...outputBase,
+        suggested_arv_basis: "adjusted_v1_2",
+        adjustments_version: adjustmentsConfig?.version ?? "selection_v1_2",
+        selected_comps: selectedCompsForOutput ?? [],
+        suggested_arv: suggestedArv ?? null,
+      };
+    }
 
     if (evalTags.length > 0) {
       (outputBase as any).eval_tags = evalTags;

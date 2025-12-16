@@ -49,6 +49,8 @@ export default function ValuationQaPage() {
   const [groundTruthRows, setGroundTruthRows] = useState<GroundTruthRow[]>([]);
   const [evalRuns, setEvalRuns] = useState<EvalRunRow[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [valuationRuns, setValuationRuns] = useState<any[]>([]);
+  const [selectedValuationRunId, setSelectedValuationRunId] = useState<string | null>(null);
 
   const [form, setForm] = useState<GroundTruthForm>({
     dealId: "",
@@ -98,6 +100,25 @@ export default function ValuationQaPage() {
     }
   }, [supabase, orgId, selectedRunId]);
 
+  const refreshValuationRuns = useCallback(async (org: string | null = orgId) => {
+    if (!org) return;
+    const { data, error: valuationError } = await supabase
+      .from("valuation_runs")
+      .select("id, deal_id, created_at, output, provenance")
+      .eq("org_id", org)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (valuationError) {
+      setError(valuationError.message ?? "Unable to load valuation runs.");
+      return;
+    }
+    const rows = (data as any[]) ?? [];
+    setValuationRuns(rows);
+    if (rows.length > 0 && !selectedValuationRunId) {
+      setSelectedValuationRunId(rows[0].id);
+    }
+  }, [supabase, orgId, selectedValuationRunId]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -106,7 +127,7 @@ export default function ValuationQaPage() {
         setOrgId(org);
         const r = await getActiveOrgMembershipRole(supabase, org);
         setRole(r);
-        await Promise.all([refreshGroundTruth(org), refreshEvalRuns(org)]);
+        await Promise.all([refreshGroundTruth(org), refreshEvalRuns(org), refreshValuationRuns(org)]);
       } catch (err: any) {
         setError(err?.message ?? "Unable to load valuation QA data.");
       } finally {
@@ -114,7 +135,7 @@ export default function ValuationQaPage() {
       }
     };
     void load();
-  }, [supabase, refreshEvalRuns, refreshGroundTruth]);
+  }, [supabase, refreshEvalRuns, refreshGroundTruth, refreshValuationRuns]);
 
   const selectedRun = useMemo(() => {
     if (!evalRuns.length) return null;
@@ -123,6 +144,14 @@ export default function ValuationQaPage() {
     }
     return evalRuns[0];
   }, [evalRuns, selectedRunId]);
+
+  const selectedValuationRun = useMemo(() => {
+    if (!valuationRuns.length) return null;
+    if (selectedValuationRunId) {
+      return valuationRuns.find((r) => r.id === selectedValuationRunId) ?? valuationRuns[0];
+    }
+    return valuationRuns[0];
+  }, [valuationRuns, selectedValuationRunId]);
 
   async function handleSaveGroundTruth(e: React.FormEvent) {
     e.preventDefault();
@@ -436,6 +465,145 @@ export default function ValuationQaPage() {
           )}
         </GlassCard>
       </div>
+
+      <GlassCard className="p-4">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-text-primary">Recent valuation runs (ledger)</h2>
+          <Button size="sm" variant="neutral" onClick={() => void refreshValuationRuns()}>
+            Refresh
+          </Button>
+        </div>
+        {valuationRuns.length === 0 ? (
+          <div className="text-sm text-text-secondary/70">No valuation runs loaded.</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {valuationRuns.map((run) => (
+                <button
+                  key={run.id}
+                  type="button"
+                  onClick={() => setSelectedValuationRunId(run.id)}
+                  className={[
+                    "rounded-md border px-3 py-1 text-xs transition-colors",
+                    selectedValuationRun?.id === run.id
+                      ? "border-[color:var(--accent-color)] bg-[color:var(--accent-color)]/10 text-text-primary"
+                      : "border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-text-secondary/80 hover:border-[color:var(--accent-color)]",
+                  ].join(" ")}
+                >
+                  {run.deal_id ? `${run.deal_id.slice(0, 8)}.` : "unknown"} •{" "}
+                  {run.created_at?.slice(0, 10) ?? "-"}
+                </button>
+              ))}
+            </div>
+
+            {selectedValuationRun ? (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-text-secondary/80">
+                  <div>
+                    Run ID: <span className="text-text-primary">{selectedValuationRun.id}</span>
+                  </div>
+                  <div>
+                    Deal:{" "}
+                    {selectedValuationRun.deal_id ? (
+                      <Link
+                        href={`/underwrite?dealId=${selectedValuationRun.deal_id}`}
+                        className="text-accent-blue hover:underline"
+                      >
+                        {selectedValuationRun.deal_id.slice(0, 8)}.
+                      </Link>
+                    ) : (
+                      <span className="text-text-secondary/70">-</span>
+                    )}
+                  </div>
+                  <div>
+                    Adjustments:{" "}
+                    <span className="text-text-primary">
+                      {selectedValuationRun.output?.suggested_arv_basis
+                        ? `ENABLED (${selectedValuationRun.output?.suggested_arv_basis}) v${selectedValuationRun.output?.adjustments_version ?? "-"}`
+                        : "Disabled / default"}
+                    </span>
+                  </div>
+                  <div>
+                    Suggested ARV:{" "}
+                    <span className="text-text-primary">
+                      {selectedValuationRun.output?.suggested_arv != null
+                        ? currency.format(Number(selectedValuationRun.output.suggested_arv))
+                        : "-"}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-text-secondary/80 mb-2">Selected comps ledger</h4>
+                  <div className="space-y-2">
+                    {Array.isArray(selectedValuationRun.output?.selected_comps) &&
+                    selectedValuationRun.output.selected_comps.length > 0 ? (
+                      selectedValuationRun.output.selected_comps.map((comp: any) => (
+                        <div key={comp.id} className="rounded-md border border-white/10 bg-white/5 p-3 space-y-1 text-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="font-semibold text-text-primary">
+                              {comp.address ?? comp.id ?? "comp"} ({comp.comp_kind ?? "-"})
+                            </div>
+                            <div className="text-xs text-text-secondary">
+                              Adjusted:{" "}
+                              {comp.adjusted_value != null ? currency.format(Number(comp.adjusted_value)) : "-"}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-text-secondary">
+                            <span>Raw: {comp.price != null ? currency.format(Number(comp.price)) : "-"}</span>
+                            <span>
+                              Time-adjusted:{" "}
+                              {comp.time_adjusted_price != null ? currency.format(Number(comp.time_adjusted_price)) : "-"}
+                            </span>
+                            <span>
+                              Basis:{" "}
+                              {comp.value_basis_before_adjustments != null
+                                ? currency.format(Number(comp.value_basis_before_adjustments))
+                                : "-"}{" "}
+                              ({comp.value_basis_method ?? "time"})
+                            </span>
+                          </div>
+                          <div className="mt-1 space-y-1">
+                            {Array.isArray(comp.adjustments) && comp.adjustments.length > 0 ? (
+                              comp.adjustments.map((adj: any, idx: number) => (
+                                <div
+                                  key={`${adj.type}-${idx}`}
+                                  className="flex flex-wrap items-center justify-between rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px]"
+                                >
+                                  <span className="font-semibold text-text-primary">{adj.type}</span>
+                                  <span className={adj.applied ? "text-accent-green" : "text-accent-orange"}>
+                                    {adj.applied ? "applied" : `skipped${adj.skip_reason ? `: ${adj.skip_reason}` : ""}`}
+                                  </span>
+                                  <span>
+                                    Δ {adj.delta_units_capped ?? adj.delta_units_raw ?? "-"} @{" "}
+                                    {adj.unit_value != null ? currency.format(Number(adj.unit_value)) : "-"}
+                                  </span>
+                                  <span>
+                                    Amount:{" "}
+                                    {adj.amount_capped != null
+                                      ? currency.format(Number(adj.amount_capped))
+                                      : adj.amount_raw != null
+                                      ? currency.format(Number(adj.amount_raw))
+                                      : "-"}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-[11px] text-text-secondary/70">No adjustments recorded.</div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-sm text-text-secondary/70">No selected comps on this run.</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </GlassCard>
     </main>
   );
 }

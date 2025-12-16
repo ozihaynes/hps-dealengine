@@ -9,6 +9,7 @@ type CompsPanelProps = {
   onRefresh?: ((forceRefresh?: boolean) => void) | null;
   refreshing?: boolean;
   selectedCompIds?: string[];
+  selectedCompsDetailed?: Comp[] | null;
 };
 
 type Summary = {
@@ -59,66 +60,124 @@ const summarizeComps = (set: Comp[]): Summary => {
   return { minDate, maxDate, medianDistance, priceVariance };
 };
 
-const CompCard: React.FC<{ comp: Comp; isListing: boolean; isSelected?: boolean }> = ({ comp, isListing, isSelected }) => (
-  <div
-    key={comp.id}
-    className={`rounded-lg border p-3 space-y-1 text-sm ${isSelected ? "border-accent-blue/60 bg-accent-blue/10" : "border-white/5 bg-white/5"}`}
-  >
-    <div className="font-semibold text-text-primary">{comp.address}</div>
-    <div className="text-text-secondary">
-      {comp.city ?? ""} {comp.state ?? ""} {comp.postal_code ?? ""}
-    </div>
-    <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
-      {(() => {
-        const priceLabel = isListing ? "List Price" : "Close Price";
-        const dateLabel = isListing ? "Listed" : "Closed";
-        return (
-          <>
-            <span>
-              {priceLabel}:{" "}
-              {Number.isFinite(Number(comp.price))
-                ? `$${Number(comp.price).toLocaleString()}`
-                : "-"}
-            </span>
-            <span>
-              {dateLabel}:{" "}
-              {comp.close_date ? new Date(comp.close_date).toLocaleDateString() : "-"}
-            </span>
-          </>
-        );
-      })()}
-      <span>Correlation: {comp.correlation ?? "-"}</span>
-      <span>Days Old: {comp.days_old ?? "-"}</span>
-      <span>Status: {comp.status ?? "-"}</span>
-      <span>Listing: {comp.listing_type ?? "-"}</span>
-      <span>
-        Beds/Baths: {comp.beds ?? "-"} / {comp.baths ?? "-"}
-      </span>
-      <span>Sqft: {comp.sqft ?? "-"}</span>
-      <span>Distance: {comp.distance_miles ?? "-"} mi</span>
-    </div>
-    {(() => {
-      const mta: any = (comp as any)?.market_time_adjustment ?? null;
-      const adjustedPrice = (comp as any)?.price_adjusted ?? mta?.adjusted_price ?? null;
-      const factor = mta?.factor ?? (mta?.applied && mta?.hpi_close && mta?.hpi_asof ? mta.hpi_asof / mta.hpi_close : null);
-      if (adjustedPrice && factor) {
-        return (
-          <div className="text-xs text-accent-blue">
-            Adjusted Price: ${Number(adjustedPrice).toLocaleString()} (factor {factor.toFixed(3)})
-          </div>
-        );
-      }
-      return null;
-    })()}
-    {isSelected && (
-      <span className="inline-flex items-center rounded-full bg-accent-blue/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-blue">
-        Selected
-      </span>
-    )}
-  </div>
-);
+const CompCard: React.FC<{ comp: Comp; detail?: Comp | null; isListing: boolean; isSelected?: boolean }> = ({
+  comp,
+  detail,
+  isListing,
+  isSelected,
+}) => {
+  const [showAdjustments, setShowAdjustments] = React.useState(false);
+  const priceLabel = isListing ? "List Price" : "Close Price";
+  const dateLabel = isListing ? "Listed" : "Closed";
+  const dateStr = comp.close_date ?? (comp as any)?.listed_date ?? (comp as any)?.listed_at ?? null;
+  const fmtMoney = (v: any) =>
+    Number.isFinite(Number(v)) ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "-";
 
-export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refreshing, selectedCompIds }: CompsPanelProps) {
+  const rawPrice = detail?.price ?? comp.price;
+  const timeAdjusted =
+    detail?.time_adjusted_price ?? detail?.price_adjusted ?? (comp as any)?.price_adjusted ?? null;
+  const adjustedValue = detail?.adjusted_value ?? null;
+  const adjustments: any[] = Array.isArray(detail?.adjustments) ? (detail?.adjustments as any[]) : [];
+
+  const mta: any = (detail as any)?.market_time_adjustment ?? (comp as any)?.market_time_adjustment ?? null;
+  const factor =
+    mta?.factor ?? (mta?.applied && mta?.hpi_close && mta?.hpi_asof ? mta.hpi_asof / mta.hpi_close : null);
+
+  return (
+    <div
+      key={comp.id}
+      className={`rounded-lg border p-3 space-y-2 text-sm ${isSelected ? "border-accent-blue/60 bg-accent-blue/10" : "border-white/5 bg-white/5"}`}
+    >
+      <div className="font-semibold text-text-primary">{comp.address}</div>
+      <div className="text-text-secondary">
+        {comp.city ?? ""} {comp.state ?? ""} {comp.postal_code ?? ""}
+      </div>
+      <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
+        <span>
+          {priceLabel}: {fmtMoney(rawPrice)}
+        </span>
+        <span>
+          {dateLabel}: {dateStr ? new Date(dateStr).toLocaleDateString() : "-"}
+        </span>
+        <span>Correlation: {comp.correlation ?? "-"}</span>
+        <span>Days Old: {comp.days_old ?? "-"}</span>
+        <span>Status: {comp.status ?? "-"}</span>
+        <span>Listing: {comp.listing_type ?? "-"}</span>
+        <span>
+          Beds/Baths: {comp.beds ?? "-"} / {comp.baths ?? "-"}
+        </span>
+        <span>Sqft: {comp.sqft ?? "-"}</span>
+        <span>Distance: {comp.distance_miles ?? "-"} mi</span>
+      </div>
+      {(timeAdjusted || adjustedValue) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-text-secondary">
+          <div>
+            <div className="text-text-primary font-semibold">Time-adjusted</div>
+            <div>{fmtMoney(timeAdjusted)}</div>
+          </div>
+          <div>
+            <div className="text-text-primary font-semibold">Adjusted (ledger)</div>
+            <div>{fmtMoney(adjustedValue)}</div>
+          </div>
+          {factor ? (
+            <div>
+              <div className="text-text-primary font-semibold">HPI factor</div>
+              <div>{factor.toFixed(3)}</div>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {adjustments.length > 0 && (
+        <div className="text-xs">
+          <button
+            type="button"
+            className="rounded border border-white/15 px-2 py-1 text-text-primary hover:border-accent-blue/60"
+            onClick={() => setShowAdjustments((prev) => !prev)}
+          >
+            {showAdjustments ? "Hide adjustments" : "Show adjustments"}
+          </button>
+          {showAdjustments && (
+            <div className="mt-2 space-y-1 rounded-md border border-white/10 bg-white/5 p-2">
+              {adjustments.map((adj, idx) => (
+                <div key={`${adj.type}-${idx}`} className="flex flex-col gap-1 border-b border-white/5 pb-1 last:border-b-0">
+                  <div className="flex items-center justify-between text-text-primary">
+                    <span className="font-semibold uppercase tracking-wide">{adj.type}</span>
+                    <span className={adj.applied ? "text-accent-green" : "text-accent-orange"}>
+                      {adj.applied ? "Applied" : "Skipped"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[11px] text-text-secondary">
+                    <span>Delta units: {adj.delta_units_capped ?? adj.delta_units_raw ?? "-"}</span>
+                    <span>Unit: {fmtMoney(adj.unit_value)}</span>
+                    <span>Amount: {fmtMoney(adj.amount_capped ?? adj.amount_raw)}</span>
+                  </div>
+                  {!adj.applied && adj.skip_reason && (
+                    <div className="text-[11px] text-accent-orange">Reason: {adj.skip_reason}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      {isSelected && (
+        <span className="inline-flex items-center rounded-full bg-accent-blue/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-accent-blue">
+          Selected
+        </span>
+      )}
+    </div>
+  );
+};
+
+export function CompsPanel({
+  comps,
+  snapshot,
+  minClosedComps,
+  onRefresh,
+  refreshing,
+  selectedCompIds,
+  selectedCompsDetailed,
+}: CompsPanelProps) {
   const provider = snapshot?.provider ?? snapshot?.source ?? "unknown";
   const asOf = snapshot?.as_of ? new Date(snapshot.as_of).toLocaleDateString() : "unknown";
   const stub = snapshot?.stub ?? false;
@@ -127,6 +186,17 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
   const minRequired = minClosedComps ?? null;
   const gating = minRequired != null ? closedSales.length < minRequired : false;
   const [cooldownUntil, setCooldownUntil] = React.useState<number | null>(null);
+
+  const selectedCompsMap = React.useMemo(() => {
+    const map = new Map<string, Comp>();
+    (selectedCompsDetailed ?? []).forEach((comp) => {
+      const key = (comp.id ?? "").toString();
+      if (key) {
+        map.set(key, comp);
+      }
+    });
+    return map;
+  }, [selectedCompsDetailed]);
 
   const statusCounts = comps.reduce(
     (acc, comp) => {
@@ -252,6 +322,7 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
             <CompCard
               key={comp.id}
               comp={comp}
+              detail={selectedCompsMap.get((comp.id ?? "").toString())}
               isListing={false}
               isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
             />
@@ -292,6 +363,7 @@ export function CompsPanel({ comps, snapshot, minClosedComps, onRefresh, refresh
               <CompCard
                 key={comp.id}
                 comp={comp}
+                detail={selectedCompsMap.get((comp.id ?? "").toString())}
                 isListing={true}
                 isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
               />

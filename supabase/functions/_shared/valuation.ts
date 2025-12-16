@@ -49,6 +49,26 @@ export type ValuationPolicyShape = {
     enabled?: boolean | null;
     min_days_old?: number | null;
   } | null;
+  adjustments?: {
+    enabled?: boolean | null;
+    version?: string | null;
+    rounding?: { cents?: number | null } | null;
+    missing_field_behavior?: string | null;
+    enabled_types?: Array<"time" | "sqft" | "beds" | "baths" | "lot" | "year_built"> | null;
+    caps?: {
+      beds_delta_cap?: number | null;
+      baths_delta_cap?: number | null;
+      year_delta_cap?: number | null;
+      lot_delta_cap_ratio?: number | null;
+      sqft_basis_allowed_delta_ratio?: number | null;
+    } | null;
+    unit_values?: {
+      beds?: number | null;
+      baths?: number | null;
+      lot_per_sqft?: number | null;
+      year_built_per_year?: number | null;
+    } | null;
+  } | null;
   confidence_rubric?: Record<
     string,
     {

@@ -741,6 +741,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           onRefresh={(force) => onRefreshValuation?.(force)}
           refreshing={refreshingValuation}
           selectedCompIds={selectedCompIds}
+          selectedCompsDetailed={(valuationRun?.output as any)?.selected_comps as any}
         />
       )}
 

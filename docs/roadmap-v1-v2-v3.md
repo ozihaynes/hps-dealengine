@@ -353,6 +353,7 @@ Fast-follow items that do not change V1 behavior:
   - Market time adjustment (FHFA/FRED HPI) with deterministic fallback (effective <= requested), eligibility gating, adjusted factor/price surfaced in selection/output; HPI cache table migration present; proofs (`prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`) pass locally.
   - ATTOM public-records subject normalizer with casing/field fallbacks + contracts/tests; enrichment scripts and policy-set helpers added.
   - Override save merges only the market subtree into deal payload/state; tests cover TopDealKpis, UnderwriteTab, CompsPanel; vitest includes .test.ts/.test.tsx.
+- 🟢 Slice 4 (adjustments ledger v1.2): policy-gated adjustments defaults seeded (enabled=false, caps/unit_values/rounding/missing behavior/ordering), deterministic ledger + weighted-median adjusted ARV when enabled, optional schema fields/tests, Underwrite comps panel + admin valuation QA ledger viewers. Proof script `scripts/valuation/prove-adjustments-ledger.ps1` added (caller JWT required); deploy/db push not run in this session.
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; seeding/QA rollout still to be confirmed.
 - 🟡 Next
