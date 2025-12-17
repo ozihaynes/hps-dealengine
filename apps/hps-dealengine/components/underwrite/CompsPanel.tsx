@@ -1,5 +1,5 @@
 import React from "react";
-import type { Comp, PropertySnapshot } from "@hps-internal/contracts";
+import type { Comp, PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import { GlassCard, Badge } from "../ui";
 
 type CompsPanelProps = {
@@ -10,6 +10,7 @@ type CompsPanelProps = {
   refreshing?: boolean;
   selectedCompIds?: string[];
   selectedCompsDetailed?: Comp[] | null;
+  valuationOutput?: ValuationRun["output"] | null;
 };
 
 type Summary = {
@@ -190,6 +191,7 @@ export function CompsPanel({
   refreshing,
   selectedCompIds,
   selectedCompsDetailed,
+  valuationOutput,
 }: CompsPanelProps) {
   const provider = snapshot?.provider ?? snapshot?.source ?? "unknown";
   const asOf = snapshot?.as_of ? new Date(snapshot.as_of).toLocaleDateString() : "unknown";
@@ -257,6 +259,18 @@ export function CompsPanel({
 
   const closedSummary = summarizeComps(closedSales);
   const listingSummary = summarizeComps(listings);
+  const ensembleBasis = valuationOutput?.suggested_arv_basis === "ensemble_v1";
+  const ensembleWeights = valuationOutput?.ensemble_weights;
+  const ensembleCapValue = valuationOutput?.ensemble_cap_value;
+  const ensembleCapApplied = valuationOutput?.ensemble_cap_applied;
+  const uncertaintyLow = valuationOutput?.uncertainty_range_low;
+  const uncertaintyHigh = valuationOutput?.uncertainty_range_high;
+  const uncertaintyPct = valuationOutput?.uncertainty_range_pct;
+
+  const fmtMoney = (v: any) =>
+    Number.isFinite(Number(v)) ? `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : "-";
+  const fmtPct = (v: any) =>
+    Number.isFinite(Number(v)) ? `${(Number(v) * 100).toFixed(1)}%` : "-";
 
   return (
     <GlassCard className="p-4 space-y-3">
@@ -294,6 +308,28 @@ export function CompsPanel({
           </button>
         </div>
       </div>
+
+      {(ensembleBasis || uncertaintyLow != null || uncertaintyHigh != null) && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+          {ensembleBasis ? <Badge color="blue">Ensemble</Badge> : null}
+          {ensembleWeights ? (
+            <span>
+              Weights: comps {fmtPct(ensembleWeights.comps)} / avm {fmtPct(ensembleWeights.avm)}
+            </span>
+          ) : null}
+          {ensembleBasis && ensembleCapValue != null ? (
+            <span>
+              Cap: {ensembleCapApplied ? "applied" : "not applied"} at {fmtMoney(ensembleCapValue)}
+            </span>
+          ) : null}
+          {uncertaintyLow != null && uncertaintyHigh != null ? (
+            <span>
+              Uncertainty range: {fmtMoney(uncertaintyLow)} – {fmtMoney(uncertaintyHigh)}
+              {uncertaintyPct != null ? ` (${fmtPct(uncertaintyPct)})` : ""}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
         <span>Active: {statusCounts.active}</span>
