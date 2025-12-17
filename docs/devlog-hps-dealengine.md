@@ -958,6 +958,13 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - E2E: Updated `golden-path`, `timeline-and-carry`, and `risk-and-evidence` specs to follow the v1 IA (Startup hub -> Deals -> Dashboard) and the refreshed evidence/risk/workflow surfaces. Specs remain env-gated and skip cleanly when QA vars are absent.
 - Commands: `pnpm -w typecheck`, `pnpm -w build`, `pnpm -w test` all green. Playwright specs still opt-in via QA env.
 
+### 2026-01-08 - Slice 5 (Comp overrides: concessions + condition)
+
+- DB: Added `valuation_comp_overrides` (org/deal/comp-keyed, RLS + audit + updated_at trigger, unique on org/deal/comp_id/comp_kind, seller_credit_pct/usd, condition_adjustment_usd, required notes) and seeded active policies with concessions/condition tokens + ceiling defaults (defaults OFF; precedence usd_over_pct). Ceiling token seed migration applied via `supabase db push --project-ref zjkihnihhqmnhpxkecpy`.
+- Engine/Edge: `v1-valuation-run` now loads overrides, computes `overrides_hash`, applies concessions pre-selection (policy-gated) and condition as a ledger line (policy-gated), includes overrides_hash/applied_count in outputs when enabled, and prevents time/sqft double-counting. Deployed with `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`.
+- Ledger/proof: valuationAdjustments adds informational concessions + applied condition line items. Proof `scripts/valuation/prove-comp-overrides.ps1` shows overrides change hashes and remain deterministic on repeat; baseline input_hash `568dd228dbb26a6541c2536b8e7f679b47e89b676511822086c103d43730114c`, override input_hash `a1ca1df01bbcbfea81d1f51eabc3820a59fb50b03d0ccc76349fe2dbb765cd5e`, Run2/Run3 output_hash equal True, run_hash equal True, policies restored and override row deleted. Coverage smoke: PASS (valuation_run.id `6a929802-f7fd-4bf3-a423-55883c4334bd`).
+- UI (5C): Admin Valuation QA page now surfaces Comp Overrides CRUD (caller JWT/RLS) for selected comps; Underwrite CompsPanel shows an Override badge when ledger contains manual_override concessions/condition. Docs updated to record proof/deploy evidence; Slice 5 marked ✅ after gates+proof+smoke.
+
 ### 2025-12-06 - Glossary-driven tooltips v1 + guardrails
 
 - **Context:** UX polish slice for v1 — make all non-obvious policy/engine terms explainable in‑app without bloating the UI, and lock the rules so future agents don’t re‑invent tooltip patterns.

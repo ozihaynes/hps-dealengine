@@ -83,12 +83,25 @@ const CompCard: React.FC<{ comp: Comp; detail?: Comp | null; isListing: boolean;
   const factor =
     mta?.factor ?? (mta?.applied && mta?.hpi_close && mta?.hpi_asof ? mta.hpi_asof / mta.hpi_close : null);
 
+  const hasOverrideBadge =
+    adjustments.some(
+      (adj) =>
+        (adj.type === "concessions" || adj.type === "condition") &&
+        adj.source === "manual_override" &&
+        adj.applied,
+    );
+
   return (
     <div
       key={comp.id}
       className={`rounded-lg border p-3 space-y-2 text-sm ${isSelected ? "border-accent-blue/60 bg-accent-blue/10" : "border-white/5 bg-white/5"}`}
     >
-      <div className="font-semibold text-text-primary">{comp.address}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-semibold text-text-primary">{comp.address}</div>
+        {hasOverrideBadge ? (
+          <Badge color="blue" className="text-[10px] uppercase tracking-wide">Override</Badge>
+        ) : null}
+      </div>
       <div className="text-text-secondary">
         {comp.city ?? ""} {comp.state ?? ""} {comp.postal_code ?? ""}
       </div>

@@ -261,7 +261,6 @@ function Build-PatchedPolicy {
   }
 
   $patched.valuation = $valuation
-  Write-Host ("Patched adjustments payload: {0}" -f ($valuation.adjustments | ConvertTo-Json -Depth 20)) -ForegroundColor DarkGray
   return $patched
 }
 

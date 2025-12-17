@@ -2,6 +2,8 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import type { Comp, ValuationRun } from "@hps-internal/contracts";
+import { useRouter } from "next/navigation";
 
 import { Badge, Button, GlassCard, InputField } from "@/components/ui";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -28,6 +30,28 @@ type EvalRunRow = {
   params?: any;
 };
 
+type ValuationRunRow = Pick<ValuationRun, "id" | "deal_id" | "created_at" | "output"> & {
+  provenance?: unknown;
+};
+
+type CompOverrideRow = {
+  org_id: string;
+  deal_id: string;
+  comp_id: string;
+  comp_kind: string;
+  seller_credit_pct?: number | null;
+  seller_credit_usd?: number | null;
+  condition_adjustment_usd?: number | null;
+  notes: string;
+};
+
+type OverrideInputs = {
+  seller_credit_pct?: string;
+  seller_credit_usd?: string;
+  condition_adjustment_usd?: string;
+  notes?: string;
+};
+
 type GroundTruthForm = {
   dealId: string;
   source: string;
@@ -49,8 +73,11 @@ export default function ValuationQaPage() {
   const [groundTruthRows, setGroundTruthRows] = useState<GroundTruthRow[]>([]);
   const [evalRuns, setEvalRuns] = useState<EvalRunRow[]>([]);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [valuationRuns, setValuationRuns] = useState<any[]>([]);
+  const [valuationRuns, setValuationRuns] = useState<ValuationRunRow[]>([]);
   const [selectedValuationRunId, setSelectedValuationRunId] = useState<string | null>(null);
+  const [overrides, setOverrides] = useState<Record<string, CompOverrideRow>>({});
+  const [overrideInputs, setOverrideInputs] = useState<Record<string, OverrideInputs>>({});
+  const router = useRouter();
 
   const [form, setForm] = useState<GroundTruthForm>({
     dealId: "",
@@ -112,12 +139,42 @@ export default function ValuationQaPage() {
       setError(valuationError.message ?? "Unable to load valuation runs.");
       return;
     }
-    const rows = (data as any[]) ?? [];
+    const rows = (data as ValuationRunRow[]) ?? [];
     setValuationRuns(rows);
     if (rows.length > 0 && !selectedValuationRunId) {
       setSelectedValuationRunId(rows[0].id);
     }
   }, [supabase, orgId, selectedValuationRunId]);
+
+  const refreshOverrides = useCallback(async (org: string | null = orgId, dealId: string | null | undefined = null) => {
+    if (!org || !dealId) return;
+    const { data, error: overrideError } = await supabase
+      .from("valuation_comp_overrides")
+      .select("org_id, deal_id, comp_id, comp_kind, seller_credit_pct, seller_credit_usd, condition_adjustment_usd, notes")
+      .eq("org_id", org)
+      .eq("deal_id", dealId)
+      .order("comp_kind", { ascending: true })
+      .order("comp_id", { ascending: true });
+    if (overrideError) {
+      setError(overrideError.message ?? "Unable to load comp overrides.");
+      return;
+    }
+    const rows = (data as CompOverrideRow[]) ?? [];
+    const map: Record<string, CompOverrideRow> = {};
+    const inputs: Record<string, OverrideInputs> = {};
+    rows.forEach((row) => {
+      const key = `${row.comp_id}::${row.comp_kind}`;
+      map[key] = row;
+      inputs[key] = {
+        seller_credit_pct: row.seller_credit_pct != null ? `${row.seller_credit_pct}` : "",
+        seller_credit_usd: row.seller_credit_usd != null ? `${row.seller_credit_usd}` : "",
+        condition_adjustment_usd: row.condition_adjustment_usd != null ? `${row.condition_adjustment_usd}` : "",
+        notes: row.notes ?? "",
+      };
+    });
+    setOverrides(map);
+    setOverrideInputs(inputs);
+  }, [supabase, orgId]);
 
   useEffect(() => {
     const load = async () => {
@@ -152,6 +209,94 @@ export default function ValuationQaPage() {
     }
     return valuationRuns[0];
   }, [valuationRuns, selectedValuationRunId]);
+
+  useEffect(() => {
+    if (selectedValuationRun?.deal_id && orgId) {
+      void refreshOverrides(orgId, selectedValuationRun.deal_id);
+    }
+  }, [orgId, selectedValuationRun?.deal_id, refreshOverrides]);
+
+  const overrideKey = (compId: string | null | undefined, compKind: string | null | undefined) =>
+    compId && compKind ? `${compId}::${compKind}` : "";
+
+  const handleOverrideInputChange = (key: string, field: keyof OverrideInputs, value: string) => {
+    setOverrideInputs((prev) => ({
+      ...prev,
+      [key]: {
+        ...prev[key],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSaveOverride = async (comp: Comp) => {
+    if (!orgId || !selectedValuationRun?.deal_id) return;
+    const key = overrideKey(comp.id, (comp as any)?.comp_kind);
+    const input = overrideInputs[key] ?? {};
+    const notes = (input.notes ?? "").trim();
+    if (!notes) {
+      setError("Notes are required to save an override.");
+      return;
+    }
+    const compKind = (comp as any)?.comp_kind;
+    if (!comp.id || !compKind) {
+      setError("Comp id/kind missing; cannot save override.");
+      return;
+    }
+    const pctVal =
+      input.seller_credit_pct === "" || input.seller_credit_pct == null ? null : Number(input.seller_credit_pct);
+    const usdVal =
+      input.seller_credit_usd === "" || input.seller_credit_usd == null ? null : Number(input.seller_credit_usd);
+    const condVal =
+      input.condition_adjustment_usd === "" || input.condition_adjustment_usd == null ? null : Number(input.condition_adjustment_usd);
+    if (
+      (pctVal != null && !Number.isFinite(pctVal)) ||
+      (usdVal != null && !Number.isFinite(usdVal)) ||
+      (condVal != null && !Number.isFinite(condVal))
+    ) {
+      setError("Override values must be numeric.");
+      return;
+    }
+    const payload = {
+      org_id: orgId,
+      deal_id: selectedValuationRun.deal_id,
+      comp_id: comp.id,
+      comp_kind: compKind,
+      seller_credit_pct: pctVal,
+      seller_credit_usd: usdVal,
+      condition_adjustment_usd: condVal,
+      notes,
+    };
+    const { error: upsertError } = await supabase
+      .from("valuation_comp_overrides")
+      .upsert(payload, { onConflict: "org_id,deal_id,comp_id,comp_kind" });
+    if (upsertError) {
+      setError(upsertError.message ?? "Unable to save override.");
+      return;
+    }
+    await refreshOverrides(orgId, selectedValuationRun.deal_id);
+    router.refresh();
+  };
+
+  const handleDeleteOverride = async (comp: Comp) => {
+    if (!orgId || !selectedValuationRun?.deal_id) return;
+    const compId = comp.id;
+    const compKind = (comp as any)?.comp_kind;
+    if (!compId || !compKind) return;
+    const { error: deleteError } = await supabase
+      .from("valuation_comp_overrides")
+      .delete()
+      .eq("org_id", orgId)
+      .eq("deal_id", selectedValuationRun.deal_id)
+      .eq("comp_id", compId)
+      .eq("comp_kind", compKind);
+    if (deleteError) {
+      setError(deleteError.message ?? "Unable to delete override.");
+      return;
+    }
+    await refreshOverrides(orgId, selectedValuationRun.deal_id);
+    router.refresh();
+  };
 
   async function handleSaveGroundTruth(e: React.FormEvent) {
     e.preventDefault();
@@ -482,7 +627,10 @@ export default function ValuationQaPage() {
                 <button
                   key={run.id}
                   type="button"
-                  onClick={() => setSelectedValuationRunId(run.id)}
+                  onClick={() => {
+                    setSelectedValuationRunId(run.id);
+                    void refreshOverrides(orgId, run.deal_id ?? null);
+                  }}
                   className={[
                     "rounded-md border px-3 py-1 text-xs transition-colors",
                     selectedValuationRun?.id === run.id
@@ -490,7 +638,7 @@ export default function ValuationQaPage() {
                       : "border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-text-secondary/80 hover:border-[color:var(--accent-color)]",
                   ].join(" ")}
                 >
-                  {run.deal_id ? `${run.deal_id.slice(0, 8)}.` : "unknown"} •{" "}
+                  {run.deal_id ? `${run.deal_id.slice(0, 8)}.` : "unknown"}{" "}
                   {run.created_at?.slice(0, 10) ?? "-"}
                 </button>
               ))}
@@ -531,6 +679,74 @@ export default function ValuationQaPage() {
                         : "-"}
                     </span>
                   </div>
+                </div>
+
+                <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-text-secondary/80">Comp Overrides</h4>
+                    <Button size="sm" variant="neutral" onClick={() => void refreshOverrides(orgId, selectedValuationRun.deal_id)}>
+                      Refresh overrides
+                    </Button>
+                  </div>
+                  {Array.isArray(selectedValuationRun.output?.selected_comps) && selectedValuationRun.output.selected_comps.length > 0 ? (
+                    selectedValuationRun.output.selected_comps.map((comp: any) => {
+                      const key = overrideKey(comp.id, comp.comp_kind);
+                      const current = overrides[key];
+                      const inputs = overrideInputs[key] ?? {};
+                      return (
+                        <div key={key || comp.id} className="rounded border border-white/10 bg-white/5 p-3 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-sm font-semibold text-text-primary">
+                              {comp.address ?? comp.id ?? "comp"} ({comp.comp_kind ?? "-"})
+                            </div>
+                            {current ? <Badge color="blue">Override exists</Badge> : <Badge>No override</Badge>}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+                            <InputField
+                              label="Seller credit %"
+                              type="number"
+                              step="0.01"
+                              value={inputs.seller_credit_pct ?? ""}
+                              onChange={(e) => handleOverrideInputChange(key, "seller_credit_pct", e.target.value)}
+                              placeholder="e.g. 0.05"
+                            />
+                            <InputField
+                              label="Seller credit $"
+                              type="number"
+                              value={inputs.seller_credit_usd ?? ""}
+                              onChange={(e) => handleOverrideInputChange(key, "seller_credit_usd", e.target.value)}
+                              placeholder="e.g. 5000"
+                            />
+                            <InputField
+                              label="Condition adj $"
+                              type="number"
+                              value={inputs.condition_adjustment_usd ?? ""}
+                              onChange={(e) => handleOverrideInputChange(key, "condition_adjustment_usd", e.target.value)}
+                              placeholder="-5000"
+                            />
+                            <InputField
+                              label="Notes (required)"
+                              value={inputs.notes ?? ""}
+                              onChange={(e) => handleOverrideInputChange(key, "notes", e.target.value)}
+                              placeholder="Reason / source"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" onClick={() => void handleSaveOverride(comp as Comp)}>
+                              Save override
+                            </Button>
+                            {current ? (
+                              <Button size="sm" variant="danger" onClick={() => void handleDeleteOverride(comp as Comp)}>
+                                Delete override
+                              </Button>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm text-text-secondary/70">No selected comps to override.</div>
+                  )}
                 </div>
 
                 <div>
