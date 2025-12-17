@@ -209,16 +209,16 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     () =>
       comps.reduce(
         (acc, comp) => {
-          const status = (comp.status || "").toLowerCase();
-          if (status.includes("active")) {
-            acc.active += 1;
-          } else if (
-            status.includes("inactive") ||
-            status.includes("off") ||
-            status.includes("expired")
+          const statusRaw = (comp.status || "").toString().toLowerCase();
+          if (
+            statusRaw.includes("inactive") ||
+            statusRaw.includes("expired") ||
+            statusRaw.includes("off")
           ) {
             acc.inactive += 1;
-          } else if (status) {
+          } else if (statusRaw.includes("active")) {
+            acc.active += 1;
+          } else if (statusRaw) {
             acc.other += 1;
           } else {
             acc.unknown += 1;
@@ -564,7 +564,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                         {suggestedArvCompCountUsed ?? 0} used
                       </span>
                       <span className="rounded border border-white/10 px-2 py-1">
-                        Selection: {ladderStages.length > 0 ? ladderStages.join(" → ") : "stages unknown"} (stop:{" "}
+                        Selection: {ladderStages.length > 0 ? ladderStages.join(" -> ") : "stages unknown"} (stop:{" "}
                         {stopReason ?? "n/a"})
                       </span>
                       <span className="rounded border border-white/10 px-2 py-1">

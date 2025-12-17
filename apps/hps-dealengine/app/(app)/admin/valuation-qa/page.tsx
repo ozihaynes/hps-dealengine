@@ -664,11 +664,15 @@ export default function ValuationQaPage() {
                     )}
                   </div>
                   <div>
-                    Adjustments:{" "}
+                    Basis:{" "}
                     <span className="text-text-primary">
-                      {selectedValuationRun.output?.suggested_arv_basis
-                        ? `ENABLED (${selectedValuationRun.output?.suggested_arv_basis}) v${selectedValuationRun.output?.adjustments_version ?? "-"}`
-                        : "Disabled / default"}
+                      {selectedValuationRun.output?.suggested_arv_basis ?? "default"}
+                    </span>
+                  </div>
+                  <div>
+                    Adjustments version:{" "}
+                    <span className="text-text-primary">
+                      {selectedValuationRun.output?.adjustments_version ?? "-"}
                     </span>
                   </div>
                   <div>
@@ -864,7 +868,7 @@ export default function ValuationQaPage() {
                                     {adj.applied ? "applied" : `skipped${adj.skip_reason ? `: ${adj.skip_reason}` : ""}`}
                                   </span>
                                   <span>
-                                    Δ {adj.delta_units_capped ?? adj.delta_units_raw ?? "-"} @{" "}
+                                    Delta {adj.delta_units_capped ?? adj.delta_units_raw ?? "-"} @{" "}
                                     {adj.unit_value != null ? currency.format(Number(adj.unit_value)) : "-"}
                                   </span>
                                   <span>
