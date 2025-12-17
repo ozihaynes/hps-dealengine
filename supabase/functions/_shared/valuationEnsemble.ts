@@ -78,14 +78,24 @@ const normalizeWeights = (
 };
 
 const computeCeiling = (
-  listingComps: Array<{ price?: number | null; price_adjusted?: number | null }> | null,
+  listingComps: Array<{ price?: number | null; price_adjusted?: number | null; status?: string | null }> | null,
   method: string | null,
   maxOverPct: number | null,
 ): { capValue: number | null; capMethod: string | null; capSource: string | null } => {
   if (!listingComps || listingComps.length === 0) return { capValue: null, capMethod: null, capSource: null };
   if (method !== "p75_active_listings") return { capValue: null, capMethod: null, capSource: null };
 
-  const prices = listingComps
+  const isActive = (status: unknown): boolean => {
+    if (typeof status !== "string") return false;
+    const s = status.toLowerCase();
+    if (s.includes("inactive") || s.includes("expired") || s.includes("off")) return false;
+    return s.includes("active");
+  };
+
+  const activeListings = listingComps.filter((c) => isActive((c as any)?.status));
+  if (activeListings.length === 0) return { capValue: null, capMethod: null, capSource: null };
+
+  const prices = activeListings
     .map((c) => safeNumber((c as any)?.price_adjusted) ?? safeNumber((c as any)?.price))
     .filter((n): n is number => n != null && Number.isFinite(n));
   if (prices.length === 0) return { capValue: null, capMethod: null, capSource: null };
