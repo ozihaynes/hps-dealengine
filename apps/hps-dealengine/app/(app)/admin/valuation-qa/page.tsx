@@ -84,6 +84,13 @@ export default function ValuationQaPage() {
   const [generatingEvalRun, setGeneratingEvalRun] = useState(false);
   const [lastEvalInputHash, setLastEvalInputHash] = useState<string | null>(null);
   const [lastEvalDeduped, setLastEvalDeduped] = useState(false);
+  const [sweepStep, setSweepStep] = useState<number>(0.05);
+  const [sweepApplyCap, setSweepApplyCap] = useState<boolean>(false);
+  const [sweepResults, setSweepResults] = useState<any[] | null>(null);
+  const [sweepBestMae, setSweepBestMae] = useState<any | null>(null);
+  const [sweepBestMape, setSweepBestMape] = useState<any | null>(null);
+  const [sweepLoading, setSweepLoading] = useState(false);
+  const [sweepError, setSweepError] = useState<string | null>(null);
   const router = useRouter();
 
   const [form, setForm] = useState<GroundTruthForm>({
@@ -358,6 +365,51 @@ export default function ValuationQaPage() {
     router.refresh();
   };
 
+  const handleEnsembleSweep = useCallback(async () => {
+    if (!selectedRun || !orgId) {
+      setSweepError("Select an eval run first.");
+      return;
+    }
+    setSweepLoading(true);
+    setSweepError(null);
+    setSweepResults(null);
+    setSweepBestMae(null);
+    setSweepBestMape(null);
+    const stepVal = Number.isFinite(sweepStep) ? sweepStep : 0.05;
+    const { data, error: fnError } = await supabase.functions.invoke("v1-valuation-ensemble-sweep", {
+      body: {
+        eval_run_id: selectedRun.id,
+        org_id: orgId,
+        step: stepVal,
+        apply_cap: sweepApplyCap,
+      },
+    });
+    if (fnError) {
+      const rawBody =
+        (fnError as any)?.context?.body ??
+        (fnError as any)?.context?.response?.error ??
+        (fnError as any)?.context?.response?.body;
+      let parsedMessage: string | null = null;
+      if (typeof rawBody === "string" && rawBody.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(rawBody);
+          parsedMessage = parsed?.message ?? parsed?.error ?? null;
+        } catch {
+          parsedMessage = rawBody;
+        }
+      } else if (rawBody && typeof rawBody === "object" && (rawBody as any)?.message) {
+        parsedMessage = (rawBody as any).message;
+      }
+      setSweepLoading(false);
+      setSweepError(parsedMessage ?? fnError.message ?? "Ensemble sweep failed.");
+      return;
+    }
+    setSweepResults((data as any)?.results ?? null);
+    setSweepBestMae((data as any)?.best_by_mae ?? null);
+    setSweepBestMape((data as any)?.best_by_mape ?? null);
+    setSweepLoading(false);
+  }, [selectedRun, orgId, sweepStep, sweepApplyCap, supabase]);
+
   async function handleSaveGroundTruth(e: React.FormEvent) {
     e.preventDefault();
     if (!isAdmin) {
@@ -615,20 +667,87 @@ export default function ValuationQaPage() {
 
               {selectedRun ? (
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-sm text-text-secondary/80">
-                    <div>Dataset: <span className="text-text-primary">{selectedRun.dataset_name}</span></div>
-                    <div>Created: <span className="text-text-primary">{selectedRun.created_at?.slice(0, 19) ?? "—"}</span></div>
-                    <div>Posture: <span className="text-text-primary">{selectedRun.posture ?? "—"}</span></div>
-                    <div>MAE: <span className="text-text-primary">{selectedRun.metrics?.mae ? currency.format(selectedRun.metrics.mae) : "—"}</span></div>
-                    <div>MAPE: <span className="text-text-primary">{selectedRun.metrics?.mape ? percent.format(selectedRun.metrics.mape) : "—"}</span></div>
-                    <div>In-range rate: <span className="text-text-primary">{selectedRun.metrics?.in_range_rate_overall != null ? percent.format(selectedRun.metrics.in_range_rate_overall) : "—"}</span></div>
-                    <div>Cases: <span className="text-text-primary">{selectedRun.metrics?.count_with_ground_truth ?? 0} / {selectedRun.metrics?.count_total ?? 0}</span></div>
-                  </div>
+              <div className="grid grid-cols-2 gap-2 text-sm text-text-secondary/80">
+                <div>Dataset: <span className="text-text-primary">{selectedRun.dataset_name}</span></div>
+                <div>Created: <span className="text-text-primary">{selectedRun.created_at?.slice(0, 19) ?? "-"}</span></div>
+                <div>Posture: <span className="text-text-primary">{selectedRun.posture ?? "-"}</span></div>
+                <div>MAE: <span className="text-text-primary">{selectedRun.metrics?.mae ? currency.format(selectedRun.metrics.mae) : "-"}</span></div>
+                <div>MAPE: <span className="text-text-primary">{selectedRun.metrics?.mape ? percent.format(selectedRun.metrics.mape) : "-"}</span></div>
+                <div>In-range rate: <span className="text-text-primary">{selectedRun.metrics?.in_range_rate_overall != null ? percent.format(selectedRun.metrics.in_range_rate_overall) : "-"}</span></div>
+                <div>Cases: <span className="text-text-primary">{selectedRun.metrics?.count_with_ground_truth ?? 0} / {selectedRun.metrics?.count_total ?? 0}</span></div>
+                <div>input_hash: <span className="text-text-primary">{(selectedRun as any)?.params?.input_hash ?? "-"}</span></div>
+              </div>
 
-                  <div>
-                    <h4 className="text-sm font-semibold text-text-secondary/80 mb-2">Calibration by confidence</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
+              <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-sm font-semibold text-text-primary">
+                  <span>Ensemble sweep</span>
+                  {sweepLoading ? <Badge color="blue">Running...</Badge> : null}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2 text-sm text-text-secondary/80">
+                  <InputField
+                    label="Step"
+                    type="number"
+                    value={sweepStep}
+                    onChange={(e) => setSweepStep(Number(e.target.value))}
+                    placeholder="0.05"
+                  />
+                  <label className="flex items-center gap-2 text-xs text-text-secondary/80">
+                    <input
+                      type="checkbox"
+                      checked={sweepApplyCap}
+                      onChange={(e) => setSweepApplyCap(e.target.checked)}
+                      className="h-4 w-4 accent-[color:var(--accent-color)]"
+                    />
+                    Apply cap
+                  </label>
+                  <div className="flex items-end">
+                    <Button size="sm" onClick={() => void handleEnsembleSweep()} disabled={sweepLoading}>
+                      {sweepLoading ? "Running..." : "Run sweep"}
+                    </Button>
+                  </div>
+                </div>
+                {sweepError ? (
+                  <div className="text-xs text-red-300">{sweepError}</div>
+                ) : null}
+                {sweepResults && Array.isArray(sweepResults) && sweepResults.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-text-secondary/70">
+                          <th className="px-2 py-1">AVM weight</th>
+                          <th className="px-2 py-1">MAE</th>
+                          <th className="px-2 py-1">MAPE</th>
+                          <th className="px-2 py-1">Count</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {sweepResults.map((row: any) => {
+                          const bestMaeWeight = (sweepBestMae as any)?.avm_weight;
+                          const bestMapeWeight = (sweepBestMape as any)?.avm_weight;
+                          const highlight = row.avm_weight === bestMaeWeight || row.avm_weight === bestMapeWeight;
+                          return (
+                            <tr key={row.avm_weight} className={highlight ? "bg-[color:var(--accent-color)]/10" : ""}>
+                              <td className="px-2 py-1 text-text-primary">{row.avm_weight}</td>
+                              <td className="px-2 py-1 text-text-secondary/80">
+                                {row.mae != null ? currency.format(row.mae) : "-"}
+                              </td>
+                              <td className="px-2 py-1 text-text-secondary/80">
+                                {row.mape != null ? percent.format(row.mape) : "-"}
+                              </td>
+                              <td className="px-2 py-1 text-text-secondary/80">{row.count ?? 0}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-text-secondary/80 mb-2">Calibration by confidence</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
                         <thead>
                           <tr className="text-left text-text-secondary/70">
                             <th className="px-2 py-1">Grade</th>
