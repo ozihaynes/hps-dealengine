@@ -123,7 +123,7 @@ export const ValuationRunSchema = z.object({
   }).passthrough(),
   output: z.object({
     suggested_arv: z.number().optional().nullable(),
-    suggested_arv_basis: z.enum(["adjusted_v1_2"]).optional().nullable(),
+    suggested_arv_basis: z.enum(["adjusted_v1_2", "ensemble_v1"]).optional().nullable(),
     adjustments_version: z.string().optional().nullable(),
     arv_range_low: z.number().optional().nullable(),
     arv_range_high: z.number().optional().nullable(),
@@ -144,12 +144,29 @@ export const ValuationRunSchema = z.object({
           candidate_after_filters: z.number().nullable(),
           candidate_after_outliers: z.number().nullable(),
         }),
-      })
+    })
       .optional()
       .nullable(),
     avm_reference_price: z.number().optional().nullable(),
     avm_reference_range_low: z.number().optional().nullable(),
     avm_reference_range_high: z.number().optional().nullable(),
+    ensemble_version: z.string().optional().nullable(),
+    ensemble_weights: z
+      .object({
+        comps: z.number(),
+        avm: z.number(),
+      })
+      .optional()
+      .nullable(),
+    ensemble_comp_estimate: z.number().optional().nullable(),
+    ensemble_avm_estimate: z.number().optional().nullable(),
+    ensemble_cap_value: z.number().optional().nullable(),
+    ensemble_cap_applied: z.boolean().optional().nullable(),
+    uncertainty_version: z.string().optional().nullable(),
+    uncertainty_method: z.string().optional().nullable(),
+    uncertainty_range_low: z.number().optional().nullable(),
+    uncertainty_range_high: z.number().optional().nullable(),
+    uncertainty_range_pct: z.number().optional().nullable(),
     suggested_arv_source_method: z.string().optional().nullable(),
     suggested_arv_comp_kind_used: z.enum(["closed_sale", "sale_listing"]).optional().nullable(),
     suggested_arv_comp_count_used: z.number().optional().nullable(),

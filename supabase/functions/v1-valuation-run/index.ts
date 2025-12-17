@@ -14,6 +14,8 @@ import { applyMarketTimeAdjustment } from "../_shared/marketIndex.ts";
 import { computeValuationConfidence } from "../_shared/valuationConfidence.ts";
 import { stableHash } from "../_shared/determinismHash.ts";
 import { buildCompAdjustedValue, weightedMedianDeterministic } from "../_shared/valuationAdjustments.ts";
+import { computeEnsemble } from "../_shared/valuationEnsemble.ts";
+import { computeUncertainty } from "../_shared/valuationUncertainty.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -180,8 +182,13 @@ serve(async (req: Request): Promise<Response> => {
 
     const concessionsConfig = (valuationPolicy as any)?.concessions ?? {};
     const conditionConfig = (valuationPolicy as any)?.condition ?? {};
+    const ensembleConfig = (valuationPolicy as any)?.ensemble ?? {};
+    const ceilingConfig = (valuationPolicy as any)?.ceiling ?? {};
+    const uncertaintyConfig = (valuationPolicy as any)?.uncertainty ?? {};
     const concessionsEnabled = concessionsConfig?.enabled === true;
     const conditionEnabled = conditionConfig?.enabled === true;
+    const ensembleEnabled = ensembleConfig?.enabled === true;
+    const uncertaintyEnabled = uncertaintyConfig?.enabled === true;
 
     const { data: overrideRows, error: overrideError } = await supabase
       .from("valuation_comp_overrides")
@@ -450,6 +457,21 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    const ensembleResult = ensembleEnabled
+      ? computeEnsemble({
+          compEstimate: suggestedArv ?? null,
+          compCount: compCount,
+          avmEstimate: avmPrice ?? null,
+          listingComps,
+          ensembleConfig,
+          ceilingConfig,
+        })
+      : null;
+
+    if (ensembleResult?.value != null) {
+      suggestedArv = ensembleResult.value;
+    }
+
     const ladderRaw = (snapshot.raw as any)?.closed_sales ?? {};
     const ladderStages = Array.isArray(ladderRaw?.stages)
       ? ladderRaw.stages
@@ -479,6 +501,18 @@ serve(async (req: Request): Promise<Response> => {
       active_attempt: hasClosed ? "closed_sale" : listingSelection ? "sale_listing" : null,
     };
 
+    const ensembleWeightsForUncertainty = ensembleResult?.weights ?? null;
+    const uncertaintyResult = uncertaintyEnabled
+      ? computeUncertainty({
+          comps: selectedCompsForOutput ?? [],
+          suggestedArv: suggestedArv ?? null,
+          avmRangeLow: avmLow ?? null,
+          avmRangeHigh: avmHigh ?? null,
+          ensembleWeights: ensembleWeightsForUncertainty,
+          config: uncertaintyConfig ?? {},
+        })
+      : null;
+
     const confidence = computeValuationConfidence({
       suggested_arv: suggestedArv,
       suggested_arv_range_low: selection.suggested_arv_range_low,
@@ -502,6 +536,43 @@ serve(async (req: Request): Promise<Response> => {
     const status = failureReasons.length === 0 ? "succeeded" : "failed";
     const failureReason = failureReasons.length > 0 ? failureReasons.join("; ") : null;
     const includeOverridesInHash = concessionsEnabled || conditionEnabled;
+    const includeEnsembleUncertaintyInHash = ensembleEnabled || uncertaintyEnabled;
+
+    const ensembleHashSummary = ensembleEnabled
+      ? {
+          ensemble_enabled: true,
+          ensemble_version: ensembleConfig?.version ?? "ensemble_v1",
+          ensemble_weights: {
+            comps: safeNumber(ensembleConfig?.weights?.comps) ?? 0.7,
+            avm: safeNumber(ensembleConfig?.weights?.avm) ?? 0.3,
+          },
+          max_avm_weight: safeNumber(ensembleConfig?.max_avm_weight) ?? null,
+          min_comps_for_avm_blend: safeNumber(ensembleConfig?.min_comps_for_avm_blend) ?? null,
+          ceiling_enabled: ceilingConfig?.enabled === true,
+          ceiling_method: ceilingConfig?.method ?? null,
+          ceiling_max_over_pct: safeNumber(ceilingConfig?.max_over_pct) ?? null,
+        }
+      : null;
+
+    const uncertaintyHashSummary = uncertaintyEnabled
+      ? {
+          uncertainty_enabled: true,
+          uncertainty_version: uncertaintyConfig?.version ?? "uncertainty_v1",
+          uncertainty_method: uncertaintyConfig?.method ?? "weighted_quantiles_v1",
+          p_low: safeNumber(uncertaintyConfig?.p_low) ?? 0.1,
+          p_high: safeNumber(uncertaintyConfig?.p_high) ?? 0.9,
+          min_comps: safeNumber(uncertaintyConfig?.min_comps) ?? 3,
+          floor_pct: safeNumber(uncertaintyConfig?.floor_pct) ?? 0.05,
+        }
+      : null;
+
+    const ensembleUncertaintyHashBlock =
+      includeEnsembleUncertaintyInHash && (ensembleHashSummary || uncertaintyHashSummary)
+        ? {
+            ensemble_config: ensembleHashSummary,
+            uncertainty_config: uncertaintyHashSummary,
+          }
+        : null;
 
     const snapshotForHash = {
       address_fingerprint: fingerprint,
@@ -531,6 +602,7 @@ serve(async (req: Request): Promise<Response> => {
       min_closed_comps_required: minClosedComps,
       policy_version_id: policyRow.id,
       ...(includeOverridesInHash ? { overrides_hash } : {}),
+      ...(ensembleUncertaintyHashBlock ? { ensemble_uncertainty_config: ensembleUncertaintyHashBlock } : {}),
     };
 
     const overridesAppliedCount =
@@ -547,6 +619,9 @@ serve(async (req: Request): Promise<Response> => {
           }).length
         : null;
 
+    let suggestedArvSourceMethod = `selection_v1_1_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`;
+    let suggestedArvBasisValue: "adjusted_v1_2" | "ensemble_v1" | null = null;
+
     let outputBase: Record<string, unknown> = {
       suggested_arv: suggestedArv ?? null,
       arv_range_low: selection.suggested_arv_range_low ?? null,
@@ -559,7 +634,7 @@ serve(async (req: Request): Promise<Response> => {
       avm_reference_price: avmPrice ?? null,
       avm_reference_range_low: avmLow ?? null,
       avm_reference_range_high: avmHigh ?? null,
-      suggested_arv_source_method: `selection_v1_1_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`,
+      suggested_arv_source_method: suggestedArvSourceMethod,
       suggested_arv_comp_kind_used: selection.comp_kind_used ?? null,
       suggested_arv_comp_count_used: compCount ?? null,
       confidence_details: confidence,
@@ -582,12 +657,41 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     if (adjustmentsEnabled) {
+      suggestedArvBasisValue = "adjusted_v1_2";
       outputBase = {
         ...outputBase,
-        suggested_arv_basis: "adjusted_v1_2",
+        suggested_arv_basis: suggestedArvBasisValue,
         adjustments_version: adjustmentsConfig?.version ?? "selection_v1_2",
         selected_comps: selectedCompsForOutput ?? [],
         suggested_arv: suggestedArv ?? null,
+      };
+    }
+
+    if (ensembleEnabled && ensembleResult) {
+      suggestedArvBasisValue = "ensemble_v1";
+      suggestedArvSourceMethod = "ensemble_v1";
+      outputBase = {
+        ...outputBase,
+        suggested_arv: ensembleResult.value ?? suggestedArv ?? null,
+        suggested_arv_basis: suggestedArvBasisValue,
+        suggested_arv_source_method: suggestedArvSourceMethod,
+        ensemble_version: ensembleResult.version ?? "ensemble_v1",
+        ensemble_weights: ensembleResult.weights,
+        ensemble_comp_estimate: ensembleResult.comp_estimate,
+        ensemble_avm_estimate: ensembleResult.avm_estimate,
+        ensemble_cap_value: ensembleResult.cap_value,
+        ensemble_cap_applied: ensembleResult.cap_applied,
+      };
+    }
+
+    if (uncertaintyEnabled && uncertaintyResult) {
+      outputBase = {
+        ...outputBase,
+        uncertainty_version: uncertaintyResult.version ?? "uncertainty_v1",
+        uncertainty_method: uncertaintyResult.method ?? "weighted_quantiles_v1",
+        uncertainty_range_low: uncertaintyResult.range_low,
+        uncertainty_range_high: uncertaintyResult.range_high,
+        uncertainty_range_pct: uncertaintyResult.range_pct,
       };
     }
 

@@ -23,8 +23,19 @@ describe("ValuationRunSchema", () => {
       },
       output: {
         suggested_arv: 250000,
-        suggested_arv_basis: "adjusted_v1_2",
+        suggested_arv_basis: "ensemble_v1",
         adjustments_version: "selection_v1_2",
+        ensemble_version: "ensemble_v1",
+        ensemble_weights: { comps: 0.7, avm: 0.3 },
+        ensemble_comp_estimate: 252000,
+        ensemble_avm_estimate: 245000,
+        ensemble_cap_value: 260000,
+        ensemble_cap_applied: false,
+        uncertainty_version: "uncertainty_v1",
+        uncertainty_method: "weighted_quantiles_v1",
+        uncertainty_range_low: 230000,
+        uncertainty_range_high: 270000,
+        uncertainty_range_pct: 0.16,
         arv_range_low: null,
         arv_range_high: null,
         suggested_arv_range_low: null,
@@ -104,7 +115,7 @@ describe("ValuationRunSchema", () => {
         avm_reference_price: null,
         avm_reference_range_low: null,
         avm_reference_range_high: null,
-        suggested_arv_source_method: "selection_v1_1_weighted_median_ppsf",
+        suggested_arv_source_method: "ensemble_v1",
         suggested_arv_comp_kind_used: "closed_sale",
         suggested_arv_comp_count_used: 2,
         as_is_value: null,
@@ -154,8 +165,10 @@ describe("ValuationRunSchema", () => {
     expect(parsed.output.overrides_hash).toEqual("overrides-hash");
     expect(parsed.output.overrides_applied_count).toEqual(1);
     expect(parsed.output.output_hash).toEqual("output-hash");
-    expect(parsed.output.suggested_arv_basis).toEqual("adjusted_v1_2");
+    expect(parsed.output.suggested_arv_basis).toEqual("ensemble_v1");
     expect(parsed.output.adjustments_version).toEqual("selection_v1_2");
+    expect(parsed.output.ensemble_version).toEqual("ensemble_v1");
+    expect(parsed.output.uncertainty_version).toEqual("uncertainty_v1");
     expect(parsed.output.selected_comps?.length).toBe(1);
     expect(parsed.output.selected_comps?.[0]?.adjustments?.length).toBe(3);
   });
