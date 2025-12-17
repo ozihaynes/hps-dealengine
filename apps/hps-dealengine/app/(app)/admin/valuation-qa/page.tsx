@@ -80,6 +80,7 @@ export default function ValuationQaPage() {
   const [generateDatasetName, setGenerateDatasetName] = useState("ground_truth_v1");
   const [generatePosture, setGeneratePosture] = useState("underwrite");
   const [generateLimit, setGenerateLimit] = useState<number>(50);
+  const [generateForce, setGenerateForce] = useState(false);
   const [generatingEvalRun, setGeneratingEvalRun] = useState(false);
   const router = useRouter();
 
@@ -196,11 +197,27 @@ export default function ValuationQaPage() {
         posture,
         limit,
         org_id: orgId,
+        force: generateForce,
       },
     });
     if (fnError) {
+      const rawBody =
+        (fnError as any)?.context?.body ??
+        (fnError as any)?.context?.response?.error ??
+        (fnError as any)?.context?.response?.body;
+      let parsedMessage: string | null = null;
+      if (typeof rawBody === "string" && rawBody.trim().length > 0) {
+        try {
+          const parsed = JSON.parse(rawBody);
+          parsedMessage = parsed?.message ?? parsed?.error ?? null;
+        } catch {
+          parsedMessage = rawBody;
+        }
+      } else if (rawBody && typeof rawBody === "object" && (rawBody as any)?.message) {
+        parsedMessage = (rawBody as any).message;
+      }
       setGeneratingEvalRun(false);
-      setError(fnError.message ?? "Unable to generate evaluation run.");
+      setError(parsedMessage ?? fnError.message ?? "Unable to generate evaluation run.");
       return;
     }
     await refreshEvalRuns(orgId);
@@ -209,7 +226,7 @@ export default function ValuationQaPage() {
       setSelectedRunId(newId);
     }
     setGeneratingEvalRun(false);
-  }, [generateDatasetName, generatePosture, generateLimit, orgId, refreshEvalRuns, setError, supabase]);
+  }, [generateDatasetName, generatePosture, generateLimit, generateForce, orgId, refreshEvalRuns, setError, supabase]);
 
   useEffect(() => {
     const load = async () => {
@@ -523,21 +540,30 @@ export default function ValuationQaPage() {
               onChange={(e) => setGeneratePosture(e.target.value)}
               placeholder="underwrite/base"
             />
-            <InputField
-              label="Limit"
-              type="number"
-              value={generateLimit}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                setGenerateLimit(Number.isFinite(next) ? next : 0);
-              }}
-            />
-            <div className="flex items-end">
-              <Button
-                size="sm"
-                onClick={() => void handleGenerateEvalRun()}
-                disabled={generatingEvalRun}
-              >
+          <InputField
+            label="Limit"
+            type="number"
+            value={generateLimit}
+            onChange={(e) => {
+              const next = Number(e.target.value);
+              setGenerateLimit(Number.isFinite(next) ? next : 0);
+            }}
+          />
+          <div className="flex items-end gap-3">
+            <label className="flex items-center gap-2 text-xs text-text-secondary/80">
+              <input
+                type="checkbox"
+                checked={generateForce}
+                onChange={(e) => setGenerateForce(e.target.checked)}
+                className="h-4 w-4 accent-[color:var(--accent-color)]"
+              />
+              Force new run
+            </label>
+            <Button
+              size="sm"
+              onClick={() => void handleGenerateEvalRun()}
+              disabled={generatingEvalRun}
+            >
                 {generatingEvalRun ? "Generating..." : "Generate eval run"}
               </Button>
             </div>

@@ -9,6 +9,7 @@ type RequestBody = {
   posture?: string | null;
   limit?: number | null;
   org_id?: string | null;
+  force?: boolean | null;
 };
 
 type GroundTruthRow = {
@@ -119,6 +120,7 @@ serve(async (req: Request): Promise<Response> => {
   const limitRaw = safeNumber(body.limit);
   const limit = limitRaw != null ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
   const requestedOrgId = body.org_id?.trim() || null;
+  const force = body.force === true;
 
   let supabase;
   try {
@@ -178,6 +180,32 @@ serve(async (req: Request): Promise<Response> => {
         { ok: false, error: "forbidden", message: "Manager/VP/Owner role required" },
         403,
       );
+    }
+
+    const { data: recentEvalRun, error: recentEvalError } = await supabase
+      .from("valuation_eval_runs")
+      .select("created_at")
+      .eq("org_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!force && !recentEvalError && recentEvalRun?.created_at) {
+      const lastTs = Date.parse(recentEvalRun.created_at);
+      if (!Number.isNaN(lastTs)) {
+        const elapsedMs = Date.now() - lastTs;
+        if (elapsedMs >= 0 && elapsedMs < 30_000) {
+          return jsonResponse(
+            req,
+            {
+              ok: false,
+              error: "rate_limited",
+              message: "Too many eval runs; try again in a few seconds or use force=true.",
+            },
+            429,
+          );
+        }
+      }
     }
 
     const { data: gtRows, error: gtError } = await supabase
@@ -335,6 +363,8 @@ serve(async (req: Request): Promise<Response> => {
       };
     }
 
+    const selectionRule = "deal.market.arv_valuation_run_id || latest_run_by_posture";
+
     const metrics = {
       count_total: cases.length,
       count_with_ground_truth: cases.filter((c) => c.realized_price != null).length,
@@ -346,17 +376,63 @@ serve(async (req: Request): Promise<Response> => {
       cases,
     };
 
+    const inputDescriptor = {
+      dataset_name: datasetName,
+      posture,
+      limit,
+      selection_rule: selectionRule,
+      ground_truth_ids: (gtRows ?? []).map((row) => row.id).filter((id): id is string => !!id),
+      cases: cases.map((c) => ({
+        deal_id: c.deal_id,
+        valuation_run_id: c.valuation_run_id,
+      })),
+    };
+
+    const input_hash = await stableHash(inputDescriptor);
+
+    if (!force) {
+      const { data: existing, error: existingError } = await supabase
+        .from("valuation_eval_runs")
+        .select("id, metrics, created_at")
+        .eq("org_id", orgId)
+        .eq("input_hash", input_hash)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingError && existing) {
+        return jsonResponse(
+          req,
+          {
+            ok: true,
+            deduped: true,
+            eval_run_id: existing.id,
+            created_at: existing.created_at,
+            metrics: (existing as any)?.metrics ?? null,
+          },
+          200,
+        );
+      }
+    }
+
     const paramsPayload = {
       dataset_name: datasetName,
       posture,
       limit,
       evaluated_at: new Date().toISOString(),
-      selection_rule: "deal.market.arv_valuation_run_id || latest_run_by_posture",
+      selection_rule: selectionRule,
       ground_truth_row_count: gtRows?.length ?? 0,
       cases_evaluated: cases.length,
+      input_hash,
     };
 
-    const output_hash = await stableHash({ metrics, params: paramsPayload });
+    const metricsSummary = {
+      count_total: metrics.count_total,
+      count_with_ground_truth: metrics.count_with_ground_truth,
+      mae: metrics.mae,
+      mape: metrics.mape,
+      in_range_rate_overall: metrics.in_range_rate_overall,
+    };
+    const output_hash = await stableHash({ input_hash, metrics_summary: metricsSummary });
 
     const { data: inserted, error: insertError } = await supabase
       .from("valuation_eval_runs")
@@ -364,6 +440,7 @@ serve(async (req: Request): Promise<Response> => {
         org_id: orgId,
         dataset_name: datasetName,
         posture,
+        input_hash,
         params: JSON.parse(canonicalJson(paramsPayload)),
         metrics: JSON.parse(canonicalJson(metrics)),
         output_hash,
@@ -383,6 +460,7 @@ serve(async (req: Request): Promise<Response> => {
         eval_run_id: inserted.id,
         created_at: inserted.created_at,
         metrics,
+        input_hash,
       },
       200,
     );
