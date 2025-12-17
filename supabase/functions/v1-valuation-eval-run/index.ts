@@ -200,7 +200,8 @@ serve(async (req: Request): Promise<Response> => {
             {
               ok: false,
               error: "rate_limited",
-              message: "Too many eval runs; try again in a few seconds or use force=true.",
+              message: "Too many eval runs; try again in a few seconds or enable bypass.",
+              input_hash: null,
             },
             429,
           );
@@ -215,6 +216,7 @@ serve(async (req: Request): Promise<Response> => {
       .not("deal_id", "is", null)
       .order("realized_date", { ascending: false })
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(limit);
 
     if (gtError) {
@@ -377,11 +379,17 @@ serve(async (req: Request): Promise<Response> => {
     };
 
     const inputDescriptor = {
+      eval_version: "v1",
       dataset_name: datasetName,
       posture,
       limit,
       selection_rule: selectionRule,
-      ground_truth_ids: (gtRows ?? []).map((row) => row.id).filter((id): id is string => !!id),
+      ground_truth_fingerprint: (gtRows ?? []).map((row) => ({
+        id: row.id,
+        deal_id: row.deal_id,
+        realized_price: safeNumber(row.realized_price),
+        realized_date: row.realized_date,
+      })),
       cases: cases.map((c) => ({
         deal_id: c.deal_id,
         valuation_run_id: c.valuation_run_id,
@@ -390,28 +398,27 @@ serve(async (req: Request): Promise<Response> => {
 
     const input_hash = await stableHash(inputDescriptor);
 
-    if (!force) {
-      const { data: existing, error: existingError } = await supabase
-        .from("valuation_eval_runs")
-        .select("id, metrics, created_at")
-        .eq("org_id", orgId)
-        .eq("input_hash", input_hash)
-        .limit(1)
-        .maybeSingle();
+    const { data: existing, error: existingError } = await supabase
+      .from("valuation_eval_runs")
+      .select("id, metrics, created_at, input_hash")
+      .eq("org_id", orgId)
+      .eq("input_hash", input_hash)
+      .limit(1)
+      .maybeSingle();
 
-      if (!existingError && existing) {
-        return jsonResponse(
-          req,
-          {
-            ok: true,
-            deduped: true,
-            eval_run_id: existing.id,
-            created_at: existing.created_at,
-            metrics: (existing as any)?.metrics ?? null,
-          },
-          200,
-        );
-      }
+    if (!existingError && existing) {
+      return jsonResponse(
+        req,
+        {
+          ok: true,
+          deduped: true,
+          eval_run_id: existing.id,
+          created_at: existing.created_at,
+          metrics: (existing as any)?.metrics ?? null,
+          input_hash,
+        },
+        200,
+      );
     }
 
     const paramsPayload = {
@@ -449,6 +456,36 @@ serve(async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     if (insertError || !inserted) {
+      const uniqueConflict =
+        (insertError as any)?.code === "23505" ||
+        (insertError as any)?.message?.toLowerCase?.().includes("unique") ||
+        (insertError as any)?.details?.toLowerCase?.().includes("idx_valuation_eval_runs_org_input_hash");
+
+      if (uniqueConflict) {
+        const { data: existingAfterConflict } = await supabase
+          .from("valuation_eval_runs")
+          .select("id, metrics, created_at, input_hash")
+          .eq("org_id", orgId)
+          .eq("input_hash", input_hash)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingAfterConflict) {
+          return jsonResponse(
+            req,
+            {
+              ok: true,
+              deduped: true,
+              eval_run_id: existingAfterConflict.id,
+              created_at: existingAfterConflict.created_at,
+              metrics: (existingAfterConflict as any)?.metrics ?? null,
+              input_hash,
+            },
+            200,
+          );
+        }
+      }
+
       console.error("[v1-valuation-eval-run] insert failed", insertError);
       throw new Error("valuation_eval_run_insert_failed");
     }

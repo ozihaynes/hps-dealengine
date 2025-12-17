@@ -82,6 +82,8 @@ export default function ValuationQaPage() {
   const [generateLimit, setGenerateLimit] = useState<number>(50);
   const [generateForce, setGenerateForce] = useState(false);
   const [generatingEvalRun, setGeneratingEvalRun] = useState(false);
+  const [lastEvalInputHash, setLastEvalInputHash] = useState<string | null>(null);
+  const [lastEvalDeduped, setLastEvalDeduped] = useState(false);
   const router = useRouter();
 
   const [form, setForm] = useState<GroundTruthForm>({
@@ -216,10 +218,16 @@ export default function ValuationQaPage() {
       } else if (rawBody && typeof rawBody === "object" && (rawBody as any)?.message) {
         parsedMessage = (rawBody as any).message;
       }
+      setLastEvalInputHash(null);
+      setLastEvalDeduped(false);
       setGeneratingEvalRun(false);
       setError(parsedMessage ?? fnError.message ?? "Unable to generate evaluation run.");
       return;
     }
+    const returnedHash = (data as any)?.input_hash ?? null;
+    const deduped = (data as any)?.deduped === true;
+    setLastEvalInputHash(returnedHash);
+    setLastEvalDeduped(deduped);
     await refreshEvalRuns(orgId);
     const newId = (data as any)?.eval_run_id ?? null;
     if (newId) {
@@ -557,17 +565,32 @@ export default function ValuationQaPage() {
                 onChange={(e) => setGenerateForce(e.target.checked)}
                 className="h-4 w-4 accent-[color:var(--accent-color)]"
               />
-              Force new run
+              Bypass rate limit
             </label>
             <Button
               size="sm"
               onClick={() => void handleGenerateEvalRun()}
               disabled={generatingEvalRun}
             >
-                {generatingEvalRun ? "Generating..." : "Generate eval run"}
-              </Button>
-            </div>
+              {generatingEvalRun ? "Generating..." : "Generate eval run"}
+            </Button>
           </div>
+        </div>
+        {(lastEvalInputHash || lastEvalDeduped) && (
+          <div className="mb-3 flex flex-wrap gap-3 text-xs text-text-secondary/80">
+            {lastEvalInputHash ? (
+              <span>
+                input_hash:{" "}
+                <span className="text-text-primary">
+                  {lastEvalInputHash.length > 12
+                    ? `${lastEvalInputHash.slice(0, 12)}…`
+                    : lastEvalInputHash}
+                </span>
+              </span>
+            ) : null}
+            {lastEvalDeduped ? <span className="text-accent-blue">Deduped: existing eval run reused.</span> : null}
+          </div>
+        )}
           {evalRuns.length === 0 ? (
             <div className="text-sm text-text-secondary/70">No evaluation runs yet.</div>
           ) : (
