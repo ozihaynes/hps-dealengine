@@ -248,7 +248,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const [overrideLocalError, setOverrideLocalError] = React.useState<string | null>(null);
   const [overrideSubmitting, setOverrideSubmitting] = React.useState(false);
 
-  // Live engine outputs from Edge (via /underwrite/debug → analyzeBus)
+  // Live engine outputs from Edge (via /underwrite/debug analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
 
   React.useEffect(() => {
@@ -1287,3 +1287,4 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 };
 
 export default UnderwriteTab;
+

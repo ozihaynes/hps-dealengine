@@ -77,6 +77,10 @@ export default function ValuationQaPage() {
   const [selectedValuationRunId, setSelectedValuationRunId] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<Record<string, CompOverrideRow>>({});
   const [overrideInputs, setOverrideInputs] = useState<Record<string, OverrideInputs>>({});
+  const [generateDatasetName, setGenerateDatasetName] = useState("ground_truth_v1");
+  const [generatePosture, setGeneratePosture] = useState("underwrite");
+  const [generateLimit, setGenerateLimit] = useState<number>(50);
+  const [generatingEvalRun, setGeneratingEvalRun] = useState(false);
   const router = useRouter();
 
   const [form, setForm] = useState<GroundTruthForm>({
@@ -175,6 +179,37 @@ export default function ValuationQaPage() {
     setOverrides(map);
     setOverrideInputs(inputs);
   }, [supabase, orgId]);
+
+  const handleGenerateEvalRun = useCallback(async () => {
+    if (!orgId) {
+      setError("Org not resolved yet.");
+      return;
+    }
+    setGeneratingEvalRun(true);
+    setError(null);
+    const dataset = (generateDatasetName || "ground_truth_v1").trim();
+    const posture = (generatePosture || "underwrite").trim();
+    const limit = Number.isFinite(generateLimit) ? Math.max(1, Math.min(200, generateLimit)) : 50;
+    const { data, error: fnError } = await supabase.functions.invoke("v1-valuation-eval-run", {
+      body: {
+        dataset_name: dataset,
+        posture,
+        limit,
+        org_id: orgId,
+      },
+    });
+    if (fnError) {
+      setGeneratingEvalRun(false);
+      setError(fnError.message ?? "Unable to generate evaluation run.");
+      return;
+    }
+    await refreshEvalRuns(orgId);
+    const newId = (data as any)?.eval_run_id ?? null;
+    if (newId) {
+      setSelectedRunId(newId);
+    }
+    setGeneratingEvalRun(false);
+  }, [generateDatasetName, generatePosture, generateLimit, orgId, refreshEvalRuns, setError, supabase]);
 
   useEffect(() => {
     const load = async () => {
@@ -476,6 +511,37 @@ export default function ValuationQaPage() {
               Refresh
             </Button>
           </div>
+          <div className="mb-4 grid grid-cols-1 gap-2 md:grid-cols-4">
+            <InputField
+              label="Dataset name"
+              value={generateDatasetName}
+              onChange={(e) => setGenerateDatasetName(e.target.value)}
+            />
+            <InputField
+              label="Posture"
+              value={generatePosture}
+              onChange={(e) => setGeneratePosture(e.target.value)}
+              placeholder="underwrite/base"
+            />
+            <InputField
+              label="Limit"
+              type="number"
+              value={generateLimit}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setGenerateLimit(Number.isFinite(next) ? next : 0);
+              }}
+            />
+            <div className="flex items-end">
+              <Button
+                size="sm"
+                onClick={() => void handleGenerateEvalRun()}
+                disabled={generatingEvalRun}
+              >
+                {generatingEvalRun ? "Generating..." : "Generate eval run"}
+              </Button>
+            </div>
+          </div>
           {evalRuns.length === 0 ? (
             <div className="text-sm text-text-secondary/70">No evaluation runs yet.</div>
           ) : (
@@ -493,7 +559,7 @@ export default function ValuationQaPage() {
                         : "border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-text-secondary/80 hover:border-[color:var(--accent-color)]",
                     ].join(" ")}
                   >
-                    {run.dataset_name} · {run.created_at?.slice(0, 10)}
+                    {run.dataset_name} - {run.created_at?.slice(0, 10)}
                   </button>
                 ))}
               </div>
@@ -900,3 +966,7 @@ export default function ValuationQaPage() {
     </main>
   );
 }
+
+
+
+
