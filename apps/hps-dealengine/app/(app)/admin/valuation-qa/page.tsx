@@ -682,6 +682,79 @@ export default function ValuationQaPage() {
                 </div>
 
                 <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                    <span>Ensemble &amp; Uncertainty</span>
+                    {selectedValuationRun.output?.ensemble_version || selectedValuationRun.output?.uncertainty_version ? (
+                      <Badge color="blue">ENABLED</Badge>
+                    ) : (
+                      <Badge>OFF</Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-text-secondary/80">
+                    <div>
+                      Basis:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.suggested_arv_basis ?? "default"}
+                      </span>
+                    </div>
+                    <div>
+                      Ensemble version:{" "}
+                      <span className="text-text-primary">{selectedValuationRun.output?.ensemble_version ?? "-"}</span>
+                    </div>
+                    <div>
+                      Comp est:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.ensemble_comp_estimate != null
+                          ? currency.format(Number(selectedValuationRun.output.ensemble_comp_estimate))
+                          : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      AVM est:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.ensemble_avm_estimate != null
+                          ? currency.format(Number(selectedValuationRun.output.ensemble_avm_estimate))
+                          : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      Weights:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.ensemble_weights
+                          ? `comps ${(Number((selectedValuationRun.output as any).ensemble_weights?.comps ?? 0) * 100).toFixed(1)}% / avm ${(Number((selectedValuationRun.output as any).ensemble_weights?.avm ?? 0) * 100).toFixed(1)}%`
+                          : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      Ceiling:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.ensemble_cap_value != null
+                          ? `${currency.format(Number(selectedValuationRun.output.ensemble_cap_value))} ${selectedValuationRun.output?.ensemble_cap_applied ? "(applied)" : "(not applied)"}`
+                          : "-"}
+                      </span>
+                    </div>
+                    <div>
+                      Uncertainty:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.uncertainty_range_low != null &&
+                        selectedValuationRun.output?.uncertainty_range_high != null
+                          ? `${currency.format(Number(selectedValuationRun.output.uncertainty_range_low))} – ${currency.format(Number(selectedValuationRun.output.uncertainty_range_high))}`
+                          : "-"}
+                        {selectedValuationRun.output?.uncertainty_range_pct != null
+                          ? ` (${(Number(selectedValuationRun.output.uncertainty_range_pct) * 100).toFixed(1)}%)`
+                          : ""}
+                      </span>
+                    </div>
+                    <div>
+                      Uncertainty method:{" "}
+                      <span className="text-text-primary">
+                        {selectedValuationRun.output?.uncertainty_method ?? "-"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-semibold text-text-secondary/80">Comp Overrides</h4>
                     <Button size="sm" variant="neutral" onClick={() => void refreshOverrides(orgId, selectedValuationRun.deal_id)}>

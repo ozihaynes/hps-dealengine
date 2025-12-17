@@ -1,6 +1,6 @@
 import React from "react";
 import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
-import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon, Modal } from "../ui";
+import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon, Modal, Badge } from "../ui";
 import { Tooltip } from "../ui/tooltip";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";
@@ -9,6 +9,12 @@ import { Icons } from "../../constants";
 import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeBus";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import CompsPanel from "./CompsPanel";
+
+const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number }) => {
+  if (value == null || !Number.isFinite(Number(value))) return "-";
+  const decimals = opts?.decimals ?? 1;
+  return `${(Number(value) * 100).toFixed(decimals)}%`;
+};
 
 const UnderwritingSection: React.FC<{ title: string; children: React.ReactNode; icon: string }> = ({
   title,
@@ -192,6 +198,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const marketSnapshot: any = (valuationSnapshot as any)?.market ?? null;
   const closedSalesCount = comps.filter((c: any) => (c as any)?.comp_kind === "closed_sale").length;
   const listingCount = comps.filter((c: any) => (c as any)?.comp_kind === "sale_listing").length;
+  const suggestedArvBasis = valuationRun?.output?.suggested_arv_basis ?? null;
+  const ensembleWeights = (valuationRun?.output as any)?.ensemble_weights ?? null;
+  const ensembleCapValue = (valuationRun?.output as any)?.ensemble_cap_value ?? null;
+  const ensembleCapApplied = (valuationRun?.output as any)?.ensemble_cap_applied === true;
+  const uncertaintyRangeLow = (valuationRun?.output as any)?.uncertainty_range_low ?? null;
+  const uncertaintyRangeHigh = (valuationRun?.output as any)?.uncertainty_range_high ?? null;
+  const uncertaintyRangePct = (valuationRun?.output as any)?.uncertainty_range_pct ?? null;
   const compStatusCounts = React.useMemo(
     () =>
       comps.reduce(
@@ -518,12 +531,34 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                       Suggested ARV (method: {suggestedArvMethod})
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span>
+                      <span className="flex items-center gap-2">
+                        {suggestedArvBasis === "ensemble_v1" ? (
+                          <Badge color="blue" className="text-[11px] uppercase tracking-wide">
+                            Ensemble
+                          </Badge>
+                        ) : null}
                         {suggestedArv != null ? fmt$(suggestedArv, 0) : "—"}{" "}
                         {arvRangeLow != null && arvRangeHigh != null
                           ? `(range ${fmt$(arvRangeLow, 0)} – ${fmt$(arvRangeHigh, 0)})`
                           : ""}
                       </span>
+                      {uncertaintyRangeLow != null && uncertaintyRangeHigh != null ? (
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          Uncertainty: {fmt$(uncertaintyRangeLow, 0)} – {fmt$(uncertaintyRangeHigh, 0)}{" "}
+                          {uncertaintyRangePct != null ? `(${fmtPercent(uncertaintyRangePct)})` : ""}
+                        </span>
+                      ) : null}
+                      {ensembleWeights ? (
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          weights: comps {fmtPercent((ensembleWeights as any).comps ?? null)} / avm{" "}
+                          {fmtPercent((ensembleWeights as any).avm ?? null)}
+                        </span>
+                      ) : null}
+                      {ensembleCapValue != null ? (
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          Ceiling: {fmt$(ensembleCapValue, 0)} {ensembleCapApplied ? "(applied)" : "(not applied)"}
+                        </span>
+                      ) : null}
                       <span className="rounded border border-white/10 px-2 py-1">
                         Comps: {suggestedArvCompKindUsed ?? "-"} ·{" "}
                         {suggestedArvCompCountUsed ?? 0} used

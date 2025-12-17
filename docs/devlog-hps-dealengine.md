@@ -965,6 +965,12 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Ledger/proof: valuationAdjustments adds informational concessions + applied condition line items. Proof `scripts/valuation/prove-comp-overrides.ps1` shows overrides change hashes and remain deterministic on repeat; baseline input_hash `568dd228dbb26a6541c2536b8e7f679b47e89b676511822086c103d43730114c`, override input_hash `a1ca1df01bbcbfea81d1f51eabc3820a59fb50b03d0ccc76349fe2dbb765cd5e`, Run2/Run3 output_hash equal True, run_hash equal True, policies restored and override row deleted. Coverage smoke: PASS (valuation_run.id `6a929802-f7fd-4bf3-a423-55883c4334bd`).
 - UI (5C): Admin Valuation QA page now surfaces Comp Overrides CRUD (caller JWT/RLS) for selected comps; Underwrite CompsPanel shows an Override badge when ledger contains manual_override concessions/condition. Docs updated to record proof/deploy evidence; Slice 5 marked ✅ after gates+proof+smoke.
 
+### 2025-12-16 21:30 ET - Slice 6 ensemble/uncertainty UI surfaces (read-only)
+
+- UI: Underwrite valuation summary now shows an Ensemble badge when basis=`ensemble_v1`, weights (comps/avm), ceiling value/applied flag, and uncertainty range (low/high + pct) when present. Admin Valuation QA adds an “Ensemble & Uncertainty” panel for the selected run (basis, version, weights, comp/avm estimates, cap, uncertainty range/method); displays OFF badge when unset. No policy toggles in UI; caller JWT only.
+- Engine proof reused from Slice 6A: `scripts/valuation/prove-ensemble-uncertainty.ps1` PASS (Org=033ff93d..., Deal=f84bab8d..., Posture=base). Baseline input_hash `f36a52eb7cbd821f9a3e954d0c54308895b556e48385c904d2cd62c594b5edf9` → ensemble/uncertainty input_hash `47bca9f7aa0725705b00bcea3aac9106ed2e8dfd7eeb88606897014fd9ea1c06`; Run2/Run3 output_hash equal True; run_hash equal True; policies restored. Coverage smoke PASS. Edge already deployed (`supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`).
+- Build note: `pnpm -w build` still blocked on Windows `.next/trace` access-denied; typecheck/test are green.
+
 ### 2025-12-06 - Glossary-driven tooltips v1 + guardrails
 
 - **Context:** UX polish slice for v1 — make all non-obvious policy/engine terms explainable in‑app without bloating the UI, and lock the rules so future agents don’t re‑invent tooltip patterns.
