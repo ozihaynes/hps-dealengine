@@ -62,6 +62,7 @@ type GroundTruthForm = {
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 2 });
+const postureOptions = ["base", "conservative", "aggressive"] as const;
 
 export default function ValuationQaPage() {
   const supabase = getSupabaseClient();
@@ -78,7 +79,7 @@ export default function ValuationQaPage() {
   const [overrides, setOverrides] = useState<Record<string, CompOverrideRow>>({});
   const [overrideInputs, setOverrideInputs] = useState<Record<string, OverrideInputs>>({});
   const [generateDatasetName, setGenerateDatasetName] = useState("ground_truth_v1");
-  const [generatePosture, setGeneratePosture] = useState("underwrite");
+  const [generatePosture, setGeneratePosture] = useState<(typeof postureOptions)[number]>("base");
   const [generateLimit, setGenerateLimit] = useState<number>(50);
   const [generateForce, setGenerateForce] = useState(false);
   const [generatingEvalRun, setGeneratingEvalRun] = useState(false);
@@ -199,7 +200,7 @@ export default function ValuationQaPage() {
     setGeneratingEvalRun(true);
     setError(null);
     const dataset = (generateDatasetName || "ground_truth_v1").trim();
-    const posture = (generatePosture || "underwrite").trim();
+    const posture = postureOptions.find((p) => p === generatePosture) ?? "base";
     const limit = Number.isFinite(generateLimit) ? Math.max(1, Math.min(200, generateLimit)) : 50;
     const { data, error: fnError } = await supabase.functions.invoke("v1-valuation-eval-run", {
       body: {
@@ -606,12 +607,20 @@ export default function ValuationQaPage() {
               value={generateDatasetName}
               onChange={(e) => setGenerateDatasetName(e.target.value)}
             />
-            <InputField
-              label="Posture"
-              value={generatePosture}
-              onChange={(e) => setGeneratePosture(e.target.value)}
-              placeholder="underwrite/base"
-            />
+            <div className="flex flex-col gap-1 text-sm text-text-secondary/80">
+              <label className="text-xs font-semibold text-text-secondary/80">Posture</label>
+              <select
+                value={generatePosture}
+                onChange={(e) => setGeneratePosture(e.target.value as (typeof postureOptions)[number])}
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-text-primary outline-none focus:border-[color:var(--accent-color)]"
+              >
+                {postureOptions.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
           <InputField
             label="Limit"
             type="number"

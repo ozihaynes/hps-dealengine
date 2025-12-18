@@ -51,6 +51,59 @@ const canonicalizePropertyType = (value: unknown): string | null => {
   return normalized.length > 0 ? normalized : null;
 };
 
+const normalizeToken = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) return null;
+  return trimmed.replace(/[^a-z0-9]/g, "");
+};
+
+const normalizeAddressKey = (
+  address: string | null | undefined,
+  city: string | null | undefined,
+  state: string | null | undefined,
+  postal: string | null | undefined,
+): string | null => {
+  const parts = [
+    normalizeToken(address),
+    normalizeToken(city),
+    normalizeToken(state),
+    normalizeToken(postal),
+  ].filter((p): p is string => !!p);
+  return parts.length > 0 ? parts.join("|") : null;
+};
+
+const compAddressKey = (comp: any): string | null => {
+  const addresses = [
+    comp?.address,
+    comp?.address_line1,
+    comp?.addressLine1,
+    comp?.formattedAddress,
+    comp?.street,
+    comp?.street_address,
+  ];
+  const city = comp?.city ?? comp?.city_name ?? comp?.locality ?? comp?.municipality ?? null;
+  const state = comp?.state ?? comp?.state_code ?? comp?.region ?? comp?.region_code ?? null;
+  const postal =
+    comp?.postal_code ??
+    comp?.zip ??
+    comp?.zip_code ??
+    comp?.zipCode ??
+    comp?.postalCode ??
+    comp?.postal_code_5 ??
+    null;
+  for (const addr of addresses) {
+    const key = normalizeAddressKey(typeof addr === "string" ? addr : null, city, state, postal);
+    if (key) return key;
+  }
+  return null;
+};
+
+const compFingerprint = (comp: any): string | null => {
+  const fp = comp?.address_fingerprint ?? comp?.fingerprint ?? comp?.property_fingerprint ?? null;
+  return typeof fp === "string" && fp.trim().length > 0 ? fp.trim().toLowerCase() : null;
+};
+
 serve(async (req: Request): Promise<Response> => {
   const preflight = handleOptions(req);
   if (preflight) return preflight;
@@ -177,7 +230,28 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     const rawComps = Array.isArray(snapshot.comps) ? snapshot.comps : [];
-    const sortedComps = sortCompsDeterministic(rawComps as any[]);
+    const subjectAddressKeys = new Set<string>();
+    const subjectFingerprints = new Set<string>();
+    const subjectDealKey = normalizeAddressKey(deal.address, deal.city, deal.state, deal.zip);
+    if (subjectDealKey) subjectAddressKeys.add(subjectDealKey);
+    if (fingerprint) subjectFingerprints.add(fingerprint.toLowerCase());
+
+    let subjectCompExclusions = 0;
+    const filteredRawComps = rawComps.filter((comp: any) => {
+      const compFp = compFingerprint(comp);
+      if (compFp && subjectFingerprints.has(compFp)) {
+        subjectCompExclusions += 1;
+        return false;
+      }
+      const compKey = compAddressKey(comp);
+      if (compKey && subjectAddressKeys.has(compKey)) {
+        subjectCompExclusions += 1;
+        return false;
+      }
+      return true;
+    });
+
+    const sortedComps = sortCompsDeterministic(filteredRawComps as any[]);
     const subjectResolved = (snapshot.raw as any)?.subject_property_resolved ?? null;
 
     const concessionsConfig = (valuationPolicy as any)?.concessions ?? {};
@@ -386,6 +460,9 @@ serve(async (req: Request): Promise<Response> => {
     if ((snapshot.raw as any)?.closed_sales_fetch_failed) {
       warningCodes.push("closed_sales_fetch_failed");
     }
+    if (subjectCompExclusions > 0) {
+      warningCodes.push("subject_comp_excluded");
+    }
     const warningCodesSorted = Array.from(new Set(warningCodes)).sort();
 
     const avmPrice = (snapshot.market as any)?.avm_price ?? null;
@@ -486,6 +563,7 @@ serve(async (req: Request): Promise<Response> => {
         stages: ladderStages,
         stop_reason: ladderRaw?.stop_reason ?? null,
       },
+      subject_comp_exclusions: subjectCompExclusions,
       input_counts: {
         closed_sale_total: closedSaleTotal,
         closed_sale_priced: closedPriced,

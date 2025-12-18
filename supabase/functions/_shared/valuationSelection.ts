@@ -100,6 +100,12 @@ const canonicalizePropertyType = (value: unknown): string | null => {
   return normalized.length > 0 ? normalized : null;
 };
 
+const propertyTypeGroup = (canonical: string | null): string | null => {
+  if (!canonical) return null;
+  if (["singlefamily", "townhouse", "townhome"].includes(canonical)) return "sfr_townhome";
+  return null;
+};
+
 const nearestRankQuantile = (values: number[], p: number): number | null => {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -266,16 +272,29 @@ export function runValuationSelection<T extends BasicComp>(opts: {
   missingSubjectFlags.sort();
 
   const exclusionCounts: Record<string, number> = {};
+  const propertyTypeGroupMatchCounts: Record<string, number> = {};
   const scored: ScoredComp<T>[] = opts.comps.map((comp) => {
     const resolved_id = resolveId(comp);
     let excluded: string | null = null;
+    let propertyTypeGroupMatched: string | null = null;
 
     const subjPropertyType = canonicalizePropertyType(opts.subject.property_type);
     const compPropertyType = canonicalizePropertyType((comp as any)?.propertyType ?? (comp as any)?.property_type ?? null);
     if (!excluded && filters.require_property_type_match && subjPropertyType && compPropertyType) {
       if (subjPropertyType !== compPropertyType) {
-        excluded = "property_type_mismatch";
+        const subjGroup = propertyTypeGroup(subjPropertyType);
+        const compGroup = propertyTypeGroup(compPropertyType);
+        if (subjGroup && compGroup && subjGroup === compGroup) {
+          propertyTypeGroupMatched = subjGroup;
+        } else {
+          excluded = "property_type_mismatch";
+        }
       }
+    }
+
+    if (propertyTypeGroupMatched) {
+      propertyTypeGroupMatchCounts[propertyTypeGroupMatched] =
+        (propertyTypeGroupMatchCounts[propertyTypeGroupMatched] ?? 0) + 1;
     }
 
     const subjSqft = safeNumber(opts.subject.sqft);
@@ -338,6 +357,11 @@ export function runValuationSelection<T extends BasicComp>(opts: {
 
   const warning_codes: string[] = [...missingSubjectFlags];
   let failsoftApplied = false;
+  for (const [group, count] of Object.entries(propertyTypeGroupMatchCounts)) {
+    if (count > 0) {
+      warning_codes.push(`property_type_group_match_${group}`);
+    }
+  }
 
   if (outlierCfg.enabled && ppsfSamples.length >= Number(outlierCfg.min_samples ?? 0)) {
     const q1 = nearestRankQuantile(ppsfSamples, 0.25);
@@ -449,6 +473,12 @@ export function runValuationSelection<T extends BasicComp>(opts: {
       after_filters: passedFilters.length,
       after_outliers: filteredAfterOutliers.length,
     },
+    property_type_group_matches:
+      Object.keys(propertyTypeGroupMatchCounts).length > 0
+        ? Object.fromEntries(
+            Object.entries(propertyTypeGroupMatchCounts).sort((a, b) => a[0].localeCompare(b[0])),
+          )
+        : null,
     filters: {
       reasons_count: Object.fromEntries(Object.entries(exclusionCounts).sort((a, b) => a[0].localeCompare(b[0]))),
       missing_subject: missingSubjectFlags,

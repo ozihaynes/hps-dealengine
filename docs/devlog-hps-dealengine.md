@@ -84,6 +84,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-18 - Slice 7 calibration loop closed (eval + sweep + proofs)
+- Fixes: comp selection now excludes the subject property, townhouse/singlefamily are treated as one compatibility group with warning code `property_type_group_match_sfr_townhome`, and eval posture normalizes `underwrite` -> `base`.
+- Proofs: `prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall≈0.3636`.
+- Sweep: `v1-valuation-ensemble-sweep` on that eval run scored 11/11; best_by_mae/best_by_mape both at `avm_weight=0` (`mae≈85091.95`, `mape≈0.1422`); diagnostics all zero for missing cases.
+- Scripts committed: RentCast ground-truth seeder (caller-JWT only), self-comp exclusion proof, failsoft townhouse/SFR proof, eval inspector. Functions re-deployed: `v1-valuation-run`, `v1-valuation-eval-run`, `v1-valuation-ensemble-sweep` to zjkihnihhqmnhpxkecpy. Gates re-run: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w clean:next`, `pnpm -w build`.
+
 ### 2025-12-16 16:20 ET - Slice 4 proof hardened (time + sqft ledger) and redeployed
 - `_shared/valuationAdjustments.ts` now always emits `time` and `sqft` ledger lines (applied or skipped) with explicit skip reasons/notes; sqft entry reflects basis selection (ppsf_subject vs time_adjusted_price). Feature adjustments remain policy-driven and can skip when unit_value is 0.
 - Proof script `scripts/valuation/prove-adjustments-ledger.ps1` hardened: verifies policy patch by id (no policy_versions), asserts `suggested_arv_basis=adjusted_v1_2`, `adjustments_version=selection_v1_2`, selected comps present, and time+sqft ledger lines exist (fails otherwise). Policies are backed up/restored; uses `policy@hps.test.local` (role=vp) to satisfy RLS update on `policies`.

@@ -56,6 +56,7 @@ type EvalCase = {
 };
 
 const MANAGER_ROLES = ["owner", "vp", "manager"];
+const VALID_POSTURES = ["conservative", "base", "aggressive"];
 
 const safeNumber = (value: unknown): number | null => {
   if (value === null || value === undefined) return null;
@@ -70,19 +71,35 @@ const average = (vals: number[]): number | null => {
   return sum / vals.length;
 };
 
+const Coalesce = <T>(value: T | null | undefined, fallback: T | null | undefined): T | null => {
+  return value ?? fallback ?? null;
+};
+
+const normalizePosture = (value: string | null | undefined): string | null => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "underwrite") return "base";
+  if (VALID_POSTURES.includes(normalized)) return normalized;
+  return null;
+};
+
 function pickValuationRun(
   dealId: string,
   preferredRunId: string | null,
   runsByDeal: Map<string, ValuationRunRow[]>,
   posture: string | null,
+  postureFallback?: string | null,
 ): ValuationRunRow | null {
   const runs = runsByDeal.get(dealId) ?? [];
   if (preferredRunId) {
     const exact = runs.find((r) => r.id === preferredRunId);
     if (exact) return exact;
   }
-  if (posture) {
-    const byPosture = runs.find((r) => (r.posture ?? "") === posture);
+  const postureCandidates = posture
+    ? [posture, ...(postureFallback && postureFallback !== posture ? [postureFallback] : [])]
+    : [];
+  for (const candidate of postureCandidates) {
+    const byPosture = runs.find((r) => (r.posture ?? "") === candidate);
     if (byPosture) return byPosture;
   }
   return runs.length > 0 ? runs[0] : null;
@@ -120,7 +137,20 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const datasetName = (body.dataset_name ?? "ground_truth_v1").trim() || "ground_truth_v1";
-  const posture = (body.posture ?? "underwrite").trim() || "underwrite";
+  const postureInput = (body.posture ?? "underwrite").toString();
+  const posture = normalizePosture(postureInput);
+  if (!posture) {
+    return jsonResponse(
+      req,
+      {
+        ok: false,
+        error: "invalid_posture",
+        message: `posture must be one of: ${VALID_POSTURES.join(", ")}`,
+      },
+      400,
+    );
+  }
+  const postureFallback = posture === "base" ? "underwrite" : null;
   const limitRaw = safeNumber(body.limit);
   const limit = limitRaw != null ? Math.max(1, Math.min(200, Math.floor(limitRaw))) : 50;
   const requestedOrgId = body.org_id?.trim() || null;
@@ -279,7 +309,7 @@ serve(async (req: Request): Promise<Response> => {
         const preferredRunId =
           (deal as any)?.payload?.market?.arv_valuation_run_id?.toString?.() ??
           null;
-        const run = pickValuationRun(gt.deal_id, preferredRunId, runsByDeal, posture);
+        const run = pickValuationRun(gt.deal_id, preferredRunId, runsByDeal, posture, postureFallback);
         const output = (run as any)?.output ?? {};
         const predicted = safeNumber((output as any)?.suggested_arv);
         const realized = safeNumber(gt.realized_price);
