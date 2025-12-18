@@ -225,7 +225,8 @@ serve(async (req: Request): Promise<Response> => {
         const output = (run as any)?.output ?? {};
         const compEst = safeNumber((output as any)?.ensemble_comp_estimate);
         const avmEstRaw = safeNumber((output as any)?.ensemble_avm_estimate);
-        const avmEst = avmEstRaw ?? compEst;
+        const avmReference = safeNumber((output as any)?.avm_reference_price);
+        const avmEst = avmEstRaw ?? avmReference ?? compEst;
         const capVal = safeNumber((output as any)?.ensemble_cap_value);
         if (compEst == null || avmEst == null) continue;
 

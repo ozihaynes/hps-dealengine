@@ -269,6 +269,15 @@ export default function ValuationQaPage() {
     return evalRuns[0];
   }, [evalRuns, selectedRunId]);
 
+  const inRangeRateDisplay = useMemo(() => {
+    if (!selectedRun?.metrics) return "-";
+    const rate = selectedRun.metrics.in_range_rate_overall;
+    if (rate == null) return "-";
+    const source = selectedRun.metrics.range_source_overall;
+    const label = source === "uncertainty" ? "uncertainty" : source === "selection" ? "selection" : null;
+    return `${percent.format(rate)}${label ? ` (${label})` : ""}`;
+  }, [selectedRun]);
+
   const selectedValuationRun = useMemo(() => {
     if (!valuationRuns.length) return null;
     if (selectedValuationRunId) {
@@ -673,7 +682,7 @@ export default function ValuationQaPage() {
                 <div>Posture: <span className="text-text-primary">{selectedRun.posture ?? "-"}</span></div>
                 <div>MAE: <span className="text-text-primary">{selectedRun.metrics?.mae ? currency.format(selectedRun.metrics.mae) : "-"}</span></div>
                 <div>MAPE: <span className="text-text-primary">{selectedRun.metrics?.mape ? percent.format(selectedRun.metrics.mape) : "-"}</span></div>
-                <div>In-range rate: <span className="text-text-primary">{selectedRun.metrics?.in_range_rate_overall != null ? percent.format(selectedRun.metrics.in_range_rate_overall) : "-"}</span></div>
+                <div>In-range rate: <span className="text-text-primary">{inRangeRateDisplay}</span></div>
                 <div>Cases: <span className="text-text-primary">{selectedRun.metrics?.count_with_ground_truth ?? 0} / {selectedRun.metrics?.count_total ?? 0}</span></div>
                 <div>input_hash: <span className="text-text-primary">{(selectedRun as any)?.params?.input_hash ?? "-"}</span></div>
               </div>

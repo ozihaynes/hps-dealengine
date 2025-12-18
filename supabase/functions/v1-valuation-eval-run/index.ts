@@ -46,6 +46,10 @@ type EvalCase = {
   confidence_grade: string | null;
   comp_kind_used: string | null;
   in_range: boolean | null;
+  range_source: "uncertainty" | "selection" | null;
+  range_low: number | null;
+  range_high: number | null;
+  range_pct: number | null;
   uncertainty_range_low: number | null;
   uncertainty_range_high: number | null;
   uncertainty_range_pct: number | null;
@@ -285,8 +289,28 @@ serve(async (req: Request): Promise<Response> => {
         const uncLow = safeNumber((output as any)?.uncertainty_range_low);
         const uncHigh = safeNumber((output as any)?.uncertainty_range_high);
         const uncPct = safeNumber((output as any)?.uncertainty_range_pct);
-        const hasRange = uncLow != null && uncHigh != null && realized != null;
-        const inRange = hasRange ? realized! >= uncLow! && realized! <= uncHigh! : null;
+        const selLow = Coalesce(
+          safeNumber((output as any)?.suggested_arv_range_low),
+          safeNumber((output as any)?.arv_range_low),
+        );
+        const selHigh = Coalesce(
+          safeNumber((output as any)?.suggested_arv_range_high),
+          safeNumber((output as any)?.arv_range_high),
+        );
+        const rangeSource: "uncertainty" | "selection" | null =
+          uncLow != null && uncHigh != null
+            ? "uncertainty"
+            : selLow != null && selHigh != null
+              ? "selection"
+              : null;
+        const rangeLow = rangeSource === "uncertainty" ? uncLow : rangeSource === "selection" ? selLow : null;
+        const rangeHigh = rangeSource === "uncertainty" ? uncHigh : rangeSource === "selection" ? selHigh : null;
+        const hasRange = rangeLow != null && rangeHigh != null && realized != null;
+        const inRange = hasRange ? realized! >= rangeLow! && realized! <= rangeHigh! : null;
+        const rangePct =
+          rangeLow != null && rangeHigh != null && predicted != null && predicted !== 0
+            ? Math.abs(rangeHigh - rangeLow) / Math.abs(predicted)
+            : null;
         const confidenceGrade =
           (output as any)?.valuation_confidence ??
           (output as any)?.confidence_details?.grade ??
@@ -303,6 +327,10 @@ serve(async (req: Request): Promise<Response> => {
           confidence_grade: confidenceGrade,
           comp_kind_used: compKindUsed,
           in_range: inRange,
+          range_source: rangeSource,
+          range_low: rangeLow,
+          range_high: rangeHigh,
+          range_pct: rangePct,
           uncertainty_range_low: uncLow,
           uncertainty_range_high: uncHigh,
           uncertainty_range_pct: uncPct,
@@ -332,9 +360,14 @@ serve(async (req: Request): Promise<Response> => {
     const inRangeRate = inRangeDen > 0 ? inRangeNum / inRangeDen : null;
     const meanRangePct = average(
       cases
-        .map((c) => c.uncertainty_range_pct)
+        .map((c) => c.range_pct)
         .filter((v): v is number => v != null),
     );
+    const rangeSourceOverall = (() => {
+      if (cases.some((c) => c.range_source === "uncertainty")) return "uncertainty";
+      if (cases.some((c) => c.range_source === "selection")) return "selection";
+      return null;
+    })();
 
     const byConfidence: Record<string, unknown> = {};
     const grouped = new Map<string, EvalCase[]>();
@@ -354,7 +387,7 @@ serve(async (req: Request): Promise<Response> => {
       const inRangeCount = list.filter((c) => c.in_range !== null).length;
       const inRangeTrue = list.filter((c) => c.in_range === true).length;
       const rangePctList = list
-        .map((c) => c.uncertainty_range_pct)
+        .map((c) => c.range_pct)
         .filter((v): v is number => v != null);
       byConfidence[grade] = {
         count: list.length,
@@ -373,6 +406,7 @@ serve(async (req: Request): Promise<Response> => {
       mae,
       mape,
       in_range_rate_overall: inRangeRate,
+      range_source_overall: rangeSourceOverall,
       mean_range_pct: meanRangePct,
       by_confidence: byConfidence,
       cases,
