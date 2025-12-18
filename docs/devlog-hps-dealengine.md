@@ -1,7 +1,7 @@
 # HPS DealEngine - Devlog
 
-Lightweight running log of whats actually been done and whats next.  
-This is the **"what changed, when, and whats the next move?"** companion to:
+Lightweight running log of what's actually been done and what's next.  
+This is the **"what changed, when, and what's the next move?"** companion to:
 
 - `docs/primer-hps-dealengine.md` - stable architecture + non-negotiables.
 - `docs/roadmap-v1-v2-v3.md` - roadmap, phases, and sprint framing.
@@ -23,7 +23,7 @@ When something significant ships, changes direction, or gets blocked, add a date
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-13)
+## 0.1 Current Status Snapshot (as of 2025-12-18)
 
 **V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
@@ -56,7 +56,8 @@ When something significant ships, changes direction, or gets blocked, add a date
   - Tri-agent UI (Analyst/Strategist/Negotiator) is live with Supabase chat history + run freshness gating; client calls hit `/api/agents/*` with caller JWT (no service_role).
   - @hps/agents package backs the routes; `agent_runs` table logs persona/agent/workflow_version/model/input/output/error/tokens under memberships-scoped RLS.
   - HPS MCP server exists (stdio + Streamable HTTP); tools include deal/run/evidence loaders, negotiation matcher, KPI/risk aggregations, sandbox fetch, and KB search; HTTP auth via `HPS_MCP_HTTP_TOKEN` env.
-  - Known blocker: Negotiator “Generate playbook” can hit provider rate limits (429) on the OpenAI responses endpoint; UI surfaces a rate-limit message when triggered.
+  - Known blocker: Negotiator "Generate playbook" can hit provider rate limits (429) on the OpenAI responses endpoint; UI surfaces a rate-limit message when triggered.
+- **Calibration loop (Slice 7)**: `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall~0.3636`; ensemble sweep best at `avm_weight=0` (`MAE~85091.95`, `MAPE~0.1422`) so ensemble stays OFF by default.
 
 ---
 
@@ -86,8 +87,8 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ### 2025-12-18 - Slice 7 calibration loop closed (eval + sweep + proofs)
 - Fixes: comp selection now excludes the subject property, townhouse/singlefamily are treated as one compatibility group with warning code `property_type_group_match_sfr_townhome`, and eval posture normalizes `underwrite` -> `base`.
-- Proofs: `prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall≈0.3636`.
-- Sweep: `v1-valuation-ensemble-sweep` on that eval run scored 11/11; best_by_mae/best_by_mape both at `avm_weight=0` (`mae≈85091.95`, `mape≈0.1422`); diagnostics all zero for missing cases.
+- Proofs: `prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall~0.3636`.
+- Sweep: `v1-valuation-ensemble-sweep` on that eval run scored 11/11; best_by_mae/best_by_mape both at `avm_weight=0` (`mae~85091.95`, `mape~0.1422`); diagnostics all zero for missing cases.
 - Scripts committed: RentCast ground-truth seeder (caller-JWT only), self-comp exclusion proof, failsoft townhouse/SFR proof, eval inspector. Functions re-deployed: `v1-valuation-run`, `v1-valuation-eval-run`, `v1-valuation-ensemble-sweep` to zjkihnihhqmnhpxkecpy. Gates re-run: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w clean:next`, `pnpm -w build`.
 
 ### 2025-12-16 16:20 ET - Slice 4 proof hardened (time + sqft ledger) and redeployed
@@ -106,7 +107,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ### 2025-12-30 - Closed-sale comps raw coverage + smoke verifier
 - Policy guardrail: active policies/policy_versions backfilled with closed-sales valuation tokens when missing; valuation snapshots now always persist subject_property, closed_sales (primary + stepout + attempted flag), AVM request/response, and market request/response even when providers error out.
-- Smoke check: `scripts/valuation/coverage-smoke.ps1 -DealId <GUID> -SupabaseAccessToken <JWT>` forces a valuation run, prints comp counts + raw flags, and exits non-zero if `raw.closed_sales` is absent.
+- Smoke check: `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea -SupabaseAccessToken $env:SUPABASE_ACCESS_TOKEN` forces a valuation run, prints comp counts + raw flags, and exits non-zero if `raw.closed_sales` is absent.
 - Deploy (PowerShell):
   ```powershell
   supabase db push --project-ref zjkihnihhqmnhpxkecpy
@@ -465,7 +466,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
       - Sprint 4: AI Strategist.
 
 - Clarified usage of this devlog:
-  - This file is now explicitly the **"what changed / whats next"** stream for humans and agents.
+  - This file is now explicitly the **"what changed / what's next"** stream for humans and agents.
   - Primer + Roadmap are the stable reference; Devlog is allowed to be "live" and updated frequently.
 
 **Status after this day:**
