@@ -216,27 +216,59 @@ serve(async (req: Request): Promise<Response> => {
       return a.deal_id.localeCompare(b.deal_id);
     });
 
+    let casesMissingRunId = 0;
+    let casesMissingRunRow = 0;
+    let casesMissingCompEstimate = 0;
+    let casesMissingRealized = 0;
+    let casesScored = 0;
+
+    const computedCases = sortedCases.map((c) => {
+      if (!c.valuation_run_id) {
+        casesMissingRunId += 1;
+        return { skip: true };
+      }
+      const run = runsById.get(c.valuation_run_id);
+      if (!run) {
+        casesMissingRunRow += 1;
+        return { skip: true };
+      }
+      const output = (run as any)?.output ?? {};
+      const compEst = safeNumber((output as any)?.ensemble_comp_estimate) ?? safeNumber((output as any)?.suggested_arv);
+      let avmEst =
+        safeNumber((output as any)?.ensemble_avm_estimate) ??
+        safeNumber((output as any)?.avm_reference_price) ??
+        null;
+      if (avmEst == null && compEst != null) {
+        avmEst = compEst;
+      }
+      if (compEst == null && avmEst == null) {
+        casesMissingCompEstimate += 1;
+      }
+      const capVal = safeNumber((output as any)?.ensemble_cap_value);
+      const realized = safeNumber(c.realized_price);
+      if (realized == null) {
+        casesMissingRealized += 1;
+      }
+      const usable = compEst != null && avmEst != null && realized != null;
+      if (usable) {
+        casesScored += 1;
+      }
+      return { compEst, avmEst, capVal, realized, usable };
+    });
+
     const results = weights.map((w) => {
       const absErrors: number[] = [];
       const pctErrors: number[] = [];
 
-      for (const c of sortedCases) {
-        const run = c.valuation_run_id ? runsById.get(c.valuation_run_id) : null;
-        const output = (run as any)?.output ?? {};
-        const compEst = safeNumber((output as any)?.ensemble_comp_estimate);
-        const avmEstRaw = safeNumber((output as any)?.ensemble_avm_estimate);
-        const avmReference = safeNumber((output as any)?.avm_reference_price);
-        const avmEst = avmEstRaw ?? avmReference ?? compEst;
-        const capVal = safeNumber((output as any)?.ensemble_cap_value);
-        if (compEst == null || avmEst == null) continue;
+      for (const computed of computedCases) {
+        if (!computed.usable) continue;
 
-        let predicted = (1 - w) * compEst + w * avmEst;
-        if (applyCap && capVal != null) {
-          predicted = Math.min(predicted, capVal);
+        let predicted = (1 - w) * computed.compEst! + w * computed.avmEst!;
+        if (applyCap && computed.capVal != null) {
+          predicted = Math.min(predicted, computed.capVal);
         }
 
-        const realized = safeNumber(c.realized_price);
-        if (realized == null) continue;
+        const realized = computed.realized!;
         const absErr = Math.abs(predicted - realized);
         const denom = Math.abs(realized);
         absErrors.push(absErr);
@@ -270,6 +302,14 @@ serve(async (req: Request): Promise<Response> => {
         results,
         best_by_mae: bestByMae,
         best_by_mape: bestByMape,
+        diagnostics: {
+          cases_total: sortedCases.length,
+          cases_missing_run_id: casesMissingRunId,
+          cases_missing_run_row: casesMissingRunRow,
+          cases_missing_comp_estimate: casesMissingCompEstimate,
+          cases_missing_realized: casesMissingRealized,
+          cases_scored: casesScored,
+        },
       },
       200,
     );

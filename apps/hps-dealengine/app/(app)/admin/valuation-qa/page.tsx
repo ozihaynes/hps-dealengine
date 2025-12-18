@@ -91,6 +91,7 @@ export default function ValuationQaPage() {
   const [sweepBestMape, setSweepBestMape] = useState<any | null>(null);
   const [sweepLoading, setSweepLoading] = useState(false);
   const [sweepError, setSweepError] = useState<string | null>(null);
+  const [sweepDiagnostics, setSweepDiagnostics] = useState<any | null>(null);
   const router = useRouter();
 
   const [form, setForm] = useState<GroundTruthForm>({
@@ -384,6 +385,7 @@ export default function ValuationQaPage() {
     setSweepResults(null);
     setSweepBestMae(null);
     setSweepBestMape(null);
+    setSweepDiagnostics(null);
     const stepVal = Number.isFinite(sweepStep) ? sweepStep : 0.05;
     const { data, error: fnError } = await supabase.functions.invoke("v1-valuation-ensemble-sweep", {
       body: {
@@ -416,6 +418,7 @@ export default function ValuationQaPage() {
     setSweepResults((data as any)?.results ?? null);
     setSweepBestMae((data as any)?.best_by_mae ?? null);
     setSweepBestMape((data as any)?.best_by_mape ?? null);
+    setSweepDiagnostics((data as any)?.diagnostics ?? null);
     setSweepLoading(false);
   }, [selectedRun, orgId, sweepStep, sweepApplyCap, supabase]);
 
@@ -719,36 +722,47 @@ export default function ValuationQaPage() {
                   <div className="text-xs text-red-300">{sweepError}</div>
                 ) : null}
                 {sweepResults && Array.isArray(sweepResults) && sweepResults.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-xs">
-                      <thead>
-                        <tr className="text-left text-text-secondary/70">
-                          <th className="px-2 py-1">AVM weight</th>
-                          <th className="px-2 py-1">MAE</th>
-                          <th className="px-2 py-1">MAPE</th>
-                          <th className="px-2 py-1">Count</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {sweepResults.map((row: any) => {
-                          const bestMaeWeight = (sweepBestMae as any)?.avm_weight;
-                          const bestMapeWeight = (sweepBestMape as any)?.avm_weight;
-                          const highlight = row.avm_weight === bestMaeWeight || row.avm_weight === bestMapeWeight;
-                          return (
-                            <tr key={row.avm_weight} className={highlight ? "bg-[color:var(--accent-color)]/10" : ""}>
-                              <td className="px-2 py-1 text-text-primary">{row.avm_weight}</td>
-                              <td className="px-2 py-1 text-text-secondary/80">
-                                {row.mae != null ? currency.format(row.mae) : "-"}
-                              </td>
-                              <td className="px-2 py-1 text-text-secondary/80">
-                                {row.mape != null ? percent.format(row.mape) : "-"}
-                              </td>
-                              <td className="px-2 py-1 text-text-secondary/80">{row.count ?? 0}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                  <div className="space-y-2">
+                    {sweepDiagnostics ? (
+                      <div className="text-xs text-text-secondary/70">
+                        Scored {sweepDiagnostics.cases_scored ?? 0} / {sweepDiagnostics.cases_total ?? 0}
+                        {` (missing compEst ${sweepDiagnostics.cases_missing_comp_estimate ?? 0}, `}
+                        {`missing realized ${sweepDiagnostics.cases_missing_realized ?? 0}, `}
+                        {`missing run_id ${sweepDiagnostics.cases_missing_run_id ?? 0}, `}
+                        {`missing run_row ${sweepDiagnostics.cases_missing_run_row ?? 0})`}
+                      </div>
+                    ) : null}
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-text-secondary/70">
+                            <th className="px-2 py-1">AVM weight</th>
+                            <th className="px-2 py-1">MAE</th>
+                            <th className="px-2 py-1">MAPE</th>
+                            <th className="px-2 py-1">Count</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                          {sweepResults.map((row: any) => {
+                            const bestMaeWeight = (sweepBestMae as any)?.avm_weight;
+                            const bestMapeWeight = (sweepBestMape as any)?.avm_weight;
+                            const highlight = row.avm_weight === bestMaeWeight || row.avm_weight === bestMapeWeight;
+                            return (
+                              <tr key={row.avm_weight} className={highlight ? "bg-[color:var(--accent-color)]/10" : ""}>
+                                <td className="px-2 py-1 text-text-primary">{row.avm_weight}</td>
+                                <td className="px-2 py-1 text-text-secondary/80">
+                                  {row.mae != null ? currency.format(row.mae) : "-"}
+                                </td>
+                                <td className="px-2 py-1 text-text-secondary/80">
+                                  {row.mape != null ? percent.format(row.mape) : "-"}
+                                </td>
+                                <td className="px-2 py-1 text-text-secondary/80">{row.count ?? 0}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ) : null}
               </div>
