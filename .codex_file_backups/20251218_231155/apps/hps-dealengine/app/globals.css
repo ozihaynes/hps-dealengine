@@ -17,24 +17,6 @@
   --text-secondary: #9fb3c8;
   --text-muted: rgba(159, 179, 200, 0.7);
 
-  /* AI window surfaces (solid, non-translucent) */
-  --ai-window-bg: #000f22;
-  --ai-window-surface: #051a33;
-  --ai-window-surface-2: #072044;
-  --ai-window-border: rgba(0, 127, 224, 0.28);
-  --ai-window-border-strong: rgba(0, 150, 255, 0.55);
-  --ai-window-divider: rgba(0, 127, 224, 0.18);
-  --ai-window-focus-ring: rgba(0, 150, 255, 0.22);
-
-  --ai-message-assistant-bg: #051a33;
-  --ai-message-assistant-border: rgba(0, 127, 224, 0.18);
-  --ai-message-user-bg: #07264e;
-  --ai-message-user-border: rgba(0, 150, 255, 0.28);
-
-  --ai-input-bg: #04162e;
-  --ai-input-border: rgba(0, 127, 224, 0.22);
-  --ai-input-border-focus: rgba(0, 150, 255, 0.55);
-
   /* Prototype-aligned tokens pulled from .tmp/ui-v2 */
   --brand-navy: #0b1a2b;
   --brand-blue: #007fe0;
@@ -1927,9 +1909,6 @@ input.input-base[type="number"] {
 .ai-window-animate-in { animation: ai-window-in 180ms var(--ease-out) forwards; }
 .ai-window-animate-out { animation: ai-window-out 140ms var(--ease-in) forwards; }
 
-.ai-window-animate-in,
-.ai-window-animate-out { will-change: transform, opacity; }
-
 @keyframes ai-window-in {
   from { opacity: 0; transform: translateY(8px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
@@ -1940,11 +1919,9 @@ input.input-base[type="number"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-window-animate-in {
-    animation: fade-in 120ms ease-out forwards;
-  }
+  .ai-window-animate-in,
   .ai-window-animate-out {
-    animation: fade-out 120ms ease-in forwards;
+    animation: fade-in 120ms ease-out forwards;
   }
 }
 .animate-slide-in-up { animation: slide-in-up var(--duration-smooth) var(--ease-out) forwards; }

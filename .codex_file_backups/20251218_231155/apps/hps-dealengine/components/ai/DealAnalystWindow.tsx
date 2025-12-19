@@ -102,13 +102,13 @@ export function DealAnalystWindow() {
         className={isClosing ? "ai-window-animate-out" : "ai-window-animate-in"}
         header={
           <div ref={headerRef} className="relative">
-            <div className="de-ai-window-header flex items-center justify-between gap-3 border-b border-[color:var(--ai-window-divider)] px-3 py-3 text-xs font-semibold text-[color:var(--text-secondary)]">
+            <div className="de-ai-window-header flex items-center justify-between gap-3 border-b border-[color:var(--glass-border)] px-3 py-3 text-xs font-semibold text-[color:var(--text-secondary)]">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   aria-label="Open chat menu"
                   onClick={() => setMenuOpen((prev) => !prev)}
-                  className="flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface)] text-text-primary transition hover:border-[color:var(--ai-window-border-strong)]"
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-text-primary transition hover:border-[color:var(--accent-color)]"
                 >
                   <Menu size={16} />
                 </button>
@@ -124,7 +124,7 @@ export function DealAnalystWindow() {
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
                   onClick={() => dispatch({ type: "MINIMIZE_WINDOW", id: "dealAnalyst" })}
-                  className="flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] text-[10px]"
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--glass-border)] text-[10px]"
                 >
                   -
                 </button>
@@ -135,7 +135,7 @@ export function DealAnalystWindow() {
                   onMouseDown={(e) => e.stopPropagation()}
                   onTouchStart={(e) => e.stopPropagation()}
                   onClick={() => dispatch({ type: "CLOSE_WINDOW", id: "dealAnalyst" })}
-                  className="flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] text-[10px]"
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--glass-border)] text-[10px]"
                 >
                   x
                 </button>

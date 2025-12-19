@@ -208,9 +208,9 @@ export function DealAnalystPanel({
           tabIndex={0}
           onWheel={(e) => e.stopPropagation()}
           style={{ overscrollBehavior: "contain" }}
-          className={`group/message flex-1 min-h-[220px] space-y-3 rounded-xl border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface)] px-3 py-3 pr-2 transition ${
+          className={`group/message flex-1 min-h-[220px] space-y-3 rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)]/70 px-3 py-3 pr-2 transition ${
             hasMessages ? "overflow-y-auto" : "overflow-hidden"
-          } focus-within:border-[color:var(--ai-window-border-strong)] focus-within:ring-2 focus-within:ring-[color:var(--ai-window-focus-ring)] hover:border-[color:var(--ai-window-border)]`}
+          } focus-within:border-[color:var(--accent-color)]/70 hover:border-[color:var(--accent-color)]/60 hover:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent-color)_18%,transparent)]`}
         >
         {isStale && (
           <div
@@ -246,7 +246,9 @@ export function DealAnalystPanel({
                 <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
                   <div
                     className={`max-w-[90%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm leading-relaxed ${
-                      m.role === "assistant" ? "bg-[color:var(--ai-message-assistant-bg)] border border-[color:var(--ai-message-assistant-border)] text-text-primary" : "bg-[color:var(--ai-message-user-bg)] border border-[color:var(--ai-message-user-border)] text-text-primary"
+                      m.role === "assistant"
+                        ? "bg-white/5 text-text-primary"
+                        : "bg-accent-blue/20 text-text-primary"
                     }`}
                   >
                     <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
@@ -267,12 +269,12 @@ export function DealAnalystPanel({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-col gap-2 border-t border-[color:var(--ai-window-divider)] pt-3">
+      <div className="mt-2 flex flex-col gap-2 border-t border-[color:var(--glass-border)] pt-3">
         <div className="relative">
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            className="w-full min-h-[96px] rounded-md border border-[color:var(--ai-input-border)] bg-[color:var(--ai-input-bg)] p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-[color:var(--ai-input-border-focus)] focus:ring-2 focus:ring-[color:var(--ai-window-focus-ring)]"
+            className="w-full min-h-[96px] rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
             rows={4}
             placeholder={guidanceText}
             disabled={status === "noRun"}
@@ -289,7 +291,7 @@ export function DealAnalystPanel({
             type="button"
             onClick={() => onAsk(question)}
             disabled={loading || !canAsk}
-            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface-2)] text-text-primary shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-[color:var(--ai-window-border-strong)] hover:bg-[color:var(--ai-window-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ai-window-focus-ring)] ${
+            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-accent-blue/80 text-white shadow-lg backdrop-blur transition hover:bg-accent-blue ${
               loading || !canAsk ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title={status === "noRun" ? "Run Analyze first" : "Ask Deal Analyst"}

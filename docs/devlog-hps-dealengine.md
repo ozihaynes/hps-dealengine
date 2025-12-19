@@ -92,7 +92,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
   - Baseline (Slice 7): `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall=0.363636`, `MAE=85091.952784`, `MAPE=0.142222`.
   - selection_v1_3: `input_hash=92d41394075a9182d558c3ca18fe705afd0dda0c2639d13677e2fcb8ec86f0ab`, `eval_run_id=d4289655-7d3e-46f4-912a-5358250a0a94`, `ranges_present=11`, `in_range_rate_overall=0.272727`, `MAE=114383.116604`, `MAPE=0.190272`.
   - Deltas (v1_3 - baseline): `delta_in_range_rate=-0.090909`, `delta_MAE=+29291.163820`, `delta_MAPE=+0.048049`.
-- Decision: selection_v1_3 regressed on orlando_smoke_32828_sf_v2; do NOT promote. Default remains selection_v1_1; keep selection_v1_3 opt-in via policy for future datasets.
+- Decision: selection_v1_3 regressed on orlando_smoke_32828_sf_v2; do NOT promote. Default remains selection_v1_1; keep selection_v1_3 opt-in via policy and revisit on broader datasets.
 
 ### 2025-12-18 - Slice 7 calibration loop closed (eval + sweep + proofs)
 - Fixes: comp selection now excludes the subject property, townhouse/singlefamily are treated as one compatibility group with warning code `property_type_group_match_sfr_townhome`, and eval posture normalizes `underwrite` -> `base`.
