@@ -8,6 +8,14 @@ import AgentSessionHeader from "./AgentSessionHeader";
 import AgentChatMenu from "./AgentChatMenu";
 import { Menu } from "lucide-react";
 import AiWindowShell from "./AiWindowShell";
+import {
+  COMPACT_SCALE,
+  VIEWPORT_MARGIN_PX,
+  clampGeometryToViewport,
+  computeCompactGeometry,
+  type RndGeometry,
+  useIsMobileOrTablet,
+} from "./aiWindowViewport";
 
 export function DealStrategistWindow() {
   const { state, dispatch } = useAiWindows();
@@ -17,6 +25,8 @@ export function DealStrategistWindow() {
   const [renderWindow, setRenderWindow] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
   const closeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isMobileOrTablet = useIsMobileOrTablet();
+  const [compactGeom, setCompactGeom] = React.useState<RndGeometry | null>(null);
 
   React.useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -38,7 +48,67 @@ export function DealStrategistWindow() {
 
   const maxHeight = typeof window !== "undefined" ? Math.round(window.innerHeight * 0.85) : 900;
   const minHeight = 440;
+  const baseHeight = Math.min(maxHeight, Math.max(w.geometry.height ?? 520, minHeight));
+  const baseWidth = w.geometry.width;
   const isVisible = w.visibility === "open" && !!w.activeSessionId;
+  const viewportWidth = typeof window !== "undefined" ? window.innerWidth : baseWidth;
+  const viewportHeight = typeof window !== "undefined" ? window.innerHeight : baseHeight;
+  const scaledMinHeight = Math.round(minHeight * COMPACT_SCALE);
+  const effectiveMinHeight = isMobileOrTablet
+    ? Math.min(Math.max(scaledMinHeight, 200), Math.max(200, baseHeight))
+    : minHeight;
+  const effectiveMaxHeight = isMobileOrTablet
+    ? Math.round(Math.min(maxHeight, viewportHeight - VIEWPORT_MARGIN_PX * 2))
+    : maxHeight;
+
+  const ensureCompactGeometry = React.useCallback(() => {
+    if (!isMobileOrTablet || typeof window === "undefined") return null;
+    const geom = computeCompactGeometry({
+      baseWidth,
+      baseHeight,
+      baseX: w.geometry.x,
+      baseY: w.geometry.y,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    setCompactGeom(geom);
+    return geom;
+  }, [isMobileOrTablet, baseWidth, baseHeight, w.geometry.x, w.geometry.y]);
+
+  React.useEffect(() => {
+    if (isVisible && isMobileOrTablet) {
+      ensureCompactGeometry();
+    }
+  }, [ensureCompactGeometry, isMobileOrTablet, isVisible]);
+
+  React.useEffect(() => {
+    if (!isMobileOrTablet) {
+      setCompactGeom(null);
+    }
+  }, [isMobileOrTablet]);
+
+  React.useEffect(() => {
+    if (!isVisible || !isMobileOrTablet) return;
+    const handleResize = () => {
+      if (typeof window === "undefined") return;
+      setCompactGeom((prev) => {
+        const next =
+          prev ??
+          computeCompactGeometry({
+            baseWidth,
+            baseHeight,
+            baseX: w.geometry.x,
+            baseY: w.geometry.y,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+          });
+        return clampGeometryToViewport(next, window.innerWidth, window.innerHeight, VIEWPORT_MARGIN_PX);
+      });
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [baseHeight, baseWidth, isMobileOrTablet, isVisible, w.geometry.x, w.geometry.y]);
 
   React.useEffect(() => {
     if (isVisible) {
@@ -65,17 +135,66 @@ export function DealStrategistWindow() {
     };
   }, [isVisible, renderWindow]);
 
+  const { x, y, width } = w.geometry;
+  const desktopHeight = baseHeight;
+
+  const clampedGeometry: RndGeometry = React.useMemo(() => {
+    if (!isMobileOrTablet) {
+      return { x, y, width, height: desktopHeight };
+    }
+    const geom =
+      compactGeom ??
+      computeCompactGeometry({
+        baseWidth,
+        baseHeight: desktopHeight,
+        baseX: x,
+        baseY: y,
+        viewportWidth,
+        viewportHeight,
+      });
+    return clampGeometryToViewport(geom, viewportWidth, viewportHeight, VIEWPORT_MARGIN_PX);
+  }, [
+    baseWidth,
+    compactGeom,
+    desktopHeight,
+    isMobileOrTablet,
+    viewportHeight,
+    viewportWidth,
+    x,
+    y,
+    width,
+  ]);
+
   if (!renderWindow) return null;
 
-  const { x, y, width } = w.geometry;
-  const height = Math.min(maxHeight, Math.max(w.geometry.height ?? 520, minHeight));
-
   const handleDragStop = (_: any, data: { x: number; y: number }) => {
+    if (isMobileOrTablet) {
+      const next = clampGeometryToViewport(
+        { ...clampedGeometry, x: data.x, y: data.y },
+        viewportWidth,
+        viewportHeight,
+        VIEWPORT_MARGIN_PX,
+      );
+      setCompactGeom(next);
+      dispatch({ type: "FOCUS_WINDOW", id: "dealStrategist" });
+      return;
+    }
     dispatch({ type: "UPDATE_GEOMETRY", id: "dealStrategist", geometry: { x: data.x, y: data.y } });
     dispatch({ type: "FOCUS_WINDOW", id: "dealStrategist" });
   };
 
   const handleResizeStop = (_: any, __: any, ref: HTMLElement, ___: any, pos: { x: number; y: number }) => {
+    if (isMobileOrTablet) {
+      const next = clampGeometryToViewport(
+        { x: pos.x, y: pos.y, width: ref.offsetWidth, height: ref.offsetHeight },
+        viewportWidth,
+        viewportHeight,
+        VIEWPORT_MARGIN_PX,
+      );
+      setCompactGeom(next);
+      dispatch({ type: "FOCUS_WINDOW", id: "dealStrategist" });
+      return;
+    }
     dispatch({
       type: "UPDATE_GEOMETRY",
       id: "dealStrategist",
@@ -86,11 +205,11 @@ export function DealStrategistWindow() {
 
   return (
     <Rnd
-      size={{ width, height }}
-      position={{ x, y }}
+      size={{ width: clampedGeometry.width, height: clampedGeometry.height }}
+      position={{ x: clampedGeometry.x, y: clampedGeometry.y }}
       bounds="window"
-      minHeight={minHeight}
-      maxHeight={maxHeight}
+      minHeight={effectiveMinHeight}
+      maxHeight={effectiveMaxHeight > 0 ? effectiveMaxHeight : undefined}
       onDragStop={handleDragStop}
       onResizeStop={handleResizeStop}
       onDragStart={() => dispatch({ type: "FOCUS_WINDOW", id: "dealStrategist" })}

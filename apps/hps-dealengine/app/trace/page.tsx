@@ -257,7 +257,7 @@ export default function TracePage() {
   };
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 lg:gap-6">
       <GlassCard className="p-4 md:p-5 space-y-2">
         <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:justify-between">
           <div>
@@ -305,7 +305,7 @@ export default function TracePage() {
         )}
       </GlassCard>
 
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1.95fr)]">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1.95fr)] lg:grid-cols-[minmax(0,0.9fr)_minmax(0,2.1fr)] lg:gap-6">
         <GlassCard className="p-3 md:p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="label-xs uppercase">Runs</h2>
@@ -363,7 +363,7 @@ export default function TracePage() {
           </div>
         </GlassCard>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
           <GlassCard className="p-3 md:p-4">
             <h2 className="mb-1 label-xs uppercase">Input envelope</h2>
             <pre className="max-h-[180px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/60 p-2 text-[11px] font-mono leading-relaxed text-text-primary/90">
@@ -378,7 +378,7 @@ export default function TracePage() {
             </pre>
           </GlassCard>
 
-          <GlassCard className="p-3 md:p-4">
+          <GlassCard className="p-3 md:p-4 lg:col-span-2">
             <h2 className="mb-1 label-xs uppercase">Valuation & Profit (raw trace)</h2>
             <pre className="max-h-[160px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/60 p-2 text-[11px] font-mono leading-relaxed text-text-primary/90">
               {selected ? pretty(selected.trace) : "// Select a run"}
@@ -416,7 +416,7 @@ export default function TracePage() {
             )}
           </GlassCard>
 
-          <GlassCard className="p-3 md:p-4 space-y-3">
+          <GlassCard className="p-3 md:p-4 space-y-3 lg:col-span-2">
             <h2 className="label-xs uppercase">Risk, Evidence &amp; Workflow (trace summary)</h2>
             {outputs ? (
               <div className="space-y-3 text-[11px]">
@@ -547,9 +547,11 @@ export default function TracePage() {
             )}
           </GlassCard>
 
-          <KnobFamilySummary runOutput={knobSummaryOutput} title="Policy & Knob Coverage" />
+          <div className="lg:col-span-2">
+            <KnobFamilySummary runOutput={knobSummaryOutput} title="Policy & Knob Coverage" />
+          </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2 lg:col-span-2">
             <GlassCard className="p-3 md:p-4 space-y-2">
             <h2 className="label-xs uppercase flex items-center gap-1">
               Confidence policy trace
@@ -754,7 +756,7 @@ export default function TracePage() {
             )}
           </GlassCard>
 
-          <GlassCard className="p-3 md:p-4">
+          <GlassCard className="p-3 md:p-4 lg:col-span-2">
             <h2 className="mb-1 label-xs uppercase">Sandbox Snapshot</h2>
             {SANDBOX_V1_KNOBS.map((k) => {
               const val = (sandboxSnapshot as any)?.[k.key];
@@ -769,7 +771,7 @@ export default function TracePage() {
             })}
           </GlassCard>
 
-          <GlassCard className="p-3 md:p-4 space-y-2">
+          <GlassCard className="p-3 md:p-4 space-y-2 lg:col-span-2">
             <h2 className="label-xs uppercase">Policy Overrides (this run)</h2>
             {overrideError && (
               <div className="rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2 text-[11px] text-red-200">
@@ -828,7 +830,7 @@ export default function TracePage() {
             )}
           </GlassCard>
 
-          <GlassCard className="p-3 md:p-4 space-y-2">
+          <GlassCard className="p-3 md:p-4 space-y-2 lg:col-span-2">
             <h2 className="label-xs uppercase flex items-center gap-1">
               Evidence
               <InfoTooltip helpKey="evidence_freshness" />

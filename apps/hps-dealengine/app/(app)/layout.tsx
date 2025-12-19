@@ -213,13 +213,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AiWindowsProvider>
           <div className="flex min-h-screen flex-col">
             <header className="border-b border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] backdrop-blur">
-              <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] items-center justify-between px-6 lg:px-8 xl:px-10 py-4">
                 <AppTopNav />
               </div>
             </header>
 
             <main className="flex-1 bg-[color:var(--bg-primary)]">
-              <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] flex-col gap-4 px-6 lg:px-8 xl:px-10 py-6">
                 {/* Desktop-only route tabs */}
                 <div className="hidden md:flex items-center justify-between gap-4">
                   <AppTabNav onOpenOffer={() => setShowOffer(true)} />

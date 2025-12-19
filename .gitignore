@@ -25,3 +25,8 @@ supabase/functions/.env
 supabase/backups/
 supabase/backups/**
 
+# Codex local backups/artifacts
+.codex_file_backups/
+hps-dealengine_full_replacements.zip
+hps-dealengine-desktop-layout-refactor*.zip
+tmp_ai_chat_*.py

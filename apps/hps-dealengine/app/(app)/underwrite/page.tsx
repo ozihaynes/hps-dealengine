@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UnderwriteTab from "@/components/underwrite/UnderwriteTab";
-import { Button } from "@/components/ui";
+import { Button, GlassCard } from "@/components/ui";
 import RequestOverrideModal from "@/components/underwrite/RequestOverrideModal";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { Deal } from "../../../types";
@@ -88,6 +88,28 @@ function setDealPath(prev: Deal, path: string, value: unknown): Deal {
 
   cursor[parts[parts.length - 1]] = value;
   return clone as Deal;
+}
+
+const USD_0 = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+function fmtUsd0(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return Number.isFinite(value) ? USD_0.format(value) : "—";
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const n = typeof value === "string" ? Number(value) : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toLabel(value: unknown): string {
+  if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "-";
 }
 
 export default function UnderwritePage() {
@@ -631,9 +653,82 @@ export default function UnderwritePage() {
       hasPrefilledArvRef.current = true;
     }
   }, [deal, handleSetDealValue, valuationRun]);
+const envelope = (analysisResult ?? lastAnalyzeResult) as unknown;
+
+const outputs = useMemo(() => {
+  const out = (envelope as { outputs?: unknown } | null)?.outputs;
+  return out && typeof out === "object"
+    ? (out as Record<string, unknown>)
+    : ({} as Record<string, unknown>);
+}, [envelope]);
+
+const summary = useMemo(() => {
+  const dealMarket =
+    (deal as unknown as { market?: Record<string, unknown> }).market ?? {};
+  const arv = toFiniteNumber(dealMarket["arv"]);
+  const asIs = toFiniteNumber(dealMarket["as_is_value"]);
+
+  const calcRec =
+    calc && typeof calc === "object"
+      ? (calc as Record<string, unknown>)
+      : ({} as Record<string, unknown>);
+
+  const offer =
+    toFiniteNumber(outputs["primary_offer"]) ??
+    toFiniteNumber(outputs["instant_cash_offer"]) ??
+    toFiniteNumber(calcRec["instantCashOffer"]) ??
+    toFiniteNumber(calcRec["maoFinal"]) ??
+    toFiniteNumber(calcRec["maoWholesale"]);
+
+  const floor =
+    toFiniteNumber(outputs["respect_floor"]) ??
+    toFiniteNumber(calcRec["respectFloorPrice"]);
+
+  const ceiling =
+    toFiniteNumber(outputs["buyer_ceiling"]) ??
+    toFiniteNumber(calcRec["buyerCeiling"]);
+
+  const spread =
+    toFiniteNumber(outputs["spread_cash"]) ??
+    toFiniteNumber(outputs["window_floor_to_offer"]) ??
+    toFiniteNumber(calcRec["dealSpread"]);
+
+  const timelineSummaryRaw = outputs["timeline_summary"];
+  const timelineSummary =
+    timelineSummaryRaw && typeof timelineSummaryRaw === "object"
+      ? (timelineSummaryRaw as Record<string, unknown>)
+      : null;
+
+  const dtm =
+    toFiniteNumber(timelineSummary?.["days_to_money"]) ??
+    toFiniteNumber(timelineSummary?.["dtm_selected_days"]);
+
+  const riskSummaryRaw = outputs["risk_summary"];
+  const riskSummary =
+    riskSummaryRaw && typeof riskSummaryRaw === "object"
+      ? (riskSummaryRaw as Record<string, unknown>)
+      : null;
+
+  const risk = toLabel(riskSummary?.["overall"]);
+  const confidence = toLabel(outputs["confidence_grade"]);
+
+  return {
+    arv,
+    asIs,
+    offer,
+    floor,
+    ceiling,
+    spread,
+    dtm,
+    risk,
+    confidence,
+  };
+}, [deal, outputs, calc]);
+
+
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-6 space-y-4">
+    <div className="container mx-auto max-w-7xl px-4 py-6 space-y-4 lg:max-w-none lg:px-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -670,10 +765,52 @@ export default function UnderwritePage() {
             </Button>
           </div>
         </div>
+
+
       </div>
 
+
+{/* Desktop-only: above-the-fold underwriting summary (keeps scanline tight, reduces scrolling). */}
+<div className="hidden lg:grid lg:grid-cols-12 lg:gap-4">
+  <GlassCard className="lg:col-span-3 p-4">
+    <div className="text-[11px] uppercase tracking-wide text-text-secondary">ARV</div>
+    <div className="mt-1 text-lg font-semibold text-text-primary">
+      {fmtUsd0(summary.arv)}
+    </div>
+    <div className="mt-1 text-xs text-text-secondary">
+      As-is: {fmtUsd0(summary.asIs)}
+    </div>
+  </GlassCard>
+  <GlassCard className="lg:col-span-3 p-4">
+    <div className="text-[11px] uppercase tracking-wide text-text-secondary">Offer</div>
+    <div className="mt-1 text-lg font-semibold text-text-primary">
+      {fmtUsd0(summary.offer)}
+    </div>
+    <div className="mt-1 text-xs text-text-secondary">
+      Floor: {fmtUsd0(summary.floor)} · Ceiling: {fmtUsd0(summary.ceiling)}
+    </div>
+  </GlassCard>
+  <GlassCard className="lg:col-span-3 p-4">
+    <div className="text-[11px] uppercase tracking-wide text-text-secondary">Spread</div>
+    <div className="mt-1 text-lg font-semibold text-text-primary">
+      {fmtUsd0(summary.spread)}
+    </div>
+    <div className="mt-1 text-xs text-text-secondary">Posture: {posture || "base"}</div>
+  </GlassCard>
+  <GlassCard className="lg:col-span-3 p-4">
+    <div className="text-[11px] uppercase tracking-wide text-text-secondary">Risk / Confidence</div>
+    <div className="mt-1 text-lg font-semibold text-text-primary">
+      {summary.risk !== "—" ? summary.risk : "Unknown"}
+    </div>
+    <div className="mt-1 text-xs text-text-secondary">
+      Confidence: {summary.confidence} · DTM:{" "}
+      {summary.dtm != null ? `${Math.round(summary.dtm)}d` : "—"}
+    </div>
+  </GlassCard>
+</div>
+
       {(evidenceStatus.length > 0 || evidenceError) && (
-        <div className="relative mb-2 flex items-center gap-2">
+        <div className="relative mb-2 flex items-center gap-2 lg:hidden">
           <button
             type="button"
             aria-label="Evidence checklist"
@@ -766,50 +903,122 @@ export default function UnderwritePage() {
         </div>
       )}
 
-      <div className="space-y-6">
-        <UnderwriteTab
-          deal={deal}
-          calc={calc}
-          setDealValue={handleSetDealValue}
-          sandbox={effectiveSandbox}
-          canEditPolicy={canEditPolicy}
-          onRequestOverride={openOverrideModal}
-          valuationRun={valuationRun}
-          valuationSnapshot={valuationSnapshot}
-          minClosedComps={minClosedComps}
-          onRefreshValuation={(force) => handleRefreshValuation(Boolean(force))}
-          refreshingValuation={isRefreshingValuation}
-          valuationError={valuationError}
-          onApplySuggestedArv={handleApplySuggestedArv}
-          applyingSuggestedArv={applyingSuggestedArv}
-          valuationStatus={valuationStatus}
-          onOverrideMarketValue={handleOverrideMarketValue}
-          overrideStatus={overrideStatus}
-          overrideError={overrideError}
-          overrideSaving={overrideSaving}
-          autosaveStatus={autosaveStatus}
-        />
+      
+<div className="space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
+  <div className="lg:col-span-9">
+    <UnderwriteTab
+      deal={deal}
+      calc={calc}
+      setDealValue={handleSetDealValue}
+      sandbox={effectiveSandbox}
+      canEditPolicy={canEditPolicy}
+      onRequestOverride={openOverrideModal}
+      valuationRun={valuationRun}
+      valuationSnapshot={valuationSnapshot}
+      minClosedComps={minClosedComps}
+      onRefreshValuation={(force) => handleRefreshValuation(Boolean(force))}
+      refreshingValuation={isRefreshingValuation}
+      valuationError={valuationError}
+      onApplySuggestedArv={handleApplySuggestedArv}
+      applyingSuggestedArv={applyingSuggestedArv}
+      valuationStatus={valuationStatus}
+      onOverrideMarketValue={handleOverrideMarketValue}
+      overrideStatus={overrideStatus}
+      overrideError={overrideError}
+      overrideSaving={overrideSaving}
+      autosaveStatus={autosaveStatus}
+    />
+  </div>
 
-        <OverridesPanel
-          orgId={orgId || null}
-          dealId={dbDeal?.id ?? null}
-          posture={posture}
-          lastRunId={lastRunId}
-          refreshKey={overrideRefreshKey}
-          membershipRole={membershipRole}
-        />
+  <div className="space-y-6 lg:col-span-3">
+    <div className="space-y-6 lg:sticky lg:top-24">
+      {(evidenceStatus.length > 0 || evidenceError) && (
+        <GlassCard className="hidden lg:block p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase text-text-secondary">Evidence</div>
+              <div className="mt-1 text-sm font-semibold text-text-primary">
+                Checklist
+              </div>
+              <div className="mt-1 text-xs text-text-secondary">
+                {lastRunId ? "Run-scoped when available" : "Deal-scoped (no run yet)"}
+              </div>
+            </div>
+            <button
+              type="button"
+              aria-label="Toggle evidence checklist"
+              onClick={() => setShowChecklist((prev) => !prev)}
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-[#FF4500]/40 bg-[#FF4500]/10 text-[#FF4500] transition hover:bg-[#FF4500]/20 focus:outline-none focus:ring-2 focus:ring-accent-blue/60"
+            >
+              <Info size={14} />
+            </button>
+          </div>
 
-        {dbDeal?.id && (
-          <EvidenceUpload
-            dealId={dbDeal.id}
-            runId={lastRunId}
-            title="Evidence for this deal/run"
-            onUploadComplete={() => {
-              void refreshEvidence();
-            }}
-          />
-        )}
-      </div>
+          {showChecklist && (
+            <div className="mt-4 rounded-lg border border-[#FF4500]/30 bg-[#FF4500]/5 px-3 py-3 text-[11px] text-text-primary">
+              <div className="mb-2 font-semibold text-[#FF4500]">
+                Evidence checklist {dbDeal?.id ? "for this deal" : ""}
+              </div>
+              {evidenceError && (
+                <div className="text-red-200">Evidence load error: {evidenceError}</div>
+              )}
+              {!evidenceError && evidenceStatus.length === 0 && (
+                <div className="text-text-secondary">No evidence found yet.</div>
+              )}
+              <div className="space-y-1">
+                {evidenceStatus.map((row) => {
+                  const label = evidenceLabel(row.kind);
+                  if (row.status === "missing") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: missing - upload before offer.
+                      </div>
+                    );
+                  }
+                  if (row.status === "stale") {
+                    return (
+                      <div key={row.kind} className="text-amber-200">
+                        {label}: stale (last updated {new Date(row.updatedAt).toLocaleDateString()}) - refresh.
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={row.kind} className="flex items-center gap-1 text-emerald-200">
+                      <CheckCircle size={12} className="text-emerald-300" />
+                      <span>
+                        {label}: fresh as of {new Date(row.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      )}
+
+      <OverridesPanel
+        orgId={orgId || null}
+        dealId={dbDeal?.id ?? null}
+        posture={posture}
+        lastRunId={lastRunId}
+        refreshKey={overrideRefreshKey}
+        membershipRole={membershipRole}
+      />
+
+      {dbDeal?.id && (
+        <EvidenceUpload
+          dealId={dbDeal.id}
+          runId={lastRunId}
+          title="Evidence for this deal/run"
+          onUploadComplete={() => {
+            void refreshEvidence();
+          }}
+        />
+      )}
+    </div>
+  </div>
+</div>
 
       <RequestOverrideModal
         open={isOverrideModalOpen}

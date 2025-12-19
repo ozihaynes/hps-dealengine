@@ -297,7 +297,7 @@ export default function UserSettingsPage() {
       </div>
 
       {/* Theme + underwriting defaults */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Theme preference */}
         <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
           <div className="flex items-start justify-between gap-2">
@@ -321,7 +321,7 @@ export default function UserSettingsPage() {
         </GlassCard>
 
         {/* Underwriting defaults */}
-        <GlassCard className="p-5 space-y-5 border border-white/5 bg-surface-elevated/70 xl:col-span-2">
+        <GlassCard className="p-5 space-y-5 border border-white/5 bg-surface-elevated/70 lg:col-span-2">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -406,7 +406,7 @@ export default function UserSettingsPage() {
       </div>
 
       {/* Profile / Business / Team */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Profile */}
         <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
           <div className="flex items-start justify-between gap-2">

@@ -84,8 +84,9 @@ export default function OverridesPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <GlassCard className="p-4 md:p-5 space-y-2">
+    <div className="space-y-4 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
+      <div className="lg:col-span-4">
+        <GlassCard className="p-4 md:p-5 space-y-2 lg:self-start">
         <h1 className="text-2xl font-semibold text-text-primary">Policy Overrides</h1>
         <p className="text-sm text-text-secondary">
           Pending and historical override requests for your org. Managers/VP/Owners can approve or reject.
@@ -95,9 +96,11 @@ export default function OverridesPage() {
             {error}
           </div>
         )}
-      </GlassCard>
+        </GlassCard>
+      </div>
 
-      <GlassCard className="p-3 md:p-4">
+      <div className="lg:col-span-8">
+        <GlassCard className="p-3 md:p-4 lg:self-start">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="label-xs uppercase">Overrides</h2>
           <span className="text-[11px] text-text-secondary">
@@ -200,7 +203,8 @@ export default function OverridesPage() {
             </tbody>
           </table>
         </div>
-      </GlassCard>
+        </GlassCard>
+      </div>
     </div>
   );
 }

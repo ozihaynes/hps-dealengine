@@ -218,9 +218,17 @@ export default function RunsPage() {
     dbDeal?.id ||
     "";
 
+  const showTwoPane = !loading && !error && rows.length > 0;
+
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-6 space-y-5">
-      <GlassCard className="p-4 md:p-5 space-y-3 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.7)]">
+    <div
+      className={
+        showTwoPane
+          ? "container mx-auto max-w-7xl px-4 py-6 space-y-5 lg:max-w-none lg:px-0 lg:grid lg:grid-cols-[minmax(320px,380px)_minmax(0,1fr)] lg:gap-6 lg:space-y-0"
+          : "container mx-auto max-w-7xl px-4 py-6 space-y-5 lg:max-w-none lg:px-0"
+      }
+    >
+      <GlassCard className="p-4 md:p-5 space-y-3 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.7)] lg:self-start">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
@@ -266,7 +274,7 @@ export default function RunsPage() {
       </GlassCard>
 
       {!loading && !error && rows.length > 0 && (
-        <GlassCard className="p-3 md:p-4 space-y-3 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.7)]">
+        <GlassCard className="p-3 md:p-4 space-y-3 shadow-[0_20px_50px_-30px_rgba(0,0,0,0.7)] lg:self-start">
           <div className="overflow-hidden rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg,strong)]/80 backdrop-blur">
             <table className="w-full text-xs">
               <thead className="bg-white/5 text-[10px] uppercase tracking-wide text-text-secondary">
