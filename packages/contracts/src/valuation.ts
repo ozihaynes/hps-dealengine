@@ -1,5 +1,19 @@
 import { z } from "zod";
 
+export const ValuationPolicySchema = z
+  .object({
+    valuation: z
+      .object({
+        selection_version: z.string().optional().nullable(),
+        selectionVersion: z.string().optional().nullable(),
+      })
+      .passthrough()
+      .optional()
+      .nullable(),
+  })
+  .passthrough();
+export type ValuationPolicy = z.infer<typeof ValuationPolicySchema>;
+
 export const AdjustmentLineItemSchema = z.object({
   type: z.enum([
     "time",
@@ -104,6 +118,44 @@ export const ValuationRunStatusSchema = z.enum([
 ]);
 export type ValuationRunStatus = z.infer<typeof ValuationRunStatusSchema>;
 
+export const SelectionDiagnosticsSchema = z.object({
+  version: z.string(),
+  counts: z.object({
+    total_candidates: z.number(),
+    after_filters: z.number(),
+    after_outlier_checks: z.number(),
+    selected: z.number(),
+    min_required: z.number().optional().nullable(),
+  }),
+  filters: z.object({
+    reasons_count: z.record(z.number()),
+    missing_subject: z.array(z.string()),
+    relaxations: z.array(z.string()),
+    applied: z.record(z.unknown()),
+  }),
+  outliers: z.object({
+    method: z.string(),
+    bounds: z
+      .object({
+        low: z.number(),
+        high: z.number(),
+      })
+      .optional()
+      .nullable(),
+    flagged: z.array(
+      z.object({
+        comp_id: z.string(),
+        ppsf: z.number().optional().nullable(),
+        secondary_signals: z.array(z.string()),
+        kept_due_to_minimum: z.boolean(),
+      }),
+    ),
+    removed_ids: z.array(z.string()),
+  }),
+  warnings: z.array(z.string()),
+});
+export type SelectionDiagnostics = z.infer<typeof SelectionDiagnosticsSchema>;
+
 export const ValuationRunSchema = z.object({
   id: z.string(),
   org_id: z.string(),
@@ -124,6 +176,7 @@ export const ValuationRunSchema = z.object({
   output: z.object({
     suggested_arv: z.number().optional().nullable(),
     suggested_arv_basis: z.enum(["adjusted_v1_2", "ensemble_v1"]).optional().nullable(),
+    selection_version: z.string().optional().nullable(),
     adjustments_version: z.string().optional().nullable(),
     arv_range_low: z.number().optional().nullable(),
     arv_range_high: z.number().optional().nullable(),
@@ -132,6 +185,7 @@ export const ValuationRunSchema = z.object({
     selected_comp_ids: z.array(z.string()).optional().nullable(),
     selected_comps: z.array(CompSchema).optional().nullable(),
     selection_summary: z.unknown().optional().nullable(),
+    selection_diagnostics: SelectionDiagnosticsSchema.optional().nullable(),
     confidence_details: z
       .object({
         grade: z.enum(["A", "B", "C"]),

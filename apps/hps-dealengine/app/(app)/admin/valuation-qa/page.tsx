@@ -952,6 +952,60 @@ export default function ValuationQaPage() {
                 </div>
 
                 <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-text-secondary/80">Selection diagnostics</h4>
+                    <Badge color="blue">
+                      {selectedValuationRun.output?.selection_version ?? "selection_v1_1"}
+                    </Badge>
+                  </div>
+                  {selectedValuationRun.output?.selection_diagnostics ? (
+                    <div className="space-y-2 text-xs text-text-secondary">
+                      <div className="flex flex-wrap gap-2">
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          Candidates {selectedValuationRun.output.selection_diagnostics.counts.after_filters} →{" "}
+                          {selectedValuationRun.output.selection_diagnostics.counts.after_outlier_checks}
+                        </span>
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          Selected {selectedValuationRun.output.selection_diagnostics.counts.selected}
+                        </span>
+                        <span className="rounded border border-white/10 px-2 py-1">
+                          Outliers removed {selectedValuationRun.output.selection_diagnostics.outliers.removed_ids.length}
+                        </span>
+                      </div>
+                      {(selectedValuationRun.output.selection_diagnostics.filters.relaxations?.length ?? 0) > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedValuationRun.output.selection_diagnostics.filters.relaxations?.map((relax: string) => (
+                            <span
+                              key={relax}
+                              className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100"
+                            >
+                              Relaxation: {relax}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {(selectedValuationRun.output.selection_diagnostics.warnings?.length ?? 0) > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedValuationRun.output.selection_diagnostics.warnings?.map((w: string) => (
+                            <span
+                              key={w}
+                              className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100"
+                            >
+                              Warning: {w}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="rounded border border-white/10 bg-white/5 p-2 font-mono text-[11px] leading-5 text-text-secondary">
+                        {JSON.stringify(selectedValuationRun.output.selection_diagnostics, null, 2)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-xs text-text-secondary/70">No selection diagnostics available for this run.</div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-white/10 bg-white/5 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
                     <span>Ensemble &amp; Uncertainty</span>
                     {selectedValuationRun.output?.ensemble_version || selectedValuationRun.output?.uncertainty_version ? (

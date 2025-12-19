@@ -361,7 +361,7 @@ Fast-follow items that do not change V1 behavior:
   - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
 - 🟡 Next
   1) Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
-  2) Slice 8A (optional) - Improve valuation quality (comps-only): tighter similarity filters, better subject typing, outlier handling; evaluate via eval harness; keep ensemble OFF by default.
+  2) Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
   3) Slice 8 - E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
   4) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
   5) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.

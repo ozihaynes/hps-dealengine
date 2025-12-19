@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ValuationRunSchema } from "./valuation";
+import { ValuationPolicySchema, ValuationRunSchema } from "./valuation";
 
 describe("ValuationRunSchema", () => {
   it("accepts eval_tags and hash metadata on output", () => {
@@ -244,5 +244,20 @@ describe("ValuationRunSchema", () => {
     expect(parsed.output.suggested_arv).toEqual(200000);
     expect(parsed.output.suggested_arv_basis).toBeUndefined();
     expect(parsed.output.selected_comps).toBeUndefined();
+  });
+
+  it("preserves selection_version and selectionVersion in valuation policy parse", () => {
+    const parsed = ValuationPolicySchema.parse({
+      valuation: {
+        selection_version: "selection_v1_3",
+        selectionVersion: "selection_v1_3",
+        other_key: "keep_me",
+      },
+      extra_root: true,
+    });
+    expect(parsed.valuation?.selection_version).toBe("selection_v1_3");
+    expect(parsed.valuation?.selectionVersion).toBe("selection_v1_3");
+    expect((parsed as any).extra_root).toBe(true);
+    expect((parsed.valuation as any).other_key).toBe("keep_me");
   });
 });

@@ -21,4 +21,7 @@ supabase/functions/.env
 
 # local smoke logs
 *.log
+# Supabase proof backups (never commit)
+supabase/backups/
+supabase/backups/**
 

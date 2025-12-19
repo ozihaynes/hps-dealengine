@@ -1,5 +1,5 @@
 import React from "react";
-import type { Comp, PropertySnapshot } from "@hps-internal/contracts";
+import type { Comp, PropertySnapshot, SelectionDiagnostics } from "@hps-internal/contracts";
 import { GlassCard, Badge } from "../ui";
 
 type CompsPanelProps = {
@@ -10,6 +10,8 @@ type CompsPanelProps = {
   refreshing?: boolean;
   selectedCompIds?: string[];
   selectedCompsDetailed?: Comp[] | null;
+  selectionVersion?: string | null;
+  selectionDiagnostics?: SelectionDiagnostics | null;
 };
 
 type Summary = {
@@ -190,6 +192,8 @@ export function CompsPanel({
   refreshing,
   selectedCompIds,
   selectedCompsDetailed,
+  selectionVersion,
+  selectionDiagnostics,
 }: CompsPanelProps) {
   const provider = snapshot?.provider ?? snapshot?.source ?? "unknown";
   const asOf = snapshot?.as_of ? new Date(snapshot.as_of).toLocaleDateString() : "unknown";
@@ -254,6 +258,15 @@ export function CompsPanel({
   };
 
   const rerunDisabled = refreshing || !onRefresh || (cooldownUntil != null && cooldownUntil > Date.now());
+  const [showSelectionDetails, setShowSelectionDetails] = React.useState(false);
+  const selectionVersionLabel = selectionVersion ?? selectionDiagnostics?.version ?? "selection_v1_1";
+  const selectionOutliersFlagged = selectionDiagnostics?.outliers?.flagged?.length ?? null;
+  const selectionOutliersRemoved = selectionDiagnostics?.outliers?.removed_ids?.length ?? null;
+  const selectionCompsSelected =
+    selectionDiagnostics?.counts?.selected ?? (selectedCompIds ? selectedCompIds.length : null);
+  const selectionWarnings = selectionDiagnostics?.warnings ?? [];
+  const selectionRelaxations = selectionDiagnostics?.filters?.relaxations ?? [];
+  const selectionBadgeColor: "blue" | "green" = selectionVersionLabel === "selection_v1_3" ? "blue" : "green";
 
   const closedSummary = summarizeComps(closedSales);
   const listingSummary = summarizeComps(listings);
@@ -301,6 +314,81 @@ export function CompsPanel({
         <span>Other: {statusCounts.other}</span>
         <span>Unknown: {statusCounts.unknown}</span>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+        <Badge color={selectionBadgeColor}>
+          Selection: {selectionVersionLabel}
+        </Badge>
+        {selectionCompsSelected != null ? (
+          <span className="rounded border border-white/10 px-2 py-1">
+            Comps used: {selectionCompsSelected}
+          </span>
+        ) : null}
+        {selectionOutliersFlagged != null ? (
+          <span className="rounded border border-white/10 px-2 py-1">
+            Outliers flagged: {selectionOutliersFlagged}
+          </span>
+        ) : null}
+        {selectionOutliersRemoved != null ? (
+          <span className="rounded border border-white/10 px-2 py-1">
+            Outliers removed: {selectionOutliersRemoved}
+          </span>
+        ) : null}
+        {selectionDiagnostics ? (
+          <button
+            type="button"
+            className="rounded border border-white/15 px-2 py-1 text-text-primary hover:border-accent-blue/60"
+            onClick={() => setShowSelectionDetails((prev) => !prev)}
+          >
+            {showSelectionDetails ? "Hide selection details" : "Selection details"}
+          </button>
+        ) : null}
+      </div>
+
+      {showSelectionDetails && selectionDiagnostics ? (
+        <div className="rounded-md border border-white/10 bg-white/5 p-3 text-xs text-text-secondary space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded border border-white/10 px-2 py-1 text-text-primary">
+              Version {selectionDiagnostics.version}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1">
+              Candidates: {selectionDiagnostics.counts.after_filters} → {selectionDiagnostics.counts.after_outlier_checks}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1">
+              Selected: {selectionDiagnostics.counts.selected}
+            </span>
+          </div>
+          {selectionRelaxations.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectionRelaxations.map((r) => (
+                <span key={r} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
+                  Relaxation: {r}
+                </span>
+              ))}
+            </div>
+          )}
+          {selectionWarnings.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {selectionWarnings.map((w) => (
+                <span key={w} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
+                  Warning: {w}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="rounded border border-white/10 bg-white/5 p-2 font-mono text-[11px] leading-5 text-text-secondary">
+            {JSON.stringify(
+              {
+                outliers_removed: selectionDiagnostics.outliers?.removed_ids ?? [],
+                bounds: selectionDiagnostics.outliers?.bounds ?? null,
+                reasons: selectionDiagnostics.filters?.reasons_count ?? {},
+              },
+              null,
+              2,
+            )}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
         <span className="rounded border border-white/10 px-2 py-1">

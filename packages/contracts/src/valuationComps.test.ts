@@ -150,6 +150,127 @@ describe("valuation selection (deterministic)", () => {
     expect(outA).toEqual(outB);
   });
 
+  it("emits diagnostics for selection_v1_3 and requires secondary signals before removing outliers", () => {
+    const policyV13: SelectionPolicy = {
+      ...basePolicy,
+      selection_version: "selection_v1_3" as any,
+      arv_comp_use_count: 3,
+      outlier_ppsf: { ...(basePolicy.outlier_ppsf ?? {}), min_samples: 3 },
+    };
+    const compsV13 = [
+      { id: "c1", price: 400000, sqft: 2000, comp_kind: "closed_sale", close_date: "2024-12-01", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.2 },
+      { id: "c2", price: 410000, sqft: 2050, comp_kind: "closed_sale", close_date: "2024-12-05", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.3 },
+      { id: "c3", price: 395000, sqft: 1980, comp_kind: "closed_sale", close_date: "2024-11-20", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.4 },
+      { id: "c4", price: 600000, sqft: 1800, comp_kind: "closed_sale", close_date: "2024-12-02", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.5 }, // PPSF outlier but no mismatch
+      { id: "c5", price: 1000000, sqft: 1000, comp_kind: "closed_sale", close_date: "2024-11-15", as_of: "2024-12-15", property_type: "single_family", distance_miles: 10 }, // PPSF outlier + distance mismatch
+    ];
+    const resultA = runValuationSelection({
+      subject,
+      comps: compsV13 as any[],
+      policyValuation: policyV13,
+      min_closed_comps_required: 3,
+      comp_kind: "closed_sale",
+      version: "selection_v1_3",
+    });
+    const resultB = runValuationSelection({
+      subject,
+      comps: compsV13 as any[],
+      policyValuation: policyV13,
+      min_closed_comps_required: 3,
+      comp_kind: "closed_sale",
+      version: "selection_v1_3",
+    });
+    expect(resultA.selection_version).toBe("selection_v1_3");
+    expect(resultA.diagnostics).toBeTruthy();
+    expect(JSON.stringify(resultA.diagnostics)).toEqual(JSON.stringify(resultB.diagnostics));
+    const flaggedIds = (resultA.diagnostics?.outliers.flagged ?? []).map((f) => f.comp_id);
+    expect(flaggedIds).toContain("c5");
+    expect(resultA.selected_comp_ids).not.toContain("c5");
+    const c4Flag = (resultA.diagnostics?.outliers.flagged ?? []).find((f) => f.comp_id === "c4");
+    const c4Kept =
+      (c4Flag?.kept_due_to_minimum ?? false) || ((c4Flag?.secondary_signals?.length ?? 0) === 0);
+    expect(c4Kept).toBe(true);
+  });
+
+  it("is order independent for selection_v1_3 (selected ids and removed ids stable with actual removals)", () => {
+    const policyV13: SelectionPolicy = {
+      ...basePolicy,
+      selection_version: "selection_v1_3" as any,
+      outlier_ppsf: { ...(basePolicy.outlier_ppsf ?? {}), min_samples: 3 },
+    };
+    const unorderedComps = [
+      { id: "c5", price: 405000, sqft: 2010, comp_kind: "closed_sale", close_date: "2024-12-07", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.4 },
+      { id: "c2", price: 410000, sqft: 2050, comp_kind: "closed_sale", close_date: "2024-12-05", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.3 },
+      { id: "c1", price: 400000, sqft: 2000, comp_kind: "closed_sale", close_date: "2024-12-01", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.2 },
+      { id: "c4", price: 1200000, sqft: 1000, comp_kind: "closed_sale", close_date: "2024-12-02", as_of: "2024-12-15", property_type: "single_family", distance_miles: 5 }, // strong outlier + distance secondary
+      { id: "c3", price: 395000, sqft: 1980, comp_kind: "closed_sale", close_date: "2024-11-20", as_of: "2024-12-15", property_type: "single_family", distance_miles: 0.4 },
+    ];
+    const reordered = [...unorderedComps].reverse();
+    const runA = runValuationSelection({
+      subject,
+      comps: unorderedComps as any[],
+      policyValuation: policyV13,
+      min_closed_comps_required: 3,
+      comp_kind: "closed_sale",
+      version: "selection_v1_3",
+    });
+    const runB = runValuationSelection({
+      subject,
+      comps: reordered as any[],
+      policyValuation: policyV13,
+      min_closed_comps_required: 3,
+      comp_kind: "closed_sale",
+      version: "selection_v1_3",
+    });
+    expect(runA.selected_comp_ids).toEqual(runB.selected_comp_ids);
+    expect(runA.diagnostics?.outliers.removed_ids).toEqual(runB.diagnostics?.outliers.removed_ids);
+    expect(runA.diagnostics?.outliers.removed_ids ?? []).not.toHaveLength(0);
+  });
+
+  it("treats sfr/townhome as compatible (warning only) when property_type_match is required", () => {
+    const policyV13: SelectionPolicy = {
+      ...basePolicy,
+      selection_version: "selection_v1_3" as any,
+      similarity_filters: { ...(basePolicy.similarity_filters ?? {}), require_property_type_match: true },
+    };
+    const subjectTownhome: SelectionSubject = { ...subject, property_type: "single_family" };
+    const compsTownhome = [
+      {
+        id: "th1",
+        price: 420000,
+        sqft: 2000,
+        comp_kind: "closed_sale",
+        close_date: "2024-12-10",
+        as_of: "2024-12-15",
+        property_type: "townhouse",
+        distance_miles: 0.4,
+      },
+      {
+        id: "sfr1",
+        price: 415000,
+        sqft: 1990,
+        comp_kind: "closed_sale",
+        close_date: "2024-12-12",
+        as_of: "2024-12-15",
+        property_type: "single_family",
+        distance_miles: 0.3,
+      },
+    ];
+    const result = runValuationSelection({
+      subject: subjectTownhome,
+      comps: compsTownhome as any[],
+      policyValuation: policyV13,
+      min_closed_comps_required: 1,
+      comp_kind: "closed_sale",
+      version: "selection_v1_3",
+    });
+    expect(result.selected_comp_ids.length).toBeGreaterThan(0);
+    expect(result.warning_codes).toContain("property_type_group_match_sfr_townhome");
+    const reasonsCount = (result.selection_summary as any)?.filters?.reasons_count ?? {};
+    expect(reasonsCount.property_type_mismatch ?? 0).toBe(0);
+    expect(result.selected_comp_ids).toContain("th1");
+  });
+
   it("scores more recent comps higher than older ones (recency)", () => {
     const recentFirst = runValuationSelection({
       subject,

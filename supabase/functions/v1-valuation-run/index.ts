@@ -114,7 +114,8 @@ serve(async (req: Request): Promise<Response> => {
       ok: true,
       name: "v1-valuation-run",
       ts: new Date().toISOString(),
-      version: "selection_v1_1",
+      version: "v1-valuation-run",
+      supported_selection_versions: ["selection_v1_1", "selection_v1_3"],
     });
   }
 
@@ -210,6 +211,10 @@ serve(async (req: Request): Promise<Response> => {
         400,
       );
     }
+    const selectionVersion =
+      (valuationPolicy as any)?.selection_version ??
+      (valuationPolicy as any)?.selectionVersion ??
+      "selection_v1_1";
     if (!valuationPolicy.confidence_rubric || Object.keys(valuationPolicy.confidence_rubric).length === 0) {
       return jsonResponse(
         req,
@@ -418,6 +423,7 @@ serve(async (req: Request): Promise<Response> => {
       policyValuation: valuationPolicy,
       min_closed_comps_required: Number(minClosedComps),
       comp_kind: "closed_sale",
+      version: selectionVersion,
     });
 
     const hasClosed =
@@ -431,6 +437,7 @@ serve(async (req: Request): Promise<Response> => {
           policyValuation: valuationPolicy,
           min_closed_comps_required: Number(minClosedComps),
           comp_kind: "sale_listing",
+          version: selectionVersion,
         })
       : null;
 
@@ -444,6 +451,8 @@ serve(async (req: Request): Promise<Response> => {
       selected_comps: [] as any[],
       warning_codes: [] as string[],
       selection_summary: {},
+      selection_version: selectionVersion,
+      diagnostics: null,
       comp_kind_used: null,
     };
 
@@ -697,7 +706,7 @@ serve(async (req: Request): Promise<Response> => {
           }).length
         : null;
 
-    let suggestedArvSourceMethod = `selection_v1_1_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`;
+    let suggestedArvSourceMethod = `${selectionVersion}_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`;
     let suggestedArvBasisValue: "adjusted_v1_2" | "ensemble_v1" | null = null;
 
     let outputBase: Record<string, unknown> = {
@@ -709,6 +718,8 @@ serve(async (req: Request): Promise<Response> => {
       selected_comp_ids: selection.selected_comp_ids ?? [],
       selected_comps: selectedCompsForOutput ?? [],
       selection_summary: selectionSummary ?? null,
+      selection_version: selection.selection_version ?? selectionVersion ?? null,
+      selection_diagnostics: selection.diagnostics ?? null,
       avm_reference_price: avmPrice ?? null,
       avm_reference_range_low: avmLow ?? null,
       avm_reference_range_high: avmHigh ?? null,

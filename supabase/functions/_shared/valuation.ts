@@ -23,6 +23,7 @@ export type ValuationPolicyShape = {
   }>;
   closed_sales_target_priced?: number | null;
   arv_comp_use_count?: number | null;
+  selection_version?: string | null;
   selection_method?: string | null;
   range_method?: string | null;
   weights?: {
