@@ -7,7 +7,7 @@ const {
 
 async function main() {
   const serverUrl = process.env.MCP_URL || "http://localhost:8787/mcp";
-  const token = process.env.HPS_MCP_HTTP_TOKEN || "hps-mcp-dev-secret-1";
+const token = process.env.HPS_MCP_HTTP_TOKEN || "";
 
   const transport = new StreamableHTTPClientTransport(new URL(serverUrl), {
     requestInit: {

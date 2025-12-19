@@ -21,16 +21,23 @@ type ThemeContextValue = {
 
 const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefined);
 
-const ALLOWED_THEMES: DealEngineThemeName[] = ["navy", "burgundy", "green", "black", "white"];
+const ALLOWED_THEMES: DealEngineThemeName[] = ["burgundy", "green", "navy", "violet", "pink", "black"];
+const THEME_ALIASES: Record<string, DealEngineThemeName> = {
+  pink2: "pink",
+  pink3: "pink",
+};
 const ALLOWED_SETTINGS: ThemeSetting[] = ["system", "dark", "light", ...ALLOWED_THEMES];
-const SYSTEM_DARK_THEME: DealEngineThemeName = "navy";
-const SYSTEM_LIGHT_THEME: DealEngineThemeName = "white";
+const SYSTEM_DARK_THEME: DealEngineThemeName = DEFAULT_THEME;
+const SYSTEM_LIGHT_THEME: DealEngineThemeName = DEFAULT_THEME;
 
-const isAllowedSetting = (value: unknown): value is ThemeSetting =>
-  typeof value === "string" && (ALLOWED_SETTINGS as string[]).includes(value);
+const normalizeThemeSetting = (value: unknown): ThemeSetting | null => {
+  if (typeof value !== "string") return null;
+  if (THEME_ALIASES[value]) return THEME_ALIASES[value] as ThemeSetting;
+  if ((ALLOWED_SETTINGS as string[]).includes(value)) return value as ThemeSetting;
+  return null;
+};
 
-const normalizeSetting = (value: unknown): ThemeSetting =>
-  isAllowedSetting(value) ? (value as ThemeSetting) : "system";
+const normalizeSetting = (value: unknown): ThemeSetting => normalizeThemeSetting(value) ?? DEFAULT_THEME;
 
 const resolveTheme = (setting: ThemeSetting, prefersDark: boolean): DealEngineThemeName => {
   if (setting === "system") {
@@ -44,7 +51,8 @@ const resolveTheme = (setting: ThemeSetting, prefersDark: boolean): DealEngineTh
 function safeReadLocalStorage(): ThemeSetting | null {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored && isAllowedSetting(stored)) return stored;
+    const normalized = normalizeThemeSetting(stored);
+    if (normalized) return normalized;
   } catch {
     // ignore
   }
@@ -68,11 +76,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const initialSetting: ThemeSetting =
     typeof document !== "undefined"
       ? normalizeSetting(document.documentElement.getAttribute("data-theme-setting"))
-      : "system";
+      : DEFAULT_THEME;
 
   const initialTheme: DealEngineThemeName =
     typeof document !== "undefined"
-      ? (document.documentElement.getAttribute("data-theme") as DealEngineThemeName | null) ?? DEFAULT_THEME
+      ? (normalizeThemeSetting(document.documentElement.getAttribute("data-theme")) as DealEngineThemeName | null) ??
+        DEFAULT_THEME
       : DEFAULT_THEME;
 
   const [themeSetting, setThemeSettingState] = useState<ThemeSetting>(initialSetting);
@@ -124,8 +133,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setThemeSettingState(normalizeSetting(stored));
       return;
     }
-    // If nothing stored, follow system preference
-    setThemeSettingState("system");
+    // If nothing stored, fall back to default theme
+    setThemeSettingState(DEFAULT_THEME);
   }, []);
 
   // Auth/session listener to load persisted theme from DB
@@ -143,11 +152,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         const settings = await fetchUserSettings().catch(() => null);
         if (cancelled || !settings?.theme) return;
 
-        const normalized = normalizeSetting(settings.theme);
+        const remoteRaw = settings.theme as ThemeSetting | string | undefined;
+        const normalized = normalizeSetting(remoteRaw);
         const current = themeSettingRef.current;
-        // If remote is default/system but we already have a user-picked theme, keep local and sync later.
-        if (normalized === "system" && current !== "system") {
-          remoteThemeRef.current = normalized;
+        const legacyDefault = remoteRaw === "system" || remoteRaw === "dark" || remoteRaw === "light" || remoteRaw === "white";
+        // If remote is a legacy default but user already chose a concrete theme, keep local and persist it back.
+        if (legacyDefault && current && !["system", "dark", "light", DEFAULT_THEME].includes(current as any)) {
+          remoteThemeRef.current = remoteRaw as ThemeSetting;
           pendingPersistRef.current = true;
           return;
         }

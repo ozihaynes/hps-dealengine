@@ -1,6 +1,7 @@
 
 import React from 'react';
 import type { MarketTempView } from '../../lib/overviewExtras';
+import { AnimatedNumber } from '../ui/AnimatedNumber';
 
 export interface MarketTempGaugeProps {
   view: MarketTempView;
@@ -12,7 +13,7 @@ const MarketTempGauge: React.FC<MarketTempGaugeProps> = ({ view }) => {
   const color = view.label === 'hot' ? 'text-orange-300' : view.label === 'cool' ? 'text-cyan-300' : 'text-blue-200';
 
   return (
-    <div className="card-icy flex flex-col items-center justify-center text-center h-full">
+    <div className="card-primary card-padding-md hover-lift flex flex-col items-center justify-center text-center h-full">
       <h4 className="label-xs uppercase mb-2">Market Temp</h4>
       <div className="relative w-48 h-24">
         <svg viewBox="0 0 100 50" className="w-full h-full">
@@ -43,12 +44,13 @@ const MarketTempGauge: React.FC<MarketTempGaugeProps> = ({ view }) => {
           style={{ transform: `translateX(-50%) translateX(-0.5px) rotate(${rotation}deg)` }}
         ></div>
       </div>
-      <div className={`text-3xl font-bold font-mono metric-glow ${color}`}>{Math.round(temp)}</div>
+      <div className={`text-metric font-mono metric-glow ${color}`}>
+        <AnimatedNumber value={Math.round(temp)} />
+      </div>
       <div className={`text-xs font-semibold text-center ${color}`}>{view.reason}</div>
     </div>
   );
 };
 
 export default MarketTempGauge;
-
 

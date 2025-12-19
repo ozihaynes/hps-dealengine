@@ -5,9 +5,12 @@ Anchor the valuation flow with a clear current-state map, target contracts, and 
 
 ## Non-Negotiables & Plan Tweaks
 - Min closed comps must be configurable (default 3). Do **not** hard-code thresholds in UI/business logic; store as a policy token or org/provider config.
-- Rename “Confidence” to “Valuation Confidence” in all UI/spec language to avoid collision with engine Confidence Grade.
+- Rename "Confidence" to "Valuation Confidence" in all UI/spec language to avoid collision with engine Confidence Grade.
 - Address edits must create a new `valuation_run` and preserve history (no overwrites).
 - `property_snapshots` caching must be org-scoped for v1 (no cross-tenant sharing).
+- Snapshot TTL is policy-driven (`valuation.snapshot_ttl_hours`); confidence rubric is policy-driven (`valuation.confidence_rubric`).
+- RentCast v1 evidence is **comparable sale listings**, not guaranteed closed sales; UI/provenance must state this and surface status breakdowns (active/inactive/other).
+- Offer is an engine output shown on Dashboard; Market & Valuation should not collect Offer Price as an input or gate analysis on it.
 
 ## Inventory (Current State)
 - **Market & Valuation block:** `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx` (`UnderwritingSection` → `InputField` labels “ARV”, “As-Is Value”, “DOM (Zip, days)”, “MOI (Zip, months)”, “Price-to-List %”, “Local Discount (20th %)”); state set via `setDealValue` → `DealSession`.
@@ -20,8 +23,8 @@ Anchor the valuation flow with a clear current-state map, target contracts, and 
 - **DB tables relevant now:**
   - `public.deals` (org-scoped) from `supabase/migrations/20251109000708_org_deals_and_audit_rls.sql`.
   - `public.deal_working_states` (per-user draft) from `supabase/migrations/20251228100000_deal_working_states.sql`.
-  - `public.runs` (engine runs) – used by `v1-analyze` + `v1-runs-save`.
-- **Comps section:** No dedicated UI/component for comps today; only sandbox knob inventory (e.g., `apps/hps-dealengine/constants/sandboxSettingsSource.ts`, `lib/sandboxPolicy.ts`) and `offerChecklist` references to comp counts in run outputs. Comps ingestion/provider wiring is absent.
+  - `public.runs` (engine runs) - used by `v1-analyze` + `v1-runs-save`.
+- **Comps section:** Underwrite CompsPanel renders valuationSnapshot.comps (property_snapshots) with provider/as-of/stub badges. Summary shows count, date range (comp listed/close), median distance, price variance (cv), concessions placeholder, status counts, and min-comps gating from policy. Refresh is user-click only (Re-run comps uses the valuation refresh handler).
 - **State store:** React state via `DealSession` (Context) + autosave to `deal_working_states`. DB writes occur on deal creation, autosave drafts, and explicit run save; the Market & Valuation block does not persist directly to DB outside those flows.
 
 ### Current-State Diagram (Mermaid)
@@ -110,15 +113,17 @@ type PropertySnapshot = {
   id: string;
   org_id: string;
   address_fingerprint: string; // normalized address hash
-  source: "mls" | "county" | "tax" | "manual";
+  source: "mls" | "county" | "tax" | "manual" | "rentcast";
+  provider?: string | null;
   as_of: string;
   window_days?: number | null;
   sample_n?: number | null;
   comps?: Comp[];
-  market?: MarketSnapshot;
+  market?: MarketSnapshot | null;
   raw?: Record<string, unknown>;
   created_at: string;
   expires_at?: string | null;
+  stub?: boolean;
 };
 
 type MarketSnapshot = {
@@ -126,6 +131,9 @@ type MarketSnapshot = {
   moi_zip_months?: number | null;
   price_to_list_pct?: number | null;
   local_discount_pct_p20?: number | null;
+  avm_price?: number | null;
+  avm_price_range_low?: number | null;
+  avm_price_range_high?: number | null;
   source: string;
   as_of: string;
   window_days?: number | null;
@@ -135,15 +143,26 @@ type MarketSnapshot = {
 type Comp = {
   id: string;
   address: string;
-  close_date: string;
-  close_price: number;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  close_date?: string | null;
+  price?: number | null;
+  price_per_sqft?: number | null;
   sqft?: number | null;
   beds?: number | null;
   baths?: number | null;
   lot_sqft?: number | null;
   year_built?: number | null;
   distance_miles?: number | null;
-  adjustments?: Record<string, number | null>;
+  correlation?: number | null;
+  days_old?: number | null;
+  days_on_market?: number | null;
+  status?: string | null;
+  listing_type?: string | null;
+  comp_kind?: "sale_listing" | "closed_sale" | "rental" | null;
   source: string; // provider id/name
   as_of: string;
   hash?: string; // for determinism
@@ -172,24 +191,39 @@ type ValuationRun = {
       local_discount_pct_p20?: number | null;
     };
     comps?: Comp[] | null;
-    policy_version?: string | null;
+    policy_version_id?: string | null;
+    property_snapshot_id?: string | null;
+    property_snapshot_hash?: string | null;
+    min_closed_comps_required?: number | null;
     posture: "conservative" | "base" | "aggressive";
     source: "user" | "connector";
   };
   output: {
     arv?: number | null;
+    arv_range_low?: number | null;
+    arv_range_high?: number | null;
     as_is_value?: number | null;
-    valuation_confidence?: "A" | "B" | "C" | null; // UI label uses “Valuation Confidence”
+    valuation_confidence?: "A" | "B" | "C" | null; // UI label uses "Valuation Confidence"
+    comp_count?: number | null;
+    comp_set_stats?: {
+      median_distance_miles?: number | null;
+      median_correlation?: number | null;
+      median_days_old?: number | null;
+    };
+    warnings?: string[] | null;
+    messages?: string[] | null;
     rationale?: string | null;
   };
   provenance: {
     provider_id?: string | null;
     provider_name?: string | null;
+    endpoints?: string[] | null;
     source: "connector" | "user" | "policy";
     as_of: string;
     window_days?: number | null;
     sample_n?: number | null;
     min_closed_comps_required?: number | null;
+    property_snapshot_id?: string | null;
   };
   hashes: {
     input_hash: string;
@@ -223,3 +257,69 @@ type ValuationRun = {
 - Should `valuation_run` live alongside `runs` or as a sibling table with a foreign key to `runs`? What retention/TTL applies?
 - How should property normalization be performed (USPS, Smarty, custom) to derive `address_fingerprint`?
 - What hashes should drive dedupe (address_fingerprint + policy_hash + input_hash + org_id?) and how do we replay valuations independently of full underwriting runs?
+- Slice 5 DoD for the "Market & Valuation UI rebuild into Facts / Market / Comps / Confidence" isn't present (PLAN.docx missing). Which exact fields/actions belong in each lane and what acceptance criteria/gating copy should the UI follow?
+- Should the "Facts" lane surface specific property metrics (beds/baths/sqft/year built/subject fingerprint) and, if so, what is the canonical source (deal payload vs valuation/property snapshot) and formatting?
+- Offer vs Contract semantics: Offer is a computed output; contract_price_executed stays read-only. Where is the authoritative "under contract" state and executed contract price meant to be set going forward?
+- Which output key is canonical for Offer (primary_offer vs instant_cash_offer) across postures?
+- Do comps include a concessions field, and what is the canonical naming/type for it when present?
+
+## Verification SQL (post-fix spine, closed-sales + AVM raw expected)
+
+Expected outcomes for deal `f84bab8d-e377-4512-a4c8-0821c23a82ea` after a forced rerun:
+- New `valuation_runs.created_at` > 2025-12-13.
+- Output contains `suggested_arv_source_method`, `suggested_arv_comp_kind_used`, `warning_codes`, `avm_reference_*`.
+- Snapshot raw includes both `closed_sales` (with request/response) and `avm_request`.
+
+Top 5 latest valuation_runs (not just limit 1):
+
+```sql
+select
+  id as valuation_run_id,
+  created_at,
+  status,
+  output->>'suggested_arv_source_method' as suggested_arv_source_method,
+  output->>'suggested_arv_comp_kind_used' as suggested_arv_comp_kind_used,
+  output->'warning_codes' as warning_codes,
+  output->>'avm_reference_price' as avm_reference_price,
+  output->>'avm_reference_range_low' as avm_reference_range_low,
+  output->>'avm_reference_range_high' as avm_reference_range_high
+from valuation_runs
+where deal_id = 'f84bab8d-e377-4512-a4c8-0821c23a82ea'
+order by created_at desc
+limit 5;
+```
+
+Latest snapshot + raw key inspection (joins the newest run above):
+
+```sql
+with vr as (
+  select *
+  from valuation_runs
+  where deal_id = 'f84bab8d-e377-4512-a4c8-0821c23a82ea'
+  order by created_at desc
+  limit 1
+),
+ps as (
+  select *
+  from property_snapshots
+  where id = (select property_snapshot_id from vr)
+)
+select
+  vr.id as valuation_run_id,
+  vr.created_at as valuation_created_at,
+  ps.as_of as snapshot_as_of,
+  ps.expires_at,
+  (ps.raw -> 'closed_sales') is not null as has_closed_sales_raw,
+  (ps.raw -> 'avm_request') is not null as has_avm_request_raw,
+  (select count(*) from jsonb_array_elements(ps.comps) c where (c->>'comp_kind') = 'closed_sale') as closed_sale_comps,
+  (select count(*) from jsonb_array_elements(ps.comps) c where (c->>'comp_kind') = 'sale_listing') as sale_listing_comps,
+  (vr.output->'warning_codes') as warning_codes,
+  vr.output->>'avm_reference_price' as avm_reference_price,
+  vr.output->>'avm_reference_range_low' as avm_reference_range_low,
+  vr.output->>'avm_reference_range_high' as avm_reference_range_high,
+  ps.raw -> 'closed_sales' ->> 'request' as closed_sales_request,
+  ps.raw -> 'closed_sales' -> 'response' as closed_sales_response_summary,
+  ps.raw -> 'avm_request' as avm_request_raw
+from vr
+join ps on true;
+```

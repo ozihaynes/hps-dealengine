@@ -133,14 +133,19 @@ const DealSessionContext = createContext<DealSessionValue | null>(null);
 export function normalizeDealShape(base?: any): Deal {
   const d: any = base ? structuredClone(base) : {};
 
+  const marketSource = d.market ?? {};
+  const { offer_price: _legacyOfferPrice, ...restMarket } = marketSource;
   d.market = {
-    arv: d.market?.arv ?? null,
-    as_is_value: d.market?.as_is_value ?? null,
-    price_to_list_ratio: d.market?.price_to_list_ratio ?? null,
-    local_discount_pct: d.market?.local_discount_pct ?? null,
-    dom: d.market?.dom ?? null,
-    months_of_inventory: d.market?.months_of_inventory ?? null,
-    ...(d.market ?? {}),
+    arv: marketSource?.arv ?? null,
+    as_is_value: marketSource?.as_is_value ?? null,
+    contract_price: marketSource?.contract_price ?? null,
+    contract_price_executed: marketSource?.contract_price_executed ?? null,
+    valuation_basis: marketSource?.valuation_basis ?? null,
+    price_to_list_ratio: marketSource?.price_to_list_ratio ?? null,
+    local_discount_pct: marketSource?.local_discount_pct ?? null,
+    dom: marketSource?.dom ?? null,
+    months_of_inventory: marketSource?.months_of_inventory ?? null,
+    ...restMarket,
   };
 
   d.costs = {

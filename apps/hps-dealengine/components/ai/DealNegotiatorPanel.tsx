@@ -1,11 +1,12 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { askDealNegotiatorChat } from "@/lib/aiBridge";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { AiChatMessage } from "@/lib/ai/types";
-import { Button, GlassCard } from "../ui";
+import { Button } from "../ui";
 import { ArrowUpRight } from "lucide-react";
+import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 
 type DealNegotiatorPanelProps = {
   inline?: boolean;
@@ -13,56 +14,57 @@ type DealNegotiatorPanelProps = {
 
 export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
   const { dbDeal, lastRunId, negotiationPlaybook } = useDealSession();
+  const { state, dispatch } = useAiWindows();
+  const w = state.windows.dealNegotiator;
+  const activeSession = useMemo(
+    () => (w.activeSessionId ? w.sessions.find((s) => s.id === w.activeSessionId) ?? null : null),
+    [w.activeSessionId, w.sessions],
+  );
 
-  const [input, setInput] = React.useState("");
-  const [isSending, setIsSending] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [threadId, setThreadId] = React.useState<string | null>(null);
-  const [messages, setMessages] = React.useState<AiChatMessage[]>([]);
-  const scrollRef = React.useRef<HTMLDivElement | null>(null);
-  const negotiatorWelcomes = React.useMemo(
-    () => [
-      "Let's get this signed!",
-      "Need a killer counter?",
-      "Objection? I've got you!",
-    ],
+  const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const negotiatorWelcomes = useMemo(
+    () => ["Let's get this signed!", "Need a killer counter?", "Objection? I've got you!"],
     [],
   );
-  const welcomeCopy = React.useMemo(
+  const welcomeCopy = useMemo(
     () => negotiatorWelcomes[Math.floor(Math.random() * negotiatorWelcomes.length)],
     [negotiatorWelcomes],
   );
-
-  const scrollToLatest = React.useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, []);
-
-  React.useEffect(() => {
-    // Reset conversation when switching deals
-    setThreadId(null);
-    setMessages([]);
-    setError(null);
-  }, [dbDeal?.id, lastRunId]);
-
-  React.useEffect(() => {
-    scrollToLatest();
-  }, [messages.length, scrollToLatest]);
-
-  const createMessage = React.useCallback(
-    (role: "user" | "assistant" | "system", content: string): AiChatMessage => ({
-      id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      role,
-      content,
-      createdAt: new Date().toISOString(),
-    }),
-    [],
-  );
-
-  const canUseNegotiator = Boolean(negotiationPlaybook && negotiationPlaybook.logicRowIds.length > 0);
+  const messages = activeSession?.messages ?? [];
   const hasMessages = messages.length > 0;
+  const canUseNegotiator = Boolean(negotiationPlaybook && negotiationPlaybook.logicRowIds.length > 0);
   const sendDisabled = isSending || !input.trim() || !canUseNegotiator || !dbDeal?.id;
+
+  useEffect(() => {
+    // Reset thread when switching deals or sessions
+    if (activeSession?.id) {
+      setThreadId(activeSession.id);
+    } else {
+      setThreadId(null);
+    }
+  }, [activeSession?.id, dbDeal?.id, lastRunId]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages.length]);
+
+  const ensureSession = React.useCallback(() => {
+    if (w.activeSessionId) return w.activeSessionId;
+    const id = crypto.randomUUID();
+    dispatch({
+      type: "START_NEW_SESSION",
+      id: "dealNegotiator",
+      sessionId: id,
+      context: { dealId: dbDeal?.id, orgId: dbDeal?.org_id, runId: lastRunId ?? undefined, posture: undefined },
+    });
+    setThreadId(id);
+    return id;
+  }, [dbDeal?.id, dbDeal?.org_id, dispatch, lastRunId, w.activeSessionId]);
 
   const handleSend = React.useCallback(async () => {
     if (!dbDeal?.id || !lastRunId || !input.trim()) {
@@ -75,47 +77,67 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
     }
     if (isSending) return;
 
+    const sessionId = ensureSession();
     const text = input.trim();
     setInput("");
     setIsSending(true);
     setError(null);
 
-    const userMessage = createMessage("user", text);
-    setMessages((prev) => [...prev, userMessage]);
-    scrollToLatest();
+    const userMessage: AiChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+      createdAt: new Date().toISOString(),
+    };
+    dispatch({ type: "APPEND_MESSAGE", id: "dealNegotiator", message: userMessage });
 
-    const response = await askDealNegotiatorChat({
-      dealId: dbDeal.id,
-      runId: lastRunId ?? null,
-      userMessage: text,
-      threadId,
-    });
+    try {
+      const response = await askDealNegotiatorChat({
+        dealId: dbDeal.id,
+        runId: lastRunId ?? null,
+        userMessage: text,
+        threadId,
+      });
 
-    if (response.threadId) {
-      setThreadId(response.threadId);
-    }
+      if (response.threadId) {
+        setThreadId(response.threadId);
+      }
 
-    if ((response as any)?.ok === false) {
-      const fallback = createMessage(
-        "assistant",
-        response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.",
-      );
-      setMessages((prev) => [...prev, fallback]);
-      setError(response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.");
+      if ((response as any)?.ok === false) {
+        const fallback: AiChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.",
+          createdAt: new Date().toISOString(),
+        };
+        dispatch({ type: "APPEND_MESSAGE", id: "dealNegotiator", message: fallback });
+        setError(response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.");
+        setIsSending(false);
+        return;
+      }
+
+      const assistantMsgContent =
+        response.messages.find((m) => m.role === "assistant")?.content ?? "Negotiation guidance ready.";
+
+      dispatch({
+        type: "APPEND_MESSAGE",
+        id: "dealNegotiator",
+        message: {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: assistantMsgContent,
+          createdAt: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      setError(err?.message ?? "The Negotiator is unavailable. Please try again.");
+    } finally {
       setIsSending(false);
-      return;
     }
-
-    const assistantMsgContent =
-      response.messages.find((m) => m.role === "assistant")?.content ??
-      "Negotiation guidance ready.";
-
-    setMessages((prev) => [...prev, createMessage("assistant", assistantMsgContent)]);
-    setIsSending(false);
-  }, [canUseNegotiator, createMessage, dbDeal?.id, input, isSending, lastRunId, scrollToLatest, threadId]);
+  }, [dbDeal?.id, lastRunId, input, canUseNegotiator, isSending, ensureSession, dispatch, threadId]);
 
   return (
-    <GlassCard className={inline ? "flex h-full min-h-0 flex-col p-3 md:p-4" : "flex h-full min-h-0 flex-col p-3"}>
+    <div className={inline ? "flex h-full min-h-0 flex-col p-3 md:p-4" : "flex h-full min-h-0 flex-col p-3"}>
       {error && (
         <div className="mt-2 rounded-md border border-brand-red-subtle bg-brand-red-subtle/20 px-3 py-2 text-xs text-brand-red-light">
           {error}
@@ -124,23 +146,30 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
 
         <div
           ref={scrollRef}
-          className={`mt-3 flex-1 min-h-0 space-y-3 pr-1 ${hasMessages ? "overflow-y-auto" : "overflow-hidden"}`}
+          tabIndex={0}
+          onWheel={(e) => e.stopPropagation()}
+          style={{ overscrollBehavior: "contain" }}
+          className={`group/message mt-3 flex-1 min-h-[220px] space-y-3 rounded-xl border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface)] px-3 py-3 pr-2 transition ${
+            hasMessages ? "overflow-y-auto" : "overflow-hidden"
+          } focus-within:border-[color:var(--ai-window-border-strong)] focus-within:ring-2 focus-within:ring-[color:var(--ai-window-focus-ring)] hover:border-[color:var(--ai-window-border)]`}
         >
-          <div className="space-y-2 rounded-md border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2">
+          <div className="space-y-2 text-xs text-text-secondary">
             {hasMessages ? (
               <div className="flex flex-col gap-2">
                 {messages.map((m) => (
                   <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
                     <div
-                      className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
-                      m.role === "assistant" ? "bg-white/5 text-text-primary" : "bg-accent-blue/20 text-text-primary"
+                      className={`max-w-[90%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                      m.role === "assistant" ? "bg-[color:var(--ai-message-assistant-bg)] border border-[color:var(--ai-message-assistant-border)] text-text-primary" : "bg-[color:var(--ai-message-user-bg)] border border-[color:var(--ai-message-user-border)] text-text-primary"
                     }`}
-                  >
-                    <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
-                      {m.role === "user" ? "You" : "Negotiator"}
+                    >
+                      <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
+                        {m.role === "user" ? "You" : "Negotiator"}
+                      </div>
+                      <div className="prose prose-invert max-w-none break-words text-sm leading-relaxed [&_code]:bg-black/30 [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-black/30 [&_pre]:p-2">
+                        {m.content}
+                      </div>
                     </div>
-                    {m.content}
-                  </div>
                   </div>
                 ))}
               </div>
@@ -152,10 +181,10 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
           </div>
         </div>
 
-      <div className="mt-3 flex flex-col gap-2 border-t border-[color:var(--glass-border)] pt-3">
+      <div className="mt-2 flex flex-col gap-2 border-t border-[color:var(--ai-window-divider)] pt-3">
         <div className="relative">
           <textarea
-            className="min-h-[96px] w-full rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
+            className="min-h-[96px] w-full rounded-md border border-[color:var(--ai-input-border)] bg-[color:var(--ai-input-bg)] p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),inset_0_0_0_1px_rgba(0,0,0,0.35)] outline-none focus:border-[color:var(--ai-input-border-focus)] focus:ring-2 focus:ring-[color:var(--ai-window-focus-ring)]"
             placeholder="Ask the Negotiator for seller language, draft replies, handle objections, and sharpen offer positioning to communicate with your client."
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -172,7 +201,7 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
             type="button"
             onClick={handleSend}
             disabled={sendDisabled}
-            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-accent-blue/80 text-white shadow-lg backdrop-blur transition hover:bg-accent-blue ${
+            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface-2)] text-text-primary shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-[color:var(--ai-window-border-strong)] hover:bg-[color:var(--ai-window-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ai-window-focus-ring)] ${
               sendDisabled ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Send"
@@ -182,7 +211,7 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
         </div>
         {!canUseNegotiator && <div className="text-[11px] text-text-secondary">Generate the playbook to chat.</div>}
       </div>
-    </GlassCard>
+    </div>
   );
 }
 

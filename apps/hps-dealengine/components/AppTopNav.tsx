@@ -47,7 +47,7 @@ export default function AppTopNav() {
             </span>
           </div>
         </div>
-      </div>
+        </div>
 
       {/* Right-side controls */}
       <div className="flex items-center gap-3">
@@ -76,14 +76,6 @@ export default function AppTopNav() {
             </span>
           </Link>
         </div>
-        {/* Logout button */}
-        <Link
-          href="/logout"
-          className="rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-sm font-semibold text-[color:var(--text-primary)] shadow-sm transition hover:border-accent-blue hover:text-accent-blue"
-          aria-label="Log out"
-        >
-          Log out
-        </Link>
       </div>
     </div>
   );

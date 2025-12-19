@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { askDealStrategist } from "@/lib/aiBridge";
 import type { AiBridgeResult } from "@/lib/ai/types";
-import { GlassCard } from "@/components/ui";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 import { ArrowUpRight } from "lucide-react";
 import { useDealSession } from "@/lib/dealSessionContext";
@@ -15,16 +14,6 @@ type DealStrategistPanelProps = {
   onClose?: () => void;
   onMinimize?: () => void;
 };
-
-function Section({ section }: { section?: { title: string; body: string } }) {
-  if (!section) return null;
-  return (
-    <div className="space-y-1">
-      <div className="text-[11px] uppercase tracking-wide text-text-secondary">{section.title}</div>
-      <div className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">{section.body}</div>
-    </div>
-  );
-}
 
 export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinimize }: DealStrategistPanelProps) {
   const pathname = usePathname();
@@ -60,10 +49,6 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
     el.scrollTop = el.scrollHeight;
   }, []);
 
-  useEffect(() => {
-    setThreadId(null);
-  }, [dbDeal?.id, w.activeSessionId]);
-
   React.useEffect(() => {
     if (!w.activeSessionId) {
       const id = crypto.randomUUID();
@@ -73,8 +58,17 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         sessionId: id,
         context: { dealId: dbDeal?.id, orgId: dbDeal?.org_id, runId: lastRunId ?? undefined, posture: posture ?? sessionPosture },
       });
+      setThreadId(id);
     }
   }, [dbDeal?.id, dbDeal?.org_id, dispatch, lastRunId, posture, sessionPosture, w.activeSessionId]);
+
+  useEffect(() => {
+    if (activeSession?.id) {
+      setThreadId(activeSession.id);
+    } else {
+      setThreadId(null);
+    }
+  }, [activeSession?.id, dbDeal?.id]);
 
   const onAsk = async (prompt: string) => {
     const trimmedPrompt = prompt.trim();
@@ -93,6 +87,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         sessionId: id,
         context: { dealId: dbDeal?.id, orgId: dbDeal?.org_id, runId: lastRunId ?? undefined, posture: postureValue },
       });
+      setThreadId(id);
     }
     dispatch({
       type: "APPEND_MESSAGE",
@@ -158,10 +153,15 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
   }, [messages.length, scrollToLatest]);
 
   return (
-      <GlassCard className="flex h-full min-h-0 flex-col gap-3 p-4 text-text-primary">
+      <div className="flex h-full min-h-0 flex-col gap-3 p-1 text-text-primary">
         <div
           ref={scrollRef}
-          className={`flex-1 min-h-0 space-y-3 pr-1 ${hasMessages ? "overflow-y-auto" : "overflow-hidden"}`}
+          tabIndex={0}
+          onWheel={(e) => e.stopPropagation()}
+          style={{ overscrollBehavior: "contain" }}
+          className={`group/message flex-1 min-h-[220px] space-y-3 rounded-xl border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface)] px-3 py-3 pr-2 transition ${
+            hasMessages ? "overflow-y-auto" : "overflow-hidden"
+          } focus-within:border-[color:var(--ai-window-border-strong)] focus-within:ring-2 focus-within:ring-[color:var(--ai-window-focus-ring)] hover:border-[color:var(--ai-window-border)]`}
         >
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
@@ -169,20 +169,22 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
           </div>
         )}
 
-        <div className="space-y-2 rounded-lg border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-3 py-2 text-xs text-text-secondary">
+        <div className="space-y-2 text-xs text-text-secondary">
           {messages.length > 0 ? (
             <div className="flex flex-col gap-2">
               {messages.map((m) => (
                 <div key={m.id} className={`flex ${m.role === "assistant" ? "justify-start" : "justify-end"}`}>
                   <div
-                    className={`max-w-[90%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm ${
-                      m.role === "assistant" ? "bg-white/5 text-text-primary" : "bg-accent-blue/20 text-text-primary"
+                    className={`max-w-[90%] whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm leading-relaxed ${
+                      m.role === "assistant" ? "bg-[color:var(--ai-message-assistant-bg)] border border-[color:var(--ai-message-assistant-border)] text-text-primary" : "bg-[color:var(--ai-message-user-bg)] border border-[color:var(--ai-message-user-border)] text-text-primary"
                     }`}
                   >
                     <div className="mb-1 text-[10px] uppercase tracking-wide text-text-secondary">
                       {m.role === "user" ? "You" : "Strategist"}
                     </div>
-                    {m.content ?? ""}
+                    <div className="prose prose-invert max-w-none break-words text-sm leading-relaxed [&_code]:bg-black/30 [&_code]:px-1 [&_code]:py-0.5 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-black/30 [&_pre]:p-2">
+                      {m.content ?? ""}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -195,12 +197,12 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         </div>
       </div>
 
-      <div className="space-y-2 border-t border-[color:var(--glass-border)] pt-3">
+      <div className="mt-2 flex flex-col gap-2 border-t border-[color:var(--ai-window-divider)] pt-3">
         <div className="relative">
           <textarea
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
-            className="w-full min-h-[96px] rounded-md border border-white/20 bg-white/8 p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/40"
+            className="w-full min-h-[96px] rounded-md border border-[color:var(--ai-input-border)] bg-[color:var(--ai-input-bg)] p-3 pr-12 text-sm text-text-primary placeholder:text-text-secondary/70 shadow-inner outline-none focus:border-[color:var(--ai-input-border-focus)] focus:ring-2 focus:ring-[color:var(--ai-window-focus-ring)]"
             rows={4}
             placeholder={guidanceText}
             onKeyDown={(e) => {
@@ -216,7 +218,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
             type="button"
             onClick={() => onAsk(question)}
             disabled={!canSend}
-            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-accent-blue/80 text-white shadow-lg backdrop-blur transition hover:bg-accent-blue ${
+            className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface-2)] text-text-primary shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-[color:var(--ai-window-border-strong)] hover:bg-[color:var(--ai-window-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ai-window-focus-ring)] ${
               !canSend ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Ask Deal Strategist"
@@ -241,7 +243,7 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
           </div>
         )}
       </div>
-    </GlassCard>
+    </div>
   );
 }
 

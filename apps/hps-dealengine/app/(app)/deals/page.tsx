@@ -15,6 +15,7 @@ import {
   validateNewDealForm,
 } from "@/lib/deals";
 import DealsTable from "@/components/deals/DealsTable";
+import { invokeValuationRun } from "@/lib/valuation";
 
 type DealsStatus =
   | { kind: "loading" }
@@ -105,6 +106,9 @@ export default function DealsPage() {
       setCreateError(null);
 
       // For now, send the user into Overview for the selected deal.
+      invokeValuationRun(inserted.id, "base").catch((err) =>
+        console.warn("[/deals] valuation run failed", err),
+      );
       router.push(`/overview?dealId=${inserted.id}`);
     } catch (err: any) {
       console.error("[/deals] create deal error", err);
@@ -138,7 +142,7 @@ export default function DealsPage() {
 
   if (status.kind === "loading") {
     return (
-      <main className="p-6">
+      <main className="p-6 lg:p-0">
         <h1 className="text-xl font-semibold mb-4">Deals</h1>
         <div className="text-sm text-gray-500">Loading deals…</div>
       </main>
@@ -147,7 +151,7 @@ export default function DealsPage() {
 
   if (status.kind === "error") {
     return (
-      <main className="p-6">
+      <main className="p-6 lg:p-0">
         <h1 className="text-xl font-semibold mb-4">Deals</h1>
         <div className="rounded-md border border-red-500/40 bg-red-500/5 p-4 text-sm text-red-600">
           {status.message}
@@ -165,7 +169,7 @@ export default function DealsPage() {
 
   // Ready state
   return (
-    <main className="p-6 space-y-4 print-area">
+    <main className="p-6 space-y-4 print-area lg:p-0 lg:space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Deals</h1>
       </div>

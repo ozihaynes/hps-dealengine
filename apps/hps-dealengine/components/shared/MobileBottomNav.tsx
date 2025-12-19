@@ -59,7 +59,7 @@ const MobileBottomNav = ({ items }: MobileBottomNavProps) => {
               className={[
                 "flex flex-1 flex-col items-center justify-center gap-1 py-3 text-[11px] font-semibold transition-colors",
                 isActive
-                  ? "text-[color:var(--accent-color)]"
+                  ? "text-[color:var(--accent-contrast)]"
                   : "text-[color:var(--text-secondary)] hover:text-[color:var(--text-primary)]",
               ].join(" ")}
             >

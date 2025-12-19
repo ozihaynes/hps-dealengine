@@ -135,7 +135,7 @@ export function RequestOverrideModal({
             tokenKey
           </label>
           <input
-            className="w-full rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-primary focus:border-accent-blue focus:outline-none"
+            className="input-base"
             value={tokenKey}
             onChange={(e) => setTokenKey(e.target.value)}
             placeholder="e.g. policy.min_spread"
@@ -147,7 +147,7 @@ export function RequestOverrideModal({
             Current value (JSON)
           </label>
           <textarea
-            className="w-full min-h-[80px] rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-mono text-text-primary focus:border-accent-blue focus:outline-none"
+            className="input-base font-mono min-h-[100px]"
             value={oldValueText}
             onChange={(e) => setOldValueText(e.target.value)}
             placeholder="Existing value (optional)"
@@ -159,7 +159,7 @@ export function RequestOverrideModal({
             newValue (JSON)
           </label>
           <textarea
-            className="w-full min-h-[140px] rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-mono text-text-primary focus:border-accent-blue focus:outline-none"
+            className="input-base font-mono min-h-[140px]"
             value={newValueText}
             onChange={(e) => setNewValueText(e.target.value)}
             placeholder='{"value": 0.85}'
@@ -171,7 +171,7 @@ export function RequestOverrideModal({
             Justification
           </label>
           <textarea
-            className="w-full min-h-[100px] rounded border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-primary focus:border-accent-blue focus:outline-none"
+            className="input-base min-h-[120px]"
             value={justification}
             onChange={(e) => setJustification(e.target.value)}
             placeholder="Explain the evidence or context that supports this override."

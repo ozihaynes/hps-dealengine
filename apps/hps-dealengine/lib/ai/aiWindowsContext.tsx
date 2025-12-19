@@ -340,6 +340,8 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(aiWindowsReducer, defaultState);
   const supabase = useMemo<SupabaseClient>(() => getSupabaseClient(), []);
   const { dbDeal, lastRunId, posture } = useDealSession();
+  const dealId = dbDeal?.id ?? null;
+  const orgId = dbDeal?.org_id ?? null;
   const [userId, setUserId] = useState<string | null>(null);
   const persistedCountsRef = useRef<Record<string, number>>({});
   const sessionGroups = useMemo(
@@ -382,11 +384,24 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
-    if (!userId || !dbDeal?.org_id) return;
+    if (!userId) {
+      dispatch({ type: "CLEAR_ALL" });
+      persistedCountsRef.current = {};
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId || !orgId || !dealId) {
+      persistedCountsRef.current = {};
+      dispatch({ type: "SET_SESSIONS", id: "dealAnalyst", sessions: [] });
+      dispatch({ type: "SET_SESSIONS", id: "dealStrategist", sessions: [] });
+      dispatch({ type: "SET_SESSIONS", id: "dealNegotiator", sessions: [] });
+      return;
+    }
     let cancelled = false;
     const hydrateFromRemote = async () => {
       try {
-        const threads = await fetchAiThreads(supabase, { orgId: dbDeal.org_id });
+        const threads = await fetchAiThreads(supabase, { orgId, dealId });
         if (cancelled || !threads) return;
         const grouped: Record<WindowId, AiSession[]> = {
           dealAnalyst: [],
@@ -412,7 +427,7 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
             tone: (thread.tone as AiTone | undefined) ?? undefined,
             messages,
             dealId: thread.dealId ?? undefined,
-            orgId: thread.orgId ?? dbDeal.org_id,
+            orgId: thread.orgId ?? orgId,
             runId: thread.runId ?? undefined,
             posture: thread.posture ?? posture,
           };
@@ -440,7 +455,7 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [dbDeal?.org_id, posture, supabase, userId]);
+  }, [dealId, orgId, posture, supabase, userId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -452,8 +467,9 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
   }, [state]);
 
   useEffect(() => {
-    if (!userId || !dbDeal?.org_id) return;
-    const orgId = dbDeal.org_id;
+    if (!userId || !orgId || !dealId) return;
+    const currentOrg = orgId;
+    const currentDeal = dealId;
     const syncSessions = async () => {
       const allSessions = [
         ...sessionGroups.dealAnalyst,
@@ -462,21 +478,18 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
       ];
 
       for (const session of allSessions) {
-        const targetOrgId = session.orgId ?? orgId;
-        if (session.orgId && session.orgId !== orgId) {
+        const targetOrgId = session.orgId ?? currentOrg;
+        if (session.orgId && session.orgId !== currentOrg) {
           continue;
         }
-        if (session.persona === "dealStrategist") {
-          persistedCountsRef.current[session.id] = session.messages.length;
-          continue;
-        }
+        const targetDealId = session.dealId ?? currentDeal;
         try {
           await persistAiThread(supabase, {
             id: session.id,
             persona: session.persona,
             title: session.title ?? null,
             tone: session.tone ?? null,
-            dealId: session.dealId ?? dbDeal?.id ?? null,
+            dealId: targetDealId ?? null,
             runId: session.runId ?? lastRunId ?? null,
             posture: session.posture ?? posture ?? null,
             orgId: targetOrgId,
@@ -503,7 +516,7 @@ export function AiWindowsProvider({ children }: { children: React.ReactNode }) {
     };
 
     void syncSessions();
-  }, [dbDeal?.id, dbDeal?.org_id, lastRunId, posture, sessionGroups, supabase, userId]);
+  }, [dealId, orgId, lastRunId, posture, sessionGroups, supabase, userId]);
 
   const value = useMemo(() => ({ state, dispatch }), [state]);
 
