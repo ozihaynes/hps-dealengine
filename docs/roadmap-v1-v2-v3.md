@@ -161,13 +161,11 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - RLS and storage protection wired to orgs.
 
-  - `v1-runs-relay` / `v1-runs-replay`
-
-    - Relay patterns and deterministic run replays (hash-based).
-
   - `v1-policy-override-request` / `v1-policy-override-approve`
 
     - Governance interface for sensitive policy changes; tied to `policy_override_requests` and `policy_versions`.
+
+  - Not shipped in V1 (planned for V1.1): `v1-runs-relay` / `v1-runs-replay` (deterministic relays/replays).
 
   - `v1-user-settings`
 
@@ -394,7 +392,6 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
-
 
 
 

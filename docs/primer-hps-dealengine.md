@@ -511,12 +511,13 @@ All domain logic runs through Supabase Edge Functions.
   - Issues signed URLs.
   - Ensures `org_id` scoping and RLS compliance.
 
-- `v1-runs-relay`, `v1-runs-replay`, `v1-policy-override-request`, `v1-policy-override-approve`
+- `v1-policy-override-request`, `v1-policy-override-approve`
   Support functions for:
 
-  - Replaying runs,
-  - Relay patterns,
   - Policy override governance.
+
+Not shipped in V1 (planned for V1.1):
+- `v1-runs-relay`, `v1-runs-replay` (deterministic relays/replays)
 
 ### 4.1.1 Function Environment Vars
 

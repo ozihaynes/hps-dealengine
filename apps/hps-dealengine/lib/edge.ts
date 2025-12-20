@@ -51,13 +51,6 @@ export interface SaveRunResult {
   deduped?: boolean;
 }
 
-export interface ReplayRunResult {
-  match: boolean;
-  original_hash: string;
-  replay_hash: string;
-  diff: { message: string } | null;
-}
-
 export interface AiStrategistRequest {
   mode: "strategist";
   prompt: string;
@@ -197,22 +190,9 @@ export async function saveRun(input: SaveRunInput): Promise<SaveRunResult> {
   return data as SaveRunResult;
 }
 
-/**
- * Re-executes a historical run to verify determinism.
- */
-export async function replayRun(runId: string): Promise<ReplayRunResult> {
-  const supabase = getSupabase();
-
-  const { data, error } = await supabase.functions.invoke("v1-runs-replay", {
-    body: { runId },
-  });
-
-  if (error) {
-    console.error("[edge] v1-runs-replay failed", error);
-    throw error;
-  }
-
-  return data as ReplayRunResult;
+// Replay is not shipped in V1; planned for V1.1
+export async function replayRun(): Promise<never> {
+  throw new Error("Replay is not shipped in V1; planned for V1.1");
 }
 
 /* -------------------------------------------------------------------------- */
