@@ -133,7 +133,7 @@ export async function fetchLatestRunForDeal(
   const { data, error } = await supabase
     .from("runs")
     .select(
-      "id, org_id, deal_id, posture, created_at, input, input_hash, output",
+      "id, org_id, deal_id, posture, created_at, input, input_hash, output, trace",
     )
     .eq("org_id", params.orgId)
     .or(`deal_id.eq.${params.dealId},input->>dealId.eq.${params.dealId}`)

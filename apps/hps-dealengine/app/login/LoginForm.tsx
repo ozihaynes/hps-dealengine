@@ -116,6 +116,7 @@ export default function LoginForm({
               </span>
               <input
                 id="email"
+                data-testid="login-email"
                 className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 pl-11 text-[15px] text-white placeholder:text-white/60 transition focus:border-[rgba(0,150,255,0.6)] focus:ring-2 focus:ring-[rgba(0,150,255,0.3)] focus:outline-none"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -138,6 +139,7 @@ export default function LoginForm({
               </span>
               <input
                 id="password"
+                data-testid="login-password"
                 className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 pl-11 text-[15px] text-white placeholder:text-white/60 transition focus:border-[rgba(0,150,255,0.6)] focus:ring-2 focus:ring-[rgba(0,150,255,0.3)] focus:outline-none"
                 type="password"
                 value={password}
@@ -160,6 +162,7 @@ export default function LoginForm({
 
         <button
           disabled={busy}
+          data-testid="login-submit"
           className="group relative w-full overflow-hidden rounded-xl bg-gradient-to-r from-[var(--accent-blue,#0096ff)] to-[#00d4ff] px-4 py-3.5 text-base font-semibold text-white shadow-[0_12px_32px_rgba(0,150,255,0.35)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_40px_rgba(0,150,255,0.35)] disabled:translate-y-0 disabled:opacity-70"
         >
           <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 transition duration-700 ease-out group-hover:translate-x-[120%] group-hover:opacity-100" />

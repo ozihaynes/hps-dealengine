@@ -275,6 +275,7 @@ const QuickEstimate: React.FC<{
         <SelectField
           label="Rehab Level (PSF Tiers)"
           value={rehabLevel}
+          dataTestId="repairs-rehab-level"
           onChange={(e: any) => {
             setHasInteracted(true);
             setRehabLevel(e.target.value);

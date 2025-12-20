@@ -49,7 +49,13 @@ export const GlassCard = ({ children, className = '' }: CardProps) => (
   </div>
 );
 
-export const Badge = ({ color, children }: BadgeProps) => {
+export const Badge = ({
+  color,
+  children,
+  className = '',
+  dataTestId,
+  ...rest
+}: BadgeProps) => {
   const colors = {
     green: 'border border-[color:var(--accent-green)]/40 bg-[color:var(--accent-green)]/15 text-[color:var(--text-primary)]',
     blue: 'border border-[color:var(--accent-color)]/35 bg-[color:var(--accent-color)]/15 text-[color:var(--text-primary)]',
@@ -58,7 +64,11 @@ export const Badge = ({ color, children }: BadgeProps) => {
   };
   const colorClass = color ? colors[color] : colors.blue;
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
+    <span
+      data-testid={dataTestId}
+      {...rest}
+      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass} ${className}`}
+    >
       {children}
     </span>
   );
@@ -106,6 +116,7 @@ export const InputField = ({
   description,
   warning,
   helpKey,
+  dataTestId,
   ...props
 }: InputFieldProps) => (
   <div className="relative">
@@ -118,6 +129,7 @@ export const InputField = ({
       {prefix && <span className="input-prefix">{prefix}</span>}
       <input
         type={type}
+        data-testid={dataTestId}
         value={
           type === 'number'
             ? value === null || value === undefined
@@ -159,6 +171,7 @@ export const SelectField = ({
   className,
   description,
   helpKey,
+  dataTestId,
 }: SelectFieldProps) => (
   <div className={className}>
     <div className="mb-1 flex items-center gap-2">
@@ -166,7 +179,7 @@ export const SelectField = ({
       {helpKey ? <InfoTooltip helpKey={helpKey} /> : null}
     </div>
     {description && <p className="text-xs text-text-secondary/70 mb-2">{description}</p>}
-    <select value={value} onChange={onChange} className="input-base">
+    <select value={value} onChange={onChange} className="input-base" data-testid={dataTestId}>
       {children}
     </select>
   </div>

@@ -789,6 +789,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <SelectField
               label="Occupancy"
               value={property.occupancy}
+              dataTestId="uw-occupancy"
               onChange={(e: any) => setDealValue("property.occupancy", e.target.value)}
             >
               <option value="owner">Owner</option>
@@ -809,6 +810,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <InputField
               label="County"
               value={property.county}
+              dataTestId="uw-county"
               onChange={(e: any) => setDealValue("property.county", e.target.value)}
             />
           </div>
@@ -1289,4 +1291,3 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 };
 
 export default UnderwriteTab;
-

@@ -16,10 +16,9 @@ test.describe("HPS DealEngine golden path", () => {
   test("login and load seeded clean deal overview/underwrite/trace", async ({ page }) => {
     await page.goto("/login");
 
-    await page.getByLabel("Email address").fill(QA_EMAIL!);
-    await page.getByLabel("Password").fill(QA_PASSWORD!);
-    const signInButton = page.getByRole("button", { name: /Sign in/i }).first();
-    await signInButton.click();
+    await page.getByTestId("login-email").fill(QA_EMAIL!);
+    await page.getByTestId("login-password").fill(QA_PASSWORD!);
+    await page.getByTestId("login-submit").click();
 
     await page.waitForURL("**/startup**", { timeout: 60_000 });
     await expect(page.getByRole("heading", { name: /Welcome Back/i })).toBeVisible();
@@ -32,7 +31,7 @@ test.describe("HPS DealEngine golden path", () => {
     // Navigate directly to the seeded clean deal (dashboard) to avoid UI creation randomness.
     await page.goto(`/overview?dealId=${QA_READY_DEAL_ID}`);
     await page.waitForURL("**/overview**", { timeout: 60_000 });
-    await expect(page.getByRole("heading", { name: /Dashboard/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /Dashboard/i }).first()).toBeVisible();
 
     if (QA_READY_CLIENT_NAME) {
       // For seeded QA deals, the READY label string may appear in multiple places on the overview

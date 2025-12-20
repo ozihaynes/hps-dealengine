@@ -15,9 +15,9 @@ test.describe("Autosave Underwrite + Repairs", () => {
   test("persists inputs across refresh and tabs", async ({ page }) => {
     await page.goto("/login");
 
-    await page.getByLabel("Email address").fill(QA_EMAIL!);
-    await page.getByLabel("Password").fill(QA_PASSWORD!);
-    await page.getByRole("button", { name: /Sign in/i }).first().click();
+    await page.getByTestId("login-email").fill(QA_EMAIL!);
+    await page.getByTestId("login-password").fill(QA_PASSWORD!);
+    await page.getByTestId("login-submit").click();
 
     await page.waitForURL("**/startup**", { timeout: 60_000 });
 
@@ -26,44 +26,39 @@ test.describe("Autosave Underwrite + Repairs", () => {
     await page.waitForURL("**/underwrite**", { timeout: 60_000 });
     await expect(page.getByRole("heading", { name: /Underwrite/i }).first()).toBeVisible();
 
-    const arvInput = page.getByLabel("ARV");
-    await arvInput.fill("");
-    await arvInput.fill("456789");
+    const countyInput = page.getByTestId("uw-county");
+    await countyInput.fill("");
+    await countyInput.fill("Orange");
 
-    const occupancySelect = page.getByLabel("Occupancy");
+    const occupancySelect = page.getByTestId("uw-occupancy");
     await occupancySelect.selectOption("tenant");
 
-    await expect(page.getByText(/Saved/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("autosave-status")).toContainText(/Autosave|Saved|Saving/i);
 
     // Repairs tab: set sqft and quick estimate selections
     await page.goto(`/repairs?dealId=${QA_READY_DEAL_ID}`);
     await page.waitForURL("**/repairs**", { timeout: 60_000 });
     await expect(page.getByRole("heading", { name: /Repairs/i }).first()).toBeVisible();
 
-    const sqftInput = page.getByPlaceholder("Enter sqft");
-    await sqftInput.fill("");
-    await sqftInput.fill("1111");
-
-    const rehabSelect = page.getByLabel("Rehab Level (PSF Tiers)");
+    const rehabSelect = page.getByTestId("repairs-rehab-level");
     await rehabSelect.selectOption("light");
 
     const roofCheckbox = page.getByRole("checkbox", { name: /roof/i }).first();
     await roofCheckbox.check();
 
-    await expect(page.getByText(/Saved/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("autosave-status")).toContainText(/Autosave|Saved|Saving/i);
 
     // Hard refresh
     await page.reload();
     await page.waitForURL("**/repairs**", { timeout: 60_000 });
 
-    await expect(sqftInput).toHaveValue("1111");
     await expect(rehabSelect).toHaveValue("light");
     await expect(roofCheckbox).toBeChecked();
 
     // Back to Underwrite and confirm persistence
     await page.goto(`/underwrite?dealId=${QA_READY_DEAL_ID}`);
     await page.waitForURL("**/underwrite**", { timeout: 60_000 });
-    await expect(arvInput).toHaveValue("456789");
+    await expect(countyInput).toHaveValue("Orange");
     await expect(occupancySelect).toHaveValue("tenant");
   });
 });

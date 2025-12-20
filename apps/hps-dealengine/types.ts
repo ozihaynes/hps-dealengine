@@ -1,5 +1,5 @@
 // apps/hps-dealengine/types.ts
-import type { MouseEvent, ReactNode } from "react";
+import type { HTMLAttributes, MouseEvent, ReactNode } from "react";
 import type { GlossaryKey } from "./lib/glossary";
 
 /** Calculations used by Overview/Underwrite */
@@ -66,10 +66,11 @@ export interface CardProps {
   title?: string;
   footer?: ReactNode;
 }
-export interface BadgeProps {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   color?: "green" | "blue" | "orange" | "red";
   className?: string;
   children?: ReactNode;
+  dataTestId?: string;
 }
 export interface ButtonProps {
   size?: "sm" | "md";
@@ -89,6 +90,7 @@ export interface InputFieldProps {
   prefix?: ReactNode | string;
   suffix?: ReactNode | string;
   className?: string;
+  dataTestId?: string;
   description?: string;
   warning?: string | null;
   min?: number | string;
@@ -106,6 +108,7 @@ export interface SelectFieldProps {
   description?: string;
   children?: ReactNode;
   helpKey?: GlossaryKey;
+  dataTestId?: string;
 }
 
 export interface ToggleSwitchProps {

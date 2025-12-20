@@ -278,14 +278,28 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const dealIdFromUrl = searchParams?.get("dealId");
 
   useEffect(() => {
+    let active = true;
+
     supabase.auth
       .getUser()
       .then(({ data }) => {
+        if (!active) return;
         setUserId(data.user?.id ?? null);
       })
       .catch(() => {
+        if (!active) return;
         setUserId(null);
       });
+
+    const { data: authSub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      active = false;
+      authSub?.subscription?.unsubscribe?.();
+    };
   }, [supabase]);
 
   const appendNegotiatorMessage = React.useCallback((message: AiChatMessage) => {
@@ -321,6 +335,10 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const loadDealById = useCallback(
     async (dealId: string) => {
       try {
+        const { data: session } = await supabase.auth.getSession();
+        if (!session?.session) {
+          return null;
+        }
         const { data, error } = await supabase
           .from("deals")
           .select(
@@ -333,21 +351,44 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
           return null;
         }
 
-        const organization =
-          (data as any)?.organization ?? (data as any)?.organizations ?? null;
-        const normalized = {
-          ...(data as any),
-          orgId: (data as any)?.org_id ?? (data as any)?.orgId ?? "",
-          orgName: organization?.name ?? null,
-          organization,
-        } as DbDeal;
+      const organization =
+        (data as any)?.organization ?? (data as any)?.organizations ?? null;
+      const normalized = {
+        ...(data as any),
+        orgId: (data as any)?.org_id ?? (data as any)?.orgId ?? "",
+        orgName: organization?.name ?? null,
+        organization,
+      } as DbDeal;
 
-        setDbDeal(normalized);
-        return normalized;
-      } catch {
-        return null;
+      setDbDeal(normalized);
+
+      try {
+        const latestRun = await fetchLatestRunForDeal(supabase, {
+          orgId: normalized.org_id,
+          dealId: normalized.id,
+        });
+
+        if (latestRun?.output) {
+          const trace = Array.isArray((latestRun as any)?.trace)
+            ? ((latestRun as any).trace as any[])
+            : null;
+          const merged = trace
+            ? ({ ...(latestRun.output as any), trace } as AnalyzeResult)
+            : (latestRun.output as AnalyzeResult);
+
+          setLastAnalyzeResult(merged);
+          setLastRunId(latestRun.id ?? null);
+          setLastRunAt((latestRun as any)?.created_at ?? null);
+        }
+      } catch (err) {
+        console.warn("[DealSession] failed to load latest run for deal", err);
       }
-    },
+
+      return normalized;
+    } catch {
+      return null;
+    }
+  },
     [supabase],
   );
 
@@ -356,6 +397,12 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     if (dbDeal?.id) {
       localStorage.setItem("hps-active-deal-id", dbDeal.id);
     }
+  }, [dbDeal?.id]);
+
+  useEffect(() => {
+    setLastAnalyzeResult(null);
+    setLastRunId(null);
+    setLastRunAt(null);
   }, [dbDeal?.id]);
 
   // On mount, hydrate selection from localStorage if present
@@ -402,6 +449,41 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       setDeal(normalizeDealShape(dbDeal.payload));
     }
   }, [dbDeal?.payload]);
+
+  // Fallback: load the latest run for the active deal to ensure overview/trace have data.
+  useEffect(() => {
+    if (!dbDeal?.id || !dbDeal.org_id) return;
+    if (!userId) return;
+    if (lastAnalyzeResult) return;
+
+    let cancelled = false;
+    const loadLatestRun = async () => {
+      const { data, error } = await supabase
+        .from("runs")
+        .select("id, org_id, deal_id, created_at, output, trace")
+        .eq("org_id", dbDeal.org_id)
+        .eq("deal_id", dbDeal.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled || error || !data) return;
+
+      const output = ((data as any).output ?? null) as AnalyzeResult | null;
+      const trace = Array.isArray((data as any)?.trace) ? ((data as any).trace as any[]) : null;
+      const merged = trace && output ? ({ ...(output as any), trace } as AnalyzeResult) : output;
+
+      setLastAnalyzeResult(merged);
+      setLastRunId((data as any).id ?? null);
+      setLastRunAt((data as any).created_at ?? null);
+    };
+
+    void loadLatestRun();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dbDeal?.id, dbDeal?.org_id, lastAnalyzeResult, supabase, setLastRunId, setLastRunAt, userId]);
 
   const refreshRepairRates = React.useCallback(
     async (

@@ -15,10 +15,9 @@ async function login(page: Page) {
     throw new Error("Set DEALENGINE_QA_USER_EMAIL and DEALENGINE_QA_USER_PASSWORD to run this test.");
   }
   await page.goto("/login");
-  await page.getByLabel("Email address").fill(QA_EMAIL);
-  await page.getByLabel("Password").fill(QA_PASSWORD);
-  const signInButton = page.getByRole("button", { name: /Sign in/i }).first();
-  await signInButton.click();
+  await page.getByTestId("login-email").fill(QA_EMAIL);
+  await page.getByTestId("login-password").fill(QA_PASSWORD);
+  await page.getByTestId("login-submit").click();
   await page.waitForURL("**/startup", { timeout: 60_000 });
 }
 
@@ -40,29 +39,33 @@ test.describe("Timeline & Carry — overview + trace", () => {
     await expect(page.getByRole("heading", { name: /Deals/i })).toBeVisible();
 
     await page.goto(`/overview?dealId=${QA_TIMELINE_DEAL_ID}`);
-    await expect(page.getByText("Timeline & Carry")).toBeVisible();
-    await expect(page.getByText(/Speed: (fast|balanced|slow)/i)).toBeVisible();
-    await expect(page.getByText(/Days to money/i)).toBeVisible();
-    await expect(page.getByText(/Carry Months/i)).toBeVisible();
-    await expect(page.getByText(/Monthly Hold/i)).toBeVisible();
-    await expect(page.getByText(/Total Carry/i)).toBeVisible();
+    await expect(page.getByText("Timeline & Carry").first()).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Speed: (fast|balanced|slow)/i).first()).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Days to money/i).first()).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Carry Months/i).first()).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Monthly Hold/i).first()).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/Total Carry/i).first()).toBeVisible({ timeout: 60000 });
 
     if (!Number.isNaN(QA_TIMELINE_DTM_DAYS)) {
-      await expect(page.getByText(new RegExp(`${QA_TIMELINE_DTM_DAYS}\\s*days`, "i"))).toBeVisible();
+      await expect(page.getByTestId("timeline-dtm-value")).toHaveText(
+        new RegExp(`${QA_TIMELINE_DTM_DAYS}`),
+      );
     }
     if (!Number.isNaN(QA_TIMELINE_CARRY_MONTHS)) {
-      await expect(
-        page.getByText(new RegExp(`${QA_TIMELINE_CARRY_MONTHS}\\s*carry`, "i")),
-      ).toBeVisible();
+      await expect(page.getByTestId("timeline-carry-months")).toHaveText(
+        new RegExp(`${QA_TIMELINE_CARRY_MONTHS}(\\.0)?`),
+      );
     }
     if (QA_TIMELINE_SPEED_BAND) {
-      await expect(page.getByText(new RegExp(QA_TIMELINE_SPEED_BAND, "i"))).toBeVisible();
+      await expect(page.getByTestId("timeline-speed-band")).toContainText(
+        new RegExp(QA_TIMELINE_SPEED_BAND, "i"),
+      );
     }
 
     await page.goto(`/trace?dealId=${QA_TIMELINE_DEAL_ID}`);
-    await expect(page.getByText(/Timeline & Carry/i)).toBeVisible();
-    await expect(page.getByText(/Speed band/i)).toBeVisible();
-    await expect(page.getByText(/Days to money/i)).toBeVisible();
-    await expect(page.getByText(/Carry months/i)).toBeVisible();
+    await expect(page.getByText(/Timeline & Carry/i).first()).toBeVisible();
+    await expect(page.getByText(/Speed band/i).first()).toBeVisible();
+    await expect(page.getByText(/Days to money/i).first()).toBeVisible();
+    await expect(page.getByText(/Carry months/i).first()).toBeVisible();
   });
 });

@@ -14,6 +14,8 @@ type DealSeed = {
   state: string;
   zip: string;
   contactName: string;
+  county?: string;
+  occupancy?: string;
 };
 
 type RunSeed = {
@@ -146,6 +148,8 @@ function buildDeals(): DealSeed[] {
       state: "FL",
       zip: "32801",
       contactName: QA_READY_CLIENT_NAME,
+      county: "Orange",
+      occupancy: "tenant",
     },
     {
       id: TIMELINE_DEAL_ID,
@@ -155,6 +159,8 @@ function buildDeals(): DealSeed[] {
       state: "FL",
       zip: "32802",
       contactName: "Timeline Client",
+      county: "Orange",
+      occupancy: "vacant",
     },
     {
       id: STALE_DEAL_ID,
@@ -164,6 +170,8 @@ function buildDeals(): DealSeed[] {
       state: "FL",
       zip: "32803",
       contactName: "Evidence Client",
+      county: "Orange",
+      occupancy: "vacant",
     },
     {
       id: HARD_GATE_DEAL_ID,
@@ -173,6 +181,8 @@ function buildDeals(): DealSeed[] {
       state: "FL",
       zip: "32804",
       contactName: "Gate Client",
+      county: "Orange",
+      occupancy: "owner",
     },
   ];
 }
@@ -455,17 +465,32 @@ async function upsertDeals(
     id: deal.id,
     org_id: ORG_ID,
     created_by: userId,
+    client_name: deal.contactName,
+    client_phone: "407-555-0100",
+    client_email: "seller@test.local",
     address: deal.address,
     city: deal.city,
     state: deal.state,
     zip: deal.zip,
     payload: {
-      contact: { owner: { name: deal.contactName, phone: "407-555-0100", email: "seller@test.local" } },
+      contact: {
+        name: deal.contactName,
+        phone: "407-555-0100",
+        email: "seller@test.local",
+        owner: { name: deal.contactName, phone: "407-555-0100", email: "seller@test.local" },
+      },
+      client: {
+        name: deal.contactName,
+        phone: "407-555-0100",
+        email: "seller@test.local",
+      },
       property: {
         address: deal.address,
         city: deal.city,
         state: deal.state,
         zip: deal.zip,
+        county: deal.county ?? null,
+        occupancy: deal.occupancy ?? null,
       },
     },
   }));
@@ -509,11 +534,25 @@ async function upsertRuns(
 }
 
 async function computeBorderlineExpectations(apiUrl: string, anonKey: string) {
+  const userClient = createClient(apiUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: session, error: signInError } = await userClient.auth.signInWithPassword({
+    email: QA_EMAIL,
+    password: QA_PASSWORD,
+  });
+  if (signInError || !session?.session?.access_token) {
+    throw signInError ?? new Error("Failed to sign in QA user for borderline expectations");
+  }
+
+  const accessToken = session.session.access_token;
+
   const response = await fetch(`${apiUrl}/functions/v1/v1-analyze`, {
     method: "POST",
     headers: {
       apikey: anonKey,
-      Authorization: `Bearer ${anonKey}`,
+      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

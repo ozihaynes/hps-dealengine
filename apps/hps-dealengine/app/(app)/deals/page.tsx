@@ -37,6 +37,10 @@ export default function DealsPage() {
 
     try {
       setStatus({ kind: "loading" });
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session) {
+        throw new Error("Not signed in");
+      }
       const orgId = await resolveOrgId(supabase);
       const rows = await fetchDealsForOrg(supabase, orgId);
       setStatus({

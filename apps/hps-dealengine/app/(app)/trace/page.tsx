@@ -72,7 +72,7 @@ export default function TracePage() {
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
   const [overrides, setOverrides] = useState<PolicyOverride[]>([]);
   const [overrideError, setOverrideError] = useState<string | null>(null);
-  const { dbDeal } = useDealSession();
+  const { dbDeal, lastAnalyzeResult, lastRunId, lastRunAt, posture } = useDealSession();
 
   useEffect(() => {
     const supabase = getSupabase();
@@ -142,7 +142,32 @@ export default function TracePage() {
     void load();
   }, [dbDeal?.id, dbDeal?.org_id]);
 
-  const selected = runs.find((r) => r.id === selectedId) ?? null;
+  const fallbackRun: RunRow | null =
+    runs.length === 0 && lastAnalyzeResult
+      ? {
+          id: lastRunId ?? `derived-${dbDeal?.id ?? "run"}`,
+          org_id: dbDeal?.org_id ?? "",
+          deal_id: dbDeal?.id ?? null,
+          posture: posture ?? "base",
+          created_at: lastRunAt ?? new Date().toISOString(),
+          input: {},
+          output: lastAnalyzeResult,
+          trace: (lastAnalyzeResult as any)?.trace ?? [],
+          input_hash: null,
+          output_hash: null,
+          policy_hash: null,
+        }
+      : null;
+
+  const displayedRuns = runs.length > 0 ? runs : fallbackRun ? [fallbackRun] : [];
+
+  useEffect(() => {
+    if (!selectedId && fallbackRun) {
+      setSelectedId(fallbackRun.id);
+    }
+  }, [fallbackRun, selectedId]);
+
+  const selected = displayedRuns.find((r) => r.id === selectedId) ?? null;
   const selectedDealId =
     selected?.deal_id ??
     (selected?.input as any)?.dealId ??
@@ -310,7 +335,7 @@ export default function TracePage() {
           <div className="mb-2 flex items-center justify-between">
             <h2 className="label-xs uppercase">Runs</h2>
             <span className="text-[11px] text-text-secondary">
-              {runs.length} {runs.length === 1 ? "row" : "rows"}
+              {displayedRuns.length} {displayedRuns.length === 1 ? "row" : "rows"}
             </span>
           </div>
           <div className="max-h-[420px] overflow-auto rounded-lg border border-border/40">
@@ -326,7 +351,7 @@ export default function TracePage() {
                 </tr>
               </thead>
               <tbody>
-                {runs.map((run) => {
+                {displayedRuns.map((run) => {
                   const isSelected = run.id === selectedId;
                   return (
                     <tr
@@ -348,7 +373,7 @@ export default function TracePage() {
                     </tr>
                   );
                 })}
-                {runs.length === 0 && (
+                {displayedRuns.length === 0 && (
                   <tr>
                     <td
                       colSpan={5}
@@ -886,8 +911,5 @@ export default function TracePage() {
     </div>
   );
 }
-
-
-
 
 

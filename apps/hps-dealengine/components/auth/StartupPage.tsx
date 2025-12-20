@@ -58,6 +58,10 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
 
             try {
                 const supabase = getSupabaseClient();
+                const { data: session } = await supabase.auth.getSession();
+                if (!session?.session) {
+                  throw new Error("Not signed in");
+                }
 
                 const callerOrgId = await resolveOrgId(supabase);
                 if (!isMounted) return;
@@ -211,6 +215,10 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                         const reload = async () => {
                           try {
                             const supabase = getSupabaseClient();
+                            const { data: session } = await supabase.auth.getSession();
+                            if (!session?.session) {
+                              throw new Error("Not signed in");
+                            }
                             const callerOrgId = orgId ?? (await resolveOrgId(supabase));
                             const rows = await fetchDealsForOrg(supabase, callerOrgId);
                             setOrgId(callerOrgId);
