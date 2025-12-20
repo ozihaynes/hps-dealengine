@@ -1,43 +1,71 @@
-# QA Environment for V1 E2E
+# QA Environment for V1 E2E (Deterministic, Local-Only)
 
-This doc explains how to configure a QA Supabase project and environment variables so the V1 Playwright specs (`golden-path`, `timeline-and-carry`, `risk-and-evidence`) can run reliably.
+This runbook seeds the QA fixtures into the **local Supabase** started by `supabase start`, writes a local `.env.qa`, and loads the variables so every QA Playwright spec runs without skipping.
 
-## Supabase project setup (QA)
-- Use a Supabase project with the same schema as dev/prod; apply the repo migrations as usual.
-- Keep RLS enabled everywhere. Create a QA user (email/password) via normal signup or the auth admin console.
-- Ensure there is at least one org with a handful of seeded deals the E2E suite can reference:
-  - READY deal: clean/fresh evidence, risk overall pass, workflow ready.
-  - TIMELINE deal: non-trivial DTM and carry/hold values.
-  - STALE_EVIDENCE deal: at least one critical evidence kind stale/missing; workflow not Ready.
-  - HARD_GATE deal: at least one compliance/risk gate failing (e.g., bankruptcy/FHA/flood/PACE/etc.).
+## One-Command Setup (clean + seed)
 
-## Environment variables required by specs
-Set these in the shell before running Playwright:
-- `DEALENGINE_QA_USER_EMAIL` — QA user email.
-- `DEALENGINE_QA_USER_PASSWORD` — QA user password.
-- `DEALENGINE_QA_READY_DEAL_ID` — UUID for the READY deal.
-- `DEALENGINE_QA_TIMELINE_DEAL_ID` — UUID for the TIMELINE deal.
-- `DEALENGINE_QA_TIMELINE_DTM_DAYS` (optional) — expected DTM days string for assertions.
-- `DEALENGINE_QA_TIMELINE_CARRY_MONTHS` (optional) — expected carry months for assertions.
-- `DEALENGINE_QA_TIMELINE_SPEED_BAND` (optional) — expected speed band label.
-- `DEALENGINE_QA_STALE_EVIDENCE_DEAL_ID` — UUID for stale/missing evidence scenario.
-- `DEALENGINE_QA_HARD_GATE_DEAL_ID` — UUID for hard gate fail scenario.
+1) Start Supabase (if not already running)
+   ```powershell
+   supabase start
+   ```
+2) Reset the local DB to the repo migrations
+   ```powershell
+   supabase db reset
+   ```
+3) Seed deterministic QA fixtures (org, user, deals, runs, env)
+   ```powershell
+   pnpm -w exec tsx scripts/seed-qa.ts
+   ```
+   - Uses `supabase status -o env` to read the local URL/keys
+   - Seeds org `ed6ae332-2d15-44be-a8fb-36005522ad60`
+   - QA user: `qa@hps.test.local` (password in `.env.qa`)
+   - Seeds 4 deals + runs: READY, TIMELINE, STALE_EVIDENCE, HARD_GATE
+   - Writes `.env.qa` (gitignored) with all required QA env vars
+4) Load the QA env into your shell
+   ```powershell
+   . .\scripts\qa-env.ps1
+   ```
 
-Notes:
-- The specs skip automatically if their required vars are missing.
-- Older names (`DEALENGINE_TEST_USER_EMAIL/PASSWORD`) are still accepted as fallbacks for login.
+## Run QA Playwright Suites (no skips)
+With `.env.qa` loaded:
+```powershell
+pnpm -w test:qa      # QA-focused Playwright (PLAYWRIGHT_ENABLE=true)
+pnpm -w test:e2e     # Full e2e suite; will also use loaded env
+```
 
-## QA deal seeding expectations
-- READY: high confidence (A/B), workflow Ready/ReadyForOffer, all critical evidence fresh, risk overall Pass.
-- TIMELINE: timeline summary populated with DTM days, carry months, hold monthly/total so UI has non-empty values.
-- STALE_EVIDENCE: at least one critical evidence kind stale/missing; workflow should be NeedsReview or NeedsInfo. If placeholders are allowed, they should be noted; if not allowed, workflow should show NeedsInfo.
-- HARD_GATE: at least one gate Fail (insurability/flood/pace/ucc/etc.); risk overall Fail; workflow not Ready.
+## Required Environment Variables (written by `seed-qa.ts`)
+- Core auth / API
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
+  - `DEALENGINE_QA_API_URL`
+  - `DEALENGINE_QA_ORG_ID`
+  - `DEALENGINE_QA_POSTURE`
+  - `PLAYWRIGHT_ENABLE=true`
+- QA user
+  - `DEALENGINE_QA_USER_EMAIL`
+  - `DEALENGINE_QA_USER_PASSWORD`
+- Deals
+  - `DEALENGINE_QA_READY_DEAL_ID`
+  - `DEALENGINE_QA_READY_CLIENT_NAME`
+  - `DEALENGINE_QA_TIMELINE_DEAL_ID`
+  - `DEALENGINE_QA_TIMELINE_DTM_DAYS`
+  - `DEALENGINE_QA_TIMELINE_CARRY_MONTHS`
+  - `DEALENGINE_QA_TIMELINE_SPEED_BAND`
+  - `DEALENGINE_QA_STALE_EVIDENCE_DEAL_ID`
+  - `DEALENGINE_QA_HARD_GATE_DEAL_ID`
+- v1-analyze (borderline expectations)
+  - `DEALENGINE_QA_BORDERLINE_MIN_SPREAD`
+  - `DEALENGINE_QA_BORDERLINE_SPREAD_CASH`
+  - `DEALENGINE_QA_BORDERLINE_AIV`
+  - `DEALENGINE_QA_BORDERLINE_ARV`
+  - `DEALENGINE_QA_BORDERLINE_DOM`
+  - `DEALENGINE_QA_BORDERLINE_PAYOFF`
+  - `DEALENGINE_QA_BORDERLINE_FLAG`
 
-## Running the E2E specs
-1) Export the env vars above (or place them in a `.env` consumed by Playwright).
-2) In one shell, run the Next.js app (or let Playwright start it per `playwright.config.ts`).
-3) Execute the gated specs:
-   - `pnpm exec playwright test tests/e2e/golden-path.spec.ts`
-   - `pnpm exec playwright test tests/e2e/timeline-and-carry.spec.ts`
-   - `pnpm exec playwright test tests/e2e/risk-and-evidence.spec.ts`
-4) If a required var is missing, the corresponding spec will skip. Typecheck/build/unit tests remain the primary CI tripwires; E2E is opt-in via env gating.
+### Notes
+- `.env.qa` is **gitignored**; never commit it.
+- The seed script uses the **service role** only for seeding; no service_role is used in user flows.
+- No secrets are printed to stdout; only variable names and seeded IDs are echoed.
+- If you change seeded values, re-run steps 2-4 to refresh both DB and `.env.qa`.

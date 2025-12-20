@@ -9,6 +9,7 @@
     "test": "pnpm -r test",
     "test:agents:analyst": "pnpm --filter \"@hps/agents\" test",
     "dev": "pnpm --filter \"./apps/hps-dealengine\" dev",
+    "test:qa": "playwright test tests/e2e",
     "test:e2e": "playwright test",
     "generate:sandbox-meta": "node scripts/generate-sandbox-meta.cjs",
     "check:glossary": "pnpm dlx tsx scripts/check-glossary-alignment.ts",

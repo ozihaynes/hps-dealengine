@@ -1,6 +1,8 @@
 {
   "imports": {
-    "@hps-internal/engine": "./_vendor/engine/index.js",
-    "@hps-internal/engine/": "./_vendor/engine/"
+    "zod": "https://esm.sh/zod@3.23.8",
+    "@hps-internal/contracts": "../_shared/contracts.ts",
+    "@hps-internal/engine": "../_vendor/engine/index.js",
+    "@hps-internal/engine/policy_builder": "../_vendor/engine/policy_builder.js"
   }
 }

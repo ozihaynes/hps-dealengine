@@ -15,8 +15,8 @@ test.describe("Autosave Underwrite + Repairs", () => {
   test("persists inputs across refresh and tabs", async ({ page }) => {
     await page.goto("/login");
 
-    await page.getByPlaceholder("email").fill(QA_EMAIL!);
-    await page.getByPlaceholder("password").fill(QA_PASSWORD!);
+    await page.getByLabel("Email address").fill(QA_EMAIL!);
+    await page.getByLabel("Password").fill(QA_PASSWORD!);
     await page.getByRole("button", { name: /Sign in/i }).first().click();
 
     await page.waitForURL("**/startup**", { timeout: 60_000 });
@@ -67,4 +67,3 @@ test.describe("Autosave Underwrite + Repairs", () => {
     await expect(occupancySelect).toHaveValue("tenant");
   });
 });
-

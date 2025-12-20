@@ -15,8 +15,8 @@ async function login(page: Page) {
     throw new Error("Set DEALENGINE_QA_USER_EMAIL and DEALENGINE_QA_USER_PASSWORD to run this test.");
   }
   await page.goto("/login");
-  await page.getByPlaceholder("email").fill(QA_EMAIL);
-  await page.getByPlaceholder("password").fill(QA_PASSWORD);
+  await page.getByLabel("Email address").fill(QA_EMAIL);
+  await page.getByLabel("Password").fill(QA_PASSWORD);
   const signInButton = page.getByRole("button", { name: /Sign in/i }).first();
   await signInButton.click();
   await page.waitForURL("**/startup", { timeout: 60_000 });

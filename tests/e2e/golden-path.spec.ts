@@ -16,8 +16,8 @@ test.describe("HPS DealEngine golden path", () => {
   test("login and load seeded clean deal overview/underwrite/trace", async ({ page }) => {
     await page.goto("/login");
 
-    await page.getByPlaceholder("email").fill(QA_EMAIL!);
-    await page.getByPlaceholder("password").fill(QA_PASSWORD!);
+    await page.getByLabel("Email address").fill(QA_EMAIL!);
+    await page.getByLabel("Password").fill(QA_PASSWORD!);
     const signInButton = page.getByRole("button", { name: /Sign in/i }).first();
     await signInButton.click();
 
