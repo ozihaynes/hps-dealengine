@@ -29,6 +29,23 @@ join canon c
  and c.deal_id = d.deal_id
 where m.thread_id = d.id;
 
+with d as (
+  select
+    id,
+    org_id,
+    user_id,
+    persona,
+    deal_id,
+    last_message_at,
+    created_at,
+    row_number() over (
+      partition by org_id, user_id, persona, deal_id
+      order by last_message_at desc, created_at desc
+    ) as rn
+  from public.ai_chat_threads
+  where deal_id is not null
+),
+dupe as (select * from d where rn > 1)
 delete from public.ai_chat_threads t
 using dupe d
 where t.id = d.id;
