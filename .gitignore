@@ -30,3 +30,5 @@ supabase/backups/**
 hps-dealengine_full_replacements.zip
 hps-dealengine-desktop-layout-refactor*.zip
 tmp_ai_chat_*.py
+_audit_export/
+_tmp_public_schema.sql

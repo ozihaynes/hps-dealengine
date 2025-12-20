@@ -1,6 +1,3 @@
--- Ensure a single thread per (org_id, user_id, persona, deal_id) and clean up dupes
-begin;
-
 with d as (
   select
     id,
@@ -53,5 +50,3 @@ where t.id = d.id;
 create unique index if not exists idx_ai_chat_threads_persona_deal_unique
   on public.ai_chat_threads (org_id, user_id, persona, deal_id)
   where deal_id is not null;
-
-commit;
