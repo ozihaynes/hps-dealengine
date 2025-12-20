@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/overview", label: "Dashboard", icon: Icons.barChart, requireDeal: true, cluster: "left" as const },
   { href: "/repairs", label: "Repairs", icon: Icons.wrench, requireDeal: true, cluster: "right" as const },
   { href: "/underwrite", label: "Underwrite", icon: Icons.calculator, requireDeal: true, cluster: "right" as const },
+  { href: "/trace", label: "Trace", icon: Icons.trending, requireDeal: true, cluster: "right" as const },
   { href: "/deals", label: "Deals", icon: Icons.briefcase, requireDeal: false, cluster: "right" as const },
 ];
 
