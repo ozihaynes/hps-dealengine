@@ -151,6 +151,24 @@ const QuickEstimate: React.FC<{
   });
   const [hasInteracted, setHasInteracted] = useState(false);
   const hydratedRef = React.useRef(false);
+  const persisted = (deal as any)?.repairs?.quickEstimate ?? null;
+  const dealIdFromUrl =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("dealId")
+      : null;
+  const storageKey = dealIdFromUrl
+    ? `hps-repairs-quick-estimate:${dealIdFromUrl}`
+    : null;
+  const effectiveRehabLevel = hasInteracted
+    ? rehabLevel
+    : persisted?.rehabLevel ?? rehabLevel;
+  const effectiveBig5 = useMemo(
+    () =>
+      hasInteracted
+        ? { ...(persisted?.big5 ?? {}), ...big5 }
+        : { ...big5, ...(persisted?.big5 ?? {}) },
+    [big5, hasInteracted, persisted],
+  );
 
   /**
    * ROBUST SQFT RESOLUTION - FIXED VERSION
@@ -220,14 +238,14 @@ const QuickEstimate: React.FC<{
     const sqft = resolveSqft();
     return computeQuickEstimateTotal({
       sqft,
-      rehabLevel: rehabLevel as keyof typeof psfTiers,
-      big5Selections: big5,
+      rehabLevel: effectiveRehabLevel as keyof typeof psfTiers,
+      big5Selections: effectiveBig5,
       rates: { psfTiers, big5: big5Rates },
     });
-  }, [rehabLevel, big5, psfTiers, big5Rates, deal, calc]);
+  }, [effectiveRehabLevel, effectiveBig5, psfTiers, big5Rates, deal, calc]);
 
-  const toggle = (k: keyof typeof big5) =>
-    setBig5((prev) => ({ ...prev, [k]: !prev[k] }));
+  const toggle = (k: keyof typeof big5, value: boolean) =>
+    setBig5((prev) => ({ ...prev, [k]: value }));
 
   // Hydrate quick estimate selections from saved deal state without triggering apply
   React.useEffect(() => {
@@ -242,21 +260,64 @@ const QuickEstimate: React.FC<{
     hydratedRef.current = true;
   }, [deal]);
 
+  React.useEffect(() => {
+    if (!storageKey || persisted) return;
+    try {
+      const raw = sessionStorage.getItem(storageKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as any;
+      if (parsed?.rehabLevel) {
+        setRehabLevel(parsed.rehabLevel);
+      }
+      if (parsed?.big5) {
+        setBig5((prev) => ({ ...prev, ...parsed.big5 }));
+      }
+    } catch {
+      // ignore storage parse errors
+    }
+  }, [persisted, storageKey]);
+
+  const applyBudgetWith = React.useCallback(
+    (nextRehabLevel: string, nextBig5: typeof big5) => {
+      const sqft = resolveSqft();
+      const total = computeQuickEstimateTotal({
+        sqft,
+        rehabLevel: nextRehabLevel as keyof typeof psfTiers,
+        big5Selections: nextBig5,
+        rates: { psfTiers, big5: big5Rates },
+      });
+      const snapshot = {
+        ...(persisted ?? {}),
+        rehabLevel: nextRehabLevel,
+        big5: nextBig5,
+        sqft,
+        total,
+      };
+      setDealValue("repairs.quickEstimate", snapshot);
+      setDealValue("repairs.total", total);
+      setDealValue("repairs_total", total);
+      setDealValue("repairsTotal", total);
+      setDealValue("costs.repairs_base", total);
+      setDealValue("costs.repairs", total);
+      if (storageKey) {
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
+        } catch {
+          // ignore storage write errors
+        }
+      }
+      if (onApply) {
+        setTimeout(() => {
+          onApply();
+        }, 0);
+      }
+    },
+    [big5Rates, onApply, persisted, psfTiers, resolveSqft, setDealValue, storageKey],
+  );
+
   const applyBudget = React.useCallback(() => {
-    const snapshot = {
-      rehabLevel,
-      big5,
-      sqft: resolveSqft(),
-      total: quickEstimateTotal,
-    };
-    setDealValue("repairs.quickEstimate", snapshot);
-    setDealValue("repairs.total", quickEstimateTotal);
-    setDealValue("repairs_total", quickEstimateTotal);
-    setDealValue("repairsTotal", quickEstimateTotal);
-    setDealValue("costs.repairs_base", quickEstimateTotal);
-    setDealValue("costs.repairs", quickEstimateTotal);
-    onApply?.();
-  }, [big5, rehabLevel, quickEstimateTotal, resolveSqft, setDealValue, onApply]);
+    applyBudgetWith(effectiveRehabLevel, effectiveBig5);
+  }, [applyBudgetWith, effectiveBig5, effectiveRehabLevel]);
 
   // Auto-apply when the user has interacted with the calculator
   React.useEffect(() => {
@@ -274,11 +335,13 @@ const QuickEstimate: React.FC<{
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <SelectField
           label="Rehab Level (PSF Tiers)"
-          value={rehabLevel}
+          value={effectiveRehabLevel}
           dataTestId="repairs-rehab-level"
           onChange={(e: any) => {
+            const nextValue = e.target.value;
             setHasInteracted(true);
-            setRehabLevel(e.target.value);
+            setRehabLevel(nextValue);
+            applyBudgetWith(nextValue, effectiveBig5);
           }}
         >
           <option value="none">
@@ -317,10 +380,15 @@ const QuickEstimate: React.FC<{
                   <input
                     type="checkbox"
                     className="h-3.5 w-3.5 accent-accent-blue"
-                    checked={big5[item]}
+                    checked={Boolean(effectiveBig5[item])}
+                    data-testid={item === "roof" ? "repairs-big5-roof" : undefined}
                     onChange={() => {
+                      const currentValue = Boolean(effectiveBig5[item]);
+                      const nextValue = !currentValue;
+                      const nextBig5 = { ...effectiveBig5, [item]: nextValue };
                       setHasInteracted(true);
-                      toggle(item);
+                      toggle(item, nextValue);
+                      applyBudgetWith(effectiveRehabLevel, nextBig5);
                     }}
                   />
                   <span className="text-text-primary capitalize">

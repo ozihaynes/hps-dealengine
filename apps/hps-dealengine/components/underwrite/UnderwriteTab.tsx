@@ -9,6 +9,7 @@ import { Icons } from "../../constants";
 import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeBus";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import CompsPanel from "./CompsPanel";
+import { useDealSession } from "@/lib/dealSessionContext";
 
 const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number }) => {
   if (value == null || !Number.isFinite(Number(value))) return "-";
@@ -93,6 +94,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   overrideSaving,
   autosaveStatus,
 }) => {
+  const { saveWorkingStateNow } = useDealSession();
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
 
@@ -105,6 +107,24 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       is_foreclosure_sale: false,
       is_redemption_period_sale: false,
     } as any)) as any;
+  const dealIdFromUrl =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("dealId")
+      : null;
+  const occupancyStorageKey = dealIdFromUrl
+    ? `hps-underwrite-occupancy:${dealIdFromUrl}`
+    : null;
+  const [storedOccupancy, setStoredOccupancy] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!occupancyStorageKey) return;
+    try {
+      const raw = sessionStorage.getItem(occupancyStorageKey);
+      if (raw) setStoredOccupancy(raw);
+    } catch {
+      // ignore storage read errors
+    }
+  }, [occupancyStorageKey]);
 
   const status = (baseDeal.status ??
     ({
@@ -788,9 +808,23 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           <div className="space-y-3">
             <SelectField
               label="Occupancy"
-              value={property.occupancy}
+              value={storedOccupancy ?? property.occupancy}
               dataTestId="uw-occupancy"
-              onChange={(e: any) => setDealValue("property.occupancy", e.target.value)}
+              onChange={(e: any) => {
+                const nextValue = e.target.value;
+                setDealValue("property.occupancy", nextValue);
+                setStoredOccupancy(nextValue);
+                if (occupancyStorageKey) {
+                  try {
+                    sessionStorage.setItem(occupancyStorageKey, nextValue);
+                  } catch {
+                    // ignore storage write errors
+                  }
+                }
+                setTimeout(() => {
+                  void saveWorkingStateNow();
+                }, 0);
+              }}
             >
               <option value="owner">Owner</option>
               <option value="tenant">Tenant</option>
