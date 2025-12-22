@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getQaDealIdsOrThrow, loginAsQa } from "./_helpers/qaAuth";
 
 const QA_EMAIL =
   process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
@@ -13,16 +14,11 @@ test.describe("Autosave Underwrite + Repairs", () => {
   );
 
   test("persists inputs across refresh and tabs", async ({ page }) => {
-    await page.goto("/login");
-
-    await page.getByTestId("login-email").fill(QA_EMAIL!);
-    await page.getByTestId("login-password").fill(QA_PASSWORD!);
-    await page.getByTestId("login-submit").click();
-
-    await page.waitForURL("**/startup**", { timeout: 60_000 });
+    const { readyDealId } = getQaDealIdsOrThrow();
+    await loginAsQa(page);
 
     // Go directly to Underwrite with the target deal to ensure DealSession is set.
-    await page.goto(`/underwrite?dealId=${QA_READY_DEAL_ID}`);
+    await page.goto(`/underwrite?dealId=${readyDealId}`);
     await page.waitForURL("**/underwrite**", { timeout: 60_000 });
     await expect(page.getByRole("heading", { name: /Underwrite/i }).first()).toBeVisible();
 
@@ -36,7 +32,7 @@ test.describe("Autosave Underwrite + Repairs", () => {
     await expect(page.getByTestId("autosave-status")).toContainText(/Autosave|Saved|Saving/i);
 
     // Repairs tab: set sqft and quick estimate selections
-    await page.goto(`/repairs?dealId=${QA_READY_DEAL_ID}`);
+    await page.goto(`/repairs?dealId=${readyDealId}`);
     await page.waitForURL("**/repairs**", { timeout: 60_000 });
     await expect(page.getByRole("heading", { name: /Repairs/i }).first()).toBeVisible();
 
@@ -56,7 +52,7 @@ test.describe("Autosave Underwrite + Repairs", () => {
     await expect(roofCheckbox).toBeChecked();
 
     // Back to Underwrite and confirm persistence
-    await page.goto(`/underwrite?dealId=${QA_READY_DEAL_ID}`);
+    await page.goto(`/underwrite?dealId=${readyDealId}`);
     await page.waitForURL("**/underwrite**", { timeout: 60_000 });
     await expect(countyInput).toHaveValue("Orange");
     await expect(occupancySelect).toHaveValue("tenant");

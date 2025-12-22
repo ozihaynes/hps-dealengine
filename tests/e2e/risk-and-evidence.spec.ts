@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { getQaDealIdsOrThrow, loginAsQa } from "./_helpers/qaAuth";
 
 const QA_EMAIL =
   process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
@@ -13,19 +14,8 @@ const readyTest = missingCoreEnv || !QA_READY_DEAL_ID ? test.skip : test;
 const staleTest = missingCoreEnv || !QA_STALE_EVIDENCE_DEAL_ID ? test.skip : test;
 const hardGateTest = missingCoreEnv || !QA_HARD_GATE_DEAL_ID ? test.skip : test;
 
-async function login(page: Page) {
-  if (!QA_EMAIL || !QA_PASSWORD) {
-    throw new Error("Set DEALENGINE_QA_USER_EMAIL and DEALENGINE_QA_USER_PASSWORD to run these tests.");
-  }
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(QA_EMAIL);
-  await page.getByTestId("login-password").fill(QA_PASSWORD);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/startup", { timeout: 60_000 });
-}
-
 async function gotoDealDashboard(page: Page, dealId: string) {
-  await login(page);
+  await loginAsQa(page);
   await expect(page.getByRole("heading", { name: /Welcome Back/i })).toBeVisible();
   const viewAllDeals = page.getByRole("button", { name: /View all deals/i }).first();
   if (await viewAllDeals.isVisible()) {
@@ -41,7 +31,8 @@ async function gotoDealDashboard(page: Page, dealId: string) {
 // The selectors below align to data-testids introduced in E3-W3.
 test.describe("Risk & Evidence - overview + trace", () => {
   readyTest("happy path: ReadyForOffer with fresh evidence and passing gates", async ({ page }) => {
-    await gotoDealDashboard(page, QA_READY_DEAL_ID!);
+    const { readyDealId } = getQaDealIdsOrThrow();
+    await gotoDealDashboard(page, readyDealId);
     const confidence = page.getByTestId("confidence-badge");
     await expect(confidence).toBeVisible({ timeout: 60000 });
     await expect(confidence).toContainText(/A|B/i);

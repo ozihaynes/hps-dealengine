@@ -59,6 +59,8 @@ export default defineConfig({
     command: 'pnpm --filter "./apps/hps-dealengine" dev',
     port: 3000,
     reuseExistingServer: false,
+    stdout: "pipe",
+    stderr: "pipe",
 
     // Give Next dev enough time to compile on a cold start.
     timeout: 180_000,

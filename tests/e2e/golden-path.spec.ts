@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { getQaDealIdsOrThrow, loginAsQa } from "./_helpers/qaAuth";
 
 const QA_EMAIL =
   process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
@@ -14,13 +15,8 @@ test.describe("HPS DealEngine golden path", () => {
   );
 
   test("login and load seeded clean deal overview/underwrite/trace", async ({ page }) => {
-    await page.goto("/login");
-
-    await page.getByTestId("login-email").fill(QA_EMAIL!);
-    await page.getByTestId("login-password").fill(QA_PASSWORD!);
-    await page.getByTestId("login-submit").click();
-
-    await page.waitForURL("**/startup**", { timeout: 60_000 });
+    const { readyDealId } = getQaDealIdsOrThrow();
+    await loginAsQa(page);
     await expect(page.getByRole("heading", { name: /Welcome Back/i })).toBeVisible();
     const viewAllDeals = page.getByRole("button", { name: /View all deals/i }).first();
     await expect(viewAllDeals).toBeVisible();
@@ -29,7 +25,7 @@ test.describe("HPS DealEngine golden path", () => {
     await expect(page.getByRole("heading", { name: /Deals/i })).toBeVisible();
 
     // Navigate directly to the seeded clean deal (dashboard) to avoid UI creation randomness.
-    await page.goto(`/overview?dealId=${QA_READY_DEAL_ID}`);
+    await page.goto(`/overview?dealId=${readyDealId}`);
     await page.waitForURL("**/overview**", { timeout: 60_000 });
     await expect(page.getByRole("link", { name: /Dashboard/i }).first()).toBeVisible();
 

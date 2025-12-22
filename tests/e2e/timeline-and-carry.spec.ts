@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { loginAsQa } from "./_helpers/qaAuth";
 
 const QA_EMAIL =
   process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
@@ -10,28 +11,17 @@ const QA_TIMELINE_CARRY_MONTHS = Number(process.env.DEALENGINE_QA_TIMELINE_CARRY
 const QA_TIMELINE_SPEED_BAND = process.env.DEALENGINE_QA_TIMELINE_SPEED_BAND;
 const missingTimelineEnv = !QA_EMAIL || !QA_PASSWORD || !QA_TIMELINE_DEAL_ID;
 
-async function login(page: Page) {
-  if (!QA_EMAIL || !QA_PASSWORD) {
-    throw new Error("Set DEALENGINE_QA_USER_EMAIL and DEALENGINE_QA_USER_PASSWORD to run this test.");
-  }
-  await page.goto("/login");
-  await page.getByTestId("login-email").fill(QA_EMAIL);
-  await page.getByTestId("login-password").fill(QA_PASSWORD);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL("**/startup", { timeout: 60_000 });
-}
-
 /**
  * Timeline & Carry e2e coverage using seeded deterministic deal.
  */
-test.describe("Timeline & Carry — overview + trace", () => {
+test.describe("Timeline & Carry - overview + trace", () => {
   test.skip(
     missingTimelineEnv,
     "Set DEALENGINE_QA_USER_EMAIL, DEALENGINE_QA_USER_PASSWORD, and DEALENGINE_QA_TIMELINE_DEAL_ID to run this test.",
   );
 
   test("renders policy-driven timeline & carry data on /overview and /trace", async ({ page }) => {
-    await login(page);
+    await loginAsQa(page);
     await expect(page.getByRole("heading", { name: /Welcome Back/i })).toBeVisible();
     const viewAllDeals = page.getByRole("button", { name: /View all deals/i }).first();
     await viewAllDeals.click();
