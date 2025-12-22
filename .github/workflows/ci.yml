@@ -20,10 +20,13 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.19.0
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: Build contracts (required for typecheck)
+        run: pnpm --filter "./packages/contracts" build
 
       - name: Typecheck
         run: pnpm -w typecheck

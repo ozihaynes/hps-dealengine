@@ -29,6 +29,9 @@ jobs:
           node-version: 22
           cache: 'pnpm'
 
+      - name: Build contracts (required for typecheck)
+        run: pnpm --filter "./packages/contracts" build
+
       - name: Typecheck
         run: pnpm -w typecheck
 
