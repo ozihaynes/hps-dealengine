@@ -23,7 +23,7 @@ When something significant ships, changes direction, or gets blocked, add a date
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-18)
+## 0.1 Current Status Snapshot (as of 2025-12-22)
 
 **V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
@@ -68,6 +68,7 @@ V1 is complete. Near-term is v1.1 hardening; v2+ stays backlog:
 1) **QA Supabase + E2E enablement**
    - Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals per `docs/QA_ENV_V1.md`.
    - Run env-gated Playwright specs against QA; optionally enable in CI.
+   - ✅ Completed 2025-12-22: qa-preflight gate + centralized Playwright login helper + refreshed pixel baselines + CI clean-runner fixes (pnpm bootstrap + build contracts before typecheck).
 
 2) **Repairs/UX polish**
    - Fix org alignment for repair profiles/rates sync; tidy RepairsTab meta and presentation.
@@ -84,6 +85,21 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ---
 
 ## 1. Dated Entries
+
+### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
+
+- QA/E2E reliability
+  - Added `scripts/qa-preflight.ps1` to fail fast if QA env vars aren’t loaded or Edge Functions aren’t reachable.
+  - Centralized Playwright QA login in `tests/e2e/_helpers/qaAuth.ts` to reduce auth flakes and standardize failures.
+  - Refreshed Playwright pixel snapshot baselines (Windows) for: overview, underwrite, repairs, settings, sandbox, ai-bridge debug.
+
+- CI stability on clean runners
+  - Installed pnpm via `pnpm/action-setup@v4` early enough for `actions/setup-node@v4 cache: pnpm`.
+  - Built `packages/contracts` before `pnpm -w typecheck` to prevent TS2307 on clean CI runners.
+
+- Result
+  - Local: `pnpm -w test:e2e`, `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green.
+  - CI: required checks green on `main`.
 
 ### 2025-12-18 - Slice 8A (valuation quality): selection_v1_3 experiment (policy-gated) + diagnostics + proofs
 - What changed: added selection_v1_3 (comps-only) with deterministic subject typing, SFR↔townhome compatibility, IQR outlier handling gated by secondary signals, stable ordering, and selection diagnostics surfaced in UI/admin QA. Behavior remains policy-gated; defaults stay at selection_v1_1.

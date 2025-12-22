@@ -314,6 +314,8 @@ V1 is shipped and usable in the field. It includes:
   - `docs/QA_ENV_V1.md` documents QA Supabase setup and required env vars (QA user + READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals).
   - Playwright specs (`golden-path`, `timeline-and-carry`, `risk-and-evidence`) follow `/login -> /startup -> /deals -> /overview?dealId=...`, assert Dashboard heading and current risk/evidence/workflow surfaces, and skip cleanly when env vars are absent.
   - Core commands green: `pnpm -w typecheck`, `pnpm -w build` (Sentry/require-in-the-middle warning only), `pnpm -w test`.
+  - Added `scripts/qa-preflight.ps1` to validate QA env + function reachability before running Playwright.
+  - Centralized Playwright QA login in `tests/e2e/_helpers/qaAuth.ts`; refreshed pixel snapshots for core pages (including `/ai-bridge/debug`).
 
 V1 is complete; new slices should come from v1.1 hardening or v2/v3 themes below.
 
@@ -360,7 +362,7 @@ Fast-follow items that do not change V1 behavior:
 - 🟡 Next
   1) Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
   2) Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
-  3) Slice 8 - E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
+  3) Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions (deal create/valuation refresh/comps/override gating) remain for that slice.
   4) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
   5) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.
 ## 3 V2 Themes (Planned)
@@ -392,7 +394,6 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
-
 
 
 
