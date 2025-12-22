@@ -54,7 +54,9 @@ export function TimelineCarryCard({
             </p>
           </div>
         </div>
-        <Badge color={badge.color}>{badge.label}</Badge>
+        <Badge color={badge.color} dataTestId="timeline-urgency">
+          {badge.label}
+        </Badge>
       </div>
 
           {!hasData ? (
@@ -68,11 +70,11 @@ export function TimelineCarryCard({
                   Days to Money
                   <InfoTooltip helpKey="dtm" />
                 </p>
-                <p className="text-2xl font-bold font-mono text-text-primary">
+                <p className="text-2xl font-bold font-mono text-text-primary" data-testid="timeline-dtm-value">
                   {labelOrDash(timeline.daysToMoney)}
                 </p>
-                <p className="text-xs text-text-secondary">
-                  Speed: {timeline.speedBand ?? "—"}
+                <p className="text-xs text-text-secondary" data-testid="timeline-speed-band">
+                  Speed: {timeline.speedBand ?? "-"}
                 </p>
               </div>
               <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
@@ -80,7 +82,7 @@ export function TimelineCarryCard({
                   Carry Months
                   <InfoTooltip helpKey="carry_months" />
                 </p>
-                <p className="text-2xl font-bold font-mono text-text-primary">
+                <p className="text-2xl font-bold font-mono text-text-primary" data-testid="timeline-carry-months">
                   {labelOrDash(timeline.carryMonths, 1)}
                 </p>
             {timeline.auctionDate ? (
@@ -91,16 +93,16 @@ export function TimelineCarryCard({
           </div>
           <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
             <p className="label-xs uppercase text-text-secondary">Monthly Hold</p>
-            <p className="text-2xl font-bold font-mono text-text-primary">
+            <p className="text-2xl font-bold font-mono text-text-primary" data-testid="timeline-monthly-hold">
               {timeline.carryMonthly != null
                 ? fmt$(timeline.carryMonthly, 0)
-                : "—"}
+                : "-"}
             </p>
           </div>
           <div className="rounded-lg border border-white/5 bg-white/5 p-3 space-y-1">
             <p className="label-xs uppercase text-text-secondary">Total Carry</p>
-            <p className="text-2xl font-bold font-mono text-text-primary">
-              {timeline.carryTotal != null ? fmt$(timeline.carryTotal, 0) : "—"}
+            <p className="text-2xl font-bold font-mono text-text-primary" data-testid="timeline-total-carry">
+              {timeline.carryTotal != null ? fmt$(timeline.carryTotal, 0) : "-"}
             </p>
           </div>
         </div>

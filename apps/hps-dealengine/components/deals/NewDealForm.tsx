@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, InputField } from "../ui";
+import AddressAutocomplete, { type AddressSelection } from "../ui/AddressAutocomplete";
 import type { NewDealFormState } from "@/lib/deals";
 
 type NewDealFormProps = {
@@ -25,6 +26,15 @@ export function NewDealForm({
 }: NewDealFormProps) {
   const update = (key: keyof NewDealFormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     onChange({ ...values, [key]: e.target.value });
+  const handleAddressSelect = (selection: AddressSelection) => {
+    onChange({
+      ...values,
+      propertyStreet: selection.street || selection.formattedAddress,
+      propertyCity: selection.city || values.propertyCity,
+      propertyState: selection.state || values.propertyState,
+      propertyPostalCode: selection.postalCode || values.propertyPostalCode,
+    });
+  };
 
   return (
     <form
@@ -59,11 +69,12 @@ export function NewDealForm({
       </div>
 
       <div className="space-y-3 pt-2">
-        <InputField
+        <AddressAutocomplete
           label="Property Street"
           value={values.propertyStreet}
-          onChange={update("propertyStreet")}
-          placeholder="Street address"
+          onValueChange={(next) => onChange({ ...values, propertyStreet: next })}
+          onSelect={handleAddressSelect}
+          placeholder="Search for an address"
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <InputField

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { getQaDealIdsOrThrow, loginAsQa } from "./_helpers/qaAuth";
 
 const QA_EMAIL =
   process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
@@ -13,20 +14,8 @@ const readyTest = missingCoreEnv || !QA_READY_DEAL_ID ? test.skip : test;
 const staleTest = missingCoreEnv || !QA_STALE_EVIDENCE_DEAL_ID ? test.skip : test;
 const hardGateTest = missingCoreEnv || !QA_HARD_GATE_DEAL_ID ? test.skip : test;
 
-async function login(page: Page) {
-  if (!QA_EMAIL || !QA_PASSWORD) {
-    throw new Error("Set DEALENGINE_QA_USER_EMAIL and DEALENGINE_QA_USER_PASSWORD to run these tests.");
-  }
-  await page.goto("/login");
-  await page.getByPlaceholder("email").fill(QA_EMAIL);
-  await page.getByPlaceholder("password").fill(QA_PASSWORD);
-  const signInButton = page.getByRole("button", { name: /Sign in/i }).first();
-  await signInButton.click();
-  await page.waitForURL("**/startup", { timeout: 60_000 });
-}
-
 async function gotoDealDashboard(page: Page, dealId: string) {
-  await login(page);
+  await loginAsQa(page);
   await expect(page.getByRole("heading", { name: /Welcome Back/i })).toBeVisible();
   const viewAllDeals = page.getByRole("button", { name: /View all deals/i }).first();
   if (await viewAllDeals.isVisible()) {
@@ -36,16 +25,25 @@ async function gotoDealDashboard(page: Page, dealId: string) {
   }
   await page.goto(`/overview?dealId=${dealId}`);
   await page.waitForURL("**/overview**", { timeout: 60_000 });
-  await expect(page.getByRole("heading", { name: /Dashboard/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Dashboard/i }).first()).toBeVisible();
 }
 
 // The selectors below align to data-testids introduced in E3-W3.
 test.describe("Risk & Evidence - overview + trace", () => {
   readyTest("happy path: ReadyForOffer with fresh evidence and passing gates", async ({ page }) => {
-    await gotoDealDashboard(page, QA_READY_DEAL_ID!);
-    await expect(page.getByTestId("confidence-badge")).toContainText(/A|B/i);
-    await expect(page.getByTestId("workflow-pill")).toContainText(/Ready/i);
-    await expect(page.getByTestId("risk-overall-badge")).toContainText(/Pass/i);
+    const { readyDealId } = getQaDealIdsOrThrow();
+    await gotoDealDashboard(page, readyDealId);
+    const confidence = page.getByTestId("confidence-badge");
+    await expect(confidence).toBeVisible({ timeout: 60000 });
+    await expect(confidence).toContainText(/A|B/i);
+
+    const workflow = page.getByTestId("workflow-pill");
+    await expect(workflow).toBeVisible({ timeout: 60000 });
+    await expect(workflow).toContainText(/Ready/i);
+
+    const riskOverall = page.getByTestId("risk-overall-badge");
+    await expect(riskOverall).toBeVisible({ timeout: 60000 });
+    await expect(riskOverall).toContainText(/Pass/i);
     await expect(page.getByTestId(/evidence-kind-/).first()).toBeVisible();
 
     await page.goto(`/trace?dealId=${QA_READY_DEAL_ID}`);
@@ -58,13 +56,17 @@ test.describe("Risk & Evidence - overview + trace", () => {
     "stale or missing evidence pushes workflow to review/info and surfaces in trace",
     async ({ page }) => {
       await gotoDealDashboard(page, QA_STALE_EVIDENCE_DEAL_ID!);
-      await expect(page.getByTestId("workflow-pill")).toContainText(/Review|Info/i);
+      const workflow = page.getByTestId("workflow-pill");
+      await expect(workflow).toBeVisible({ timeout: 60000 });
+      await expect(workflow).toContainText(/Review|Info/i);
       await expect(page.getByTestId(/evidence-status-/).first()).toContainText(/stale|missing/i);
-      await expect(page.getByTestId("risk-overall-badge")).toContainText(/Watch|Fail/i);
+      const riskOverall = page.getByTestId("risk-overall-badge");
+      await expect(riskOverall).toBeVisible({ timeout: 60000 });
+      await expect(riskOverall).toContainText(/Watch|Fail/i);
 
       await page.goto(`/trace?dealId=${QA_STALE_EVIDENCE_DEAL_ID}`);
       await expect(page.getByTestId("trace-workflow-state")).toContainText(/Review|Info/i);
-      await expect(page.getByText(/Evidence freshness trace/i)).toBeVisible();
+      await expect(page.getByRole("heading", { name: /Evidence freshness trace/i })).toBeVisible();
       await expect(page.getByText(/Placeholders:/i)).toBeVisible();
       await expect(page.getByTestId("trace-risk-overall")).toContainText(/Watch|Fail/i);
     },
@@ -72,14 +74,22 @@ test.describe("Risk & Evidence - overview + trace", () => {
 
   hardGateTest("hard gate: insurability/flood/PACE drives Fail gate and non-ready workflow", async ({ page }) => {
     await gotoDealDashboard(page, QA_HARD_GATE_DEAL_ID!);
-    await expect(page.getByTestId("workflow-pill")).not.toContainText(/Ready/i);
-    await expect(page.getByTestId("risk-overall-badge")).toContainText(/Fail/i);
+    const workflow = page.getByTestId("workflow-pill");
+    await expect(workflow).toBeVisible({ timeout: 60000 });
+    await expect(workflow).not.toContainText(/Ready/i);
+    const riskOverall = page.getByTestId("risk-overall-badge");
+    await expect(riskOverall).toBeVisible({ timeout: 60000 });
+    await expect(riskOverall).toContainText(/Fail/i);
     // Expect at least one gate to be explicitly failing (insurability/flood/PACE/UCC).
-    await expect(page.getByTestId(/risk-gate-/)).toContainText(/fail/i);
+    const failingGate = page.getByTestId(/risk-gate-/).filter({ hasText: /fail/i });
+    await expect(failingGate.first()).toBeVisible({ timeout: 15000 });
 
     await page.goto(`/trace?dealId=${QA_HARD_GATE_DEAL_ID}`);
     await expect(page.getByTestId("trace-workflow-state")).not.toContainText(/Ready/i);
     await expect(page.getByTestId("trace-risk-overall")).toContainText(/Fail/i);
-    await expect(page.getByText(/insurability|flood|pace|ucc/i)).toBeVisible();
+    const failingTraceGate = page
+      .getByTestId(/trace-gate-/)
+      .filter({ hasText: /insurability|flood|pace|ucc/i });
+    await expect(failingTraceGate.first()).toBeVisible();
   });
 });

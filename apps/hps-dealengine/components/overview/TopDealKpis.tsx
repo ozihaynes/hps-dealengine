@@ -7,6 +7,7 @@ import { fmt$, roundHeadline } from "@/utils/helpers";
 export type TopDealKpisProps = {
   arv: number | null;
   maoFinal: number | null;
+  offer: number | null;
   discountToArvPct: number | null;
   discountToArvDollars: number | null;
   assignmentFee: number | null;
@@ -41,7 +42,7 @@ const Tile = ({
 );
 
 const formatPct = (n: number | null | undefined) =>
-  n == null || !Number.isFinite(n) ? "—" : `${(n * 100).toFixed(1)}%`;
+  n == null || !Number.isFinite(n) ? "-" : `${(n * 100).toFixed(1)}%`;
 
 const workflowBadgeColor = (state?: string | null) => {
   if (!state) return "blue" as const;
@@ -57,20 +58,22 @@ export function TopDealKpis(props: TopDealKpisProps) {
   const discountDollarLabel =
     props.discountToArvDollars != null && Number.isFinite(props.discountToArvDollars)
       ? fmt$(roundHeadline(props.discountToArvDollars), 0)
-      : "—";
+      : "-";
   const assignmentPct =
     props.assignmentFee != null && props.arv
       ? props.assignmentFee / props.arv
       : null;
+  const offerLabel =
+    props.offer != null && Number.isFinite(props.offer)
+      ? fmt$(roundHeadline(props.offer), 0)
+      : "—";
 
   return (
     <GlassCard className="p-4 md:p-5">
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="label-xs uppercase text-text-secondary">Deal KPIs</p>
-          <h2 className="text-xl font-semibold text-text-primary">
-            Are we in the buy box?
-          </h2>
+          <h2 className="text-xl font-semibold text-text-primary">OVERVIEW</h2>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {props.confidenceGrade && (
@@ -101,12 +104,18 @@ export function TopDealKpis(props: TopDealKpisProps) {
           label="Valuation"
           value={
             <span>
-              ARV {props.arv != null ? fmt$(roundHeadline(props.arv), 0) : "—"} · MAO{" "}
-              {props.maoFinal != null ? fmt$(roundHeadline(props.maoFinal), 0) : "—"}
+              ARV {props.arv != null ? fmt$(roundHeadline(props.arv), 0) : "-"} / MAO{" "}
+              {props.maoFinal != null ? fmt$(roundHeadline(props.maoFinal), 0) : "-"}
             </span>
           }
           sub={`Discount vs ARV: ${discountPctLabel} (${discountDollarLabel})`}
           tooltip="See Valuation & Floors in Trace"
+        />
+        <Tile
+          label="Offer (Computed)"
+          value={offerLabel}
+          sub="From latest underwriting run"
+          tooltip="Computed from the latest underwriting run"
         />
         <Tile
           label="Assignment / Spread"
@@ -114,13 +123,13 @@ export function TopDealKpis(props: TopDealKpisProps) {
             <span>
               {props.assignmentFee != null
                 ? fmt$(roundHeadline(props.assignmentFee), 0)
-                : "—"}{" "}
+                : "-"}{" "}
               {assignmentPct != null && Number.isFinite(assignmentPct)
                 ? `(${(assignmentPct * 100).toFixed(1)}% ARV)`
                 : ""}
             </span>
           }
-          sub={`Target ${formatPct(props.assignmentPolicyTargetPct)} · Max ${formatPct(
+          sub={`Target ${formatPct(props.assignmentPolicyTargetPct)} / Max ${formatPct(
             props.assignmentPolicyMaxPct,
           )}`}
           tooltip="See Profit & Assignment Policy in Trace"
@@ -129,8 +138,8 @@ export function TopDealKpis(props: TopDealKpisProps) {
           label="Timeline"
           value={
             <span>
-              {props.dtmDays != null ? `${props.dtmDays} days` : "—"}{" "}
-              {props.speedBand ? `· ${props.speedBand}` : ""}
+              {props.dtmDays != null ? `${props.dtmDays} days` : "-"}{" "}
+              {props.speedBand ? `/ ${props.speedBand}` : ""}
             </span>
           }
           sub="See Timeline & Carry in Trace"

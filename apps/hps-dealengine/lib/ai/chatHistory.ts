@@ -61,8 +61,12 @@ export async function fetchAiThreads(
   if (opts.personas?.length) {
     query = query.in("persona", opts.personas);
   }
-  if (opts.dealId) {
-    query = query.eq("deal_id", opts.dealId);
+  if (opts.dealId !== undefined) {
+    if (opts.dealId) {
+      query = query.eq("deal_id", opts.dealId);
+    } else {
+      query = query.is("deal_id", null);
+    }
   }
 
   const { data, error } = await query;

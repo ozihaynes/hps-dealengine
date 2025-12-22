@@ -1,4 +1,14 @@
 {
+  "abcConfidenceGradeRubric": {
+    "finalImpact": "ux_only",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "ux_only",
+    "primary_surface": "sandbox"
+  },
   "aivCapEvidenceVpApprovalLoggingRequirement": {
     "finalImpact": "economic",
     "ui": true,
@@ -89,6 +99,26 @@
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
+  "allowAdvisorOverrideWorkflowState": {
+    "finalImpact": "ux_only",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": false,
+    "classification": "ux_only",
+    "primary_surface": "sandbox"
+  },
+  "analystReviewTriggerBorderlineBandThreshold": {
+    "finalImpact": "operational_workflow",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "workflow",
+    "primary_surface": "multiple"
+  },
   "arvCompsSetSizeForMedian": {
     "finalImpact": "economic",
     "ui": true,
@@ -149,6 +179,56 @@
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
+  "assignmentFeeMaxPublicizedArvPercentage": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "assignmentFeeTarget": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "assumptionsProtocolPlaceholdersWhenEvidenceMissing": {
+    "finalImpact": "operational_workflow",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "workflow",
+    "primary_surface": "multiple"
+  },
+  "bankersRoundingModeNumericSafety": {
+    "finalImpact": "operational_workflow",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "workflow",
+    "primary_surface": "multiple"
+  },
+  "bankruptcyStayGateLegalBlock": {
+    "finalImpact": "risk_compliance",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "risk_gate",
+    "primary_surface": "multiple"
+  },
   "buyerCeilingFormulaDefinition": {
     "finalImpact": "economic",
     "ui": true,
@@ -159,54 +239,234 @@
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "speedBandsBalancedMaxDom": {
-    "finalImpact": "economic",
+  "buyerCostsAllocationDualScenarioRenderingWhenUnknown": {
+    "finalImpact": "operational_workflow",
     "ui": true,
-    "options": false,
-    "policy": false,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "workflow",
+    "primary_surface": "multiple"
+  },
+  "buyerCostsLineItemModelingMethod": {
+    "finalImpact": "ux_only",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "ux_only",
+    "primary_surface": "sandbox"
+  },
+  "buyerSegmentationWholetailMaxRepairsAsArvPercentage": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "speedBandsBalancedMaxMoi": {
-    "finalImpact": "economic",
+  "buyerTargetMarginFlipBaselinePolicy": {
+    "finalImpact": "strategy_offer",
     "ui": true,
-    "options": false,
-    "policy": false,
+    "options": true,
+    "policy": true,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "speedBandsFastMaxDom": {
-    "finalImpact": "economic",
+  "buyerTargetMarginWholetailMaxPercentage": {
+    "finalImpact": "strategy_offer",
     "ui": true,
-    "options": false,
-    "policy": false,
+    "options": true,
+    "policy": true,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "speedBandsFastMaxMoi": {
-    "finalImpact": "economic",
+  "buyerTargetMarginWholetailMinPercentage": {
+    "finalImpact": "strategy_offer",
     "ui": true,
-    "options": false,
-    "policy": false,
+    "options": true,
+    "policy": true,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "zipSpeedBandDerivationMethod": {
+  "carryMonthsFormulaDefinition": {
     "finalImpact": "economic",
     "ui": true,
-    "options": false,
-    "policy": false,
+    "options": true,
+    "policy": true,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "carryMonthsMaximumCap": {
+    "finalImpact": "economic",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": false,
+    "classification": "runtime_math",
+    "primary_surface": "overview"
+  },
+  "cashPresentationGateMinimumSpreadOverPayoff": {
+    "finalImpact": "operational_workflow",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "workflow",
+    "primary_surface": "multiple"
+  },
+  "clearToCloseBufferDays": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "daysToMoneyDefaultCashCloseDays": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "daysToMoneyMaxDays": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "daysToMoneySelectionMethod": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "deedDocumentaryStampRatePolicy": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "defaultDaysToWholesaleClose": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "dispositionRecommendationUrgentCashMaxDtm": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "dispositionTrackEnablement": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "doubleCloseMinSpreadThreshold": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "doubleClosePerDiemCarryModeling": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "fha90DayResaleRuleGate": {
+    "finalImpact": "risk_compliance",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "risk_gate",
+    "primary_surface": "multiple"
+  },
+  "firptaWithholdingGate": {
+    "finalImpact": "risk_compliance",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "risk_gate",
+    "primary_surface": "multiple"
+  },
+  "flood50RuleGate": {
+    "finalImpact": "risk_compliance",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "risk_gate",
+    "primary_surface": "multiple"
+  },
+  "floodZoneEvidenceSourceFemaMapSelector": {
+    "finalImpact": "risk_compliance",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "risk_gate",
     "primary_surface": "multiple"
   },
   "floorInvestorAivDiscountP20Zip": {
@@ -268,26 +528,6 @@
     "trace": true,
     "classification": "runtime_math",
     "primary_surface": "multiple"
-  },
-  "carryMonthsFormulaDefinition": {
-    "finalImpact": "economic",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "carryMonthsMaximumCap": {
-    "finalImpact": "economic",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": false,
-    "classification": "runtime_math",
-    "primary_surface": "overview"
   },
   "holdCostsFlipFastZip": {
     "finalImpact": "economic",
@@ -389,31 +629,31 @@
     "classification": "runtime_math",
     "primary_surface": "multiple"
   },
-  "repairsContingencyPercentageByClass": {
-    "finalImpact": "economic",
+  "initialOfferSpreadMultiplier": {
+    "finalImpact": "strategy_offer",
     "ui": true,
     "options": true,
-    "policy": false,
-    "engine": false,
-    "trace": false,
+    "policy": true,
+    "engine": true,
+    "trace": true,
     "classification": "runtime_math",
-    "primary_surface": "sandbox"
+    "primary_surface": "multiple"
   },
-  "repairsHardMax": {
-    "finalImpact": "economic",
+  "minSpreadByArvBand": {
+    "finalImpact": "strategy_offer",
     "ui": true,
     "options": true,
-    "policy": false,
-    "engine": false,
-    "trace": false,
+    "policy": true,
+    "engine": true,
+    "trace": true,
     "classification": "runtime_math",
-    "primary_surface": "sandbox"
+    "primary_surface": "multiple"
   },
-  "repairsSoftMaxVsArvPercentage": {
-    "finalImpact": "economic",
+  "offerValidityPeriodDaysPolicy": {
+    "finalImpact": "strategy_offer",
     "ui": true,
     "options": true,
-    "policy": false,
+    "policy": true,
     "engine": false,
     "trace": false,
     "classification": "runtime_math",
@@ -449,205 +689,35 @@
     "classification": "runtime_math",
     "primary_surface": "sandbox"
   },
-  "assignmentFeeMaxPublicizedArvPercentage": {
-    "finalImpact": "strategy_offer",
+  "repairsContingencyPercentageByClass": {
+    "finalImpact": "economic",
     "ui": true,
     "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "assignmentFeeTarget": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "buyerSegmentationWholetailMaxRepairsAsArvPercentage": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "buyerTargetMarginFlipBaselinePolicy": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "buyerTargetMarginWholetailMaxPercentage": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "buyerTargetMarginWholetailMinPercentage": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "initialOfferSpreadMultiplier": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "minSpreadByArvBand": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "clearToCloseBufferDays": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "daysToMoneyDefaultCashCloseDays": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "daysToMoneyMaxDays": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "daysToMoneySelectionMethod": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "defaultDaysToWholesaleClose": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "dispositionRecommendationUrgentCashMaxDtm": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "offerValidityPeriodDaysPolicy": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
+    "policy": false,
     "engine": false,
     "trace": false,
     "classification": "runtime_math",
     "primary_surface": "sandbox"
   },
-  "bankruptcyStayGateLegalBlock": {
-    "finalImpact": "risk_compliance",
+  "repairsHardMax": {
+    "finalImpact": "economic",
     "ui": true,
     "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "risk_gate",
-    "primary_surface": "multiple"
+    "policy": false,
+    "engine": false,
+    "trace": false,
+    "classification": "runtime_math",
+    "primary_surface": "sandbox"
   },
-  "fha90DayResaleRuleGate": {
-    "finalImpact": "risk_compliance",
+  "repairsSoftMaxVsArvPercentage": {
+    "finalImpact": "economic",
     "ui": true,
     "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "risk_gate",
-    "primary_surface": "multiple"
-  },
-  "firptaWithholdingGate": {
-    "finalImpact": "risk_compliance",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "risk_gate",
-    "primary_surface": "multiple"
-  },
-  "flood50RuleGate": {
-    "finalImpact": "risk_compliance",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "risk_gate",
-    "primary_surface": "multiple"
-  },
-  "floodZoneEvidenceSourceFemaMapSelector": {
-    "finalImpact": "risk_compliance",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "risk_gate",
-    "primary_surface": "multiple"
+    "policy": false,
+    "engine": false,
+    "trace": false,
+    "classification": "runtime_math",
+    "primary_surface": "sandbox"
   },
   "scraVerificationGate": {
     "finalImpact": "risk_compliance",
@@ -659,6 +729,46 @@
     "classification": "risk_gate",
     "primary_surface": "multiple"
   },
+  "speedBandsBalancedMaxDom": {
+    "finalImpact": "economic",
+    "ui": true,
+    "options": false,
+    "policy": false,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "speedBandsBalancedMaxMoi": {
+    "finalImpact": "economic",
+    "ui": true,
+    "options": false,
+    "policy": false,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "speedBandsFastMaxDom": {
+    "finalImpact": "economic",
+    "ui": true,
+    "options": false,
+    "policy": false,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
+  "speedBandsFastMaxMoi": {
+    "finalImpact": "economic",
+    "ui": true,
+    "options": false,
+    "policy": false,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
+    "primary_surface": "multiple"
+  },
   "stateProgramGateFhaVaOverlays": {
     "finalImpact": "risk_compliance",
     "ui": true,
@@ -667,6 +777,16 @@
     "engine": true,
     "trace": true,
     "classification": "risk_gate",
+    "primary_surface": "multiple"
+  },
+  "titlePremiumRateSource": {
+    "finalImpact": "strategy_offer",
+    "ui": true,
+    "options": true,
+    "policy": true,
+    "engine": true,
+    "trace": true,
+    "classification": "runtime_math",
     "primary_surface": "multiple"
   },
   "vaProgramRequirementsWdoWaterTestEvidence": {
@@ -689,131 +809,11 @@
     "classification": "risk_gate",
     "primary_surface": "multiple"
   },
-  "abcConfidenceGradeRubric": {
-    "finalImpact": "ux_only",
+  "zipSpeedBandDerivationMethod": {
+    "finalImpact": "economic",
     "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "ux_only",
-    "primary_surface": "sandbox"
-  },
-  "allowAdvisorOverrideWorkflowState": {
-    "finalImpact": "ux_only",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": false,
-    "classification": "ux_only",
-    "primary_surface": "sandbox"
-  },
-  "analystReviewTriggerBorderlineBandThreshold": {
-    "finalImpact": "operational_workflow",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "workflow",
-    "primary_surface": "multiple"
-  },
-  "assumptionsProtocolPlaceholdersWhenEvidenceMissing": {
-    "finalImpact": "operational_workflow",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "workflow",
-    "primary_surface": "multiple"
-  },
-  "bankersRoundingModeNumericSafety": {
-    "finalImpact": "operational_workflow",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "workflow",
-    "primary_surface": "multiple"
-  },
-  "buyerCostsAllocationDualScenarioRenderingWhenUnknown": {
-    "finalImpact": "operational_workflow",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "workflow",
-    "primary_surface": "multiple"
-  },
-  "buyerCostsLineItemModelingMethod": {
-    "finalImpact": "ux_only",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "ux_only",
-    "primary_surface": "sandbox"
-  },
-  "cashPresentationGateMinimumSpreadOverPayoff": {
-    "finalImpact": "operational_workflow",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "workflow",
-    "primary_surface": "multiple"
-  },
-  "deedDocumentaryStampRatePolicy": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "dispositionTrackEnablement": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "doubleCloseMinSpreadThreshold": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "doubleClosePerDiemCarryModeling": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
-    "engine": true,
-    "trace": true,
-    "classification": "runtime_math",
-    "primary_surface": "multiple"
-  },
-  "titlePremiumRateSource": {
-    "finalImpact": "strategy_offer",
-    "ui": true,
-    "options": true,
-    "policy": true,
+    "options": false,
+    "policy": false,
     "engine": true,
     "trace": true,
     "classification": "runtime_math",

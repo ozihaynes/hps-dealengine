@@ -1,5 +1,5 @@
 // apps/hps-dealengine/types.ts
-import type { MouseEvent, ReactNode } from "react";
+import type { HTMLAttributes, MouseEvent, ReactNode } from "react";
 import type { GlossaryKey } from "./lib/glossary";
 
 /** Calculations used by Overview/Underwrite */
@@ -66,10 +66,11 @@ export interface CardProps {
   title?: string;
   footer?: ReactNode;
 }
-export interface BadgeProps {
+export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   color?: "green" | "blue" | "orange" | "red";
   className?: string;
   children?: ReactNode;
+  dataTestId?: string;
 }
 export interface ButtonProps {
   size?: "sm" | "md";
@@ -89,6 +90,7 @@ export interface InputFieldProps {
   prefix?: ReactNode | string;
   suffix?: ReactNode | string;
   className?: string;
+  dataTestId?: string;
   description?: string;
   warning?: string | null;
   min?: number | string;
@@ -106,6 +108,7 @@ export interface SelectFieldProps {
   description?: string;
   children?: ReactNode;
   helpKey?: GlossaryKey;
+  dataTestId?: string;
 }
 
 export interface ToggleSwitchProps {
@@ -171,6 +174,17 @@ export interface Deal {
   market: {
     arv?: number;
     as_is_value?: number;
+    contract_price?: number;
+    contract_price_executed?: number;
+    arv_source?: string | null;
+    arv_as_of?: string | null;
+    arv_override_reason?: string | null;
+    arv_valuation_run_id?: string | null;
+    as_is_value_source?: string | null;
+    as_is_value_as_of?: string | null;
+    as_is_value_override_reason?: string | null;
+    as_is_value_valuation_run_id?: string | null;
+    valuation_basis?: string;
     dom_zip?: number;
     moi_zip?: number;
     "price-to-list-pct"?: number;

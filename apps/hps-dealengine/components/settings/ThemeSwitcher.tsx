@@ -5,26 +5,17 @@ import type { ThemeSetting } from "@/components/theme/ThemeProvider";
 import { cn } from "@/components/ui";
 import { THEME_METADATA } from "@/lib/themeTokens";
 
-const THEME_ORDER: Array<ThemeSetting> = [
-  "system",
-  "navy",
-  "burgundy",
-  "green",
-  "black",
-  "white",
-];
+// Order: Red (burgundy) → Green → Blue (navy) → Violet → Pink → Black
+const THEME_ORDER: Array<ThemeSetting> = ["burgundy", "green", "navy", "violet", "pink", "black"];
 
-const LABELS: Record<string, string> = {
-  system: "System",
-};
-
-export function ThemeSwitcher() {
+export function ThemeSwitcher({
+  onSelect,
+}: {
+  onSelect?: (value: ThemeSetting) => void;
+}) {
   const { theme, themeSetting, setTheme, saving } = useTheme();
 
-  const isSelected = (key: string) => {
-    if (key === "system") return themeSetting === "system";
-    return themeSetting === key || theme === key;
-  };
+  const isSelected = (key: string) => themeSetting === key || theme === key;
 
   return (
     <section className="space-y-3">
@@ -34,29 +25,30 @@ export function ThemeSwitcher() {
       </p>
       <div className="flex flex-wrap gap-3">
         {THEME_ORDER.map((key) => {
-          const isSystem = key === "system";
-          const meta = isSystem
-            ? { label: "System", description: "Follow your device preference." }
-            : THEME_METADATA[key as keyof typeof THEME_METADATA];
+          const meta = THEME_METADATA[key as keyof typeof THEME_METADATA];
           const selected = isSelected(key);
 
-          const gradientClass = isSystem
-            ? "bg-gradient-to-br from-[#0f172a] to-[#f8fafc]"
-            : key === "navy"
-              ? "bg-gradient-to-br from-[#00070f] to-[#0096FF]"
-              : key === "burgundy"
-                ? "bg-gradient-to-br from-[#3d0d0d] to-[#b11225]"
-                : key === "green"
-                  ? "bg-gradient-to-br from-[#0d1f19] to-[#1ABC9C]"
-                  : key === "black"
-                    ? "bg-gradient-to-br from-[#000000] to-[#4b5563]"
-                    : "bg-gradient-to-br from-[#f9fafb] to-[#111827]";
+          const gradientClass =
+            key === "burgundy"
+              ? "bg-gradient-to-br from-[#3d0d0d] to-[#b11225]"
+              : key === "green"
+                ? "bg-gradient-to-br from-[#0d1f19] to-[#1ABC9C]"
+              : key === "navy"
+                ? "bg-gradient-to-br from-[#00070f] to-[#0096FF]"
+                : key === "violet"
+                  ? "bg-gradient-to-br from-[#120c20] to-[#9966cc]"
+                : key === "pink"
+                  ? "bg-gradient-to-br from-[#2f0f20] to-[#ff83a6]"
+                  : "bg-gradient-to-br from-[#000000] to-[#4b5563]";
 
           return (
             <button
               key={key}
               type="button"
-              onClick={() => setTheme(key)}
+              onClick={() => {
+                setTheme(key);
+                onSelect?.(key as ThemeSetting);
+              }}
               className={cn(
                 "relative flex h-14 w-14 items-center justify-center rounded-xl border-2 transition-all duration-300",
                 gradientClass,
@@ -69,10 +61,7 @@ export function ThemeSwitcher() {
               title={meta.label}
               disabled={saving}
             >
-              <span className="sr-only">{LABELS[key] ?? meta.label}</span>
-              {isSystem ? (
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-white">Sys</span>
-              ) : null}
+              <span className="sr-only">{meta.label}</span>
             </button>
           );
         })}

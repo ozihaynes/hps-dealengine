@@ -78,7 +78,7 @@ const componentMap: Record<string, React.ComponentType<any>> = {
             {description}
           </p>
         )}
-        <textarea {...rest} className="dark-input h-24 w-full font-mono text-xs" />
+        <textarea {...rest} className="input-base h-24 w-full font-mono text-xs" />
       </div>
     );
   },
@@ -239,7 +239,7 @@ const StrategistChat = ({
               target.style.height = `${target.scrollHeight}px`;
             }}
             placeholder="Ask about a setting or policy..."
-            className="dark-input w-full resize-none overflow-y-hidden pr-12"
+            className="input-base w-full resize-none overflow-y-hidden pr-12"
             rows={2}
             style={{ maxHeight: "8rem" }}
             disabled={isSending}

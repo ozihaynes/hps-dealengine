@@ -10,7 +10,7 @@ import { Icons } from "@/constants";
 import { fetchUserSettings, upsertUserSettings } from "@/lib/userSettings";
 import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 import type { ThemeSetting } from "@/components/theme/ThemeProvider";
-import { THEME_METADATA } from "@/lib/themeTokens";
+import { DEFAULT_THEME, THEME_METADATA } from "@/lib/themeTokens";
 
 type FormState = {
   defaultPosture: string;
@@ -38,21 +38,23 @@ type LocalTeamMember = {
 const DEFAULTS: FormState = {
   defaultPosture: "base",
   defaultMarket: "ORL",
-  theme: "system",
+  theme: DEFAULT_THEME,
 };
 
-const themeOptions: Array<{ value: ThemeSetting; label: string; helper: string }> = [
-  {
-    value: "system",
-    label: "System",
-    helper: "Follow your device preference.",
-  },
-  ...Object.entries(THEME_METADATA).map(([value, meta]) => ({
-    value: value as ThemeSetting,
-    label: meta.label,
-    helper: meta.description,
-  })),
-];
+const themeOptions: Array<{ value: ThemeSetting; label: string; helper: string }> = Object.entries(
+  THEME_METADATA,
+).map(([value, meta]) => ({
+  value: value as ThemeSetting,
+  label: meta.label,
+  helper: meta.description,
+}));
+const ALLOWED_THEME_VALUES = new Set<ThemeSetting>(Object.keys(THEME_METADATA) as ThemeSetting[]);
+const THEME_ALIASES: Record<string, ThemeSetting> = {
+  system: DEFAULT_THEME,
+  white: DEFAULT_THEME,
+  pink2: "pink",
+  pink3: "pink",
+};
 
 const marketOptions = [{ value: "ORL", label: "Orlando (ORL)" }];
 
@@ -273,20 +275,6 @@ export default function UserSettingsPage() {
               scoped to your org via RLS.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/settings/sandbox"
-              className="rounded-md border border-accent-blue/40 bg-accent-blue/10 px-3 py-2 text-sm font-semibold text-accent-blue hover:border-accent-blue/60 hover:bg-accent-blue/15"
-            >
-              Open Sandbox Settings
-            </Link>
-            <Link
-              href="/settings/policy-overrides"
-              className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-text-primary hover:border-white/20 hover:bg-white/10"
-            >
-              View Overrides
-            </Link>
-          </div>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -309,7 +297,7 @@ export default function UserSettingsPage() {
       </div>
 
       {/* Theme + underwriting defaults */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Theme preference */}
         <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
           <div className="flex items-start justify-between gap-2">
@@ -324,44 +312,16 @@ export default function UserSettingsPage() {
               </p>
             </div>
           </div>
-          <ThemeSwitcher />
-          <div className="grid gap-2">
-            {themeOptions.map((opt) => {
-              const isActive = form.theme === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, theme: opt.value }))
-                  }
-                  disabled={isLoading || isSaving}
-                  className={`flex items-start justify-between rounded-lg border px-4 py-3 text-left transition-colors ${
-                    isActive
-                      ? "border-accent-blue/70 bg-accent-blue/10 shadow-[0_10px_40px_-24px_var(--accent-blue)]"
-                      : "border-white/5 bg-white/5 hover:border-white/15"
-                  } ${isLoading ? "opacity-70 cursor-not-allowed" : ""}`}
-                  aria-pressed={isActive}
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">
-                      {opt.label}
-                    </p>
-                    <p className="text-xs text-text-secondary">
-                      {opt.helper}
-                    </p>
-                  </div>
-                  {isActive && (
-                    <Icon d={Icons.check} size={16} className="text-accent-blue" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <ThemeSwitcher
+            onSelect={(value) => {
+              setSuccess(null);
+              setForm((prev) => ({ ...prev, theme: value }));
+            }}
+          />
         </GlassCard>
 
         {/* Underwriting defaults */}
-        <GlassCard className="p-5 space-y-5 border border-white/5 bg-surface-elevated/70 xl:col-span-2">
+        <GlassCard className="p-5 space-y-5 border border-white/5 bg-surface-elevated/70 lg:col-span-2">
           <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -446,7 +406,7 @@ export default function UserSettingsPage() {
       </div>
 
       {/* Profile / Business / Team */}
-      <div className="grid gap-4 xl:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {/* Profile */}
         <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
           <div className="flex items-start justify-between gap-2">
@@ -515,7 +475,7 @@ export default function UserSettingsPage() {
                 type="file"
                 accept="image/*"
                 onChange={onLogoChange}
-                className="dark-input"
+                className="input-base"
               />
               {business.logoDataUrl ? (
                 <img
@@ -630,7 +590,15 @@ export default function UserSettingsPage() {
               org. Use these entry points for team-level controls.
             </p>
           </div>
-          <BadgePill label="RLS enforced" />
+          <div className="flex items-center gap-2">
+            <BadgePill label="RLS enforced" />
+            <Link
+              href="/settings/policy-overrides"
+              className="rounded-md border border-accent-blue/50 bg-accent-blue/10 px-3 py-2 text-sm font-semibold text-accent-blue hover:border-accent-blue/70 hover:bg-accent-blue/15"
+            >
+              View overrides queue
+            </Link>
+          </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {quickLinks.map((link) => (
@@ -659,15 +627,34 @@ export default function UserSettingsPage() {
           </p>
         )}
       </GlassCard>
+
+      {/* Account / Danger zone */}
+      <GlassCard className="p-5 space-y-4 border border-accent-red/30 bg-accent-red/5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
+              <Icon d={Icons.shield} size={18} className="text-accent-red" />
+              Account
+            </h2>
+            <p className="text-sm text-text-secondary">Ends your session on this device.</p>
+          </div>
+          <Link href="/logout">
+            <Button variant="danger">Sign out</Button>
+          </Link>
+        </div>
+      </GlassCard>
     </div>
   );
 }
 
 function mapSettingsToForm(settings: UserSettings): FormState {
+  const incomingTheme = settings.theme as ThemeSetting | undefined;
+  const aliasTheme = incomingTheme ? (THEME_ALIASES[incomingTheme] ?? incomingTheme) : undefined;
+  const normalizedTheme = aliasTheme && ALLOWED_THEME_VALUES.has(aliasTheme) ? aliasTheme : DEFAULTS.theme;
   return {
     defaultPosture: settings.defaultPosture ?? DEFAULTS.defaultPosture,
     defaultMarket: settings.defaultMarket ?? DEFAULTS.defaultMarket,
-    theme: (settings.theme as ThemeSetting) ?? DEFAULTS.theme,
+    theme: normalizedTheme,
   };
 }
 
@@ -727,7 +714,7 @@ function LabeledInput({
   return (
     <div className="space-y-1">
       <label className="text-sm font-semibold text-text-primary">{label}</label>
-      <input {...props} className="dark-input" />
+      <input {...props} className="input-base" />
     </div>
   );
 }

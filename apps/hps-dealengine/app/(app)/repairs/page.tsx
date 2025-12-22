@@ -84,6 +84,33 @@ function deriveMarketCode(deal: Deal): string {
   );
 }
 
+const USD_0 = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+const USD_2 = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
+function fmtUsd0(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return Number.isFinite(value) ? USD_0.format(value) : "—";
+}
+
+function fmtUsd2(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return Number.isFinite(value) ? USD_2.format(value) : "—";
+}
+
+function fmtInt(value: number | null | undefined): string {
+  if (value == null) return "-";
+  return Number.isFinite(value) ? String(Math.round(value)) : "-";
+}
+
 export default function RepairsPage() {
   const {
     deal,
@@ -364,6 +391,38 @@ export default function RepairsPage() {
     setDealValue,
     deal,
   ]);
+const resolvedSqft = useMemo(() => {
+  const base = getCurrentSqft(deal as Deal, calc);
+  if (base > 0) return base;
+  const n = Number(String(localSqft ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}, [deal, calc, localSqft]);
+
+const appliedTotal = useMemo(() => {
+  if (isNoRepairsNeeded) return 0;
+  if (totalRepairCost > 0) return totalRepairCost;
+  if (quickEstimateApplied != null) {
+    const n = Number(quickEstimateApplied);
+    return Number.isFinite(n) ? n : 0;
+  }
+  return 0;
+}, [isNoRepairsNeeded, totalRepairCost, quickEstimateApplied]);
+
+const repairsPerSqft = useMemo(() => {
+  if (!resolvedSqft || resolvedSqft <= 0) return null;
+  if (!appliedTotal || appliedTotal <= 0) return null;
+  return appliedTotal / resolvedSqft;
+}, [appliedTotal, resolvedSqft]);
+
+const sectionBreakdown = useMemo(() => {
+  const entries = Object.entries(sectionTotals)
+    .map(([key, total]) => ({ key, total }))
+    .filter((row) => Number.isFinite(row.total) && row.total > 0.5)
+    .sort((a, b) => b.total - a.total);
+
+  return entries;
+}, [sectionTotals]);
+
 
   return (
     <div className="space-y-6">
@@ -407,8 +466,13 @@ export default function RepairsPage() {
         </div>
       </div>
 
+
+<div className="space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
+  {/* Left rail (desktop): meta + key inputs/totals. Mobile/tablet remains unchanged. */}
+  <div className="lg:col-span-3">
+    <div className="space-y-6 lg:sticky lg:top-24">
       <GlassCard className="p-4">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 lg:flex-col lg:items-start lg:gap-2">
           <label className="flex items-center gap-2 text-sm font-medium text-white">
             <span>Property Square Footage</span>
             <Tooltip
@@ -424,7 +488,13 @@ export default function RepairsPage() {
                 i
               </button>
             </Tooltip>
-            {sqftSaved && <Check size={14} className="text-emerald-400" aria-hidden="true" />}
+            {sqftSaved && (
+              <Check
+                size={14}
+                className="text-emerald-400"
+                aria-hidden="true"
+              />
+            )}
           </label>
           <input
             type="number"
@@ -435,39 +505,268 @@ export default function RepairsPage() {
             style={{ borderColor: "var(--accent-color)" }}
           />
         </div>
+
+        <div className="mt-3 hidden lg:grid lg:grid-cols-2 lg:gap-3">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Applied total
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(appliedTotal)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              $ / sqft
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {repairsPerSqft != null ? fmtUsd2(repairsPerSqft) : "—"}
+            </div>
+          </div>
+        </div>
       </GlassCard>
 
-      <RepairsTab
-        key={rates?.profileId ?? "repairs-tab"}
-        deal={deal as Deal}
-        setDealValue={setDealValue}
-        calc={calc}
-        estimatorState={estimatorState}
-        onCostChange={handleCostChange}
-        onQuantityChange={handleQuantityChange}
-        onReset={handleReset}
-        repairRates={rates ?? undefined}
-        marketCode={repairMeta?.marketCode ?? marketCode}
-        activeProfileName={
-          repairMeta?.profileName ??
-          activeRepairProfile?.name ??
-          undefined
-        }
-        posture={repairMeta?.posture ?? posture}
-        ratesStatus={ratesStatus}
-        ratesError={repairRatesError ?? undefined}
-        meta={repairMeta ?? undefined}
-        onQuickApply={() => {
-          void saveWorkingStateNow().catch(() => {
-            /* status indicator handles error */
-          });
-        }}
-        onDetailedApply={() => {
-          void saveWorkingStateNow().catch(() => {
-            /* status indicator handles error */
-          });
-        }}
-      />
+      {/* Desktop-only: keep the rail intentional + information-dense */}
+      <div className="hidden lg:block space-y-6">
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-xs uppercase text-text-secondary">
+                Rate profile
+              </div>
+              <div className="mt-1 truncate text-sm font-semibold text-text-primary">
+                {profileName ?? "Repair rates"}
+              </div>
+              <div className="mt-1 text-xs text-text-secondary">
+                {(repairMeta?.marketCode ?? marketCode).toUpperCase()} · posture{" "}
+                {(repairMeta?.posture ?? posture) || "base"}
+              </div>
+            </div>
+            <span
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                ratesStatus === "loaded"
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                  : ratesStatus === "loading"
+                  ? "border-white/15 bg-white/5 text-text-secondary"
+                  : ratesStatus === "error"
+                  ? "border-red-400/30 bg-red-400/10 text-red-200"
+                  : "border-white/15 bg-white/5 text-text-secondary"
+              }`}
+            >
+              {ratesStatus === "loaded"
+                ? "Rates loaded"
+                : ratesStatus === "loading"
+                ? "Loading"
+                : ratesStatus === "error"
+                ? "Rates error"
+                : "Rates idle"}
+            </span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+                As of
+              </div>
+              <div className="mt-0.5 text-xs text-text-primary">
+                {repairMeta?.asOf ?? "—"}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+                Source
+              </div>
+              <div className="mt-0.5 truncate text-xs text-text-primary">
+                {repairMeta?.source ?? "—"}
+              </div>
+            </div>
+          </div>
+
+          {repairRatesError && (
+            <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+              {repairRatesError}
+            </div>
+          )}
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs uppercase text-text-secondary">
+                Key totals
+              </div>
+              <div className="mt-1 text-lg font-semibold text-text-primary">
+                {fmtUsd0(appliedTotal)}
+              </div>
+              <div className="mt-0.5 text-xs text-text-secondary">
+                Detailed estimator: {fmtUsd0(totalRepairCost)}
+                {quickEstimateApplied != null && totalRepairCost === 0
+                  ? ` · Quick estimate: ${fmtUsd0(
+                      Number(quickEstimateApplied),
+                    )}`
+                  : ""}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs uppercase text-text-secondary">
+                Sqft
+              </div>
+              <div className="mt-1 text-sm font-semibold text-text-primary">
+                {resolvedSqft > 0 ? fmtInt(resolvedSqft) : "—"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+                Sections
+              </div>
+              <div className="mt-0.5 text-xs text-text-primary">
+                {sectionBreakdown.length}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+              <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+                Status
+              </div>
+              <div className="mt-0.5 text-xs text-text-primary">
+                {isNoRepairsNeeded ? "No repairs needed" : "Estimator active"}
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+    </div>
+  </div>
+
+  {/* Center rail: primary repairs workflow */}
+  <div className="lg:col-span-6 xl:col-span-7">
+    <RepairsTab
+      key={rates?.profileId ?? "repairs-tab"}
+      deal={deal as Deal}
+      setDealValue={setDealValue}
+      calc={calc}
+      estimatorState={estimatorState}
+      onCostChange={handleCostChange}
+      onQuantityChange={handleQuantityChange}
+      onReset={handleReset}
+      repairRates={rates ?? undefined}
+      marketCode={repairMeta?.marketCode ?? marketCode}
+      activeProfileName={
+        repairMeta?.profileName ?? activeRepairProfile?.name ?? undefined
+      }
+      posture={repairMeta?.posture ?? posture}
+      ratesStatus={ratesStatus}
+      ratesError={repairRatesError ?? undefined}
+      meta={repairMeta ?? undefined}
+      onQuickApply={() => {
+        void saveWorkingStateNow().catch(() => {
+          /* status indicator handles error */
+        });
+      }}
+      onDetailedApply={() => {
+        void saveWorkingStateNow().catch(() => {
+          /* status indicator handles error */
+        });
+      }}
+    />
+  </div>
+
+  {/* Right rail (desktop): breakdown + alerts */}
+  <div className="hidden lg:block lg:col-span-3 xl:col-span-2">
+    <div className="space-y-6 lg:sticky lg:top-24">
+      <GlassCard className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase text-text-secondary">
+              Breakdown
+            </div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              By section
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs uppercase text-text-secondary">
+              Total
+            </div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              {fmtUsd0(totalRepairCost)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {sectionBreakdown.length === 0 && (
+            <div className="text-xs text-text-secondary">
+              No detailed line items yet. Use Quick Estimate or add costs to see a breakdown.
+            </div>
+          )}
+
+          {sectionBreakdown.slice(0, 8).map((row) => {
+            const section = (estimatorSections as Record<string, { title?: string; label?: string }>)[row.key];
+            const label =
+              section?.title ??
+              section?.label ??
+              row.key.replace(/_/g, " ");
+            const pct =
+              totalRepairCost > 0
+                ? Math.min(100, (row.total / totalRepairCost) * 100)
+                : 0;
+
+            return (
+              <div key={row.key} className="space-y-1">
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="truncate text-text-secondary">
+                    {label}
+                  </span>
+                  <span className="shrink-0 font-medium text-text-primary">
+                    {fmtUsd0(row.total)}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-accent-blue/60"
+                    style={{ width: `${pct}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-4">
+        <div className="text-xs uppercase text-text-secondary">
+          Alerts & sanity checks
+        </div>
+        <div className="mt-3 space-y-3 text-xs">
+          {resolvedSqft <= 0 && (
+            <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-amber-200">
+              Add square footage to unlock accurate Quick Estimate PSF math.
+            </div>
+          )}
+          {ratesStatus === "error" && (
+            <div className="rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-red-200">
+              Repair unit rates failed to load. You can still enter custom costs.
+            </div>
+          )}
+          {isNoRepairsNeeded && (
+            <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-emerald-200">
+              Repairs are marked as $0. Toggle off if you need line items.
+            </div>
+          )}
+          {!isNoRepairsNeeded && appliedTotal === 0 && (
+            <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-text-secondary">
+              Start with Quick Estimate (PSF tiers + Big 5) or add line items to compute totals.
+            </div>
+          )}
+        </div>
+      </GlassCard>
+    </div>
+  </div>
+</div>
     </div>
   );
 }

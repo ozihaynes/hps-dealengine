@@ -70,6 +70,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     Low: 'green',
     '-': 'blue',
   };
+  const numberOrNull = (val: number | null | undefined) =>
+    typeof val === "number" && Number.isFinite(val) ? val : null;
+  const currencyZeroDecimals = (n: number) =>
+    n.toLocaleString("en-US", { maximumFractionDigits: 0 });
+
+  const wholesaleFeeValue = effectiveHasInput
+    ? numberOrNull(roundHeadline(wholesaleFeeView.wholesaleFee))
+    : null;
+  const wholesaleFeeWithDcValue = effectiveHasInput
+    ? numberOrNull(roundHeadline(wholesaleFeeView.wholesaleFeeWithDc))
+    : null;
 
   const createMessage = React.useCallback(
     (role: "user" | "assistant" | "system", content: string): AiChatMessage => ({
@@ -194,12 +205,16 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <StatCard
           label="Wholesale Fee"
-          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFee)) : '-'}
+          value={wholesaleFeeValue}
+          prefix="$"
+          format={currencyZeroDecimals}
           icon={<Icon d={Icons.dollar} size={20} />}
         />
         <StatCard
           label="Wholesale Fee w/ DC"
-          value={effectiveHasInput ? fmt$(roundHeadline(wholesaleFeeView.wholesaleFeeWithDc)) : '-'}
+          value={wholesaleFeeWithDcValue}
+          prefix="$"
+          format={currencyZeroDecimals}
           icon={<Icon d={Icons.dollar} size={20} />}
         />
       </div>

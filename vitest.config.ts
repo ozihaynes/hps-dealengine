@@ -4,9 +4,14 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
+    environmentMatchGlobs: [
+      ["apps/**", "jsdom"],
+    ],
     include: [
       "packages/**/*.test.ts",
+      "packages/**/*.test.tsx",
       "apps/**/*.test.ts",
+      "apps/**/*.test.tsx",
       "supabase/functions/**/*.test.ts",
     ],
     // Use default reporter (fixes "Failed to load custom Reporter from basic")

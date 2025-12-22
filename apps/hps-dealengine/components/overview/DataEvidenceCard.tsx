@@ -47,10 +47,12 @@ export function DataEvidenceCard({
 }) {
   const badge = badgeForConfidence(confidence.grade);
   const workflowBadge = pillForWorkflow(workflow.state);
-  const hasFreshness =
+  const hasFreshnessFlags =
     evidence.missingKinds.length > 0 ||
     evidence.staleKinds.length > 0 ||
     evidence.blockingKinds.length > 0;
+  const hasFreshnessRows = evidence.freshnessRows.length > 0;
+  const hasAnyFreshness = hasFreshnessFlags || hasFreshnessRows;
   const workflowSummary = (() => {
     if (workflow.state === "NeedsInfo") {
       if (evidence.blockingKinds.length > 0) {
@@ -141,7 +143,7 @@ export function DataEvidenceCard({
         </div>
       )}
 
-      {!hasFreshness ? (
+      {!hasAnyFreshness ? (
         <p className="text-sm text-text-secondary">
           Evidence complete and fresh. No gaps flagged.
         </p>
@@ -219,6 +221,5 @@ export function DataEvidenceCard({
     </GlassCard>
   );
 }
-
 
 

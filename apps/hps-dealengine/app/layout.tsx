@@ -1,10 +1,23 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { DealSessionProvider } from "@/lib/dealSessionContext";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const dynamic = "force-dynamic";
+
+const displayFont = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
+
+const bodyFont = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-body",
+});
 
 // We changed 'export const metadata' to a function so Sentry can inject data dynamically
 export function generateMetadata(): Metadata {
@@ -19,8 +32,8 @@ const THEME_BOOT_SCRIPT = `
 (function() {
   try {
     var KEY = 'dealengine.theme';
-    var allowed = ['system','dark','light','navy','burgundy','green','black','white'];
-    var setting = 'system';
+    var allowed = ['burgundy','green','navy','violet','pink','black','pink2','pink3','system','dark','light','white'];
+    var setting = 'navy';
     try {
       var stored = localStorage.getItem(KEY);
       if (stored && allowed.indexOf(stored) !== -1) {
@@ -33,15 +46,20 @@ const THEME_BOOT_SCRIPT = `
     try {
       prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     } catch (_) {}
-    var resolve = function(val) {
-      if (val === 'system') return prefersDark ? 'navy' : 'white';
-      if (val === 'dark') return 'navy';
-      if (val === 'light') return 'white';
+    var normalize = function(val) {
+      if (val === 'pink2' || val === 'pink3') return 'pink';
+      if (val === 'white' || val === 'system' || val === 'dark' || val === 'light') return 'navy';
       return val;
     };
-    var resolved = resolve(setting);
+    var resolve = function(val) {
+      if (val === 'system' || val === 'dark' || val === 'light') return 'navy';
+      return val;
+    };
+    var normalizedSetting = normalize(setting);
+    var resolved = resolve(normalizedSetting);
     document.documentElement.setAttribute('data-theme', resolved);
-    document.documentElement.setAttribute('data-theme-setting', setting);
+    document.documentElement.setAttribute('data-theme-setting', normalizedSetting);
+    document.documentElement.setAttribute('data-theme-setting-raw', setting);
   } catch (e) {
     // silent failure; defaults remain
   }
@@ -49,7 +67,12 @@ const THEME_BOOT_SCRIPT = `
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning data-theme="navy">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-theme="navy"
+      className={`${displayFont.variable} ${bodyFont.variable}`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{

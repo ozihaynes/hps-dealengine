@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { href: "/overview", label: "Dashboard", icon: Icons.barChart, requireDeal: true, cluster: "left" as const },
   { href: "/repairs", label: "Repairs", icon: Icons.wrench, requireDeal: true, cluster: "right" as const },
   { href: "/underwrite", label: "Underwrite", icon: Icons.calculator, requireDeal: true, cluster: "right" as const },
+  { href: "/trace", label: "Trace", icon: Icons.trending, requireDeal: true, cluster: "right" as const },
   { href: "/deals", label: "Deals", icon: Icons.briefcase, requireDeal: false, cluster: "right" as const },
 ];
 
@@ -150,52 +151,37 @@ function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
           <Link
             key={item.href}
             href={buildHref(item)}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              isActive(item.href) ? "active" : "",
-            ].join(" ")}
+            className={`tab-trigger ${isActive(item.href) ? "active" : ""}`}
           >
             <Icon d={item.icon} size={16} className="text-accent-blue" />
             <span>{item.label}</span>
           </Link>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {right.map((item) => (
-          <Link
-            key={item.href}
-            href={buildHref(item)}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              isActive(item.href) ? "active" : "",
-            ].join(" ")}
-          >
-            <Icon d={item.icon} size={16} className="text-accent-blue" />
-            <span>{item.label}</span>
-          </Link>
-        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          {right.map((item) => (
+            <Link
+              key={item.href}
+              href={buildHref(item)}
+              className={`tab-trigger ${isActive(item.href) ? "active" : ""}`}
+            >
+              <Icon d={item.icon} size={16} className="text-accent-blue" />
+              <span>{item.label}</span>
+            </Link>
+          ))}
         {dbDeal?.id ? (
           <button
             type="button"
             onClick={onOpenOffer}
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-              "border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] text-[color:var(--text-primary)] hover:border-[color:var(--accent-color)]",
-            ].join(" ")}
+            className="tab-trigger"
           >
-            <Icon d={Icons.check} size={16} className="text-[color:var(--accent-color)]" />
+            <Icon d={Icons.check} size={16} className="text-[color:var(--accent-contrast)]" />
             <span>Offer</span>
           </button>
         ) : (
           <Link
             href="/startup"
-            className={[
-              "tab-trigger rounded-lg px-3 py-2 transition-colors",
-              "flex items-center gap-2",
-            ].join(" ")}
+            className="tab-trigger"
           >
             <Icon d={Icons.check} size={16} className="text-[color:var(--text-secondary)]" />
             <span>Offer</span>
@@ -228,13 +214,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <AiWindowsProvider>
           <div className="flex min-h-screen flex-col">
             <header className="border-b border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] backdrop-blur">
-              <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] items-center justify-between px-6 lg:px-8 xl:px-10 py-4">
                 <AppTopNav />
               </div>
             </header>
 
             <main className="flex-1 bg-[color:var(--bg-primary)]">
-              <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-6">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] flex-col gap-4 px-6 lg:px-8 xl:px-10 py-6">
                 {/* Desktop-only route tabs */}
                 <div className="hidden md:flex items-center justify-between gap-4">
                   <AppTabNav onOpenOffer={() => setShowOffer(true)} />

@@ -112,6 +112,36 @@ function makeInitialDeal(): Deal {
   });
 }
 
+const USD_0 = new Intl.NumberFormat(undefined, {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+function fmtUsd0(value: number | null | undefined): string {
+  if (value == null) return "—";
+  return Number.isFinite(value) ? USD_0.format(value) : "—";
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const n = typeof value === "string" ? Number(value) : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function getNestedValue(obj: unknown, path: string[]): unknown {
+  let cur: unknown = obj;
+  for (const key of path) {
+    if (!cur || typeof cur !== "object") return undefined;
+    cur = (cur as Record<string, unknown>)[key];
+  }
+  return cur;
+}
+
+function getNumberNested(obj: unknown, path: string[]): number | null {
+  const v = getNestedValue(obj, path);
+  return toFiniteNumber(v);
+}
+
 export default function Page() {
   // Shared state coming from DealSession (same session as /underwrite)
   const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture } =
@@ -318,6 +348,56 @@ export default function Page() {
     Number((deal as any).debt?.senior_principal ?? 0) > 0;
 
   const canAnalyze = hasUserInput || !!lastAnalyzeResult;
+const repairsTotal = useMemo(() => {
+  const candidates: Array<number | null> = [
+    getNumberNested(deal, ["repairs", "total"]),
+    getNumberNested(deal, ["repairs_total"]),
+    getNumberNested(deal, ["repairsTotal"]),
+    getNumberNested(deal, ["costs", "repairs_base"]),
+    getNumberNested(deal, ["costs", "repairs"]),
+    getNumberNested(deal, ["quickEstimate", "total"]),
+  ];
+  for (const cand of candidates) {
+    if (cand != null) return cand;
+  }
+  return null;
+}, [deal]);
+
+const propertySqft = useMemo(() => {
+  return (
+    getNumberNested(deal, ["property", "sqft"]) ??
+    getNumberNested(deal, ["subject", "sqft"]) ??
+    null
+  );
+}, [deal]);
+
+const repairsPerSqft = useMemo(() => {
+  if (!repairsTotal || repairsTotal <= 0) return null;
+  if (!propertySqft || propertySqft <= 0) return null;
+  return repairsTotal / propertySqft;
+}, [repairsTotal, propertySqft]);
+
+const riskCounts = useMemo(() => {
+  const fail = riskView.gates.filter((g) => g.status === "fail").length;
+  const watch = riskView.gates.filter((g) => g.status === "watch").length;
+  const unknown = riskView.gates.filter((g) => g.status === "unknown").length;
+  return { fail, watch, unknown };
+}, [riskView.gates]);
+
+const evidenceCounts = useMemo(() => {
+  return {
+    missing: evidenceView.missingKinds.length,
+    stale: evidenceView.staleKinds.length,
+    blocking: evidenceView.blockingKinds.length,
+    placeholdersUsed: evidenceView.placeholdersUsed,
+  };
+}, [
+  evidenceView.missingKinds.length,
+  evidenceView.staleKinds.length,
+  evidenceView.blockingKinds.length,
+  evidenceView.placeholdersUsed,
+]);
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -364,6 +444,12 @@ export default function Page() {
 
         <TopDealKpis
           arv={deal.market?.arv ?? null}
+          offer={
+            (lastAnalyzeResult as any)?.outputs?.primary_offer ??
+            (lastAnalyzeResult as any)?.outputs?.instant_cash_offer ??
+            (calc as any)?.instantCashOffer ??
+            null
+          }
           maoFinal={
             (lastAnalyzeResult as any)?.outputs?.primary_offer ??
             (lastAnalyzeResult as any)?.outputs?.mao_wholesale ??
@@ -421,11 +507,17 @@ export default function Page() {
 
         <DealHealthStrip view={guardrailsView} />
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <GuardrailsCard view={guardrailsView} />
-          <StrategyPostureCard view={strategyView} />
-          <TimelineCarryCard timeline={timelineView} />
-          <div className="flex flex-col gap-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12 lg:gap-6">
+          <div className="lg:col-span-8">
+            <GuardrailsCard view={guardrailsView} />
+          </div>
+          <div className="lg:col-span-4">
+            <StrategyPostureCard view={strategyView} />
+          </div>
+          <div className="lg:col-span-8">
+            <TimelineCarryCard timeline={timelineView} />
+          </div>
+          <div className="flex flex-col gap-4 lg:col-span-4 lg:gap-6">
             <RiskComplianceCard risk={riskView} />
             <DataEvidenceCard
               evidence={evidenceView}
@@ -435,14 +527,208 @@ export default function Page() {
           </div>
         </div>
 
-        <OverviewTab
-          deal={deal}
-          calc={calc}
-          flags={{}}
-          hasUserInput={canAnalyze}
-        />
+        <div className="space-y-6 lg:grid lg:grid-cols-12 lg:gap-6 lg:space-y-0">
+          <div className="lg:col-span-8">
+            <OverviewTab
+              deal={deal}
+              calc={calc}
+              flags={{}}
+              hasUserInput={canAnalyze}
+            />
+          </div>
+          
+<div className="lg:col-span-4">
+  <div className="space-y-6 lg:sticky lg:top-24">
+    <KnobFamilySummary runOutput={lastAnalyzeResult ?? null} />
 
-        <KnobFamilySummary runOutput={lastAnalyzeResult ?? null} />
+    {/* Desktop-only: fill dead space with high-signal, actionable cards */}
+    <div className="hidden lg:block space-y-6">
+      <GlassCard className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase text-text-secondary">
+              Deal gate
+            </div>
+            <div className="mt-1 text-sm font-semibold text-text-primary">
+              Buy box / guardrails
+            </div>
+          </div>
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              guardrailsView.guardrailsStatus === "ok"
+                ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+                : guardrailsView.guardrailsStatus === "tight"
+                ? "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                : guardrailsView.guardrailsStatus === "broken"
+                ? "border-red-400/30 bg-red-400/10 text-red-200"
+                : "border-white/15 bg-white/5 text-text-secondary"
+            }`}
+          >
+            {guardrailsView.guardrailsStatus === "ok"
+              ? "OK"
+              : guardrailsView.guardrailsStatus === "tight"
+              ? "Tight"
+              : guardrailsView.guardrailsStatus === "broken"
+              ? "Broken"
+              : "Unknown"}
+          </span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Floor
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(guardrailsView.floor)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Ceiling
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(guardrailsView.ceiling)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Offer
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(guardrailsView.offer)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Spread
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(guardrailsView.spread)}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs text-text-secondary">
+          Risk:{" "}
+          <span className="font-semibold text-text-primary">
+            {riskView.overallStatus}
+          </span>{" "}
+          · Confidence:{" "}
+          <span className="font-semibold text-text-primary">
+            {confidenceView.grade}
+          </span>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-4">
+        <div className="text-xs uppercase text-text-secondary">
+          Signals
+        </div>
+        <div className="mt-1 text-sm font-semibold text-text-primary">
+          Next actions
+        </div>
+
+        <div className="mt-4 space-y-3 text-xs">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Workflow
+            </div>
+            <div className="mt-0.5 font-medium text-text-primary">
+              {workflowView.label}
+            </div>
+            {workflowReasons.length > 0 && (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-text-secondary">
+                {workflowReasons.slice(0, 3).map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Risk gates
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2 py-0.5 text-[11px] font-semibold text-red-200">
+                Fail {riskCounts.fail}
+              </span>
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                Watch {riskCounts.watch}
+              </span>
+              <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                Unknown {riskCounts.unknown}
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Evidence
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                Missing {evidenceCounts.missing}
+              </span>
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                Stale {evidenceCounts.stale}
+              </span>
+              <span className="rounded-full border border-red-400/30 bg-red-400/10 px-2 py-0.5 text-[11px] font-semibold text-red-200">
+                Blocking {evidenceCounts.blocking}
+              </span>
+            </div>
+            {evidenceCounts.placeholdersUsed && (
+              <div className="mt-2 text-text-secondary">
+                Placeholders used (allowed by policy).
+              </div>
+            )}
+          </div>
+        </div>
+      </GlassCard>
+
+      <GlassCard className="p-4">
+        <div className="text-xs uppercase text-text-secondary">
+          Repairs snapshot
+        </div>
+        <div className="mt-1 text-sm font-semibold text-text-primary">
+          Budget quick read
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              Total
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {fmtUsd0(repairsTotal)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+              $ / sqft
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-text-primary">
+              {repairsPerSqft != null ? `$${repairsPerSqft.toFixed(2)}` : "—"}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs text-text-secondary">
+          Sqft:{" "}
+          <span className="font-semibold text-text-primary">
+            {propertySqft != null ? Math.round(propertySqft).toLocaleString() : "—"}
+          </span>
+          {" · "}Posture:{" "}
+          <span className="font-semibold text-text-primary">
+            {posture || "base"}
+          </span>
+        </div>
+      </GlassCard>
+    </div>
+  </div>
+</div>
+        </div>
       </div>
     </div>
   );

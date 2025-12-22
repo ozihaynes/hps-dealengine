@@ -1,9 +1,9 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { computeUnderwriting } from "@hps-internal/engine";
+import { computeUnderwriting } from "../_vendor/engine/index.js";
 import {
   buildUnderwritingPolicyFromOptions,
-} from "@hps-internal/engine/policy_builder";
-import type { UnderwritingPolicy } from "@hps-internal/engine";
+} from "../_vendor/engine/policy_builder.js";
+import type { UnderwritingPolicy } from "../_vendor/engine/index.js";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -29,6 +29,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 type AnalyzeInput = {
   arv?: number | null;
   aiv?: number | null;
+  payoff?: number | null;
   dom_zip_days?: number | null;
   months_of_inventory_zip?: number | null;
   price_to_list_pct?: number | null;
@@ -59,6 +60,7 @@ type AnalyzeSandboxOptions = {
 type AnalyzeOutputs = {
   arv: number | null;
   aiv: number | null;
+  aivCapped?: number | null;
   aivSafetyCap: number | null;
   carryMonths: number | null;
   buyer_ceiling: number | null;
@@ -168,6 +170,7 @@ function coerceInput(raw: unknown): {
         dealLike?.moi_zip_months ??
         dealLike?.moi_zip,
     ),
+    payoff: numOrNull(dealLike?.payoff ?? dealLike?.payoff_total),
     price_to_list_pct: numOrNull(
       dealLike?.price_to_list_pct ?? dealLike?.["price-to-list-pct"],
     ),
@@ -206,6 +209,7 @@ function validateInput(posture: string | null, input: AnalyzeInput): {
   const hasAnyMetric =
     input.arv != null ||
     input.aiv != null ||
+    input.payoff != null ||
     input.dom_zip_days != null ||
     input.months_of_inventory_zip != null ||
     input.price_to_list_pct != null ||
@@ -295,10 +299,51 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 500);
   }
 
+  const outputs = result.outputs as AnalyzeOutputs;
+  const aivCapPct = 0.97;
+  const aiv = input.aiv ?? outputs.aiv ?? null;
+  const arv = input.arv ?? outputs.arv ?? null;
+  const dom = input.dom_zip_days ?? null;
+  const payoff = input.payoff ?? null;
+  const derivedAivCapped =
+    aiv != null ? Math.round(aiv * aivCapPct * 100) / 100 : null;
+  const derivedCarryMonths =
+    dom != null ? Math.min(6, Math.max(1, Math.ceil(dom / 30))) : null;
+  const minSpreadRequired =
+    outputs.min_spread_required ??
+    ((arv ?? aiv) != null
+      ? Math.round((arv ?? aiv ?? 0) * 0.08)
+      : null);
+  const spreadCash =
+    outputs.spread_cash ??
+    ((arv ?? aiv) != null && payoff != null && minSpreadRequired != null
+      ? Math.round((arv ?? aiv ?? 0) - payoff - minSpreadRequired)
+      : null);
+  const borderlineFlag =
+    outputs.borderline_flag ??
+    (minSpreadRequired != null && spreadCash != null
+      ? spreadCash < minSpreadRequired
+      : null);
+
+  const mergedOutputs: AnalyzeOutputs = {
+    ...outputs,
+    arv,
+    aiv,
+    aivCapped: derivedAivCapped ?? (outputs as any).aivCapped ?? null,
+    aivSafetyCap: aivCapPct,
+    carryMonths: outputs.carryMonths ?? derivedCarryMonths ?? null,
+    min_spread_required: minSpreadRequired ?? null,
+    spread_cash: spreadCash ?? null,
+    borderline_flag: borderlineFlag ?? null,
+  };
+
   const envelope: AnalyzeOkEnvelope = {
     ok: true,
+    // Back-compat for consumers expecting outputs at the top level.
+    // @ts-expect-error widen envelope for convenience
+    outputs: mergedOutputs,
     result: {
-      outputs: result.outputs as AnalyzeOutputs,
+      outputs: mergedOutputs,
       infoNeeded: result.infoNeeded ?? [],
       trace: result.trace as TraceFrame[],
     },

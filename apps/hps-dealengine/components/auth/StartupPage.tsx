@@ -15,6 +15,7 @@ import {
 } from "@/lib/deals";
 import NewDealForm from "../deals/NewDealForm";
 import DealsTable from "../deals/DealsTable";
+import { invokeValuationRun } from "@/lib/valuation";
 
 interface StartupPageProps {
     onEnter?: () => void;
@@ -57,6 +58,10 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
 
             try {
                 const supabase = getSupabaseClient();
+                const { data: session } = await supabase.auth.getSession();
+                if (!session?.session) {
+                  throw new Error("Not signed in");
+                }
 
                 const callerOrgId = await resolveOrgId(supabase);
                 if (!isMounted) return;
@@ -133,6 +138,11 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                 onEnter();
             }
 
+            // Trigger initial valuation in the background (deterministic/stub when key missing)
+            invokeValuationRun(inserted.id, "base").catch((err) =>
+              console.warn("[startup] valuation run failed", err),
+            );
+
             router.push(`/underwrite?dealId=${inserted.id}`);
             router.refresh();
         } catch (err: any) {
@@ -205,6 +215,10 @@ const StartupPage: React.FC<StartupPageProps> = ({ onEnter }) => {
                         const reload = async () => {
                           try {
                             const supabase = getSupabaseClient();
+                            const { data: session } = await supabase.auth.getSession();
+                            if (!session?.session) {
+                              throw new Error("Not signed in");
+                            }
                             const callerOrgId = orgId ?? (await resolveOrgId(supabase));
                             const rows = await fetchDealsForOrg(supabase, callerOrgId);
                             setOrgId(callerOrgId);

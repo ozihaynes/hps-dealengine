@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-20)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-18)
 
 ---
 
@@ -161,13 +161,11 @@ The following tables are **live with RLS and real data** and must be treated as 
 
   - RLS and storage protection wired to orgs.
 
-  - `v1-runs-relay` / `v1-runs-replay`
-
-    - Relay patterns and deterministic run replays (hash-based).
-
   - `v1-policy-override-request` / `v1-policy-override-approve`
 
     - Governance interface for sensitive policy changes; tied to `policy_override_requests` and `policy_versions`.
+
+  - Not shipped in V1 (planned for V1.1): `v1-runs-relay` / `v1-runs-replay` (deterministic relays/replays).
 
   - `v1-user-settings`
 
@@ -344,10 +342,35 @@ Fast-follow items that do not change V1 behavior:
 - Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math (null-backed numeric input foundation in shared components/defaults is done; rollout across all forms still pending).
 
+### Valuation Spine
+
+- ✅ Done
+  - Offer (Computed) is a read-only engine output on Dashboard/Overview; fallback order: outputs.primary_offer -> outputs.instant_cash_offer -> calc.instantCashOffer; missing renders as an em dash.
+  - Underwrite Market & Valuation is valuation-only with audited overrides (reason >= 10 chars) and a single "Use Suggested ARV" surface (Applied when arv_source === "valuation_run" and IDs match); no Offer Price input or gating banners.
+  - Comps panel shows summary metrics (count/status/date range/median distance/price variance cv), provenance badges, min-comps gating copy, concessions placeholder, and a 30s cooldown on "Re-run comps" wired to the existing refresh handler; no provider calls on mount.
+  - Market time adjustment (FHFA/FRED HPI) with deterministic fallback (effective <= requested), eligibility gating, adjusted factor/price surfaced in selection/output; HPI cache table migration present; proofs (`prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`) pass locally.
+  - ATTOM public-records subject normalizer with casing/field fallbacks + contracts/tests; enrichment scripts and policy-set helpers added.
+  - Override save merges only the market subtree into deal payload/state; tests cover TopDealKpis, UnderwriteTab, CompsPanel; vitest includes .test.ts/.test.tsx.
+- ✅ Slice 4 (adjustments ledger v1.2): policy-gated adjustments defaults seeded (enabled=false, caps/unit_values/rounding/missing behavior/ordering), deterministic ledger + weighted-median adjusted ARV when enabled, optional schema fields/tests, Underwrite comps panel + admin valuation QA ledger viewers. Ledger now always emits `time` + `sqft` entries (applied/skip with reasons) even with zero unit_values. Proof script hardened to assert `adjusted_v1_2` basis + `selection_v1_2` adjustments_version and presence of time/sqft ledger lines; patches active policy by id and restores; uses policy@hps.test.local (role=vp) to satisfy RLS. Latest proof/deploy (2025-12-16): `supabase db push` linked to zjkihnihhqmnhpxkecpy + `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`, hashes equal (output_hash 3251ffab..., run_hash 7acab050...), coverage-smoke PASS.
+- ✅ Slice 5 (comp overrides: concessions/condition + overrides_hash): added valuation_comp_overrides (RLS + audit + updated_at) with unique org/deal/comp_id/comp_kind; active policies seeded with concessions/condition/ceiling defaults (OFF, precedence usd_over_pct). v1-valuation-run loads overrides, applies concessions pre-selection and condition post-basis, computes overrides_hash for dedupe when toggles are enabled, outputs overrides_hash/applied_count, and ledger renders informational concessions + applied condition. UI adds admin Valuation QA overrides CRUD + Underwrite Override badge. Proof scripts/valuation/prove-comp-overrides.ps1: baseline input_hash 568dd228dbb26a6541c2536b8e7f679b47e89b676511822086c103d43730114c -> override input_hash a1ca1df01bbcbfea81d1f51eabc3820a59fb50b03d0ccc76349fe2dbb765cd5e; Run2/Run3 hashes equal; policies restored + override deleted; coverage-smoke PASS. Deploys: supabase db push (20260108112000_valuation_ceiling_tokens.sql) + supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy.
+- ✅ Slice 6 (ensemble + uncertainty + ceiling guardrail): active policies seeded with ensemble/uncertainty tokens (defaults OFF; weights comps 0.7/avm 0.3 with non-overwriting backfill, p_low 0.10/p_high 0.90, floor_pct 0.05, optional ceiling method p75_active_listings using active listings only). Engine computes ensemble blend + optional ceiling cap + uncertainty range when enabled, includes hash gating. Proof `scripts/valuation/prove-ensemble-uncertainty.ps1`: baseline input_hash f36a52eb7cbd821f9a3e954d0c54308895b556e48385c904d2cd62c594b5edf9 → ensemble input_hash 47bca9f7aa0725705b00bcea3aac9106ed2e8dfd7eeb88606897014fd9ea1c06; run2/run3 hashes equal; policies restored; coverage-smoke PASS; `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`.
+- ✅ Slice 7 (calibration loop MVP: eval + sweep): subject self-comp exclusion and townhouse/singlefamily compatibility grouping (warning `property_type_group_match_sfr_townhome`), eval posture `underwrite` -> `base`, admin Valuation QA shows deduped `input_hash`. Proof `scripts/valuation/prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall~0.3636`. Sweep (`v1-valuation-ensemble-sweep`) scored 11/11 with best_by_mae/best_by_mape at `avm_weight=0` (`mae~85091.95`, `mape~0.1422`, apply_cap=false). Ensemble remains default-OFF; AVM weight >0 degrades accuracy on this dataset.
+- 🟡 In progress
+  - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
+- 🟡 Next
+  1) Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
+  2) Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
+  3) Slice 8 - E2E/regression rails: Playwright flow for deal create -> refresh valuation -> comps visible -> override reason gating -> analyze -> Offer (Computed) on Dashboard -> persistence across reload/login.
+  4) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
+  5) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.
 ## 3 V2 Themes (Planned)
 
 - **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
+- **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
+- **Valuation fidelity**: MOI ingestion and true closed-sales comps semantics upgrade (v2) to replace listing-only comps.
+- **Valuation data fidelity**: clarify listing vs closed comps provenance in UI/contracts; extend confidence rubric tuning per policy.
+- **Closed-sales comps ingestion**: ingest true sold comps (e.g., MLS/ATTOM) with policy tokens (min_sold_comps_required or equivalent) and upgrade valuation semantics beyond sale listings.
 - **Deeper economics and policy refinements**: uninsurable margin adders in offer selection; deterministic hold-cost per track/speed/zip; deterministic repairs totals by track; explicit AIV override % knob; richer DTM/gap tokens; doc-stamp/closing-cost tables feeding disposition math.
 - **UX/presentation refinements**: full consumption of UX-only knobs (bankers rounding, buyer-cost dual scenarios, line-item vs aggregate); richer cost stack/scenario presentation.
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.
@@ -357,6 +380,7 @@ Fast-follow items that do not change V1 behavior:
 - **Policy Docs Hardening**:
   - Fill in placeholders: `domain.risk-gates-and-compliance`, `engine.knobs-and-sandbox-mapping`, `app.routes-overview`.
   - Confirm each gate/knob is wired to trace and KPIs.
+- **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early.
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
@@ -367,3 +391,9 @@ Fast-follow items that do not change V1 behavior:
 - **Advanced financing and ROI layers**: cash-on-cash, IRR, financing scenarios, lender views.
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
+- **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
+
+
+
+
+

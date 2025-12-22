@@ -40,20 +40,22 @@ export const Icon = ({ d, size = 20, className = '' }: IconProps) => (
 export const GlassCard = ({ children, className = '' }: CardProps) => (
   <div
     className={cn(
-      'card-icy border-[color:var(--glass-border)] text-[color:var(--text-primary)]',
+      'card-primary card-padding-md hover-lift text-[color:var(--text-primary)]',
       className
     )}
-    style={{
-      backgroundColor: 'var(--glass-bg)',
-      borderColor: 'var(--glass-border)',
-      color: 'var(--text-primary)',
-    }}
+    style={{ color: 'var(--text-primary)' }}
   >
     {children}
   </div>
 );
 
-export const Badge = ({ color, children }: BadgeProps) => {
+export const Badge = ({
+  color,
+  children,
+  className = '',
+  dataTestId,
+  ...rest
+}: BadgeProps) => {
   const colors = {
     green: 'border border-[color:var(--accent-green)]/40 bg-[color:var(--accent-green)]/15 text-[color:var(--text-primary)]',
     blue: 'border border-[color:var(--accent-color)]/35 bg-[color:var(--accent-color)]/15 text-[color:var(--text-primary)]',
@@ -62,7 +64,11 @@ export const Badge = ({ color, children }: BadgeProps) => {
   };
   const colorClass = color ? colors[color] : colors.blue;
   return (
-    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass}`}>
+    <span
+      data-testid={dataTestId}
+      {...rest}
+      className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${colorClass} ${className}`}
+    >
       {children}
     </span>
   );
@@ -76,22 +82,22 @@ export const Button = ({
   className = '',
   disabled = false,
 }: ButtonProps) => {
-  const sizes = { sm: 'px-2 py-1 text-xs', md: 'px-4 py-2 text-sm' };
-  const variants = {
-    primary: cn(
-      'bg-[color:var(--accent-color)] text-[color:var(--text-primary)]',
-      'hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed'
-    ),
-    danger:
-      'bg-accent-red text-white hover:bg-red-700 disabled:bg-red-500/50 disabled:cursor-not-allowed',
-    ghost:
-      'text-accent-blue/80 hover:bg-accent-blue/10 hover:text-accent-blue disabled:text-accent-blue/50 disabled:cursor-not-allowed',
-    neutral:
-      'bg-gray-500/20 hover:bg-gray-500/30 text-text-primary disabled:bg-gray-500/10 disabled:text-text-primary/50 disabled:cursor-not-allowed',
-  };
+  const sizeClass =
+    ({ sm: 'btn-sm', md: '', lg: 'btn-lg', xl: 'btn-xl' } as Record<string, string>)[
+      size as string
+    ] || '';
+  const variantClass =
+    ({
+      primary: 'btn-primary',
+      danger: 'btn-danger',
+      ghost: 'btn-ghost',
+      success: 'btn-success',
+      neutral: 'btn-secondary',
+      secondary: 'btn-secondary',
+    } as Record<string, string>)[variant as string] || 'btn-primary';
   return (
     <button
-      className={`font-semibold rounded-md transition-colors ${sizes[size]} ${variants[variant]} ${className}`}
+      className={cn('btn', variantClass, sizeClass, className)}
       onClick={onClick}
       disabled={disabled}
     >
@@ -110,6 +116,7 @@ export const InputField = ({
   description,
   warning,
   helpKey,
+  dataTestId,
   ...props
 }: InputFieldProps) => (
   <div className="relative">
@@ -118,14 +125,11 @@ export const InputField = ({
       {helpKey ? <InfoTooltip helpKey={helpKey} /> : null}
     </div>
     {description && <p className="text-xs text-text-secondary/70 mb-2">{description}</p>}
-    <div className="relative">
-      {prefix && (
-        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-sm text-text-secondary/70 pointer-events-none">
-          {prefix}
-        </span>
-      )}
+    <div className={`input-wrapper ${prefix ? 'has-prefix' : ''} ${suffix ? 'has-suffix' : ''}`}>
+      {prefix && <span className="input-prefix">{prefix}</span>}
       <input
         type={type}
+        data-testid={dataTestId}
         value={
           type === 'number'
             ? value === null || value === undefined
@@ -150,27 +154,12 @@ export const InputField = ({
           }
           onChange?.(e);
         }}
-        className={`dark-input ${prefix ? 'prefixed' : ''} ${suffix || warning ? 'pr-12' : ''} ${warning ? 'border-accent-orange' : ''}`}
+        className={`input-base ${warning ? 'input-error' : ''}`}
         {...props}
       />
-      {suffix && !warning && (
-        <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-text-secondary/70 pointer-events-none">
-          {suffix}
-        </span>
-      )}
-      {warning && (
-        <div
-          tabIndex={0}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center group outline-none"
-        >
-          <Icon d={Icons.alert} size={16} className="text-accent-orange" />
-          <div className="invisible group-hover:visible group-focus:visible absolute bottom-full right-0 mb-2 w-max max-w-xs px-3 py-1.5 bg-gray-900 text-gray-100 text-xs rounded-md shadow-lg z-10">
-            {warning}
-            <div className="absolute top-full right-3 -mt-1 border-4 border-transparent border-t-gray-900" />
-          </div>
-        </div>
-      )}
+      {suffix && <span className="input-suffix">{suffix}</span>}
     </div>
+    {warning ? <p className="input-error-message mt-1 flex items-center gap-1"><Icon d={Icons.alert} size={16} className="text-accent-orange" />{warning}</p> : null}
   </div>
 );
 
@@ -182,6 +171,7 @@ export const SelectField = ({
   className,
   description,
   helpKey,
+  dataTestId,
 }: SelectFieldProps) => (
   <div className={className}>
     <div className="mb-1 flex items-center gap-2">
@@ -189,7 +179,7 @@ export const SelectField = ({
       {helpKey ? <InfoTooltip helpKey={helpKey} /> : null}
     </div>
     {description && <p className="text-xs text-text-secondary/70 mb-2">{description}</p>}
-    <select value={value} onChange={onChange} className="dark-select">
+    <select value={value} onChange={onChange} className="input-base" data-testid={dataTestId}>
       {children}
     </select>
   </div>
@@ -278,7 +268,7 @@ export const NestedTabsContent = ({ value, children }: { value: string; children
   const isActive = activeTab === value;
   return (
     <div
-      className={`transition-opacity duration-300 ease-in-out ${
+      className={`transition-opacity ${isActive ? 'animate-fade-in' : 'animate-fade-out'} ${
         isActive ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none'
       }`}
     >
@@ -307,7 +297,7 @@ export const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalPr
       aria-labelledby={titleId}
     >
       <div
-        className={`card-icy w-full m-4 ${sizeClasses[size]}`}
+        className={`card-primary card-padding-lg hover-lift w-full m-4 ${sizeClasses[size]}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between pb-3">
@@ -415,7 +405,7 @@ export const DynamicBandEditor = ({
                       <select
                         value={row[col.key] || ''}
                         onChange={(e) => handleUpdate(rowIndex, col.key, e.target.value)}
-                        className="dark-select text-xs py-1"
+                        className="input-base input-sm"
                       >
                         {col.options?.map((opt) => (
                           <option key={opt} value={opt}>
@@ -434,7 +424,7 @@ export const DynamicBandEditor = ({
                             col.type === 'number' ? num(e.target.value) : e.target.value
                           )
                         }
-                        className="dark-input text-xs py-1"
+                        className="input-base input-sm"
                       />
                     )}
                   </td>

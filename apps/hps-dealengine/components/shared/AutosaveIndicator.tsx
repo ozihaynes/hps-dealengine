@@ -38,10 +38,10 @@ export function AutosaveIndicator({
     <span
       className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-text-secondary"
       title={tooltip}
+      data-testid="autosave-status"
     >
       {icon}
       <span>{label}</span>
     </span>
   );
 }
-
