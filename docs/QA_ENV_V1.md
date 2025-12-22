@@ -22,15 +22,22 @@ This runbook seeds the QA fixtures into the **local Supabase** started by `supab
    - Seeds 5 deals (READY, AUTOSAVE, TIMELINE, STALE_EVIDENCE, HARD_GATE) and runs for READY/TIMELINE/STALE_EVIDENCE/HARD_GATE
    - Writes `.env.qa` (gitignored) with all required QA env vars
 4) Load the QA env into your shell
+   - PowerShell
    ```powershell
    . .\scripts\qa-env.ps1
+   ```
+   - Bash
+   ```bash
+   source ./scripts/qa-env.sh
    ```
 
 ## Run QA Playwright Suites (no skips)
 With `.env.qa` loaded:
 ```powershell
-pnpm -w test:qa      # QA-focused Playwright (PLAYWRIGHT_ENABLE=true)
-pnpm -w test:e2e     # Full e2e suite; will also use loaded env
+pnpm -w test:qa:core   # QA core (non-pixel) suite; CI signal
+pnpm -w test:qa:pixel  # Pixel-only
+pnpm -w test:qa        # Full QA suite
+pnpm -w test:e2e       # Full e2e suite; will also use loaded env
 ```
 
 ## Required Environment Variables (written by `seed-qa.ts`)

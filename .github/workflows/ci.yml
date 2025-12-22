@@ -37,11 +37,56 @@ jobs:
       - name: Build
         run: pnpm -w build
 
-      # Optional Playwright step (kept after build; enable if repo has PW tests)
+  e2e-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.19.0
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+
+      - name: Supabase start
+        run: supabase start
+
+      - name: Supabase reset
+        run: supabase db reset --yes
+
+      - name: Seed QA fixtures
+        run: pnpm -w exec tsx scripts/seed-qa.ts
+
+      - name: Load QA env
+        run: |
+          if [ ! -f .env.qa ]; then
+            echo "Missing .env.qa after seed-qa.ts" >&2
+            exit 1
+          fi
+          grep -v '^[[:space:]]*#' .env.qa | grep -v '^[[:space:]]*$' >> "$GITHUB_ENV"
+
       - name: Install Playwright Browsers
-        if: hashFiles('**/playwright.config.*') != ''
         run: npx playwright install --with-deps
 
-      - name: Playwright Tests
-        if: hashFiles('**/playwright.config.*') != ''
-        run: npx playwright test --reporter=dot
+      - name: Playwright QA core
+        run: pnpm -w test:qa:core
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report
+            test-results

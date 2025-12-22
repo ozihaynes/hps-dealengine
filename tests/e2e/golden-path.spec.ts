@@ -22,7 +22,7 @@ test.describe("HPS DealEngine golden path", () => {
     await expect(viewAllDeals).toBeVisible();
     await viewAllDeals.click();
     await page.waitForURL("**/deals**", { timeout: 60_000 });
-    await expect(page.getByRole("heading", { name: /Deals/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Deals$/, level: 1 })).toBeVisible();
 
     // Navigate directly to the seeded clean deal (dashboard) to avoid UI creation randomness.
     await page.goto(`/overview?dealId=${readyDealId}`);

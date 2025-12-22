@@ -26,7 +26,7 @@ test.describe("Timeline & Carry - overview + trace", () => {
     const viewAllDeals = page.getByRole("button", { name: /View all deals/i }).first();
     await viewAllDeals.click();
     await page.waitForURL("**/deals**", { timeout: 60_000 });
-    await expect(page.getByRole("heading", { name: /Deals/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /^Deals$/, level: 1 })).toBeVisible();
 
     await page.goto(`/overview?dealId=${QA_TIMELINE_DEAL_ID}`);
     await expect(page.getByText("Timeline & Carry").first()).toBeVisible({ timeout: 60000 });

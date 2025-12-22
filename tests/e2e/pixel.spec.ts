@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { getQaDealIdsOrThrow, loginAsQa } from "./_helpers/qaAuth";
 
 const PLAYWRIGHT_ENABLED = process.env.PLAYWRIGHT_ENABLE === "true";
@@ -28,7 +28,39 @@ const buildPath = (path: string, readyDealId: string) => {
   return `${path}${separator}dealId=${readyDealId}`;
 };
 
-describeMaybe("pixel snapshots", () => {
+async function waitForReady(page: Page, path: string) {
+  if (path === "/overview") {
+    await expect(page.getByRole("link", { name: /Dashboard/i }).first()).toBeVisible();
+    return;
+  }
+
+  if (path === "/underwrite") {
+    await expect(page.getByRole("heading", { name: /Underwrite/i }).first()).toBeVisible();
+    return;
+  }
+
+  if (path === "/repairs") {
+    await expect(page.getByRole("heading", { name: /Repairs/i }).first()).toBeVisible();
+    return;
+  }
+
+  if (path === "/settings") {
+    await expect(page.getByRole("heading", { name: /Settings/i }).first()).toBeVisible();
+    return;
+  }
+
+  if (path === "/sandbox") {
+    await expect(page.getByRole("button", { name: /Business Logic Sandbox/i })).toBeVisible();
+    return;
+  }
+
+  if (path === "/ai-bridge/debug") {
+    await expect(page.getByRole("heading", { name: /AI Bridge Debug/i })).toBeVisible();
+    return;
+  }
+}
+
+describeMaybe("pixel snapshots @pixel", () => {
   for (const r of cases) {
     test(`pixel ${r.name}`, async ({ page }) => {
       const { readyDealId } = getQaDealIdsOrThrow();
@@ -36,8 +68,12 @@ describeMaybe("pixel snapshots", () => {
 
       await page.setViewportSize(r.viewport); // lock geometry
       await page.goto(buildPath(r.path, readyDealId));
-      await page.waitForLoadState("networkidle");
-      await page.waitForTimeout(200);
+      await waitForReady(page, r.path);
+      await page.evaluate(async () => {
+        if (document.fonts) {
+          await document.fonts.ready;
+        }
+      });
 
       await expect(page).not.toHaveURL(/\/login/i);
       await expect(page).not.toHaveURL(/\/_not-found|404/i);

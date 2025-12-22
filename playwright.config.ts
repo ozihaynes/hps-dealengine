@@ -34,6 +34,11 @@ export default defineConfig({
   // Critical: your tests wait up to 60s+ for nav. Give the suite room.
   timeout: 120_000,
 
+  retries: process.env.CI ? 1 : 0,
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never" }]]
+    : [["list"], ["html", { open: "never" }]],
+
   // Deterministic QA: avoid parallel mutation of the same seeded user/deals.
   fullyParallel: false,
   workers: 1,
@@ -47,7 +52,7 @@ export default defineConfig({
   },
 
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://127.0.0.1:3000",
     trace: "on-first-retry",
     navigationTimeout: 60_000,
     actionTimeout: 30_000,
@@ -56,8 +61,9 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
 
   webServer: {
-    command: 'pnpm --filter "./apps/hps-dealengine" dev',
-    port: 3000,
+    command:
+      'pnpm --filter "./apps/hps-dealengine" exec next dev -p 3000 -H 127.0.0.1',
+    url: "http://127.0.0.1:3000",
     reuseExistingServer: false,
     stdout: "pipe",
     stderr: "pipe",
