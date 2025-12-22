@@ -36,6 +36,7 @@ const QA_POSTURE = "base";
 const QA_READY_CLIENT_NAME = "QA Ready Client";
 
 const READY_DEAL_ID = "11111111-1111-4111-8111-111111111111";
+const AUTOSAVE_DEAL_ID = "55555555-5555-4555-8555-555555555555";
 const TIMELINE_DEAL_ID = "22222222-2222-4222-8222-222222222222";
 const STALE_DEAL_ID = "33333333-3333-4333-8333-333333333333";
 const HARD_GATE_DEAL_ID = "44444444-4444-4444-8444-444444444444";
@@ -150,6 +151,17 @@ function buildDeals(): DealSeed[] {
       contactName: QA_READY_CLIENT_NAME,
       county: "Orange",
       occupancy: "tenant",
+    },
+    {
+      id: AUTOSAVE_DEAL_ID,
+      name: "QA Autosave Deal",
+      address: "987 Autosave Dr",
+      city: "Orlando",
+      state: "FL",
+      zip: "32805",
+      contactName: "Autosave Client",
+      county: "Orange",
+      occupancy: "vacant",
     },
     {
       id: TIMELINE_DEAL_ID,
@@ -593,6 +605,7 @@ function writeEnvFile(env: EnvMap, overrides: Record<string, string | number | b
     `DEALENGINE_QA_POSTURE=${QA_POSTURE}`,
     `DEALENGINE_QA_READY_DEAL_ID=${READY_DEAL_ID}`,
     `DEALENGINE_QA_READY_CLIENT_NAME=${QA_READY_CLIENT_NAME}`,
+    `DEALENGINE_QA_AUTOSAVE_DEAL_ID=${AUTOSAVE_DEAL_ID}`,
     `DEALENGINE_QA_TIMELINE_DEAL_ID=${TIMELINE_DEAL_ID}`,
     `DEALENGINE_QA_TIMELINE_DTM_DAYS=${TIMELINE_DTM_DAYS}`,
     `DEALENGINE_QA_TIMELINE_CARRY_MONTHS=${TIMELINE_CARRY_MONTHS}`,
@@ -648,7 +661,7 @@ async function main() {
   console.log("User:", QA_EMAIL);
   console.log(
     "Deals:",
-    `READY=${READY_DEAL_ID}, TIMELINE=${TIMELINE_DEAL_ID}, STALE_EVIDENCE=${STALE_DEAL_ID}, HARD_GATE=${HARD_GATE_DEAL_ID}`,
+    `READY=${READY_DEAL_ID}, AUTOSAVE=${AUTOSAVE_DEAL_ID}, TIMELINE=${TIMELINE_DEAL_ID}, STALE_EVIDENCE=${STALE_DEAL_ID}, HARD_GATE=${HARD_GATE_DEAL_ID}`,
   );
   console.log("Wrote .env.qa with QA variables (values not shown).");
 }

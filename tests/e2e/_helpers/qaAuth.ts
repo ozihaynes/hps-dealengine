@@ -4,6 +4,7 @@ type QaCreds = { email: string; password: string };
 
 type QaDealIds = {
   readyDealId: string;
+  autosaveDealId?: string;
   timelineDealId?: string;
   staleEvidenceDealId?: string;
   hardGateDealId?: string;
@@ -32,6 +33,7 @@ export function getQaDealIdsOrThrow(): QaDealIds {
 
   return {
     readyDealId,
+    autosaveDealId: process.env.DEALENGINE_QA_AUTOSAVE_DEAL_ID,
     timelineDealId: process.env.DEALENGINE_QA_TIMELINE_DEAL_ID,
     staleEvidenceDealId: process.env.DEALENGINE_QA_STALE_EVIDENCE_DEAL_ID,
     hardGateDealId: process.env.DEALENGINE_QA_HARD_GATE_DEAL_ID,

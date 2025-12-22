@@ -19,7 +19,7 @@ This runbook seeds the QA fixtures into the **local Supabase** started by `supab
    - Uses `supabase status -o env` to read the local URL/keys
    - Seeds org `ed6ae332-2d15-44be-a8fb-36005522ad60`
    - QA user: `qa@hps.test.local` (password in `.env.qa`)
-   - Seeds 4 deals + runs: READY, TIMELINE, STALE_EVIDENCE, HARD_GATE
+   - Seeds 5 deals (READY, AUTOSAVE, TIMELINE, STALE_EVIDENCE, HARD_GATE) and runs for READY/TIMELINE/STALE_EVIDENCE/HARD_GATE
    - Writes `.env.qa` (gitignored) with all required QA env vars
 4) Load the QA env into your shell
    ```powershell
@@ -49,6 +49,7 @@ pnpm -w test:e2e     # Full e2e suite; will also use loaded env
 - Deals
   - `DEALENGINE_QA_READY_DEAL_ID`
   - `DEALENGINE_QA_READY_CLIENT_NAME`
+  - `DEALENGINE_QA_AUTOSAVE_DEAL_ID` (dedicated deal for autosave mutation tests)
   - `DEALENGINE_QA_TIMELINE_DEAL_ID`
   - `DEALENGINE_QA_TIMELINE_DTM_DAYS`
   - `DEALENGINE_QA_TIMELINE_CARRY_MONTHS`
