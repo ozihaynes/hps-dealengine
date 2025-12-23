@@ -268,6 +268,14 @@ export default function ValuationQaPage() {
     setGeneratingEvalRun(false);
   }, [generateDatasetName, generatePosture, generateLimit, generateForce, orgId, refreshEvalRuns, setError, supabase]);
 
+  const selectedValuationRun = useMemo(() => {
+    if (!valuationRuns.length) return null;
+    if (selectedValuationRunId) {
+      return valuationRuns.find((r) => r.id === selectedValuationRunId) ?? valuationRuns[0];
+    }
+    return valuationRuns[0];
+  }, [valuationRuns, selectedValuationRunId]);
+
   const handlePrefillCalibrationFromRun = useCallback(() => {
     setCalibrationError(null);
     if (!selectedValuationRun) {
@@ -441,14 +449,6 @@ export default function ValuationQaPage() {
     const label = source === "uncertainty" ? "uncertainty" : source === "selection" ? "selection" : null;
     return `${percent.format(rate)}${label ? ` (${label})` : ""}`;
   }, [selectedRun]);
-
-  const selectedValuationRun = useMemo(() => {
-    if (!valuationRuns.length) return null;
-    if (selectedValuationRunId) {
-      return valuationRuns.find((r) => r.id === selectedValuationRunId) ?? valuationRuns[0];
-    }
-    return valuationRuns[0];
-  }, [valuationRuns, selectedValuationRunId]);
 
   useEffect(() => {
     if (selectedValuationRun?.deal_id && orgId) {
