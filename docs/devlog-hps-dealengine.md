@@ -86,6 +86,14 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-23 - Continuous calibration flywheel scaffolding (manual trigger, off by default)
+
+- Added calibration tables + publish RPC via `20251223120000_valuation_continuous_calibration.sql` (RLS + audit, bucketed weights).
+- Added shared deterministic math helpers in `supabase/functions/_shared/continuousCalibration.ts` + tests.
+- Added edge function `v1-valuation-continuous-calibrate` (JWT + membership role gating, bucket resolution, weights publish).
+- Added admin Valuation QA manual trigger with evidence capture for calibration responses (no impact on live valuation outputs).
+- Pending: apply migration + deploy function, auto-trigger on ground truth, apply weights in valuation runs.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability
