@@ -16,6 +16,8 @@ import { stableHash } from "../_shared/determinismHash.ts";
 import { buildCompAdjustedValue, weightedMedianDeterministic } from "../_shared/valuationAdjustments.ts";
 import { computeEnsemble } from "../_shared/valuationEnsemble.ts";
 import { computeUncertainty } from "../_shared/valuationUncertainty.ts";
+import { buildValuationBuckets } from "../_shared/valuationBuckets.ts";
+import { getLatestCalibrationWeightsForBucket } from "../_shared/valuationCalibrationWeights.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -543,19 +545,126 @@ serve(async (req: Request): Promise<Response> => {
       }
     }
 
+    const dealPayload = (deal as any).payload ?? {};
+    const calibrationBucket = buildValuationBuckets({
+      market: {
+        zip: deal.zip ?? dealPayload.zip ?? null,
+        county: dealPayload.county ?? null,
+        msa: dealPayload.msa ?? null,
+      },
+      home: {
+        property_type:
+          subjectResolved?.property_type ??
+          dealPayload.property_type ??
+          dealPayload.propertyType ??
+          dealPayload.type ??
+          null,
+        sqft: safeNumber(
+          subjectResolved?.sqft ?? dealPayload.sqft ?? dealPayload.gba ?? dealPayload.gross_building_area,
+        ),
+        beds: safeNumber(subjectResolved?.beds ?? dealPayload.beds ?? dealPayload.bedrooms),
+        baths: safeNumber(subjectResolved?.baths ?? dealPayload.baths ?? dealPayload.bathrooms),
+        year_built: safeNumber(subjectResolved?.year_built ?? dealPayload.year_built ?? dealPayload.yearBuilt),
+      },
+    });
+
+    const calibrationRequiredStrategies = ["comps_v1", "avm"];
+    const calibrationEstimates = new Map<string, number>();
+    const compEstimateForCalibration = safeNumber(suggestedArv);
+    if (compEstimateForCalibration != null) calibrationEstimates.set("comps_v1", compEstimateForCalibration);
+    const avmEstimateForCalibration = safeNumber(avmPrice);
+    if (avmEstimateForCalibration != null) calibrationEstimates.set("avm", avmEstimateForCalibration);
+
+    let calibrationApplied = false;
+    let calibrationReason: string | null = null;
+    let calibrationWeightsVersion: number | null = null;
+    let calibrationWeightsVector: Array<{ strategy: string; weight: number }> | null = null;
+    let calibrationContributions:
+      | Array<{ strategy: string; estimate: number; weight: number; contribution: number }>
+      | null = null;
+    let calibrationWeightsOverride: { comps: number; avm: number } | null = null;
+
+    if (!ensembleEnabled) {
+      calibrationReason = "ensemble_disabled";
+    } else {
+      const missingEstimates = calibrationRequiredStrategies
+        .filter((s) => !calibrationEstimates.has(s))
+        .sort();
+      if (missingEstimates.length > 0) {
+        calibrationReason = `missing_estimates:${missingEstimates.join(",")}`;
+      } else {
+        const weightsResult = await getLatestCalibrationWeightsForBucket({
+          supabase,
+          orgId: deal.org_id,
+          marketKey: calibrationBucket.market.key,
+          homeBand: calibrationBucket.home.band,
+          requiredStrategies: calibrationRequiredStrategies,
+        });
+
+        if (!weightsResult.ok) {
+          calibrationReason = weightsResult.reason;
+        } else {
+          const weightsMap = new Map(weightsResult.weights.map((w) => [w.strategy, w.weight]));
+          const compsWeight = weightsMap.get("comps_v1");
+          const avmWeight = weightsMap.get("avm");
+          if (compsWeight == null || avmWeight == null) {
+            calibrationReason = "missing_required_strategies";
+          } else {
+            calibrationApplied = true;
+            calibrationWeightsVersion = weightsResult.version;
+            calibrationWeightsOverride = { comps: compsWeight, avm: avmWeight };
+          }
+        }
+      }
+    }
+
+    const ensembleConfigForRun =
+      calibrationApplied && calibrationWeightsOverride
+        ? { ...ensembleConfig, weights: calibrationWeightsOverride }
+        : ensembleConfig;
+
     const ensembleResult = ensembleEnabled
       ? computeEnsemble({
           compEstimate: suggestedArv ?? null,
           compCount: compCount,
           avmEstimate: avmPrice ?? null,
           listingComps,
-          ensembleConfig,
+          ensembleConfig: ensembleConfigForRun,
           ceilingConfig,
         })
       : null;
 
     if (ensembleResult?.value != null) {
       suggestedArv = ensembleResult.value;
+    }
+
+    if (calibrationApplied && ensembleResult) {
+      const appliedWeights = [
+        { strategy: "avm", weight: ensembleResult.weights.avm },
+        { strategy: "comps_v1", weight: ensembleResult.weights.comps },
+      ].sort((a, b) => a.strategy.localeCompare(b.strategy));
+
+      const contributions = appliedWeights
+        .map((entry) => {
+          const estimate = calibrationEstimates.get(entry.strategy);
+          if (estimate == null) return null;
+          return {
+            strategy: entry.strategy,
+            estimate,
+            weight: entry.weight,
+            contribution: estimate * entry.weight,
+          };
+        })
+        .filter(
+          (entry): entry is { strategy: string; estimate: number; weight: number; contribution: number } => !!entry,
+        );
+
+      calibrationWeightsVector = appliedWeights;
+      calibrationContributions = contributions;
+    }
+
+    if (!calibrationApplied && !calibrationReason) {
+      calibrationReason = "calibration_not_applied";
     }
 
     const ladderRaw = (snapshot.raw as any)?.closed_sales ?? {};
@@ -628,10 +737,10 @@ serve(async (req: Request): Promise<Response> => {
     const ensembleHashSummary = ensembleEnabled
       ? {
           ensemble_enabled: true,
-          ensemble_version: ensembleConfig?.version ?? "ensemble_v1",
+          ensemble_version: ensembleResult?.version ?? ensembleConfig?.version ?? "ensemble_v1",
           ensemble_weights: {
-            comps: safeNumber(ensembleConfig?.weights?.comps) ?? 0.7,
-            avm: safeNumber(ensembleConfig?.weights?.avm) ?? 0.3,
+            comps: safeNumber(ensembleResult?.weights?.comps ?? ensembleConfig?.weights?.comps) ?? 0.7,
+            avm: safeNumber(ensembleResult?.weights?.avm ?? ensembleConfig?.weights?.avm) ?? 0.3,
           },
           max_avm_weight: safeNumber(ensembleConfig?.max_avm_weight) ?? null,
           min_comps_for_avm_blend: safeNumber(ensembleConfig?.min_comps_for_avm_blend) ?? null,
@@ -709,6 +818,18 @@ serve(async (req: Request): Promise<Response> => {
     let suggestedArvSourceMethod = `${selectionVersion}_${valuationPolicy.selection_method ?? "weighted_median_ppsf"}`;
     let suggestedArvBasisValue: "adjusted_v1_2" | "ensemble_v1" | null = null;
 
+    const calibrationOutput = {
+      applied: calibrationApplied,
+      ...(calibrationReason ? { reason: calibrationReason } : {}),
+      bucket: {
+        market_key: calibrationBucket.market.key,
+        home_band: calibrationBucket.home.band,
+      },
+      ...(calibrationWeightsVersion != null ? { weights_version: calibrationWeightsVersion } : {}),
+      ...(calibrationWeightsVector ? { weights_vector: calibrationWeightsVector } : {}),
+      ...(calibrationContributions ? { contributions: calibrationContributions } : {}),
+    };
+
     let outputBase: Record<string, unknown> = {
       suggested_arv: suggestedArv ?? null,
       arv_range_low: selection.suggested_arv_range_low ?? null,
@@ -735,6 +856,7 @@ serve(async (req: Request): Promise<Response> => {
       warning_codes: warningCodesSorted,
       messages: failureReason ? [failureReason] : [],
       subject_sources: subjectSources,
+      calibration: calibrationOutput,
     };
 
     if (includeOverridesInHash) {

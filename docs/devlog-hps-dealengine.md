@@ -101,6 +101,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Captures evidence for both published and skipped outcomes (payload + response + reason) without blocking ground truth save.
 - UI surfaces a compact status line: published version or skipped reason.
 
+### 2025-12-23 - Slice B: apply calibrated weights during valuation runs
+
+- `v1-valuation-run` now fetches the latest `valuation_weights` by bucket (caller JWT + RLS) and applies calibrated weights when ensemble is enabled.
+- Run outputs include calibration bucket + version, applied weights vector, and per-strategy contributions; skipped states capture a reason without blocking valuation.
+- Latest-weight selection and validation are deterministic (stable ordering, required strategies, sum check) with unit tests.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability
