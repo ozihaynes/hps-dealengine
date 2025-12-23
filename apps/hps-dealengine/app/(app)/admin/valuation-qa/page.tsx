@@ -9,6 +9,7 @@ import { Badge, Button, GlassCard, InputField } from "@/components/ui";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { resolveOrgId } from "@/lib/deals";
 import { getActiveOrgMembershipRole, type OrgMembershipRole } from "@/lib/orgMembership";
+import { uploadEvidence } from "@/lib/evidence";
 
 type GroundTruthRow = {
   id: string;
@@ -60,6 +61,15 @@ type GroundTruthForm = {
   notes: string;
 };
 
+type CalibrationForm = {
+  dealId: string;
+  actual: string;
+  observedAt: string;
+  compEstimate: string;
+  avmEstimate: string;
+  note: string;
+};
+
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 2 });
 const postureOptions = ["base", "conservative", "aggressive"] as const;
@@ -103,6 +113,19 @@ export default function ValuationQaPage() {
     notes: "",
   });
   const [savingForm, setSavingForm] = useState(false);
+
+  const [calibrationForm, setCalibrationForm] = useState<CalibrationForm>({
+    dealId: "",
+    actual: "",
+    observedAt: "",
+    compEstimate: "",
+    avmEstimate: "",
+    note: "",
+  });
+  const [calibrationLoading, setCalibrationLoading] = useState(false);
+  const [calibrationError, setCalibrationError] = useState<string | null>(null);
+  const [calibrationResult, setCalibrationResult] = useState<any | null>(null);
+  const [calibrationEvidenceId, setCalibrationEvidenceId] = useState<string | null>(null);
 
   const isAdmin = useMemo(
     () => role === "owner" || role === "vp" || role === "manager",
@@ -245,6 +268,153 @@ export default function ValuationQaPage() {
     setGeneratingEvalRun(false);
   }, [generateDatasetName, generatePosture, generateLimit, generateForce, orgId, refreshEvalRuns, setError, supabase]);
 
+  const selectedValuationRun = useMemo(() => {
+    if (!valuationRuns.length) return null;
+    if (selectedValuationRunId) {
+      return valuationRuns.find((r) => r.id === selectedValuationRunId) ?? valuationRuns[0];
+    }
+    return valuationRuns[0];
+  }, [valuationRuns, selectedValuationRunId]);
+
+  const handlePrefillCalibrationFromRun = useCallback(() => {
+    setCalibrationError(null);
+    if (!selectedValuationRun) {
+      setCalibrationError("Select a valuation run to prefill estimates.");
+      return;
+    }
+    const output = selectedValuationRun.output ?? {};
+    const compEstimate = output.ensemble_comp_estimate ?? output.suggested_arv ?? null;
+    const avmEstimate = output.ensemble_avm_estimate ?? output.avm_reference_price ?? null;
+
+    setCalibrationForm((prev) => ({
+      ...prev,
+      dealId: selectedValuationRun.deal_id ?? prev.dealId,
+      compEstimate: Number.isFinite(Number(compEstimate)) ? String(Math.round(Number(compEstimate))) : prev.compEstimate,
+      avmEstimate: Number.isFinite(Number(avmEstimate)) ? String(Math.round(Number(avmEstimate))) : prev.avmEstimate,
+    }));
+  }, [selectedValuationRun]);
+
+  const handleRunContinuousCalibration = useCallback(async () => {
+    setCalibrationError(null);
+    setCalibrationResult(null);
+    setCalibrationEvidenceId(null);
+
+    if (!orgId) {
+      setCalibrationError("Org not resolved yet.");
+      return;
+    }
+
+    const dealId = calibrationForm.dealId.trim();
+    if (!dealId) {
+      setCalibrationError("Deal ID is required.");
+      return;
+    }
+
+    const actual = Number(calibrationForm.actual);
+    if (!Number.isFinite(actual) || actual <= 0) {
+      setCalibrationError("Ground truth actual must be a positive number.");
+      return;
+    }
+
+    const compEstimate = Number(calibrationForm.compEstimate);
+    const avmEstimate = Number(calibrationForm.avmEstimate);
+    if (!Number.isFinite(compEstimate) || !Number.isFinite(avmEstimate)) {
+      setCalibrationError("Enter numeric comps + AVM estimates.");
+      return;
+    }
+
+    let observedAt: string | undefined;
+    if (calibrationForm.observedAt) {
+      const parsed = new Date(calibrationForm.observedAt);
+      if (Number.isNaN(parsed.getTime())) {
+        setCalibrationError("Observed date must be a valid date.");
+        return;
+      }
+      observedAt = parsed.toISOString();
+    }
+
+    const note = calibrationForm.note.trim();
+
+    setCalibrationLoading(true);
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("v1-valuation-continuous-calibrate", {
+        body: {
+          org_id: orgId,
+          deal_id: dealId,
+          ground_truth: {
+            actual,
+            observed_at: observedAt,
+          },
+          strategies: [
+            { strategy: "comps_v1", estimate: compEstimate },
+            { strategy: "avm", estimate: avmEstimate },
+          ],
+          note: note.length > 0 ? note : undefined,
+        },
+      });
+
+      if (fnError) {
+        const rawBody =
+          (fnError as any)?.context?.body ??
+          (fnError as any)?.context?.response?.error ??
+          (fnError as any)?.context?.response?.body;
+        let parsedMessage: string | null = null;
+        if (typeof rawBody === "string" && rawBody.trim().length > 0) {
+          try {
+            const parsed = JSON.parse(rawBody);
+            parsedMessage = parsed?.message ?? parsed?.error ?? null;
+          } catch {
+            parsedMessage = rawBody;
+          }
+        } else if (rawBody && typeof rawBody === "object" && (rawBody as any)?.message) {
+          parsedMessage = (rawBody as any).message;
+        }
+        setCalibrationError(parsedMessage ?? fnError.message ?? "Calibration call failed.");
+        return;
+      }
+
+      if (!(data as any)?.ok) {
+        setCalibrationError((data as any)?.error ?? "Calibration failed.");
+        return;
+      }
+
+      setCalibrationResult(data);
+
+      const evidencePayload = {
+        request: {
+          org_id: orgId,
+          deal_id: dealId,
+          observed_at: observedAt ?? null,
+          ground_truth_actual: actual,
+          strategies: [
+            { strategy: "comps_v1", estimate: compEstimate },
+            { strategy: "avm", estimate: avmEstimate },
+          ],
+          note: note.length > 0 ? note : null,
+        },
+        response: data,
+      };
+
+      const fileName = `valuation-calibration-${dealId}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+      const file = new File([JSON.stringify(evidencePayload, null, 2)], fileName, {
+        type: "application/json",
+      });
+
+      const evidence = await uploadEvidence({
+        dealId,
+        runId: selectedValuationRun?.id ?? null,
+        kind: "valuation_continuous_calibration",
+        file,
+      });
+      setCalibrationEvidenceId(evidence.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Calibration failed.";
+      setCalibrationError(message);
+    } finally {
+      setCalibrationLoading(false);
+    }
+  }, [calibrationForm, orgId, selectedValuationRun, supabase]);
+
   useEffect(() => {
     const load = async () => {
       setLoading(true);
@@ -279,14 +449,6 @@ export default function ValuationQaPage() {
     const label = source === "uncertainty" ? "uncertainty" : source === "selection" ? "selection" : null;
     return `${percent.format(rate)}${label ? ` (${label})` : ""}`;
   }, [selectedRun]);
-
-  const selectedValuationRun = useMemo(() => {
-    if (!valuationRuns.length) return null;
-    if (selectedValuationRunId) {
-      return valuationRuns.find((r) => r.id === selectedValuationRunId) ?? valuationRuns[0];
-    }
-    return valuationRuns[0];
-  }, [valuationRuns, selectedValuationRunId]);
 
   useEffect(() => {
     if (selectedValuationRun?.deal_id && orgId) {
@@ -591,6 +753,129 @@ export default function ValuationQaPage() {
                 </tbody>
               </table>
             </div>
+          </div>
+        </GlassCard>
+
+        <GlassCard className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-text-primary">Continuous Calibration</h2>
+              <p className="text-xs text-text-secondary/70">Manual admin trigger (does not change live valuation outputs).</p>
+            </div>
+            <Button
+              size="sm"
+              variant="neutral"
+              onClick={handlePrefillCalibrationFromRun}
+              disabled={!selectedValuationRun}
+            >
+              Use selected run
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <InputField
+              label="Deal ID"
+              value={calibrationForm.dealId}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, dealId: e.target.value }))}
+              placeholder="uuid"
+            />
+            <InputField
+              label="Ground truth actual"
+              type="number"
+              value={calibrationForm.actual}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, actual: e.target.value }))}
+            />
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <InputField
+              label="Observed date"
+              type="date"
+              value={calibrationForm.observedAt}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, observedAt: e.target.value }))}
+            />
+            <InputField
+              label="Note"
+              value={calibrationForm.note}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, note: e.target.value }))}
+              placeholder="Optional note"
+            />
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+            <InputField
+              label="Comps estimate"
+              type="number"
+              value={calibrationForm.compEstimate}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, compEstimate: e.target.value }))}
+            />
+            <InputField
+              label="AVM estimate"
+              type="number"
+              value={calibrationForm.avmEstimate}
+              onChange={(e) => setCalibrationForm((prev) => ({ ...prev, avmEstimate: e.target.value }))}
+            />
+          </div>
+
+          {selectedValuationRun?.deal_id ? (
+            <div className="mt-3 text-xs text-text-secondary/70">
+              Selected run: <span className="text-text-primary">{selectedValuationRun.deal_id.slice(0, 8)}.</span>
+              {selectedValuationRun.id ? (
+                <span className="ml-2">run {selectedValuationRun.id.slice(0, 8)}.</span>
+              ) : null}
+            </div>
+          ) : null}
+
+          {calibrationError ? (
+            <div className="mt-3 text-xs text-red-300">{calibrationError}</div>
+          ) : null}
+
+          {calibrationResult ? (
+            <div className="mt-3 rounded-md border border-white/10 bg-white/5 p-3 text-xs text-text-secondary/80">
+              <div className="flex flex-wrap items-center gap-3">
+                <span>
+                  Published:{" "}
+                  <span className="text-text-primary">
+                    {(calibrationResult as any)?.published ? "yes" : "no"}
+                  </span>
+                </span>
+                {(calibrationResult as any)?.version ? (
+                  <span>
+                    Version: <span className="text-text-primary">{(calibrationResult as any).version}</span>
+                  </span>
+                ) : null}
+                {(calibrationResult as any)?.bucket ? (
+                  <span>
+                    Bucket:{" "}
+                    <span className="text-text-primary">
+                      {(calibrationResult as any).bucket.market_key}/{(calibrationResult as any).bucket.home_band}
+                    </span>
+                  </span>
+                ) : null}
+                {calibrationEvidenceId ? (
+                  <span>
+                    Evidence: <span className="text-text-primary">{calibrationEvidenceId.slice(0, 8)}.</span>
+                  </span>
+                ) : null}
+              </div>
+              <pre className="mt-2 whitespace-pre-wrap text-[11px] text-text-secondary/70">
+                {JSON.stringify(
+                  {
+                    scores: (calibrationResult as any)?.scores,
+                    weights: (calibrationResult as any)?.weights,
+                    reason: (calibrationResult as any)?.reason,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
+            </div>
+          ) : null}
+
+          <div className="mt-4 flex items-center justify-end">
+            <Button onClick={() => void handleRunContinuousCalibration()} disabled={calibrationLoading}>
+              {calibrationLoading ? "Calibrating..." : "Run calibration"}
+            </Button>
           </div>
         </GlassCard>
 
@@ -1220,7 +1505,3 @@ export default function ValuationQaPage() {
     </main>
   );
 }
-
-
-
-
