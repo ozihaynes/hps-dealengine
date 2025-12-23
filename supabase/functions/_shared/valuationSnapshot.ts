@@ -28,6 +28,7 @@ type DealRow = {
   city: string | null;
   state: string | null;
   zip: string | null;
+  payload?: Record<string, unknown> | null;
 };
 
 export type ValuationPolicy = ValuationPolicyShape;
@@ -649,7 +650,7 @@ export async function loadDealAndOrg(
 ): Promise<DealRow> {
   const { data, error } = await supabase
     .from("deals")
-    .select("id, org_id, address, city, state, zip")
+    .select("id, org_id, address, city, state, zip, payload")
     .eq("id", dealId)
     .maybeSingle<DealRow>();
 

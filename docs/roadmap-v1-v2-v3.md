@@ -359,7 +359,8 @@ Fast-follow items that do not change V1 behavior:
 - ✅ Slice 7 (calibration loop MVP: eval + sweep): subject self-comp exclusion and townhouse/singlefamily compatibility grouping (warning `property_type_group_match_sfr_townhome`), eval posture `underwrite` -> `base`, admin Valuation QA shows deduped `input_hash`. Proof `scripts/valuation/prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall~0.3636`. Sweep (`v1-valuation-ensemble-sweep`) scored 11/11 with best_by_mae/best_by_mape at `avm_weight=0` (`mae~85091.95`, `mape~0.1422`, apply_cap=false). Ensemble remains default-OFF; AVM weight >0 degrades accuracy on this dataset.
   - Continuous calibration flywheel scaffolding: calibration buckets/weights tables + `v1-valuation-continuous-calibrate` edge function + admin manual trigger with evidence capture (off by default).
   - Slice A ✅ auto-trigger on ground truth attach (admin-only, evidence captured).
-  - Remaining: Slice B/C/D (apply weights during valuation runs + automation hardening).
+  - Slice B ✅ apply calibrated weights during valuation runs (RLS read, deterministic output capture).
+  - Remaining: Slice C/D (automation hardening).
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
 - 🟡 Next
@@ -397,5 +398,4 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
-
 

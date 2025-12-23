@@ -216,6 +216,41 @@ export const ValuationRunSchema = z.object({
     ensemble_avm_estimate: z.number().optional().nullable(),
     ensemble_cap_value: z.number().optional().nullable(),
     ensemble_cap_applied: z.boolean().optional().nullable(),
+    calibration: z
+      .object({
+        applied: z.boolean(),
+        reason: z.string().optional().nullable(),
+        bucket: z
+          .object({
+            market_key: z.string(),
+            home_band: z.string(),
+          })
+          .optional()
+          .nullable(),
+        weights_version: z.number().optional().nullable(),
+        weights_vector: z
+          .array(
+            z.object({
+              strategy: z.string(),
+              weight: z.number(),
+            }),
+          )
+          .optional()
+          .nullable(),
+        contributions: z
+          .array(
+            z.object({
+              strategy: z.string(),
+              estimate: z.number(),
+              weight: z.number(),
+              contribution: z.number(),
+            }),
+          )
+          .optional()
+          .nullable(),
+      })
+      .optional()
+      .nullable(),
     uncertainty_version: z.string().optional().nullable(),
     uncertainty_method: z.string().optional().nullable(),
     uncertainty_range_low: z.number().optional().nullable(),
