@@ -10,7 +10,8 @@ alter table public.runs
 
 update public.runs
   set policy_snapshot = '{}'::jsonb
-  where policy_snapshot is null;
+  where policy_snapshot is null
+    and deal_id is not null;
 
 -- Keep audit_logs.actor_user_id nullable (default untouched).
 do $$
