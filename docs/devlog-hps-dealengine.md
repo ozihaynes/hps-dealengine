@@ -94,6 +94,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Added admin Valuation QA manual trigger with evidence capture for calibration responses (no impact on live valuation outputs).
 - Pending: apply migration + deploy function, auto-trigger on ground truth, apply weights in valuation runs.
 
+### 2025-12-23 - Slice A: auto-trigger calibration on ground truth attach
+
+- Auto-trigger `v1-valuation-continuous-calibrate` when ground truth is saved in Valuation QA (admin-only path, RLS enforced).
+- Extracts deterministic strategy estimates from the latest valuation run output (stable ordering, no invented numbers); skips if fewer than 2 strategies.
+- Captures evidence for both published and skipped outcomes (payload + response + reason) without blocking ground truth save.
+- UI surfaces a compact status line: published version or skipped reason.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability

@@ -10,6 +10,7 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 import { resolveOrgId } from "@/lib/deals";
 import { getActiveOrgMembershipRole, type OrgMembershipRole } from "@/lib/orgMembership";
 import { uploadEvidence } from "@/lib/evidence";
+import { extractCalibrationStrategiesFromRun } from "@/lib/valuationCalibration";
 
 type GroundTruthRow = {
   id: string;
@@ -70,9 +71,40 @@ type CalibrationForm = {
   note: string;
 };
 
+type AutoCalibrationStatus = {
+  kind: "published" | "skipped";
+  message: string;
+  evidenceId?: string | null;
+};
+
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const percent = new Intl.NumberFormat("en-US", { style: "percent", maximumFractionDigits: 2 });
 const postureOptions = ["base", "conservative", "aggressive"] as const;
+
+function parseFunctionErrorMessage(fnError: unknown): string | null {
+  if (!fnError || typeof fnError !== "object") return null;
+  const rawBody =
+    (fnError as any)?.context?.body ??
+    (fnError as any)?.context?.response?.error ??
+    (fnError as any)?.context?.response?.body;
+  if (typeof rawBody === "string" && rawBody.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(rawBody);
+      return parsed?.message ?? parsed?.error ?? null;
+    } catch {
+      return rawBody;
+    }
+  }
+  if (rawBody && typeof rawBody === "object" && (rawBody as any)?.message) {
+    return (rawBody as any).message;
+  }
+  return null;
+}
+
+function formatMissingStrategies(missing: string[] | undefined): string {
+  if (!missing || missing.length === 0) return "missing estimates";
+  return `missing estimates (${missing.join(", ")})`;
+}
 
 export default function ValuationQaPage() {
   const supabase = getSupabaseClient();
@@ -126,11 +158,251 @@ export default function ValuationQaPage() {
   const [calibrationError, setCalibrationError] = useState<string | null>(null);
   const [calibrationResult, setCalibrationResult] = useState<any | null>(null);
   const [calibrationEvidenceId, setCalibrationEvidenceId] = useState<string | null>(null);
+  const [autoCalibrationStatus, setAutoCalibrationStatus] = useState<AutoCalibrationStatus | null>(null);
+  const [autoCalibrationEvidenceId, setAutoCalibrationEvidenceId] = useState<string | null>(null);
 
   const isAdmin = useMemo(
     () => role === "owner" || role === "vp" || role === "manager",
     [role],
   );
+
+  const persistAutoCalibrationEvidence = async (params: {
+    dealId: string;
+    runId?: string | null;
+    noteToken: string;
+    groundTruthId?: string | null;
+    payload: unknown;
+    response: unknown;
+    status: "published" | "skipped";
+    reason?: string | null;
+  }): Promise<string | null> => {
+    const safeToken = params.noteToken.replace(/[^a-zA-Z0-9-_]/g, "-");
+    const fileName = `valuation-calibration-auto-${safeToken}.json`;
+    const evidencePayload = {
+      status: params.status,
+      reason: params.reason ?? null,
+      request: {
+        ...(params.payload as Record<string, unknown>),
+        ground_truth_id: params.groundTruthId ?? null,
+      },
+      response: params.response ?? null,
+    };
+    const file = new File([JSON.stringify(evidencePayload, null, 2)], fileName, {
+      type: "application/json",
+    });
+
+    const evidence = await uploadEvidence({
+      dealId: params.dealId,
+      runId: params.runId ?? null,
+      kind: "valuation_continuous_calibration",
+      file,
+    });
+    setAutoCalibrationEvidenceId(evidence.id);
+    return evidence.id;
+  };
+
+  const runAutoCalibrationForGroundTruth = async (params: {
+    dealId: string | null;
+    actual: number;
+    observedAt?: string;
+    noteToken: string;
+    groundTruthId?: string | null;
+  }) => {
+    setAutoCalibrationStatus(null);
+    setAutoCalibrationEvidenceId(null);
+
+    if (!params.dealId) {
+      setAutoCalibrationStatus({
+        kind: "skipped",
+        message: "missing deal id",
+      });
+      return;
+    }
+
+    let latestRun =
+      valuationRuns.find((run) => run.deal_id === params.dealId) ?? null;
+
+    if (!latestRun && orgId) {
+      const { data, error: runError } = await supabase
+        .from("valuation_runs")
+        .select("id, deal_id, created_at, output, provenance")
+        .eq("org_id", orgId)
+        .eq("deal_id", params.dealId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (runError) {
+        const reason = runError.message ?? "valuation run lookup failed";
+        setAutoCalibrationStatus({ kind: "skipped", message: reason });
+        try {
+          await persistAutoCalibrationEvidence({
+            dealId: params.dealId,
+            runId: null,
+            noteToken: params.noteToken,
+            groundTruthId: params.groundTruthId ?? null,
+            payload: {
+              deal_id: params.dealId,
+              ground_truth: { actual: params.actual, observed_at: params.observedAt },
+              note: `auto_ground_truth:${params.noteToken}`,
+            },
+            response: null,
+            status: "skipped",
+            reason,
+          });
+        } catch {
+          // Evidence is best-effort; do not block ground truth.
+        }
+        return;
+      }
+
+      latestRun = data as ValuationRunRow | null;
+    }
+
+    if (!latestRun) {
+      const reason = "missing valuation run";
+      setAutoCalibrationStatus({ kind: "skipped", message: reason });
+      try {
+        await persistAutoCalibrationEvidence({
+          dealId: params.dealId,
+          runId: null,
+          noteToken: params.noteToken,
+          groundTruthId: params.groundTruthId ?? null,
+          payload: {
+            deal_id: params.dealId,
+            ground_truth: { actual: params.actual, observed_at: params.observedAt },
+            note: `auto_ground_truth:${params.noteToken}`,
+          },
+          response: null,
+          status: "skipped",
+          reason,
+        });
+      } catch {
+        // Evidence is best-effort; do not block ground truth.
+      }
+      return;
+    }
+
+    const extraction = extractCalibrationStrategiesFromRun(latestRun);
+    if (!extraction.ok) {
+      const reason =
+        extraction.reason === "insufficient_strategies"
+          ? formatMissingStrategies(extraction.missing)
+          : extraction.reason;
+      setAutoCalibrationStatus({ kind: "skipped", message: reason });
+      try {
+        await persistAutoCalibrationEvidence({
+          dealId: params.dealId,
+          runId: latestRun.id ?? null,
+          noteToken: params.noteToken,
+          groundTruthId: params.groundTruthId ?? null,
+          payload: {
+            deal_id: params.dealId,
+            ground_truth: { actual: params.actual, observed_at: params.observedAt },
+            note: `auto_ground_truth:${params.noteToken}`,
+            strategies: [],
+          },
+          response: null,
+          status: "skipped",
+          reason,
+        });
+      } catch {
+        // Evidence is best-effort; do not block ground truth.
+      }
+      return;
+    }
+
+    const payload = {
+      deal_id: params.dealId,
+      ground_truth: { actual: params.actual, observed_at: params.observedAt },
+      strategies: extraction.strategies,
+      note: `auto_ground_truth:${params.noteToken}`,
+    };
+
+    const { data, error: fnError } = await supabase.functions.invoke(
+      "v1-valuation-continuous-calibrate",
+      { body: payload },
+    );
+
+    if (fnError) {
+      const reason =
+        parseFunctionErrorMessage(fnError) ?? fnError.message ?? "Calibration call failed.";
+      setAutoCalibrationStatus({ kind: "skipped", message: reason });
+      try {
+        await persistAutoCalibrationEvidence({
+          dealId: params.dealId,
+          runId: latestRun.id ?? null,
+          noteToken: params.noteToken,
+          groundTruthId: params.groundTruthId ?? null,
+          payload,
+          response: null,
+          status: "skipped",
+          reason,
+        });
+      } catch {
+        // Evidence is best-effort; do not block ground truth.
+      }
+      return;
+    }
+
+    if (!(data as any)?.ok) {
+      const reason = (data as any)?.error ?? "Calibration failed.";
+      setAutoCalibrationStatus({ kind: "skipped", message: reason });
+      try {
+        await persistAutoCalibrationEvidence({
+          dealId: params.dealId,
+          runId: latestRun.id ?? null,
+          noteToken: params.noteToken,
+          groundTruthId: params.groundTruthId ?? null,
+          payload,
+          response: data,
+          status: "skipped",
+          reason,
+        });
+      } catch {
+        // Evidence is best-effort; do not block ground truth.
+      }
+      return;
+    }
+
+    if ((data as any)?.published) {
+      const version = (data as any)?.version;
+      const message = Number.isFinite(Number(version)) ? `published v${version}` : "published";
+      setAutoCalibrationStatus({ kind: "published", message });
+      try {
+        await persistAutoCalibrationEvidence({
+          dealId: params.dealId,
+          runId: latestRun.id ?? null,
+          noteToken: params.noteToken,
+          groundTruthId: params.groundTruthId ?? null,
+          payload,
+          response: data,
+          status: "published",
+          reason: null,
+        });
+      } catch {
+        // Evidence is best-effort; do not block ground truth.
+      }
+      return;
+    }
+
+    const reason = (data as any)?.reason ?? "Calibration skipped";
+    setAutoCalibrationStatus({ kind: "skipped", message: reason });
+    try {
+      await persistAutoCalibrationEvidence({
+        dealId: params.dealId,
+        runId: latestRun.id ?? null,
+        noteToken: params.noteToken,
+        groundTruthId: params.groundTruthId ?? null,
+        payload,
+        response: data,
+        status: "skipped",
+        reason,
+      });
+    } catch {
+      // Evidence is best-effort; do not block ground truth.
+    }
+  };
 
   const refreshGroundTruth = useCallback(async (org: string | null = orgId) => {
     if (!org) return;
@@ -600,6 +872,8 @@ export default function ValuationQaPage() {
     const subjectKey = form.dealId ? `deal:${form.dealId}` : `subject:${form.source}`;
     setSavingForm(true);
     setError(null);
+    setAutoCalibrationStatus(null);
+    setAutoCalibrationEvidenceId(null);
     const payload = {
       org_id: orgId,
       deal_id: form.dealId ? form.dealId : null,
@@ -609,14 +883,27 @@ export default function ValuationQaPage() {
       realized_date: form.realizedDate || null,
       notes: form.notes || null,
     };
-    const { error: upsertError } = await supabase
+    const { data: savedGroundTruth, error: upsertError } = await supabase
       .from("valuation_ground_truth")
-      .upsert(payload, { onConflict: "org_id,subject_key,source,realized_date" });
+      .upsert(payload, { onConflict: "org_id,subject_key,source,realized_date" })
+      .select("id, realized_date, created_at")
+      .single();
     setSavingForm(false);
     if (upsertError) {
       setError(upsertError.message ?? "Unable to save ground truth.");
       return;
     }
+    const noteToken = savedGroundTruth?.id ?? savedGroundTruth?.created_at ?? new Date().toISOString();
+    const observedAt = savedGroundTruth?.realized_date
+      ? new Date(savedGroundTruth.realized_date).toISOString()
+      : undefined;
+    await runAutoCalibrationForGroundTruth({
+      dealId: payload.deal_id,
+      actual: price,
+      observedAt,
+      noteToken,
+      groundTruthId: savedGroundTruth?.id ?? null,
+    });
     await refreshGroundTruth(orgId);
     setForm((prev) => ({ ...prev, realizedPrice: "", realizedDate: "", notes: "" }));
   }
@@ -711,6 +998,17 @@ export default function ValuationQaPage() {
               </Button>
             </div>
           </form>
+          {autoCalibrationStatus ? (
+            <div
+              className={`mt-3 text-xs ${
+                autoCalibrationStatus.kind === "published" ? "text-emerald-300" : "text-yellow-200"
+              }`}
+            >
+              Auto-calibration (admin-only): {autoCalibrationStatus.kind === "published"
+                ? autoCalibrationStatus.message
+                : `skipped: ${autoCalibrationStatus.message}`}
+            </div>
+          ) : null}
 
           <div className="mt-5">
             <h3 className="text-sm font-semibold text-text-secondary/80 mb-2">Recent ground truth</h3>
