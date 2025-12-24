@@ -52,6 +52,7 @@ export const ALL_GLOSSARY_KEYS = [
   "big5_repairs",
   "sandbox_posture",
   "sandbox_preset",
+  "calibration_freeze_switch",
 ] as const;
 
 export type GlossaryKey = (typeof ALL_GLOSSARY_KEYS)[number];
@@ -280,6 +281,12 @@ export const GLOSSARY: Record<GlossaryKey, GlossaryEntry> = {
     description:
       "A saved bundle of sandbox knobs for a given posture that can be reapplied or shared without editing policy JSON directly.",
     contextTags: ["sandbox", "configuration"],
+  },
+  calibration_freeze_switch: {
+    term: "Calibration Freeze Switch",
+    description:
+      "Freeze stops publishing NEW calibration weight versions for this market_key (auto-calibration will skip with a frozen reason). Existing published weights can still be used during valuation runs. Unfreeze to resume publishing.",
+    contextTags: ["valuation", "calibration", "ops"],
   },
 };
 

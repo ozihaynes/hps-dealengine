@@ -80,6 +80,7 @@ export const Button = ({
   size = 'md',
   variant = 'primary',
   className = '',
+  title,
   disabled = false,
 }: ButtonProps) => {
   const sizeClass =
@@ -99,6 +100,7 @@ export const Button = ({
     <button
       className={cn('btn', variantClass, sizeClass, className)}
       onClick={onClick}
+      title={title}
       disabled={disabled}
     >
       {children}

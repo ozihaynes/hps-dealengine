@@ -119,6 +119,11 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - v1-valuation-continuous-calibrate blends parent weights when bucket samples are below publish threshold; note captures blend metadata.
 - v1-valuation-run falls back to parent market buckets when specific weights are missing; output captures fallback reason.
 
+### 2025-12-24 - Ops UI: calibration freeze/unfreeze
+
+- Added an admin-only Calibration Freeze card in Valuation QA with read-only visibility for non-admins, market-key normalization, and refreshable status list.
+- Freeze/Unfreeze actions upsert via caller JWT (RLS enforced) and the tooltip documents the publish-stop behavior without affecting existing weights.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability
