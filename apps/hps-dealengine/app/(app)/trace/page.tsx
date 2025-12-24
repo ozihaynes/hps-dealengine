@@ -206,6 +206,7 @@ export default function TracePage() {
       }))
     : [];
   const outputs = (selected?.output as any)?.outputs ?? null;
+  const calibration = selected ? extractCalibrationFromRunOutput(selected.output) : null;
   const riskSummary = outputs?.risk_summary ?? null;
   const evidenceFreshness = outputs?.evidence_summary ?? null;
   const workflowState = outputs?.workflow_state ?? null;
@@ -422,6 +423,11 @@ export default function TracePage() {
             <pre className="max-h-[140px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/60 p-2 text-[11px] font-mono leading-relaxed text-text-primary/90">
               {selected ? pretty(selected.output) : "// Select a run"}
             </pre>
+          </GlassCard>
+
+          <GlassCard className="p-3 md:p-4 lg:col-span-2">
+            <h2 className="mb-1 label-xs uppercase">Calibration</h2>
+            <CalibrationChip calibration={calibration} />
           </GlassCard>
 
           <GlassCard className="p-3 md:p-4 lg:col-span-2">
@@ -932,4 +938,3 @@ export default function TracePage() {
     </div>
   );
 }
-
