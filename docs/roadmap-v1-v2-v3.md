@@ -360,7 +360,8 @@ Fast-follow items that do not change V1 behavior:
   - Continuous calibration flywheel scaffolding: calibration buckets/weights tables + `v1-valuation-continuous-calibrate` edge function + admin manual trigger with evidence capture (off by default).
   - Slice A ✅ auto-trigger on ground truth attach (admin-only, evidence captured).
   - Slice B ✅ apply calibrated weights during valuation runs (RLS read, deterministic output capture).
-  - Remaining: Slice C/D (automation hardening).
+  - Slice C ✅ trace UI calibration chip (run output visibility).
+  - Remaining: Slice D (automation hardening).
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
 - 🟡 Next
@@ -398,4 +399,3 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
-

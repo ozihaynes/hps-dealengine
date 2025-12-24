@@ -13,6 +13,7 @@ import { useDealSession } from "@/lib/dealSessionContext";
 import { SANDBOX_V1_KNOBS } from "@/constants/sandboxKnobs";
 import { evidenceLabel } from "@/lib/evidenceFreshness";
 import KnobFamilySummary from "@/components/overview/KnobFamilySummary";
+import CalibrationChip from "@/components/trace/CalibrationChip";
 
 type SimpleUser = {
   id: string;
@@ -61,6 +62,26 @@ function formatDate(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function extractCalibrationFromRunOutput(output: any): any | null {
+  const candidates = [
+    output?.calibration,
+    output?.outputs?.calibration,
+    output?.outputs?.valuation?.calibration,
+  ];
+
+  for (const candidate of candidates) {
+    if (isRecord(candidate) && typeof (candidate as any).applied === "boolean") {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 export default function TracePage() {
@@ -911,5 +932,4 @@ export default function TracePage() {
     </div>
   );
 }
-
 

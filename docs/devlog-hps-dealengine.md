@@ -107,6 +107,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Run outputs include calibration bucket + version, applied weights vector, and per-strategy contributions; skipped states capture a reason without blocking valuation.
 - Latest-weight selection and validation are deterministic (stable ordering, required strategies, sum check) with unit tests.
 
+### 2025-12-23 - Slice C: Trace UI calibration chip
+
+- /trace renders calibration metadata from run outputs (applied/skip states, bucket keys, weights version).
+- Details toggle shows weights vector and contributions with stable ordering; missing calibration shows a soft "not available" state.
+- UI-only change; no backend behavior changes.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability
