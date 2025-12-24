@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-18)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-24)
 
 ---
 
@@ -31,6 +31,18 @@ The following tables are **live with RLS and real data** and must be treated as 
     - `policy_hash`
 
   - Uniqueness constraint on `(org_id, posture, input_hash, policy_hash)` enforces deterministic dedupe/replay.
+
+- `valuation_calibration_buckets`
+
+  - RLS + audit; bucketed calibration rows keyed by market/home band.
+
+- `valuation_weights`
+
+  - RLS + audit; versioned weights per bucket.
+
+- `valuation_calibration_freezes`
+
+  - RLS + audit; market_key freeze switch for publishing.
 
 - `agent_runs`
 
@@ -143,6 +155,14 @@ The following tables are **live with RLS and real data** and must be treated as 
     - `as_of`, `market`, `source`, `version`
     - `psfTiers` (light/medium/heavy PSF)
     - `big5` array/object with per-sqft increments.
+
+- `v1-valuation-continuous-calibrate`
+
+  - Publishes bucketed calibration weights and respects freeze + blending guardrails.
+
+- `v1-valuation-run`
+
+  - Applies published weights when ensemble is enabled; emits output.calibration.* for traceability.
 
 **Implemented in the repo (wired but still iterating / deploying as needed):**
 
@@ -362,10 +382,10 @@ Fast-follow items that do not change V1 behavior:
   - Slice B ✅ apply calibrated weights during valuation runs (RLS read, deterministic output capture).
   - Slice C ✅ trace UI calibration chip (run output visibility).
   - Slice D ✅ guardrails + parent fallback/blending + freeze switch.
+  - Ops: Calibration freeze UI shipped (Valuation QA admin card).
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
 - 🟡 Next
-  - Ops/next: Calibration freeze UI shipped (Valuation QA admin card).
   1) Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
   2) Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
   3) Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions (deal create/valuation refresh/comps/override gating) remain for that slice.
@@ -388,7 +408,7 @@ Fast-follow items that do not change V1 behavior:
 - **Policy Docs Hardening**:
   - Fill in placeholders: `domain.risk-gates-and-compliance`, `engine.knobs-and-sandbox-mapping`, `app.routes-overview`.
   - Confirm each gate/knob is wired to trace and KPIs.
-- **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early.
+- **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early; CI guard prevents committing deno.lock v5 (Supabase Edge supports lockfile v4) and per-function deno.json is adopted for valuation functions.
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
