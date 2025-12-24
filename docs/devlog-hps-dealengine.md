@@ -113,6 +113,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Details toggle shows weights vector and contributions with stable ordering; missing calibration shows a soft "not available" state.
 - UI-only change; no backend behavior changes.
 
+### 2025-12-24 - Slice D: calibration guardrails + parent fallback + freeze switch
+
+- Added `valuation_calibration_freezes` (RLS + audit) and skip publish when a market is frozen.
+- v1-valuation-continuous-calibrate blends parent weights when bucket samples are below publish threshold; note captures blend metadata.
+- v1-valuation-run falls back to parent market buckets when specific weights are missing; output captures fallback reason.
+
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
 - QA/E2E reliability

@@ -361,7 +361,7 @@ Fast-follow items that do not change V1 behavior:
   - Slice A ✅ auto-trigger on ground truth attach (admin-only, evidence captured).
   - Slice B ✅ apply calibrated weights during valuation runs (RLS read, deterministic output capture).
   - Slice C ✅ trace UI calibration chip (run output visibility).
-  - Remaining: Slice D (automation hardening).
+  - Slice D ✅ guardrails + parent fallback/blending + freeze switch.
 - 🟡 In progress
   - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
 - 🟡 Next

@@ -67,6 +67,11 @@ export type CalibrationBucketRowV1 = {
   score_ema: number | null;
 };
 
+export type CalibrationWeightVectorV1 = {
+  strategy: string;
+  weight: number;
+};
+
 export type StrategyObservationV1 = {
   strategy: string;
   estimate: number;
@@ -377,4 +382,57 @@ export function computeWeightsFromBucketRowsV1(
   }
 
   return { weights, scores };
+}
+
+export function blendWeightVectorsV1(
+  strategies: string[],
+  bucketWeights: Record<string, number>,
+  parentWeights: Record<string, number>,
+  cfgInput?: Partial<ContinuousCalibrationConfigV1> | null,
+): { ok: true; weights: Record<string, number>; vector: CalibrationWeightVectorV1[] } | { ok: false; reason: string } {
+  const normalized = Array.from(
+    new Set(
+      strategies
+        .map((s) => (typeof s === "string" ? s.trim() : ""))
+        .filter((s) => s.length > 0),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
+
+  if (normalized.length < 2) {
+    return { ok: false, reason: "insufficient_strategies" };
+  }
+
+  const cfg = normalizeContinuousCalibrationConfigV1(cfgInput, { strategyCount: normalized.length });
+
+  const raw = normalized.map((strategy) => {
+    const bucket = safeNumber(bucketWeights[strategy]);
+    const parent = safeNumber(parentWeights[strategy]);
+    if (bucket == null) return { strategy, weight: NaN };
+    if (parent == null) return { strategy, weight: NaN };
+    return { strategy, weight: (cfg.gamma * bucket) + ((1 - cfg.gamma) * parent) };
+  });
+
+  if (raw.some((r) => !Number.isFinite(r.weight))) {
+    return { ok: false, reason: "invalid_weight_input" };
+  }
+
+  const capped = raw.map((r) => ({
+    strategy: r.strategy,
+    weight: clamp(r.weight, cfg.w_min, cfg.w_max),
+  }));
+
+  const sum = capped.reduce((acc, r) => acc + r.weight, 0);
+  if (!Number.isFinite(sum) || sum <= 0) {
+    return { ok: false, reason: "invalid_weight_sum" };
+  }
+
+  const weights: Record<string, number> = {};
+  const vector: CalibrationWeightVectorV1[] = [];
+  for (const row of capped) {
+    const value = row.weight / sum;
+    weights[row.strategy] = value;
+    vector.push({ strategy: row.strategy, weight: value });
+  }
+
+  return { ok: true, weights, vector };
 }

@@ -3,6 +3,7 @@ import {
   DEFAULT_CONTINUOUS_CALIBRATION_CONFIG_V1,
   canPublishWeightsV1,
   computeWeightsFromBucketRowsV1,
+  blendWeightVectorsV1,
   updateCalibrationBucketRowV1,
   type CalibrationBucketRowV1,
 } from "./continuousCalibration.ts";
@@ -100,5 +101,25 @@ describe("continuousCalibration.ts", () => {
       cfg,
     );
     expect(ok.ok).toBe(true);
+  });
+
+  it("blendWeightVectorsV1 is deterministic and respects caps", () => {
+    const cfg = { ...DEFAULT_CONTINUOUS_CALIBRATION_CONFIG_V1, w_min: 0.2, w_max: 0.7, gamma: 0.6 };
+    const strategies = ["b", "a"];
+    const bucketWeights = { a: 0.8, b: 0.2 };
+    const parentWeights = { a: 0.5, b: 0.5 };
+
+    const blended = blendWeightVectorsV1(strategies, bucketWeights, parentWeights, cfg);
+    expect(blended.ok).toBe(true);
+    if (!blended.ok) return;
+
+    const sum = Object.values(blended.weights).reduce((acc, w) => acc + w, 0);
+    expect(sum).toBeCloseTo(1, 8);
+    expect(blended.vector[0].strategy).toBe("a");
+    expect(blended.vector[1].strategy).toBe("b");
+    for (const w of Object.values(blended.weights)) {
+      expect(w).toBeGreaterThanOrEqual(0.2 - 1e-12);
+      expect(w).toBeLessThanOrEqual(0.7 + 1e-12);
+    }
   });
 });

@@ -16,8 +16,8 @@ import { stableHash } from "../_shared/determinismHash.ts";
 import { buildCompAdjustedValue, weightedMedianDeterministic } from "../_shared/valuationAdjustments.ts";
 import { computeEnsemble } from "../_shared/valuationEnsemble.ts";
 import { computeUncertainty } from "../_shared/valuationUncertainty.ts";
-import { buildValuationBuckets } from "../_shared/valuationBuckets.ts";
-import { getLatestCalibrationWeightsForBucket } from "../_shared/valuationCalibrationWeights.ts";
+import { buildMarketKeyCandidates, buildValuationBuckets } from "../_shared/valuationBuckets.ts";
+import { getLatestCalibrationWeightsForMarketCandidates } from "../_shared/valuationCalibrationWeights.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -546,12 +546,13 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const dealPayload = (deal as any).payload ?? {};
+    const calibrationMarketInput = {
+      zip: deal.zip ?? dealPayload.zip ?? null,
+      county: dealPayload.county ?? null,
+      msa: dealPayload.msa ?? null,
+    };
     const calibrationBucket = buildValuationBuckets({
-      market: {
-        zip: deal.zip ?? dealPayload.zip ?? null,
-        county: dealPayload.county ?? null,
-        msa: dealPayload.msa ?? null,
-      },
+      market: calibrationMarketInput,
       home: {
         property_type:
           subjectResolved?.property_type ??
@@ -567,6 +568,7 @@ serve(async (req: Request): Promise<Response> => {
         year_built: safeNumber(subjectResolved?.year_built ?? dealPayload.year_built ?? dealPayload.yearBuilt),
       },
     });
+    const calibrationMarketCandidates = buildMarketKeyCandidates(calibrationMarketInput);
 
     const calibrationRequiredStrategies = ["comps_v1", "avm"];
     const calibrationEstimates = new Map<string, number>();
@@ -583,6 +585,7 @@ serve(async (req: Request): Promise<Response> => {
       | Array<{ strategy: string; estimate: number; weight: number; contribution: number }>
       | null = null;
     let calibrationWeightsOverride: { comps: number; avm: number } | null = null;
+    let calibrationFallbackMarketKey: string | null = null;
 
     if (!ensembleEnabled) {
       calibrationReason = "ensemble_disabled";
@@ -593,10 +596,10 @@ serve(async (req: Request): Promise<Response> => {
       if (missingEstimates.length > 0) {
         calibrationReason = `missing_estimates:${missingEstimates.join(",")}`;
       } else {
-        const weightsResult = await getLatestCalibrationWeightsForBucket({
+        const weightsResult = await getLatestCalibrationWeightsForMarketCandidates({
           supabase,
           orgId: deal.org_id,
-          marketKey: calibrationBucket.market.key,
+          marketKeys: calibrationMarketCandidates,
           homeBand: calibrationBucket.home.band,
           requiredStrategies: calibrationRequiredStrategies,
         });
@@ -604,6 +607,9 @@ serve(async (req: Request): Promise<Response> => {
         if (!weightsResult.ok) {
           calibrationReason = weightsResult.reason;
         } else {
+          if (weightsResult.marketKey !== calibrationBucket.market.key) {
+            calibrationFallbackMarketKey = weightsResult.marketKey;
+          }
           const weightsMap = new Map(weightsResult.weights.map((w) => [w.strategy, w.weight]));
           const compsWeight = weightsMap.get("comps_v1");
           const avmWeight = weightsMap.get("avm");
@@ -663,7 +669,9 @@ serve(async (req: Request): Promise<Response> => {
       calibrationContributions = contributions;
     }
 
-    if (!calibrationApplied && !calibrationReason) {
+    if (calibrationApplied && calibrationFallbackMarketKey) {
+      calibrationReason = `fallback_parent:${calibrationFallbackMarketKey}`;
+    } else if (!calibrationApplied && !calibrationReason) {
       calibrationReason = "calibration_not_applied";
     }
 
