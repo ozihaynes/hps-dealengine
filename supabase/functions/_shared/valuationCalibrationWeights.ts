@@ -13,6 +13,10 @@ export type CalibrationWeightsResult =
   | { ok: true; version: number; weights: CalibrationWeightVector[] }
   | { ok: false; reason: string; missing?: string[] };
 
+export type CalibrationWeightsWithMarketResult =
+  | { ok: true; version: number; weights: CalibrationWeightVector[]; marketKey: string }
+  | { ok: false; reason: string; missing?: string[] };
+
 const WEIGHT_EPSILON = 1e-6;
 
 const toFiniteNumber = (value: unknown): number | null => {
@@ -121,4 +125,36 @@ export async function getLatestCalibrationWeightsForBucket(opts: {
 
   const rows = Array.isArray(data) ? (data as CalibrationWeightRow[]) : [];
   return resolveCalibrationWeightsFromRows(rows, requiredStrategies);
+}
+
+export async function getLatestCalibrationWeightsForMarketCandidates(opts: {
+  supabase: SupabaseClient;
+  orgId: string;
+  marketKeys: string[];
+  homeBand: string;
+  requiredStrategies: string[];
+}): Promise<CalibrationWeightsWithMarketResult> {
+  const { supabase, orgId, marketKeys, homeBand, requiredStrategies } = opts;
+  const candidates = Array.isArray(marketKeys) ? marketKeys.filter((k) => typeof k === "string" && k.length > 0) : [];
+
+  if (candidates.length === 0) {
+    return { ok: false, reason: "no_market_keys" };
+  }
+
+  let lastFailure: CalibrationWeightsResult | null = null;
+  for (const marketKey of candidates) {
+    const res = await getLatestCalibrationWeightsForBucket({
+      supabase,
+      orgId,
+      marketKey,
+      homeBand,
+      requiredStrategies,
+    });
+    if (res.ok) {
+      return { ok: true, version: res.version, weights: res.weights, marketKey };
+    }
+    lastFailure = res;
+  }
+
+  return lastFailure ?? { ok: false, reason: "no_weights" };
 }

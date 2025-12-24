@@ -50,6 +50,20 @@ function sqftBand(sqft: number | null | undefined): string {
   return "3000_plus";
 }
 
+export function buildMarketKeyCandidates(input: MarketBucketInput): string[] {
+  const zip = normalizeZip(input.zip);
+  const county = normalizeToken(input.county);
+  const msa = normalizeToken(input.msa);
+
+  const candidates: string[] = [];
+  if (zip) candidates.push(`zip_${zip}`);
+  if (county) candidates.push(`county_${county}`);
+  if (msa) candidates.push(`msa_${msa}`);
+  candidates.push("market_unknown");
+
+  return Array.from(new Set(candidates));
+}
+
 export function buildValuationBuckets(input: BucketInput): {
   market: { key: string };
   home: { band: string };

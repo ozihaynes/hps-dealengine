@@ -2,10 +2,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { createSupabaseClient } from "../_shared/valuation.ts";
-import { buildValuationBuckets } from "../_shared/valuationBuckets.ts";
+import { buildMarketKeyCandidates, buildValuationBuckets } from "../_shared/valuationBuckets.ts";
+import { resolveCalibrationFreezeDecision } from "../_shared/calibrationFreeze.ts";
+import { getLatestCalibrationWeightsForMarketCandidates } from "../_shared/valuationCalibrationWeights.ts";
 import {
   DEFAULT_CONTINUOUS_CALIBRATION_CONFIG_V1,
-  canPublishWeightsV1,
+  blendWeightVectorsV1,
   computeWeightsFromBucketRowsV1,
   normalizeContinuousCalibrationConfigV1,
   updateCalibrationBucketRowV1,
@@ -150,6 +152,7 @@ serve(async (req: Request) => {
     // Resolve bucket keys.
     let marketKey: string | null = asString(body.bucket?.market_key);
     let homeBand: string | null = asString(body.bucket?.home_band);
+    let marketCandidates: string[] = [];
 
     if (!marketKey || !homeBand) {
       const dealId = asString(body.deal_id);
@@ -180,11 +183,16 @@ serve(async (req: Request) => {
       const baths = payload.baths ?? payload.bathrooms ?? null;
       const yearBuilt = payload.year_built ?? payload.yearBuilt ?? null;
 
+      const marketInput = {
+        zip: dealRow.zip ?? payload.zip ?? null,
+        county: (dealRow as any).county ?? payload.county ?? null,
+        msa: (dealRow as any).msa ?? payload.msa ?? null,
+      };
       const buckets = buildValuationBuckets({
         market: {
-          zip: dealRow.zip ?? payload.zip ?? null,
-          county: (dealRow as any).county ?? payload.county ?? null,
-          msa: (dealRow as any).msa ?? payload.msa ?? null,
+          zip: marketInput.zip,
+          county: marketInput.county,
+          msa: marketInput.msa,
         },
         home: {
           property_type: propertyType,
@@ -197,10 +205,53 @@ serve(async (req: Request) => {
 
       marketKey = buckets.market.key;
       homeBand = buckets.home.band;
+      marketCandidates = buildMarketKeyCandidates(marketInput);
     }
 
     if (!marketKey || !homeBand) {
       return jsonResponse(req, { ok: false, error: "bucket_resolution_failed" }, 400);
+    }
+
+    if (marketCandidates.length === 0) {
+      const fallback = ["market_unknown"];
+      if (marketKey !== "market_unknown") fallback.unshift(marketKey);
+      marketCandidates = fallback;
+    }
+
+    const { data: freezeRow, error: freezeErr } = await supabase
+      .from("valuation_calibration_freezes")
+      .select("is_frozen, reason")
+      .eq("org_id", orgId)
+      .eq("market_key", marketKey)
+      .eq("is_frozen", true)
+      .maybeSingle();
+
+    if (freezeErr) {
+      return jsonResponse(
+        req,
+        {
+          ok: true,
+          published: false,
+          reason: "freeze_lookup_failed",
+          detail: freezeErr.message,
+          bucket: { market_key: marketKey, home_band: homeBand },
+        },
+        200,
+      );
+    }
+
+    const freezeDecision = resolveCalibrationFreezeDecision(marketKey, freezeRow ?? null);
+    if (freezeDecision.frozen) {
+      return jsonResponse(
+        req,
+        {
+          ok: true,
+          published: false,
+          reason: freezeDecision.reason,
+          bucket: { market_key: marketKey, home_band: homeBand },
+        },
+        200,
+      );
     }
 
     const strategyNames = strategies
@@ -210,6 +261,7 @@ serve(async (req: Request) => {
     if (strategyNames.length < 2) {
       return jsonResponse(req, { ok: false, error: "invalid_strategy_names" }, 400);
     }
+    const requiredStrategies = Array.from(new Set(strategyNames)).sort((a, b) => a.localeCompare(b));
 
     // Fetch any existing per-strategy bucket rows in one query.
     const { data: existingRowsRaw, error: existingErr } = await supabase
@@ -313,16 +365,19 @@ serve(async (req: Request) => {
       score_ema: r.score_ema == null ? null : Number(r.score_ema),
     }));
 
-    // Decide whether we can publish a new weight version.
-    const canPublish = canPublishWeightsV1(bucketRows, cfg);
+    const minN = Math.min(...bucketRows.map((r) => Math.max(0, Math.floor(r.n ?? 0))));
+    if (!Number.isFinite(minN)) {
+      return jsonResponse(req, { ok: false, error: "invalid_sample_counts" }, 500);
+    }
 
-    if (!canPublish.ok) {
+    if (minN < cfg.min_samples_per_strategy) {
       return jsonResponse(
         req,
         {
           ok: true,
           published: false,
-          reason: canPublish.reason,
+          reason: "insufficient_samples_per_strategy",
+          min_n: minN,
           bucket: { market_key: marketKey, home_band: homeBand },
           dropped_outliers: droppedOutliers,
           bucket_rows: bucketRows,
@@ -331,10 +386,79 @@ serve(async (req: Request) => {
       );
     }
 
-    const { weights, scores } = computeWeightsFromBucketRowsV1(bucketRows, cfg);
+    const { weights: bucketWeights, scores } = computeWeightsFromBucketRowsV1(bucketRows, cfg);
+    const missingBucketWeights = requiredStrategies.filter((s) => bucketWeights[s] == null);
+    if (missingBucketWeights.length > 0) {
+      return jsonResponse(
+        req,
+        {
+          ok: true,
+          published: false,
+          reason: "missing_bucket_weights",
+          missing: missingBucketWeights,
+          bucket: { market_key: marketKey, home_band: homeBand },
+          dropped_outliers: droppedOutliers,
+          bucket_rows: bucketRows,
+        },
+        200,
+      );
+    }
 
-    // Publish a new weight version atomically (avoids concurrent version races).
-    const note = asString(body.note) ?? "continuous_calibration_v1";
+    let weightsToPublish: Record<string, number> = bucketWeights;
+    let blended = false;
+    let blendParentMarketKey: string | null = null;
+    let blendParentVersion: number | null = null;
+    let blendParentSource: "published" | "equal_weights" = "equal_weights";
+
+    if (minN < cfg.min_samples) {
+      const parentCandidates = marketCandidates.filter((k) => k !== marketKey);
+      const parentResult = parentCandidates.length > 0
+        ? await getLatestCalibrationWeightsForMarketCandidates({
+          supabase,
+          orgId,
+          marketKeys: parentCandidates,
+          homeBand,
+          requiredStrategies,
+        })
+        : { ok: false, reason: "no_parent_candidates" };
+
+      let parentWeights: Record<string, number> | null = null;
+
+      if (parentResult.ok) {
+        blendParentMarketKey = parentResult.marketKey;
+        blendParentVersion = parentResult.version;
+        blendParentSource = "published";
+        parentWeights = Object.fromEntries(parentResult.weights.map((w) => [w.strategy, w.weight]));
+      } else {
+        blendParentMarketKey = parentCandidates[0] ?? "market_unknown";
+        const equal = 1 / requiredStrategies.length;
+        parentWeights = Object.fromEntries(requiredStrategies.map((s) => [s, equal]));
+      }
+
+      const blendedResult = blendWeightVectorsV1(requiredStrategies, bucketWeights, parentWeights, cfg);
+      if (!blendedResult.ok) {
+        return jsonResponse(
+          req,
+          {
+            ok: true,
+            published: false,
+            reason: `blend_failed:${blendedResult.reason}`,
+            bucket: { market_key: marketKey, home_band: homeBand },
+            dropped_outliers: droppedOutliers,
+            bucket_rows: bucketRows,
+          },
+          200,
+        );
+      }
+
+      weightsToPublish = blendedResult.weights;
+      blended = true;
+    }
+
+    const baseNote = asString(body.note) ?? "continuous_calibration_v1";
+    const note = blended
+      ? `${baseNote} blended_parent:${blendParentMarketKey ?? "market_unknown"} gamma:${cfg.gamma} min_n:${minN}`
+      : baseNote;
 
     const { data: publishedVersion, error: publishErr } = await supabase.rpc(
       "publish_valuation_weights",
@@ -342,7 +466,7 @@ serve(async (req: Request) => {
         p_org_id: orgId,
         p_market_key: marketKey,
         p_home_band: homeBand,
-        p_weights: weights,
+        p_weights: weightsToPublish,
         p_note: note,
         p_effective_at: now.toISOString(),
       },
@@ -369,8 +493,18 @@ serve(async (req: Request) => {
         version: nextVersion,
         bucket: { market_key: marketKey, home_band: homeBand },
         dropped_outliers: droppedOutliers,
+        min_n: minN,
         scores,
-        weights,
+        weights: weightsToPublish,
+        ...(blended
+          ? {
+              blended: true,
+              blend_parent_market_key: blendParentMarketKey,
+              blend_parent_version: blendParentVersion,
+              blend_parent_source: blendParentSource,
+              blend_gamma: cfg.gamma,
+            }
+          : {}),
       },
       200,
     );
