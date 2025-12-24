@@ -6,8 +6,11 @@ import type { Comp, ValuationRun } from "@hps-internal/contracts";
 import { useRouter } from "next/navigation";
 
 import { Badge, Button, GlassCard, InputField } from "@/components/ui";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { normalizeMarketKeyInput } from "@/lib/calibrationFreezeUi";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { resolveOrgId } from "@/lib/deals";
+import { getGlossaryEntry } from "@/lib/glossary";
 import { getActiveOrgMembershipRole, type OrgMembershipRole } from "@/lib/orgMembership";
 import { uploadEvidence } from "@/lib/evidence";
 import { extractCalibrationStrategiesFromRun } from "@/lib/valuationCalibration";
@@ -71,6 +74,13 @@ type CalibrationForm = {
   note: string;
 };
 
+type CalibrationFreezeRow = {
+  market_key: string;
+  is_frozen: boolean;
+  reason?: string | null;
+  updated_at?: string | null;
+};
+
 type AutoCalibrationStatus = {
   kind: "published" | "skipped";
   message: string;
@@ -104,6 +114,13 @@ function parseFunctionErrorMessage(fnError: unknown): string | null {
 function formatMissingStrategies(missing: string[] | undefined): string {
   if (!missing || missing.length === 0) return "missing estimates";
   return `missing estimates (${missing.join(", ")})`;
+}
+
+function formatTimestamp(value: string | null | undefined): string {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString();
 }
 
 export default function ValuationQaPage() {
@@ -160,11 +177,18 @@ export default function ValuationQaPage() {
   const [calibrationEvidenceId, setCalibrationEvidenceId] = useState<string | null>(null);
   const [autoCalibrationStatus, setAutoCalibrationStatus] = useState<AutoCalibrationStatus | null>(null);
   const [autoCalibrationEvidenceId, setAutoCalibrationEvidenceId] = useState<string | null>(null);
+  const [freezeRows, setFreezeRows] = useState<CalibrationFreezeRow[]>([]);
+  const [freezeMarketInput, setFreezeMarketInput] = useState("");
+  const [freezeReasonInput, setFreezeReasonInput] = useState("");
+  const [freezeLoading, setFreezeLoading] = useState(false);
+  const [freezeSaving, setFreezeSaving] = useState(false);
+  const [freezeError, setFreezeError] = useState<string | null>(null);
 
   const isAdmin = useMemo(
     () => role === "owner" || role === "vp" || role === "manager",
     [role],
   );
+  const freezeTooltip = getGlossaryEntry("calibration_freeze_switch")?.description ?? "";
 
   const persistAutoCalibrationEvidence = async (params: {
     dealId: string;
@@ -457,6 +481,68 @@ export default function ValuationQaPage() {
     }
   }, [supabase, orgId, selectedValuationRunId]);
 
+  const refreshCalibrationFreezes = useCallback(async (org: string | null = orgId) => {
+    if (!org) return;
+    setFreezeLoading(true);
+    setFreezeError(null);
+    const { data, error: freezeError } = await supabase
+      .from("valuation_calibration_freezes")
+      .select("market_key, is_frozen, reason, updated_at")
+      .eq("org_id", org)
+      .order("updated_at", { ascending: false });
+    setFreezeLoading(false);
+    if (freezeError) {
+      setFreezeError(freezeError.message ?? "Unable to load calibration freezes.");
+      return;
+    }
+    setFreezeRows((data as CalibrationFreezeRow[]) ?? []);
+  }, [supabase, orgId]);
+
+  const handleFreezeUpdate = useCallback(async (nextFrozen: boolean) => {
+    if (!isAdmin) {
+      setFreezeError("Admin-only: you do not have permission to update freeze status.");
+      return;
+    }
+    if (!orgId) {
+      setFreezeError("Org not resolved yet.");
+      return;
+    }
+    const parsed = normalizeMarketKeyInput(freezeMarketInput);
+    if (!parsed.ok) {
+      setFreezeError("Enter a 5-digit ZIP or a market_key (zip_, county_, msa_, market_unknown).");
+      return;
+    }
+    setFreezeSaving(true);
+    setFreezeError(null);
+    try {
+      const payload = {
+        org_id: orgId,
+        market_key: parsed.marketKey,
+        is_frozen: nextFrozen,
+        reason: nextFrozen ? (freezeReasonInput.trim() || null) : null,
+      };
+      const { error: upsertError } = await supabase
+        .from("valuation_calibration_freezes")
+        .upsert(payload, { onConflict: "org_id,market_key" })
+        .select("market_key, is_frozen, reason, updated_at")
+        .single();
+      if (upsertError) {
+        setFreezeError(upsertError.message ?? "Unable to update calibration freeze.");
+        return;
+      }
+      setFreezeMarketInput("");
+      if (nextFrozen) {
+        setFreezeReasonInput("");
+      }
+      await refreshCalibrationFreezes(orgId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to update calibration freeze.";
+      setFreezeError(message);
+    } finally {
+      setFreezeSaving(false);
+    }
+  }, [freezeMarketInput, freezeReasonInput, isAdmin, orgId, refreshCalibrationFreezes, supabase]);
+
   const refreshOverrides = useCallback(async (org: string | null = orgId, dealId: string | null | undefined = null) => {
     if (!org || !dealId) return;
     const { data, error: overrideError } = await supabase
@@ -695,7 +781,11 @@ export default function ValuationQaPage() {
         setOrgId(org);
         const r = await getActiveOrgMembershipRole(supabase, org);
         setRole(r);
-        await Promise.all([refreshGroundTruth(org), refreshEvalRuns(org), refreshValuationRuns(org)]);
+        const admin = r === "owner" || r === "vp" || r === "manager";
+        if (admin) {
+          await Promise.all([refreshGroundTruth(org), refreshEvalRuns(org), refreshValuationRuns(org)]);
+        }
+        await refreshCalibrationFreezes(org);
       } catch (err: any) {
         setError(err?.message ?? "Unable to load valuation QA data.");
       } finally {
@@ -703,7 +793,7 @@ export default function ValuationQaPage() {
       }
     };
     void load();
-  }, [supabase, refreshEvalRuns, refreshGroundTruth, refreshValuationRuns]);
+  }, [supabase, refreshEvalRuns, refreshGroundTruth, refreshValuationRuns, refreshCalibrationFreezes]);
 
   const selectedRun = useMemo(() => {
     if (!evalRuns.length) return null;
@@ -908,6 +998,109 @@ export default function ValuationQaPage() {
     setForm((prev) => ({ ...prev, realizedPrice: "", realizedDate: "", notes: "" }));
   }
 
+  const calibrationFreezeCard = (
+    <GlassCard className="p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-text-primary">Calibration Freeze</h2>
+          <InfoTooltip helpKey="calibration_freeze_switch" />
+        </div>
+        <Button
+          size="sm"
+          variant="neutral"
+          onClick={() => void refreshCalibrationFreezes()}
+          disabled={freezeLoading}
+        >
+          {freezeLoading ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
+
+      {isAdmin ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <InputField
+              label="Market key or ZIP"
+              value={freezeMarketInput}
+              onChange={(e) => setFreezeMarketInput(e.target.value)}
+              placeholder="32807 or zip_32807 / county_orange_county"
+            />
+            <InputField
+              label="Reason (optional)"
+              value={freezeReasonInput}
+              onChange={(e) => setFreezeReasonInput(e.target.value)}
+              placeholder="Optional reason"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => void handleFreezeUpdate(true)}
+              disabled={freezeSaving}
+              title={freezeTooltip}
+            >
+              {freezeSaving ? "Saving..." : "Freeze"}
+            </Button>
+            <Button
+              size="sm"
+              variant="neutral"
+              onClick={() => void handleFreezeUpdate(false)}
+              disabled={freezeSaving}
+            >
+              Unfreeze
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-text-secondary/70">
+          Read-only: owners, VPs, and managers can freeze or unfreeze calibration publishing.
+        </p>
+      )}
+
+      {freezeError ? (
+        <div className="mt-3 text-xs text-red-300">{freezeError}</div>
+      ) : null}
+
+      <div className="mt-4">
+        <h3 className="text-sm font-semibold text-text-secondary/80 mb-2">Current freezes</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="text-left text-text-secondary/70">
+                <th className="px-2 py-1">Market key</th>
+                <th className="px-2 py-1">Status</th>
+                <th className="px-2 py-1">Reason</th>
+                <th className="px-2 py-1">Updated</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {freezeRows.map((row) => (
+                <tr key={row.market_key}>
+                  <td className="px-2 py-1 font-mono text-text-primary">{row.market_key}</td>
+                  <td className="px-2 py-1">
+                    <span className={row.is_frozen ? "text-amber-200" : "text-emerald-200"}>
+                      {row.is_frozen ? "Frozen" : "Active"}
+                    </span>
+                  </td>
+                  <td className="px-2 py-1 text-text-secondary/80">
+                    {row.is_frozen ? row.reason ?? "-" : "-"}
+                  </td>
+                  <td className="px-2 py-1 text-text-secondary/70">{formatTimestamp(row.updated_at)}</td>
+                </tr>
+              ))}
+              {freezeRows.length === 0 && (
+                <tr>
+                  <td className="px-2 py-3 text-text-secondary/70" colSpan={4}>
+                    No calibration freezes yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </GlassCard>
+  );
+
   if (loading) {
     return (
       <main className="p-6 space-y-4">
@@ -928,17 +1121,6 @@ export default function ValuationQaPage() {
     );
   }
 
-  if (!isAdmin) {
-    return (
-      <main className="p-6 space-y-4">
-        <h1 className="text-xl font-semibold">Valuation QA</h1>
-        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm text-yellow-100">
-          Admin-only: managers/VP/owners only.
-        </div>
-      </main>
-    );
-  }
-
   return (
     <main className="p-6 space-y-6">
       <header className="flex items-center justify-between">
@@ -949,8 +1131,17 @@ export default function ValuationQaPage() {
         <Badge color="blue">Org: {orgId?.slice(0, 8)}…</Badge>
       </header>
 
+      {!isAdmin ? (
+        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+          Read-only: admin-only actions are hidden unless you are an owner, VP, or manager.
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <GlassCard className="p-4">
+        {calibrationFreezeCard}
+        {!isAdmin ? null : (
+          <>
+            <GlassCard className="p-4">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-text-primary">Ground Truth</h2>
             <Button size="sm" variant="neutral" onClick={() => void refreshGroundTruth()}>
@@ -1458,8 +1649,11 @@ export default function ValuationQaPage() {
             </div>
           )}
         </GlassCard>
+          </>
+        )}
       </div>
 
+      {isAdmin ? (
       <GlassCard className="p-4">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-text-primary">Recent valuation runs (ledger)</h2>
@@ -1800,6 +1994,7 @@ export default function ValuationQaPage() {
           </div>
         )}
       </GlassCard>
+      ) : null}
     </main>
   );
 }
