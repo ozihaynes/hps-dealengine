@@ -23,7 +23,7 @@ When something significant ships, changes direction, or gets blocked, add a date
 
 ---
 
-## 0.1 Current Status Snapshot (as of 2025-12-22)
+## 0.1 Current Status Snapshot (as of 2025-12-24)
 
 **V1 is field-ready**: deterministic single-deal underwriting with Business Sandbox v1, Dashboard/Trace explainability, and an env-gated QA/E2E harness.
 
@@ -58,6 +58,7 @@ When something significant ships, changes direction, or gets blocked, add a date
   - HPS MCP server exists (stdio + Streamable HTTP); tools include deal/run/evidence loaders, negotiation matcher, KPI/risk aggregations, sandbox fetch, and KB search; HTTP auth via `HPS_MCP_HTTP_TOKEN` env.
   - Known blocker: Negotiator "Generate playbook" can hit provider rate limits (429) on the OpenAI responses endpoint; UI surfaces a rate-limit message when triggered.
 - **Calibration loop (Slice 7)**: `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall~0.3636`; ensemble sweep best at `avm_weight=0` (`MAE~85091.95`, `MAPE~0.1422`) so ensemble stays OFF by default.
+- Continuous calibration flywheel shipped end-to-end (Slices A-D): auto-trigger on ground truth, calibrated weights applied during valuation runs (ensemble-enabled only), trace UI visibility, and guardrails (freeze + parent fallback/blending) with ops UI.
 
 ---
 
@@ -92,7 +93,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Added shared deterministic math helpers in `supabase/functions/_shared/continuousCalibration.ts` + tests.
 - Added edge function `v1-valuation-continuous-calibrate` (JWT + membership role gating, bucket resolution, weights publish).
 - Added admin Valuation QA manual trigger with evidence capture for calibration responses (no impact on live valuation outputs).
-- Pending: apply migration + deploy function, auto-trigger on ground truth, apply weights in valuation runs.
+- Deployed to production (migrations applied + function deployed) and fully shipped via Slices A-D below (auto-trigger, apply weights during runs, Trace UI, guardrails/freeze + ops UI).
+
+### 2025-12-23 - DB: unblock truth schema migration on legacy runs rows
+
+- Patched `20251219231058_v1_truth_schema_fixes.sql` to skip updating runs.policy_snapshot for rows with NULL deal_id, preventing runs_deal_id_not_null constraint failures during db push.
+- Unblocked include-all migration application so later valuation calibration migrations could deploy cleanly.
 
 ### 2025-12-23 - Slice A: auto-trigger calibration on ground truth attach
 
@@ -123,6 +129,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 - Added an admin-only Calibration Freeze card in Valuation QA with read-only visibility for non-admins, market-key normalization, and refreshable status list.
 - Freeze/Unfreeze actions upsert via caller JWT (RLS enforced) and the tooltip documents the publish-stop behavior without affecting existing weights.
+
+### 2025-12-24 - Ops: Edge function deploy hygiene (deno.lock v4 + per-function deno.json)
+
+- Per-function deno.json added for v1-valuation-run and v1-valuation-continuous-calibrate (recommended dependency isolation).
+- supabase/functions/deno.lock pinned to lockfile version 4 to avoid Supabase Edge deploy failures on lockfile v5.
+- CI guard added to fail builds if deno.lock version is 5 to prevent regressions.
 
 ### 2025-12-22 - V1.1: QA/E2E hardening gate + centralized auth + CI bootstrap fixes
 
