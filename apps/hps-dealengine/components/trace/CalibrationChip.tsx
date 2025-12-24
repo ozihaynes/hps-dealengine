@@ -71,6 +71,7 @@ const formatNumber = (value: number): string => value.toFixed(0);
 export default function CalibrationChip({ calibration }: { calibration: unknown | null }) {
   const payload = isRecord(calibration) ? (calibration as CalibrationInput) : null;
   const applied = typeof payload?.applied === "boolean" ? payload.applied : null;
+  const [expanded, setExpanded] = React.useState(false);
 
   if (applied == null) {
     return (
@@ -99,7 +100,6 @@ export default function CalibrationChip({ calibration }: { calibration: unknown 
   const weights = extractWeights(payload?.weights_vector);
   const contributions = extractContributions(payload?.contributions);
   const hasDetails = weights.length > 0 || contributions.length > 0;
-  const [expanded, setExpanded] = React.useState(false);
 
   return (
     <div className="space-y-2" data-testid="trace-calibration-applied">
