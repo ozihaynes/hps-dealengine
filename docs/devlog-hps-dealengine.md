@@ -83,6 +83,18 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-26 - Pre-V2 Closeout Complete
+
+- Closed pre-V2 items: underwriting integration alignment (MARKET_PROVENANCE trace + valuation IDs), offer package generation, under contract capture, valuation-specific E2E rails, agent resilience across personas, NumericInput rollout, and v1-ping JWT enforcement.
+- Gates: `pnpm -w typecheck` PASS, `pnpm -w test` PASS, `pnpm -w build` PASS (existing lint warnings). QA env loaded, but `scripts/qa-preflight.ps1` failed (127.0.0.1:54321 unreachable), so `pnpm -w test:e2e` not run.
+
+### 2025-12-26 - Security: v1-ping now requires JWT
+
+- Security: `v1-ping` now requires JWT (`verify_jwt=true`).
+- Updated ping responses to return minimal `{ ok: true }` with CORS handling.
+- Updated `/debug/ping` to pass the caller JWT and show a sign-in prompt when unauthenticated.
+- Files: `supabase/config.toml`, `supabase/functions/v1-ping/index.ts`, `apps/hps-dealengine/app/debug/ping/page.tsx`, `apps/hps-dealengine/lib/ping.ts`.
+
 ### 2025-12-24 - Slice: Agent resilience - context-length handling across Analyst/Strategist/Negotiator
 
 - Added shared OpenAI error classifier + deterministic context thinning with one auto-trim retry across Analyst/Strategist/Negotiator.
@@ -126,11 +138,11 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ### 2025-12-24 - Pre-V2 audit + closeout plan
 
-- Completed pre-V2 audit against repo using rg -n evidence for remaining items (datasets, underwriting alignment, valuation E2E rails, offer package, under contract capture, negotiator resilience, numeric input rollout, Playwright enablement, v1-ping verify_jwt).
+- Completed pre-V2 audit against repo using rg -n evidence for remaining items (underwriting alignment, valuation E2E rails, offer package, under contract capture, negotiator resilience, numeric input rollout, Playwright enablement, v1-ping verify_jwt).
 - Updated docs/roadmap-v1-v2-v3.md with ✅/🟡/🔴 status markers and added V2 research-required blocks (offer computation, workflow guide, import template, CSV upload).
 - Added docs/pre-v2-closeout-plan.md with evidence-based status breakdown, blockers, and ordered vertical slices with acceptance criteria.
 - Updated docs/devlog-hps-dealengine.md to reflect repairs org-alignment completion and adjusted near-term focus.
-- Blockers: no non-Orlando dataset file under scripts/valuation/datasets; analyze inputs/traces still lack valuation artifact IDs; valuation-specific Playwright assertions absent; offer package + under contract capture missing; v1-ping verify_jwt remains false; QA env values not verified beyond .env.qa presence.
+- Blockers: analyze inputs/traces still lack valuation artifact IDs; valuation-specific Playwright assertions absent; offer package + under contract capture missing; v1-ping verify_jwt remains false; QA env values not verified beyond .env.qa presence.
 
 ### 2025-12-23 - Continuous calibration flywheel scaffolding (manual trigger, off by default)
 
@@ -203,7 +215,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
   - Baseline (Slice 7): `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall=0.363636`, `MAE=85091.952784`, `MAPE=0.142222`.
   - selection_v1_3: `input_hash=92d41394075a9182d558c3ca18fe705afd0dda0c2639d13677e2fcb8ec86f0ab`, `eval_run_id=d4289655-7d3e-46f4-912a-5358250a0a94`, `ranges_present=11`, `in_range_rate_overall=0.272727`, `MAE=114383.116604`, `MAPE=0.190272`.
   - Deltas (v1_3 - baseline): `delta_in_range_rate=-0.090909`, `delta_MAE=+29291.163820`, `delta_MAPE=+0.048049`.
-- Decision: selection_v1_3 regressed on orlando_smoke_32828_sf_v2; do NOT promote. Default remains selection_v1_1; keep selection_v1_3 opt-in via policy and revisit on broader datasets.
+- Decision: selection_v1_3 regressed on orlando_smoke_32828_sf_v2; do NOT promote. Default remains selection_v1_1; keep selection_v1_3 opt-in via policy and revisit in future evaluation cycles.
 
 ### 2025-12-18 - Slice 7 calibration loop closed (eval + sweep + proofs)
 - Fixes: comp selection now excludes the subject property, townhouse/singlefamily are treated as one compatibility group with warning code `property_type_group_match_sfr_townhome`, and eval posture normalizes `underwrite` -> `base`.

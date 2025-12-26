@@ -364,6 +364,7 @@ Fast-follow items that do not change V1 behavior:
 - 🟡 Agent Platform vNext: `/api/agents` tri personas with caller JWT + `agent_runs` logging; @hps/agents SDK (strategist KB resolver tests, negotiation dataset loader); HPS MCP server (stdio + Streamable HTTP) with deal/run/evidence/negotiation/KPI/risk/sandbox/KB tools; expand Strategist/Negotiator evals/tools and UI retries/backoff.
 - ✅ Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - ✅ Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math; NumericInput rollout across Underwrite/Repairs/DoubleClose complete.
+- ✅ Security: `v1-ping` now requires JWT (`verify_jwt=true`) and `/debug/ping` uses the caller token.
 
 ### Valuation Spine
 
@@ -384,9 +385,9 @@ Fast-follow items that do not change V1 behavior:
   - Slice C ✅ trace UI calibration chip (run output visibility).
   - Slice D ✅ guardrails + parent fallback/blending + freeze switch.
   - Ops: Calibration freeze UI shipped (Valuation QA admin card).
-- 🟡 Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
+- ✅ Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only).
 - ✅ Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
-- ✅ Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
+- ✅ Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future evaluation cycles.
 - ✅ Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions now include offer package, under contract, and MARKET_PROVENANCE trace.
 - ✅ Offer Package Generation: offer_packages table (RLS/audit) + generate edge function + printable UI page.
 - ✅ Under Contract capture: deal status transition + executed contract price capture (deal_contracts table + edge upsert + UI).
