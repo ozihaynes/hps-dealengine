@@ -16,3 +16,4 @@ export * from "./valuation";
 export * from "./determinismHash";
 export * from "./publicRecordsSubject";
 export * from "./marketIndex";
+export * from "./dealContracts";

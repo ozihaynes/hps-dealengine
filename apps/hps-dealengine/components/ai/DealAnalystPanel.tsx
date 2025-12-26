@@ -15,6 +15,12 @@ type DealAnalystPanelProps = {
   onMinimize?: () => void;
 };
 
+type PanelError = {
+  message: string;
+  retryable: boolean;
+  errorCode?: string | null;
+};
+
 export function DealAnalystPanel({
   onClose,
   onMinimize,
@@ -25,12 +31,14 @@ export function DealAnalystPanel({
   const [runId, setRunId] = useState(lastRunId ?? "");
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PanelError | null>(null);
   const [result, setResult] = useState<AiBridgeResult | null>(null);
+  const sendInFlightRef = useRef(false);
   const { status, lastRunAt, lastEditAt } = useRunFreshness();
   const [acknowledgedStale, setAcknowledgedStale] = useState(false);
   const router = useRouter();
   const warningRef = useRef<HTMLDivElement | null>(null);
+  const lastPromptRef = useRef<string | null>(null);
   const { state, dispatch } = useAiWindows();
   const w = state.windows.dealAnalyst;
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -91,28 +99,36 @@ export function DealAnalystPanel({
     }
   }, [activeSession?.id, dealId]);
 
-  const onAsk = async (prompt: string) => {
+  const onAsk = async (prompt: string, opts?: { isRetry?: boolean }) => {
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) {
       return;
     }
+    if (sendInFlightRef.current) {
+      return;
+    }
     const isStale = status === "stale";
     if (status === "noRun") {
-      setError("Run Analyze at least once before asking the Deal Analyst.");
+      setError({ message: "Run Analyze at least once before asking the Deal Analyst.", retryable: false });
       return;
     }
     if (isStale && !acknowledgedStale) {
-      setError("Re-run Analyze or acknowledge the stale data warning before asking.");
+      setError({
+        message: "Re-run Analyze or acknowledge the stale data warning before asking.",
+        retryable: false,
+      });
       warningRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
     if (!dealId || !runId) {
-      setError("Select a deal and run Analyze before asking the Deal Analyst.");
+      setError({ message: "Select a deal and run Analyze before asking the Deal Analyst.", retryable: false });
       return;
     }
+    sendInFlightRef.current = true;
+    lastPromptRef.current = trimmedPrompt;
     setLoading(true);
     setError(null);
-    setQuestion("");
+    if (!opts?.isRetry) setQuestion("");
     const sessionId = w.activeSessionId ?? crypto.randomUUID();
     if (!w.activeSessionId) {
       dispatch({
@@ -125,11 +141,13 @@ export function DealAnalystPanel({
     }
 
     const now = new Date().toISOString();
-    dispatch({
-      type: "APPEND_MESSAGE",
-      id: "dealAnalyst",
-      message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: now },
-    });
+    if (!opts?.isRetry) {
+      dispatch({
+        type: "APPEND_MESSAGE",
+        id: "dealAnalyst",
+        message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: now },
+      });
+    }
     scrollToLatest();
 
     try {
@@ -146,7 +164,11 @@ export function DealAnalystPanel({
         setThreadId(res.threadId);
       }
       if ((res as any)?.ok === false) {
-        setError(res.summary ?? "Deal Analyst failed.");
+        setError({
+          message: res.summary ?? "Deal Analyst failed.",
+          retryable: Boolean((res as any)?.retryable),
+          errorCode: (res as any)?.error_code ?? null,
+        });
         dispatch({
           type: "APPEND_MESSAGE",
           id: "dealAnalyst",
@@ -171,9 +193,10 @@ export function DealAnalystPanel({
         });
       }
     } catch (err: any) {
-      setError(err?.message ?? "Deal Analyst failed.");
+      setError({ message: "Unexpected error. Try again.", retryable: true });
     } finally {
       setLoading(false);
+      sendInFlightRef.current = false;
     }
   };
 
@@ -235,7 +258,19 @@ export function DealAnalystPanel({
 
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-            {error}
+            <div>{error.message}</div>
+            {error.retryable && lastPromptRef.current && (
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onAsk(lastPromptRef.current ?? "", { isRetry: true })}
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

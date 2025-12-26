@@ -38,6 +38,7 @@ import {
   applySuggestedArv,
   overrideMarketValue,
 } from "@/lib/valuation";
+import { fetchDealContractByDealId, type DealContractRow } from "@/lib/dealContracts";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 
 type RunSaveResponse =
@@ -165,6 +166,7 @@ export default function UnderwritePage() {
   const [isRefreshingValuation, setIsRefreshingValuation] = useState(false);
   const [valuationError, setValuationError] = useState<string | null>(null);
   const [valuationStatus, setValuationStatus] = useState<string | null>(null);
+  const [dealContract, setDealContract] = useState<DealContractRow | null>(null);
   const [overrideError, setOverrideError] = useState<string | null>(null);
   const [overrideSaving, setOverrideSaving] = useState(false);
   const [applyingSuggestedArv, setApplyingSuggestedArv] = useState(false);
@@ -206,6 +208,30 @@ export default function UnderwritePage() {
       cancelled = true;
     };
   }, [supabase, dbDeal]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!dbDeal?.id) {
+      setDealContract(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    fetchDealContractByDealId(dbDeal.id)
+      .then((row) => {
+        if (cancelled) return;
+        setDealContract(row);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error("[underwrite] deal contract load failed", err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dbDeal?.id]);
 
   // Local engine calculations (stub / optimistic math for UI); canonical numbers come from Edge.
   const effectiveSandbox = useMemo(
@@ -927,6 +953,7 @@ const summary = useMemo(() => {
       overrideError={overrideError}
       overrideSaving={overrideSaving}
       autosaveStatus={autosaveStatus}
+      dealContract={dealContract}
     />
   </div>
 

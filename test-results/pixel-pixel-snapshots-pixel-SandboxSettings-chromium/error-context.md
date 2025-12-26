@@ -1,0 +1,376 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - img "HPS DealEngine logo" [ref=e8]
+          - generic [ref=e9]:
+            - generic [ref=e10]: Haynes Property Solutions
+            - generic [ref=e11]:
+              - generic [ref=e12]: DealEngineTM
+              - generic [ref=e13]: v1
+        - generic [ref=e15]:
+          - link "Business Logic Sandbox" [ref=e16] [cursor=pointer]:
+            - /url: /sandbox
+            - img [ref=e17]
+            - generic [ref=e19]: Business Logic Sandbox
+          - link "User & Team Settings" [ref=e20] [cursor=pointer]:
+            - /url: /settings/user
+            - img [ref=e21]
+            - generic [ref=e23]: User/Team Settings
+    - main [ref=e24]:
+      - generic [ref=e25]:
+        - navigation [ref=e27]:
+          - link "Dashboard" [ref=e29] [cursor=pointer]:
+            - /url: /startup
+            - img [ref=e30]
+            - generic [ref=e32]: Dashboard
+          - generic [ref=e33]:
+            - link "Repairs" [ref=e34] [cursor=pointer]:
+              - /url: /startup
+              - img [ref=e35]
+              - generic [ref=e37]: Repairs
+            - link "Underwrite" [ref=e38] [cursor=pointer]:
+              - /url: /startup
+              - img [ref=e39]
+              - generic [ref=e41]: Underwrite
+            - link "Trace" [ref=e42] [cursor=pointer]:
+              - /url: /startup
+              - img [ref=e43]
+              - generic [ref=e45]: Trace
+            - link "Deals" [ref=e46] [cursor=pointer]:
+              - /url: /deals
+              - img [ref=e47]
+              - generic [ref=e49]: Deals
+            - link "Offer" [ref=e50] [cursor=pointer]:
+              - /url: /startup
+              - img [ref=e51]
+              - generic [ref=e53]: Offer
+        - generic [ref=e54]:
+          - generic [ref=e55]:
+            - button "Business Logic Sandbox" [ref=e56] [cursor=pointer]
+            - button "Repairs Sandbox" [ref=e57] [cursor=pointer]
+          - generic [ref=e58]:
+            - generic [ref=e59]:
+              - generic [ref=e60]:
+                - img [ref=e62]
+                - generic [ref=e64]:
+                  - heading "Business Logic Sandbox" [level=2] [ref=e65]
+                  - paragraph [ref=e66]: DealEngine Configuration Orchestrator
+              - generic [ref=e67]:
+                - generic [ref=e68]:
+                  - generic [ref=e69]:
+                    - generic [ref=e70]: Posture
+                    - button "What does Sandbox Posture mean?" [ref=e72]: i
+                  - combobox "Posture" [ref=e73] [cursor=pointer]:
+                    - option "Conservative"
+                    - option "Base" [selected]
+                    - option "Aggressive"
+                - button "Save as Preset..." [ref=e74]
+                - generic [ref=e75]:
+                  - generic [ref=e76]: Show legacy/backlog knobs (unsafe / v2 backlog)
+                  - checkbox "Show legacy/backlog knobs (unsafe / v2 backlog)" [ref=e78]
+            - generic [ref=e81]:
+              - generic [ref=e82]:
+                - complementary [ref=e83]:
+                  - textbox [ref=e86]:
+                    - /placeholder: Search settings...
+                  - navigation "Sandbox sections" [ref=e87]:
+                    - button "Core Valuation Models 21" [ref=e88] [cursor=pointer]:
+                      - generic [ref=e89]:
+                        - img [ref=e90]
+                        - text: Core Valuation Models
+                      - generic [ref=e92]: "21"
+                    - button "Floor & Ceiling Formulas 6" [ref=e93] [cursor=pointer]:
+                      - generic [ref=e94]:
+                        - img [ref=e95]
+                        - text: Floor & Ceiling Formulas
+                      - generic [ref=e97]: "6"
+                    - button "Cost & Expense Models 15" [ref=e98] [cursor=pointer]:
+                      - generic [ref=e99]:
+                        - img [ref=e100]
+                        - text: Cost & Expense Models
+                      - generic [ref=e102]: "15"
+                    - button "Debt & Payoff Logic 3" [ref=e103] [cursor=pointer]:
+                      - generic [ref=e104]:
+                        - img [ref=e105]
+                        - text: Debt & Payoff Logic
+                      - generic [ref=e107]: "3"
+                    - button "Profit & Risk Policy 8" [ref=e108] [cursor=pointer]:
+                      - generic [ref=e109]:
+                        - img [ref=e110]
+                        - text: Profit & Risk Policy
+                      - generic [ref=e112]: "8"
+                    - button "Timeline & Urgency Rules 7" [ref=e113] [cursor=pointer]:
+                      - generic [ref=e114]:
+                        - img [ref=e115]
+                        - text: Timeline & Urgency Rules
+                      - generic [ref=e117]: "7"
+                    - button "Compliance & Risk Gates 9" [ref=e118] [cursor=pointer]:
+                      - generic [ref=e119]:
+                        - img [ref=e120]
+                        - text: Compliance & Risk Gates
+                      - generic [ref=e122]: "9"
+                    - button "Specialized Disposition Modules 5" [ref=e123] [cursor=pointer]:
+                      - generic [ref=e124]:
+                        - img [ref=e125]
+                        - text: Specialized Disposition Modules
+                      - generic [ref=e127]: "5"
+                    - button "Workflow & UI Logic 8" [ref=e128] [cursor=pointer]:
+                      - generic [ref=e129]:
+                        - img [ref=e130]
+                        - text: Workflow & UI Logic
+                      - generic [ref=e132]: "8"
+                  - generic [ref=e133]:
+                    - generic [ref=e135]: Presets
+                    - paragraph [ref=e137]: No presets saved.
+                - main [ref=e138]:
+                  - generic [ref=e139]:
+                    - heading "Core Valuation Models" [level=3] [ref=e140]
+                    - paragraph [ref=e141]: Rules for calculating ARV, AIV, and market liquidity.
+                  - generic [ref=e142]:
+                    - generic [ref=e143]:
+                      - generic [ref=e144]:
+                        - generic [ref=e146]: AIV (Hard Max)
+                        - paragraph [ref=e147]: The absolute maximum As-Is Value the system will accept, regardless of comps.
+                        - generic [ref=e148]:
+                          - generic: $
+                          - textbox "AIV (Hard Max)" [disabled] [ref=e149]:
+                            - /placeholder: "0"
+                            - text: "2000000"
+                      - generic [ref=e150]: AIV (Hard Max)
+                    - generic [ref=e151]:
+                      - generic [ref=e152]:
+                        - generic [ref=e154]: AIV (Hard Min)
+                        - paragraph [ref=e155]: The absolute minimum As-Is Value the system will accept.
+                        - generic [ref=e156]:
+                          - generic: $
+                          - textbox "AIV (Hard Min)" [disabled] [ref=e157]:
+                            - /placeholder: "0"
+                            - text: "10000"
+                      - generic [ref=e158]: AIV (Hard Min)
+                    - generic [ref=e159]:
+                      - generic [ref=e160]:
+                        - generic [ref=e162]: AIV (Soft Max vs ARV Multiplier)
+                        - paragraph [ref=e163]: Flags AIV if it exceeds this multiplier of ARV (e.g., 0.9 = 90%). 1.0 = no limit.
+                        - generic [ref=e164]:
+                          - textbox "AIV (Soft Max vs ARV Multiplier)" [ref=e165]:
+                            - /placeholder: "0"
+                            - text: "0.95"
+                          - generic: (multiplier)
+                      - generic [ref=e166]: AIV (Soft Max vs ARV Multiplier)
+                    - generic [ref=e167]:
+                      - generic [ref=e168]:
+                        - generic [ref=e170]: AIV Cap Override Approval Role
+                        - paragraph [ref=e171]: The minimum user role (e.g., 'VP') required to approve an AIV that exceeds the soft cap.
+                        - combobox "AIV Cap Override Approval Role" [ref=e172] [cursor=pointer]:
+                          - option "Analyst"
+                          - option "Underwriter"
+                          - option "Manager"
+                          - option "VP" [selected]
+                          - option "Admin"
+                      - generic [ref=e173]: AIV Cap Override Approval Role
+                    - generic [ref=e174]:
+                      - generic [ref=e175]:
+                        - generic [ref=e176]:
+                          - text: AIV Cap Override Condition — Bindable Insurance Required
+                          - generic [ref=e177]: If ON, requires proof of bindable insurance before an AIV cap override can be approved.
+                        - checkbox "AIV Cap Override Condition — Bindable Insurance Required If ON, requires proof of bindable insurance before an AIV cap override can be approved." [checked] [ref=e179]
+                      - generic [ref=e181]: AIV Cap Override Condition — Bindable Insurance Required
+                    - generic [ref=e182]:
+                      - generic [ref=e183]:
+                        - generic [ref=e184]:
+                          - text: AIV Cap Override Condition — Clear Title Quote Required
+                          - generic [ref=e185]: If ON, requires a clear title quote before an AIV cap override can be approved.
+                        - checkbox "AIV Cap Override Condition — Clear Title Quote Required If ON, requires a clear title quote before an AIV cap override can be approved." [checked] [ref=e187]
+                      - generic [ref=e189]: AIV Cap Override Condition — Clear Title Quote Required
+                    - generic [ref=e190]:
+                      - generic [ref=e191]:
+                        - generic [ref=e192]:
+                          - text: AIV Cap Override Condition — Fast ZIP Liquidity Required
+                          - generic [ref=e193]: If ON, restricts AIV cap overrides to properties in "Fast" or "Neutral" market speed ZIP codes.
+                        - checkbox "AIV Cap Override Condition — Fast ZIP Liquidity Required If ON, restricts AIV cap overrides to properties in \"Fast\" or \"Neutral\" market speed ZIP codes." [ref=e195]
+                      - generic [ref=e197]: AIV Cap Override Condition — Fast ZIP Liquidity Required
+                    - generic [ref=e198]:
+                      - generic [ref=e199]:
+                        - generic [ref=e200]:
+                          - text: AIV Cap Evidence — VP Approval Logging Requirement
+                          - generic [ref=e201]: If ON, the user approving the override must provide a written justification, which is logged.
+                        - checkbox "AIV Cap Evidence — VP Approval Logging Requirement If ON, the user approving the override must provide a written justification, which is logged." [checked] [ref=e203]
+                      - generic [ref=e205]: AIV Cap Evidence — VP Approval Logging Requirement
+                    - generic [ref=e206]:
+                      - generic [ref=e207]:
+                        - generic [ref=e209]: AIV Safety Cap Percentage · Posture-specific
+                        - paragraph [ref=e210]: A global, final "safety" percentage reduction applied to the calculated AIV (e.g., 3%). (Posture-specific)
+                        - generic [ref=e211]:
+                          - textbox "AIV Safety Cap Percentage · Posture-specific" [ref=e212]:
+                            - /placeholder: "0"
+                            - text: "3"
+                          - generic: "%"
+                      - generic [ref=e213]: Valuation - AIV Safety Cap % - governed
+                    - generic [ref=e214]:
+                      - generic [ref=e215]:
+                        - generic [ref=e217]: ARV (Comps Set Size for Median)
+                        - paragraph [ref=e218]: The number of comps (e.g., 3 or 5) to use when calculating the median ARV.
+                        - generic [ref=e219]:
+                          - textbox "ARV (Comps Set Size for Median)" [ref=e220]:
+                            - /placeholder: "0"
+                            - text: "3"
+                          - generic: comps
+                      - generic [ref=e221]: ARV (Comps Set Size for Median)
+                    - generic [ref=e222]:
+                      - generic [ref=e223]:
+                        - generic [ref=e225]: ARV (Hard Max)
+                        - paragraph [ref=e226]: The absolute maximum After-Repair Value the system will accept.
+                        - generic [ref=e227]:
+                          - generic: $
+                          - textbox "ARV (Hard Max)" [disabled] [ref=e228]:
+                            - /placeholder: "0"
+                            - text: "3000000"
+                      - generic [ref=e229]: ARV (Hard Max)
+                    - generic [ref=e230]:
+                      - generic [ref=e231]:
+                        - generic [ref=e233]: ARV (Hard Min)
+                        - paragraph [ref=e234]: The absolute minimum After-Repair Value the system will accept.
+                        - generic [ref=e235]:
+                          - generic: $
+                          - textbox "ARV (Hard Min)" [disabled] [ref=e236]:
+                            - /placeholder: "0"
+                            - text: "20000"
+                      - generic [ref=e237]: ARV (Hard Min)
+                    - generic [ref=e238]:
+                      - generic [ref=e239]:
+                        - generic [ref=e241]: ARV (Min Comps)
+                        - paragraph [ref=e242]: The minimum number of comps required to generate a high-confidence ARV.
+                        - generic [ref=e243]:
+                          - textbox "ARV (Min Comps)" [ref=e244]:
+                            - /placeholder: "0"
+                            - text: "3"
+                          - generic: comps
+                      - generic [ref=e245]: ARV (Min Comps)
+                    - generic [ref=e246]:
+                      - generic [ref=e247]:
+                        - generic [ref=e249]: ARV (Soft Max Comps Age, Days)
+                        - paragraph [ref=e250]: Flags comps older than this (in days) as "stale" for ARV calculations.
+                        - generic [ref=e251]:
+                          - textbox "ARV (Soft Max Comps Age, Days)" [ref=e252]:
+                            - /placeholder: "0"
+                            - text: "180"
+                          - generic: days
+                      - generic [ref=e253]: ARV (Soft Max Comps Age, Days)
+                    - generic [ref=e254]:
+                      - generic [ref=e255]:
+                        - generic [ref=e257]: ARV (Soft Max vs AIV Multiplier)
+                        - paragraph [ref=e258]: Flags ARV if it is less than this multiplier of AIV (e.g., 1.1 = 110%). 1.0 = no limit.
+                        - generic [ref=e259]:
+                          - textbox "ARV (Soft Max vs AIV Multiplier)" [ref=e260]:
+                            - /placeholder: "0"
+                            - text: "1.1"
+                          - generic: (multiplier)
+                      - generic [ref=e261]: Valuation - ARV Soft Max vs AIV
+                    - generic [ref=e262]:
+                      - generic [ref=e263]:
+                        - generic [ref=e264]: Buyer Ceiling Formula — Definition
+                        - paragraph [ref=e265]: "The master formula for Buyer Ceiling. Use variables like {ARV}, {AIV}, {REPAIRS}, {MARGIN}, {COSTS}."
+                        - textbox [ref=e266]: "({ARV} * (1 - {MARGIN})) - {REPAIRS} - {COSTS}"
+                      - generic [ref=e267]: Buyer Ceiling Formula — Definition
+                    - generic [ref=e268]:
+                      - generic [ref=e269]:
+                        - generic [ref=e271]: Speed Bands (Balanced, Max DOM)
+                        - paragraph [ref=e272]: The maximum DOM for a ZIP to be considered "Balanced." Anything higher is "Slow."
+                        - generic [ref=e273]:
+                          - textbox "Speed Bands (Balanced, Max DOM)" [ref=e274]:
+                            - /placeholder: "0"
+                            - text: "60"
+                          - generic: days
+                      - generic [ref=e275]: Speed Bands (Balanced, Max DOM)
+                    - generic [ref=e276]:
+                      - generic [ref=e277]:
+                        - generic [ref=e279]: Speed Bands (Balanced, Max MOI)
+                        - paragraph [ref=e280]: The maximum MOI for a ZIP to be considered "Balanced." Anything higher is "Slow."
+                        - generic [ref=e281]:
+                          - textbox "Speed Bands (Balanced, Max MOI)" [ref=e282]:
+                            - /placeholder: "0"
+                            - text: "3"
+                          - generic: months
+                      - generic [ref=e283]: Speed Bands (Balanced, Max MOI)
+                    - generic [ref=e284]:
+                      - generic [ref=e285]:
+                        - generic [ref=e287]: Speed Bands (Fast, Max DOM)
+                        - paragraph [ref=e288]: The maximum DOM for a ZIP to be considered "Fast." Anything higher is "Balanced."
+                        - generic [ref=e289]:
+                          - textbox "Speed Bands (Fast, Max DOM)" [ref=e290]:
+                            - /placeholder: "0"
+                            - text: "30"
+                          - generic: days
+                      - generic [ref=e291]: Speed Bands (Fast, Max DOM)
+                    - generic [ref=e292]:
+                      - generic [ref=e293]:
+                        - generic [ref=e295]: Speed Bands (Fast, Max MOI)
+                        - paragraph [ref=e296]: The maximum MOI for a ZIP to be considered "Fast." Anything higher is "Balanced."
+                        - generic [ref=e297]:
+                          - textbox "Speed Bands (Fast, Max MOI)" [ref=e298]:
+                            - /placeholder: "0"
+                            - text: "1.5"
+                          - generic: months
+                      - generic [ref=e299]: Speed Bands (Fast, Max MOI)
+                    - generic [ref=e300]:
+                      - generic [ref=e301]:
+                        - generic [ref=e303]: ZIP Speed Band Derivation Method — From DOM/MOI
+                        - paragraph [ref=e304]: The logic to combine DOM and MOI into a single "Speed Band" rating.
+                        - combobox "ZIP Speed Band Derivation Method — From DOM/MOI" [ref=e305] [cursor=pointer]:
+                          - option "Use Most Conservative (Slowest)" [selected]
+                          - option "Use Most Aggressive (Fastest)"
+                          - option "Use Blended Average"
+                      - generic [ref=e306]: ZIP Speed Band Derivation Method — From DOM/MOI
+              - generic [ref=e307]:
+                - generic [ref=e308]:
+                  - heading "UX & Presentation" [level=3] [ref=e309]
+                  - generic [ref=e310]: UX-only knobs (display-only, no underwriting math impact)
+                - paragraph [ref=e311]: These knobs change how offers and buyer costs are presented. They do not alter underwriting math.
+                - generic [ref=e312]:
+                  - generic [ref=e313]:
+                    - paragraph [ref=e314]: Rounding mode
+                    - paragraph [ref=e315]: "false"
+                    - paragraph [ref=e316]: Example $214,937.50 → $214,938
+                  - generic [ref=e317]:
+                    - paragraph [ref=e318]: Buyer costs scenario
+                    - paragraph [ref=e319]: Single scenario
+                    - paragraph [ref=e320]: When costs are unknown, choose whether to show both conservative and optimistic views.
+                  - generic [ref=e321]:
+                    - paragraph [ref=e322]: Buyer costs detail
+                    - paragraph [ref=e323]: Use Line-Item Model
+                    - paragraph [ref=e324]: Toggle line-item vs aggregate buyer cost display in overview/trace surfaces.
+              - generic [ref=e325]:
+                - generic [ref=e326]: Page 1 of 9
+                - generic [ref=e327]:
+                  - button "Previous" [disabled] [ref=e328]
+                  - button "Next" [ref=e329]
+                  - button "Save & Close Sandbox" [ref=e330]
+    - generic:
+      - button "DealEngine dual agent launcher" [ref=e331] [cursor=pointer]:
+        - img "DealEngine dual agent launcher" [ref=e332]
+      - generic:
+        - generic [ref=e333]:
+          - generic [ref=e334]:
+            - paragraph [ref=e335]: THE INTEL
+            - paragraph [ref=e336]: The Analyst
+          - button "Open a deal and run Analyze to unlock this agent" [disabled] [ref=e337]:
+            - img [ref=e338]
+        - generic [ref=e345]:
+          - generic [ref=e346]:
+            - paragraph [ref=e347]: THE GENERAL
+            - paragraph [ref=e348]: The Strategist
+          - button "Open" [ref=e349]:
+            - img [ref=e350]
+        - generic [ref=e352]:
+          - generic [ref=e353]:
+            - paragraph [ref=e354]: THE CLOSER
+            - paragraph [ref=e355]: The Negotiator
+          - button "Open a deal and run Analyze to unlock this agent" [disabled] [ref=e356]:
+            - img [ref=e357]
+```

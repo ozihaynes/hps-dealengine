@@ -12,9 +12,14 @@ import {
 } from "./shared";
 import { createSupabaseRlsClient } from "../supabase/supabaseRlsClient";
 import { Agent, run, setDefaultOpenAIKey } from "@openai/agents";
+import { classifyOpenAiError } from "../shared/openaiErrors";
+import { truncateArray, truncateString } from "../shared/contextSlimming";
 
 const DEFAULT_MODEL = process.env.HPS_STRATEGIST_MODEL ?? "gpt-4.1";
 let openAIKeyInitialized = false;
+const STRATEGIST_THIN_KB_MAX = 1;
+const STRATEGIST_THIN_KB_TEXT_MAX = 2000;
+const STRATEGIST_THIN_KB_HEADING_MAX = 160;
 
 function ensureOpenAIKey() {
   if (openAIKeyInitialized) return;
@@ -47,6 +52,21 @@ You are the HPS DealEngine Deal Strategist (org-level advisor).
 function buildUserPrompt(question?: string | null): string {
   if (question && question.trim().length > 0) return question.trim();
   return "Provide an org-level strategic overview and recommendations based on the supplied KPIs, risk gates, sandbox settings, and docs.";
+}
+
+function buildStrategistContextThin(context: StrategistContext): StrategistContext {
+  const kbChunks = truncateArray(context.kbChunks ?? [], STRATEGIST_THIN_KB_MAX).map((chunk) => ({
+    ...chunk,
+    heading: chunk.heading ? truncateString(chunk.heading, STRATEGIST_THIN_KB_HEADING_MAX) : chunk.heading,
+    text: truncateString(chunk.text ?? "", STRATEGIST_THIN_KB_TEXT_MAX),
+  }));
+
+  return {
+    kpiSnapshot: context.kpiSnapshot,
+    riskGateStats: context.riskGateStats,
+    sandboxSettings: context.sandboxSettings ?? null,
+    kbChunks,
+  };
 }
 
 export async function runStrategistAgent(input: StrategistAgentInput): Promise<StrategistAgentResult> {
@@ -91,14 +111,33 @@ export async function runStrategistAgent(input: StrategistAgentInput): Promise<S
     model,
   });
 
-  const runResult = await run(
-    agent,
+  const buildPrompt = (context: StrategistContext) =>
     [
       userPrompt,
-      `Context JSON:\n${JSON.stringify(strategistContext, null, 2)}`,
+      `Context JSON:\n${JSON.stringify(context, null, 2)}`,
       'Respond as JSON: {"answer": "<markdown with sections: Strategic overview, Key patterns, Recommendations, Caveats / data gaps>"}',
-    ].join("\n\n"),
-  );
+    ].join("\n\n");
+
+  const fullPrompt = buildPrompt(strategistContext);
+  const thinPrompt = buildPrompt(buildStrategistContextThin(strategistContext));
+
+  let didAutoTrimRetry = false;
+  let runResult: any;
+  try {
+    runResult = await run(agent, fullPrompt);
+  } catch (err: any) {
+    const classified = classifyOpenAiError(err);
+    if (classified.error_code !== "context_length_exceeded") {
+      throw err;
+    }
+    didAutoTrimRetry = true;
+    try {
+      runResult = await run(agent, thinPrompt);
+    } catch (retryErr: any) {
+      (retryErr as any).didAutoTrimRetry = true;
+      throw retryErr;
+    }
+  }
 
   const latencyMs = Date.now() - t0;
   const rawOutput =
@@ -120,5 +159,6 @@ export async function runStrategistAgent(input: StrategistAgentInput): Promise<S
     model,
     totalTokens: (runResult as any)?.usage?.total_tokens ?? undefined,
     latencyMs,
+    didAutoTrimRetry,
   };
 }

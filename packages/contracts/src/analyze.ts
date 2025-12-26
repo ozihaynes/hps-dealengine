@@ -262,6 +262,16 @@ const AnalyzeDealSchema = z
     moi_zip_months: z.number().nullable().optional(),
     price_to_list_pct: z.number().nullable().optional(),
     local_discount_pct: z.number().nullable().optional(),
+    market: z
+      .object({
+        arv_source: z.string().nullable().optional(),
+        arv_as_of: z.string().nullable().optional(),
+        arv_valuation_run_id: z.string().nullable().optional(),
+        as_is_value_source: z.string().nullable().optional(),
+        as_is_value_as_of: z.string().nullable().optional(),
+        as_is_value_valuation_run_id: z.string().nullable().optional(),
+      })
+      .optional(),
     options: z.object({ trace: z.boolean().default(true) }).default({ trace: true }),
   })
   .strict();

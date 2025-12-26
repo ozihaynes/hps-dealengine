@@ -1,0 +1,737 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e7]:
+        - img "HPS DealEngine logo" [ref=e8]
+        - generic [ref=e9]:
+          - generic [ref=e10]: Haynes Property Solutions
+          - generic [ref=e11]:
+            - generic [ref=e12]: DealEngineTM
+            - generic [ref=e13]: v1
+    - main [ref=e14]:
+      - generic [ref=e16]:
+        - generic [ref=e17]:
+          - generic [ref=e19]:
+            - heading "Underwrite" [level=1] [ref=e20]
+            - button "Underwrite info" [ref=e22]: i
+          - generic [ref=e24]:
+            - generic [ref=e25]:
+              - img [ref=e26]
+              - generic [ref=e29]: Saved 12:18:53 PM
+            - button "Analyze Deal" [ref=e30]
+        - generic [ref=e31]:
+          - button "Evidence checklist" [ref=e32]:
+            - img [ref=e33]
+          - generic [ref=e35]: Evidence checklist
+        - generic [ref=e36]:
+          - generic [ref=e38]:
+            - generic [ref=e39]:
+              - heading "Market & Valuation" [level=3] [ref=e40]:
+                - img [ref=e41]
+                - generic [ref=e43]: Market & Valuation
+              - generic [ref=e44]:
+                - generic [ref=e45]:
+                  - generic [ref=e46]: "Valuation Confidence:"
+                  - generic [ref=e47]: "-"
+                  - generic [ref=e48]: 0 comps (policy missing)
+                - button "Refresh Valuation" [ref=e50]
+              - generic [ref=e51]: "Policy token missing: valuation.min_closed_comps_required"
+              - generic [ref=e52]:
+                - generic [ref=e53]:
+                  - generic [ref=e55]: Facts
+                  - generic [ref=e56]: Saved
+                  - generic [ref=e57]:
+                    - generic [ref=e58]:
+                      - generic [ref=e59]:
+                        - generic [ref=e60]: ARV
+                        - button "What does ARV (After-Repair Value) mean?" [ref=e62]: i
+                      - generic [ref=e63]:
+                        - generic: $
+                        - textbox "ARV" [disabled] [ref=e64]:
+                          - /placeholder: "0"
+                    - generic [ref=e65]:
+                      - generic [ref=e66]:
+                        - generic [ref=e67]: As-Is Value
+                        - button "What does AIV (As-Is Value) mean?" [ref=e69]: i
+                      - generic [ref=e70]:
+                        - generic: $
+                        - textbox "As-Is Value" [disabled] [ref=e71]:
+                          - /placeholder: "0"
+                    - generic [ref=e72]:
+                      - generic [ref=e74]: Valuation Basis
+                      - combobox "Valuation Basis" [ref=e75] [cursor=pointer]:
+                        - option "Select basis" [selected]
+                        - option "RentCast AVM (with comparable sale listings)"
+                        - option "Manual override"
+                  - generic [ref=e76]:
+                    - button "Override ARV" [ref=e77]
+                    - button "Override As-Is Value" [ref=e78]
+                  - generic [ref=e79]:
+                    - generic [ref=e81]:
+                      - generic [ref=e82]:
+                        - generic [ref=e83]: "Suggested ARV (method: comps_median_v1)"
+                        - generic [ref=e84]:
+                          - generic [ref=e85]: —
+                          - generic [ref=e86]: "Comps: - · 0 used"
+                          - generic [ref=e87]: "Selection: stages unknown (stop: n/a)"
+                          - generic [ref=e88]: "Outliers removed: 0"
+                      - button "Use Suggested ARV" [disabled] [ref=e89]
+                    - generic [ref=e90]:
+                      - generic [ref=e91]: AVM Reference (RentCast)
+                      - generic [ref=e92]:
+                        - generic [ref=e93]: —
+                        - generic [ref=e94]: "Provider: -"
+                        - generic [ref=e95]: "As of: -"
+                - generic [ref=e96]:
+                  - generic [ref=e97]: Market
+                  - generic [ref=e98]:
+                    - generic [ref=e99]:
+                      - generic [ref=e100]: Contract Price (Executed)
+                      - generic [ref=e101]: $123,456
+                    - generic [ref=e102]:
+                      - generic [ref=e103]: DOM (Zip, days)
+                      - generic [ref=e105]: —
+                    - generic [ref=e106]:
+                      - generic [ref=e107]: MOI (Zip, months)
+                      - generic [ref=e109]: —
+                    - generic [ref=e110]:
+                      - generic [ref=e111]: Price-to-List %
+                      - generic [ref=e113]: —
+                    - generic [ref=e114]:
+                      - generic [ref=e115]: Local Discount (20th %)
+                      - generic [ref=e117]: —
+                    - generic [ref=e118]:
+                      - generic [ref=e119]: Flood / SFHA
+                      - generic [ref=e120]: Not connected (v1)
+                    - generic [ref=e121]:
+                      - generic [ref=e122]: "Source: -"
+                      - generic [ref=e123]: "As of: -"
+                - generic [ref=e124]:
+                  - generic [ref=e125]: Comps
+                  - generic [ref=e126]: Comparable sale listings (RentCast)
+                  - generic [ref=e127]:
+                    - generic [ref=e128]: 0 listings
+                    - generic [ref=e129]: valuation.min_closed_comps_required missing
+                  - generic [ref=e130]:
+                    - generic [ref=e131]: "Active: 0"
+                    - generic [ref=e132]: "Inactive: 0"
+                    - generic [ref=e133]: "Other: 0"
+                    - generic [ref=e134]: "Unknown: 0"
+                  - generic [ref=e135]:
+                    - generic [ref=e136]: "Provider: -"
+                    - generic [ref=e137]: "As of: -"
+                - generic [ref=e138]:
+                  - generic [ref=e139]: Confidence
+                  - generic [ref=e140]:
+                    - generic [ref=e141]: "-"
+                    - generic [ref=e142]: Valuation Confidence
+                  - generic [ref=e143]: No valuation run yet.
+            - generic [ref=e144]:
+              - heading "Property & Risk" [level=3] [ref=e145]:
+                - img [ref=e146]
+                - generic [ref=e148]: Property & Risk
+              - generic [ref=e149]:
+                - generic [ref=e150]:
+                  - generic [ref=e151]:
+                    - generic [ref=e153]: Occupancy
+                    - combobox "Occupancy" [ref=e154] [cursor=pointer]:
+                      - option "Owner"
+                      - option "Tenant" [selected]
+                      - option "Vacant"
+                  - generic [ref=e155]:
+                    - generic [ref=e157]: Insurance Bindability
+                    - combobox "Insurance Bindability" [ref=e158] [cursor=pointer]:
+                      - option "Bindable" [selected]
+                      - option "Conditional"
+                      - option "Unbindable"
+                  - generic [ref=e159]:
+                    - generic [ref=e161]: County
+                    - textbox "County" [ref=e163]: Orange
+                - generic [ref=e164]:
+                  - generic [ref=e165]:
+                    - generic [ref=e166]: No Interior Access
+                    - checkbox "No Interior Access" [ref=e168]
+                  - generic [ref=e170]:
+                    - generic [ref=e171]: Structural/Permit/WDO Risk
+                    - checkbox "Structural/Permit/WDO Risk" [ref=e173]
+                  - generic [ref=e175]:
+                    - generic [ref=e176]: Old Roof (>20 years)
+                    - checkbox "Old Roof (>20 years)" [ref=e178]
+                - generic [ref=e180]:
+                  - generic [ref=e181]:
+                    - generic [ref=e182]: Major System Failure
+                    - checkbox "Major System Failure" [ref=e184]
+                  - generic [ref=e186]:
+                    - generic [ref=e187]: Reinstatement Proof
+                    - checkbox "Reinstatement Proof" [ref=e189]
+                  - generic [ref=e191]:
+                    - generic [ref=e192]: Homestead Status
+                    - checkbox "Homestead Status" [ref=e194]
+            - generic [ref=e196]:
+              - heading "Debt & Liens" [level=3] [ref=e197]:
+                - img [ref=e198]
+                - generic [ref=e200]: Debt & Liens
+              - generic [ref=e201]:
+                - generic [ref=e202]:
+                  - heading "Senior Lien Payoff" [level=4] [ref=e203]
+                  - generic [ref=e204]:
+                    - generic [ref=e205]:
+                      - generic [ref=e207]: Senior Principal
+                      - generic [ref=e208]:
+                        - generic: $
+                        - textbox "Senior Principal" [ref=e209]:
+                          - /placeholder: "0"
+                    - generic [ref=e210]:
+                      - generic [ref=e212]: Senior Per Diem
+                      - generic [ref=e213]:
+                        - generic: $
+                        - textbox "Senior Per Diem" [ref=e214]:
+                          - /placeholder: "0"
+                    - generic [ref=e215]:
+                      - generic [ref=e217]: Payoff Good-Thru
+                      - textbox "Payoff Good-Thru" [ref=e219] [cursor=pointer]
+                    - generic [ref=e220]:
+                      - generic [ref=e221]: Payoff Confirmed
+                      - checkbox "Payoff Confirmed" [ref=e223]
+                    - generic [ref=e225]:
+                      - generic [ref=e227]: Protective Advances
+                      - generic [ref=e228]:
+                        - generic: $
+                        - textbox "Protective Advances" [ref=e229]:
+                          - /placeholder: "0"
+                - generic [ref=e230]:
+                  - heading "Other Encumbrances & Title" [level=4] [ref=e231]
+                  - generic [ref=e232]:
+                    - generic [ref=e233]:
+                      - generic [ref=e235]: Title Cure Cost
+                      - generic [ref=e236]:
+                        - generic: $
+                        - textbox "Title Cure Cost" [ref=e237]:
+                          - /placeholder: "0"
+                    - generic [ref=e238]:
+                      - generic [ref=e240]: Title Risk %
+                      - generic [ref=e241]:
+                        - textbox "Title Risk %" [ref=e242]:
+                          - /placeholder: "0"
+                          - text: "0"
+                        - generic: "%"
+                    - generic [ref=e243]:
+                      - generic [ref=e245]: HOA Estoppel Fee
+                      - generic [ref=e246]:
+                        - generic: $
+                        - textbox "HOA Estoppel Fee" [ref=e247]:
+                          - /placeholder: "0"
+              - generic [ref=e249]:
+                - heading "Junior Liens" [level=4] [ref=e250]
+                - button "+ Add Lien" [ref=e251]
+            - generic [ref=e252]:
+              - heading "Policy & Fees" [level=3] [ref=e253]:
+                - img [ref=e254]
+                - generic [ref=e256]: Policy & Fees
+              - generic [ref=e257]:
+                - generic [ref=e258]:
+                  - generic [ref=e260]: Assignment Fee Target
+                  - generic [ref=e261]:
+                    - generic: $
+                    - textbox "Assignment Fee Target" [ref=e262]:
+                      - /placeholder: Optional
+                - generic [ref=e263]:
+                  - generic [ref=e265]: List Commission Override %
+                  - generic [ref=e266]:
+                    - textbox "List Commission Override %" [ref=e267]:
+                      - /placeholder: 6% (Policy)
+                    - generic: "%"
+                - generic [ref=e268]:
+                  - generic [ref=e270]: Sell Close Costs %
+                  - generic [ref=e271]:
+                    - textbox "Sell Close Costs %" [ref=e272]:
+                      - /placeholder: 1.5% (Policy)
+                      - text: "0"
+                    - generic: "%"
+                - generic [ref=e273]:
+                  - generic [ref=e275]: Seller Concessions %
+                  - generic [ref=e276]:
+                    - textbox "Seller Concessions %" [ref=e277]:
+                      - /placeholder: 2% (Policy)
+                      - text: "0"
+                    - generic: "%"
+                - generic [ref=e278]:
+                  - generic [ref=e280]: Safety Margin on AIV %
+                  - generic [ref=e281]:
+                    - textbox "Safety Margin on AIV %" [ref=e282]:
+                      - /placeholder: 3% (Policy)
+                      - text: "0"
+                    - generic: "%"
+                - generic [ref=e283]:
+                  - generic [ref=e285]: Min Spread
+                  - generic [ref=e286]:
+                    - generic: $
+                    - textbox "Min Spread" [ref=e287]:
+                      - /placeholder: $25,000 (Policy)
+                - generic [ref=e288]:
+                  - generic [ref=e290]: Monthly Interest
+                  - generic [ref=e291]:
+                    - generic: $
+                    - textbox "Monthly Interest" [ref=e292]:
+                      - /placeholder: "0"
+                - generic [ref=e293]:
+                  - generic [ref=e294]: Costs Are Annual
+                  - checkbox "Costs Are Annual" [ref=e296]
+            - generic [ref=e298]:
+              - heading "Timeline & Legal" [level=3] [ref=e299]:
+                - img [ref=e300]
+                - generic [ref=e302]: Timeline & Legal
+              - generic [ref=e303]:
+                - generic [ref=e305]:
+                  - generic [ref=e306]: Foreclosure Sale (Certificate of Title Issued)
+                  - checkbox "Foreclosure Sale (Certificate of Title Issued)" [ref=e308]
+                - generic [ref=e311]:
+                  - generic [ref=e312]: 10-Day Redemption Period Applies
+                  - checkbox "10-Day Redemption Period Applies" [ref=e314]
+                - generic [ref=e316]:
+                  - generic [ref=e318]: Case No.
+                  - textbox "Case No." [ref=e320]
+                - generic [ref=e321]:
+                  - generic [ref=e323]: Auction Date
+                  - textbox "Auction Date" [ref=e325] [cursor=pointer]
+                - generic [ref=e326]:
+                  - generic [ref=e328]: Planned Close
+                  - generic [ref=e329]:
+                    - textbox "Planned Close" [ref=e330]:
+                      - /placeholder: "0"
+                    - generic: days
+                - generic [ref=e331]:
+                  - generic [ref=e333]: Manual Days to Money
+                  - generic [ref=e334]:
+                    - textbox "Manual Days to Money" [ref=e335]:
+                      - /placeholder: Overrides auto-calc
+                    - generic: days
+            - generic [ref=e336]:
+              - heading "Scenario Modeler" [level=3] [ref=e337]:
+                - img [ref=e338]
+                - generic [ref=e340]: Scenario Modeler
+              - generic [ref=e341]:
+                - generic [ref=e342]:
+                  - heading "Model Scenario" [level=3] [ref=e343]
+                  - generic [ref=e344]:
+                    - generic [ref=e345]: Force Days to Money
+                    - textbox "e.g., 14" [ref=e346]
+                    - paragraph [ref=e347]: days
+                  - generic [ref=e348]:
+                    - generic [ref=e349]: Adjust Repair Budget
+                    - textbox "e.g., 25000" [ref=e350]
+                    - paragraph [ref=e351]: USD
+                  - generic [ref=e352]:
+                    - generic [ref=e353]: Adjust Seller Concessions
+                    - textbox "e.g., 2" [ref=e354]
+                    - paragraph [ref=e355]: "%"
+                - generic [ref=e356]:
+                  - heading "Scenario Outcome vs. Current" [level=3] [ref=e357]
+                  - table [ref=e358]:
+                    - rowgroup [ref=e359]:
+                      - row "Metric Current Deal Scenario Delta" [ref=e360]:
+                        - columnheader "Metric" [ref=e361]
+                        - columnheader "Current Deal" [ref=e362]
+                        - columnheader "Scenario" [ref=e363]
+                        - columnheader "Delta" [ref=e364]
+                    - rowgroup [ref=e365]:
+                      - row "Instant Cash Offer — $0 —" [ref=e366]:
+                        - cell "Instant Cash Offer" [ref=e367]
+                        - cell "—" [ref=e368]
+                        - cell "$0" [ref=e369]
+                        - cell "—" [ref=e370]
+                      - row "Net to Seller — $0 —" [ref=e371]:
+                        - cell "Net to Seller" [ref=e372]
+                        - cell "—" [ref=e373]
+                        - cell "$0" [ref=e374]
+                        - cell "—" [ref=e375]
+                      - row "Days to Money — — —" [ref=e376]:
+                        - cell "Days to Money" [ref=e377]
+                        - cell "—" [ref=e378]
+                        - cell "—" [ref=e379]
+                        - cell "—" [ref=e380]
+            - generic [ref=e381]:
+              - heading "HPS Double Closing Cost Calculator" [level=3] [ref=e382]:
+                - img [ref=e383]
+                - generic [ref=e385]: HPS Double Closing Cost Calculator
+              - generic [ref=e386]:
+                - generic [ref=e388]:
+                  - generic [ref=e389]: Double Close Tools
+                  - generic [ref=e390]:
+                    - generic [ref=e391]:
+                      - generic [ref=e392]: Advanced
+                      - checkbox "Advanced" [ref=e394]
+                    - button "Autofill from deal" [ref=e396]
+                - generic [ref=e397]:
+                  - heading "A) Property & County" [level=4] [ref=e398]
+                  - generic [ref=e399]:
+                    - generic [ref=e400]:
+                      - generic [ref=e402]: County
+                      - combobox "County" [ref=e403] [cursor=pointer]:
+                        - option "Orange" [selected]
+                        - option "Osceola"
+                        - option "Polk"
+                    - generic [ref=e404]:
+                      - generic [ref=e406]: Property Type
+                      - combobox "Property Type" [ref=e407] [cursor=pointer]:
+                        - option "SFR" [selected]
+                        - option "Townhome"
+                        - option "Condo"
+                        - option "Duplex/2-4"
+                        - option "Mobile on land"
+                        - option "Vacant land"
+                    - generic [ref=e408]:
+                      - generic [ref=e410]: HOA/Condo Present
+                      - combobox "HOA/Condo Present" [ref=e411] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes-HOA"
+                        - option "Yes-Condo"
+                - generic [ref=e412]:
+                  - heading "B) Structure & Timing" [level=4] [ref=e413]
+                  - generic [ref=e414]:
+                    - generic [ref=e415]:
+                      - generic [ref=e417]: Double-close type
+                      - combobox "Double-close type" [ref=e418] [cursor=pointer]:
+                        - option "Same-day" [selected]
+                        - option "Held-days"
+                    - generic [ref=e419]:
+                      - generic [ref=e421]: Days held (A-B to B-C)
+                      - textbox "Days held (A-B to B-C)" [ref=e423]:
+                        - /placeholder: "0"
+                    - generic [ref=e424]:
+                      - generic [ref=e426]: Same-day order (if applicable)
+                      - combobox "Same-day order (if applicable)" [ref=e427] [cursor=pointer]:
+                        - option "No preference" [selected]
+                        - option "A-B AM / B-C PM"
+                - generic [ref=e428]:
+                  - heading "C) A-B (you BUY from seller)" [level=4] [ref=e429]
+                  - generic [ref=e430]:
+                    - generic [ref=e431]:
+                      - generic [ref=e433]: Pab
+                      - generic [ref=e434]:
+                        - generic: $
+                        - textbox "Pab" [ref=e435]:
+                          - /placeholder: Enter Price
+                    - generic [ref=e436]:
+                      - generic [ref=e438]: Title/settlement A-B
+                      - generic [ref=e439]:
+                        - generic: $
+                        - textbox "Title/settlement A-B" [ref=e440]:
+                          - /placeholder: "0"
+                    - generic [ref=e441]:
+                      - generic [ref=e443]: Other fees A-B
+                      - generic [ref=e444]:
+                        - generic: $
+                        - textbox "Other fees A-B" [ref=e445]:
+                          - /placeholder: "0"
+                    - generic [ref=e446]:
+                      - generic [ref=e448]: Owner's title policy paid by (A-B)
+                      - combobox "Owner's title policy paid by (A-B)" [ref=e449] [cursor=pointer]:
+                        - option "Seller"
+                        - option "You"
+                        - option "Unknown" [selected]
+                - generic [ref=e450]:
+                  - heading "D) B-C (you SELL to end-buyer)" [level=4] [ref=e451]
+                  - generic [ref=e452]:
+                    - generic [ref=e453]:
+                      - generic [ref=e455]: Pbc
+                      - generic [ref=e456]:
+                        - generic: $
+                        - textbox "Pbc" [ref=e457]:
+                          - /placeholder: Enter Price
+                    - generic [ref=e458]:
+                      - generic [ref=e460]: Title/settlement B-C
+                      - generic [ref=e461]:
+                        - generic: $
+                        - textbox "Title/settlement B-C" [ref=e462]:
+                          - /placeholder: "0"
+                    - generic [ref=e463]:
+                      - generic [ref=e465]: Other fees B-C
+                      - generic [ref=e466]:
+                        - generic: $
+                        - textbox "Other fees B-C" [ref=e467]:
+                          - /placeholder: "0"
+                    - generic [ref=e468]:
+                      - generic [ref=e470]: Owner's title policy paid by (B-C)
+                      - combobox "Owner's title policy paid by (B-C)" [ref=e471] [cursor=pointer]:
+                        - option "You"
+                        - option "End buyer"
+                        - option "Unknown" [selected]
+                - generic [ref=e472]:
+                  - heading "E) End-buyer funds" [level=4] [ref=e473]
+                  - generic [ref=e474]:
+                    - generic [ref=e475]:
+                      - generic [ref=e477]: Buyer funds
+                      - combobox "Buyer funds" [ref=e478] [cursor=pointer]:
+                        - option "Cash" [selected]
+                        - option "Conventional"
+                        - option "DSCR/Investor"
+                        - option "Hard money"
+                        - option "FHA"
+                        - option "VA"
+                    - generic [ref=e479]:
+                      - generic [ref=e481]: Lender known
+                      - combobox "Lender known" [ref=e482] [cursor=pointer]:
+                        - option "N/A" [selected]
+                        - option "Yes"
+                        - option "No"
+                    - generic [ref=e483]:
+                      - generic [ref=e485]: ARV (for fee check)
+                      - generic [ref=e486]:
+                        - generic: $
+                        - textbox "ARV (for fee check)" [ref=e487]:
+                          - /placeholder: "0"
+                - generic [ref=e488]:
+                  - heading "F) Transactional Funding (A-B)" [level=4] [ref=e489]
+                  - generic [ref=e490]:
+                    - generic [ref=e491]:
+                      - generic [ref=e492]: Using Transactional Funding?
+                      - checkbox "Using Transactional Funding?" [ref=e494]
+                    - generic [ref=e496]:
+                      - generic [ref=e498]: TF principal
+                      - generic [ref=e499]:
+                        - generic: $
+                        - textbox "TF principal" [ref=e500]:
+                          - /placeholder: Enter Amount
+                    - generic [ref=e501]:
+                      - generic [ref=e503]: TF points rate
+                      - textbox "TF points rate" [ref=e505]:
+                        - /placeholder: e.g., 0.02
+                    - generic [ref=e506]:
+                      - generic [ref=e508]: Note executed in FL?
+                      - combobox "Note executed in FL?" [ref=e509] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes"
+                        - option "Unsure"
+                    - generic [ref=e510]:
+                      - generic [ref=e512]: Note secured by property?
+                      - combobox "Note secured by property?" [ref=e513] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes"
+                        - option "Unsure"
+                    - generic [ref=e514]:
+                      - generic [ref=e516]: TF extra fees
+                      - generic [ref=e517]:
+                        - generic: $
+                        - textbox "TF extra fees" [ref=e518]:
+                          - /placeholder: "0"
+                - generic [ref=e519]:
+                  - heading "G) HOA / Condo (if applicable)" [level=4] [ref=e520]
+                  - generic [ref=e521]:
+                    - generic [ref=e522]:
+                      - generic [ref=e524]: Association type
+                      - combobox "Association type" [ref=e525] [cursor=pointer]:
+                        - option "HOA" [selected]
+                        - option "Condo"
+                        - option "N/A"
+                    - generic [ref=e526]:
+                      - generic [ref=e528]: Estoppel fee
+                      - generic [ref=e529]:
+                        - generic: $
+                        - textbox "Estoppel fee" [ref=e530]:
+                          - /placeholder: "0"
+                    - generic [ref=e531]:
+                      - generic [ref=e533]: Rush estoppel ordered
+                      - combobox "Rush estoppel ordered" [ref=e534] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes"
+                    - generic [ref=e535]:
+                      - generic [ref=e537]: Transfer/application fees
+                      - generic [ref=e538]:
+                        - generic: $
+                        - textbox "Transfer/application fees" [ref=e539]:
+                          - /placeholder: "0"
+                    - generic [ref=e540]:
+                      - generic [ref=e542]: Board approval pre-closing
+                      - combobox "Board approval pre-closing" [ref=e543] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes"
+                        - option "Unsure"
+                - generic [ref=e544]:
+                  - heading "H) Carry (if not same-day)" [level=4] [ref=e545]
+                  - generic [ref=e546]:
+                    - generic [ref=e547]:
+                      - generic [ref=e549]: Carry / holding cost
+                      - generic [ref=e550]:
+                        - generic: $
+                        - textbox "Carry / holding cost" [ref=e551]:
+                          - /placeholder: "0"
+                    - generic [ref=e552]:
+                      - generic [ref=e554]: Carry basis
+                      - combobox "Carry basis" [ref=e555] [cursor=pointer]:
+                        - option "day" [selected]
+                        - option "month"
+                    - generic [ref=e556]:
+                      - generic [ref=e558]: Days held (again)
+                      - textbox "Days held (again)" [ref=e560]:
+                        - /placeholder: "0"
+                - generic [ref=e561]:
+                  - heading "I) Targets & Estimation" [level=4] [ref=e562]
+                  - generic [ref=e563]:
+                    - generic [ref=e564]:
+                      - generic [ref=e566]: Minimum acceptable net spread (optional)
+                      - generic [ref=e567]:
+                        - generic: $
+                        - textbox "Minimum acceptable net spread (optional)" [ref=e568]:
+                          - /placeholder: "0"
+                    - generic [ref=e569]:
+                      - generic [ref=e571]: Estimate with FL promulgated rates if missing?
+                      - combobox "Estimate with FL promulgated rates if missing?" [ref=e572] [cursor=pointer]:
+                        - option "No" [selected]
+                        - option "Yes"
+                    - generic [ref=e573]:
+                      - generic [ref=e575]: Assume owner's title payer A-B
+                      - combobox "Assume owner's title payer A-B" [ref=e576] [cursor=pointer]:
+                        - option "Unknown" [selected]
+                        - option "Seller"
+                        - option "You"
+                    - generic [ref=e577]:
+                      - generic [ref=e579]: Assume owner's title payer B-C
+                      - combobox "Assume owner's title payer B-C" [ref=e580] [cursor=pointer]:
+                        - option "Unknown" [selected]
+                        - option "You"
+                        - option "End buyer"
+                - generic [ref=e581]:
+                  - heading "J) Outputs & Apply" [level=4] [ref=e582]
+                  - generic [ref=e583]:
+                    - generic [ref=e584]:
+                      - generic [ref=e585]: Show items 1-13 full math
+                      - checkbox "Show items 1-13 full math" [checked] [ref=e587]
+                    - generic [ref=e589]:
+                      - generic [ref=e590]: Show fee target check
+                      - checkbox "Show fee target check" [checked] [ref=e592]
+                    - generic [ref=e594]:
+                      - generic [ref=e595]: Show FHA/VA 90-day flag
+                      - checkbox "Show FHA/VA 90-day flag" [checked] [ref=e597]
+                    - generic [ref=e599]:
+                      - generic [ref=e600]: Show notes/assumptions
+                      - checkbox "Show notes/assumptions" [checked] [ref=e602]
+                - generic [ref=e604]:
+                  - heading "Double-Close Results" [level=3] [ref=e605]
+                  - generic [ref=e606]:
+                    - generic [ref=e607]:
+                      - generic [ref=e608]:
+                        - generic [ref=e609]: Deed Stamps (A-B)
+                        - generic [ref=e610]: $0
+                      - generic [ref=e611]:
+                        - generic [ref=e612]: Deed Stamps (B-C)
+                        - generic [ref=e613]: $0
+                      - generic [ref=e614]:
+                        - generic [ref=e615]: Title/Settlement A-B
+                        - generic [ref=e616]: $0
+                      - generic [ref=e617]:
+                        - generic [ref=e618]: Title/Settlement B-C
+                        - generic [ref=e619]: $0
+                      - generic [ref=e620]:
+                        - generic [ref=e621]: Other A-B
+                        - generic [ref=e622]: $0
+                      - generic [ref=e623]:
+                        - generic [ref=e624]: Other B-C
+                        - generic [ref=e625]: $0
+                    - generic [ref=e626]:
+                      - generic [ref=e627]:
+                        - generic [ref=e628]: TF Points ($)
+                        - generic [ref=e629]: $0
+                      - generic [ref=e630]:
+                        - generic [ref=e631]: Doc Stamps on Note
+                        - generic [ref=e632]: $0
+                      - generic [ref=e633]:
+                        - generic [ref=e634]: Intangible Tax
+                        - generic [ref=e635]: $0
+                      - generic [ref=e636]:
+                        - generic [ref=e637]: Carry (daily)
+                        - generic [ref=e638]: $0
+                      - generic [ref=e639]:
+                        - generic [ref=e640]: Carry (total)
+                        - generic [ref=e641]: $0
+                  - generic [ref=e642]:
+                    - generic [ref=e643]:
+                      - generic [ref=e644]: Extra Closing Load
+                      - generic [ref=e645]: $20
+                    - generic [ref=e646]:
+                      - generic [ref=e647]:
+                        - generic [ref=e648]: Gross Spread (Pbc - Pab)
+                        - generic [ref=e649]: $0
+                      - generic [ref=e650]:
+                        - generic [ref=e651]: Net Spread (before carry)
+                        - generic [ref=e652]: "-$20"
+                      - generic [ref=e653]:
+                        - generic [ref=e654]: Net Spread (after carry)
+                        - generic [ref=e655]: "-$20"
+                  - generic [ref=e656]:
+                    - generic [ref=e657]:
+                      - generic [ref=e658]:
+                        - generic [ref=e659]: Fee Target (≈ 3% of ARV)
+                        - generic [ref=e660]: "Threshold: $0"
+                      - generic [ref=e661]: "NO"
+                    - generic [ref=e662]:
+                      - generic [ref=e663]: FHA/VA 90-Day Seasoning
+                      - generic [ref=e664]: OK
+                  - generic [ref=e665]:
+                    - generic [ref=e666]: Notes / Assumptions
+                    - list [ref=e667]:
+                      - listitem [ref=e668]: Net spread after carry is negative; deal fails fee target.
+          - generic [ref=e670]:
+            - generic [ref=e671]:
+              - generic [ref=e673]:
+                - heading "Overrides for this run" [level=3] [ref=e674]
+                - paragraph [ref=e675]: Overrides tied to this run.
+              - generic [ref=e676]: No overrides found for this run yet.
+            - generic [ref=e677]:
+              - generic [ref=e678]:
+                - generic [ref=e679]:
+                  - paragraph [ref=e680]: Evidence for this deal/run
+                  - paragraph [ref=e681]: Attach artifacts to this deal / run. Links are short-lived.
+                - generic [ref=e682]:
+                  - combobox [ref=e683]:
+                    - option "Payoff letter" [selected]
+                    - option "Title quote"
+                    - option "Insurance quote"
+                    - option "Repair bid"
+                    - option "Photos"
+                  - generic [ref=e684] [cursor=pointer]: Upload
+              - generic [ref=e686]: No evidence yet for this run.
+    - navigation [ref=e687]:
+      - generic [ref=e688]:
+        - button "Dashboard" [ref=e689]:
+          - img [ref=e690]
+          - generic [ref=e692]: Dashboard
+        - button "Repairs" [ref=e693]:
+          - img [ref=e694]
+          - generic [ref=e696]: Repairs
+        - button "Underwrite" [ref=e697]:
+          - img [ref=e698]
+          - generic [ref=e700]: Underwrite
+        - button "Trace" [ref=e701]:
+          - img [ref=e702]
+          - generic [ref=e704]: Trace
+        - button "Deals" [ref=e705]:
+          - img [ref=e706]
+          - generic [ref=e708]: Deals
+    - generic:
+      - button "DealEngine dual agent launcher" [ref=e709] [cursor=pointer]:
+        - img "DealEngine dual agent launcher" [ref=e710]
+      - generic:
+        - generic [ref=e711]:
+          - generic [ref=e712]:
+            - paragraph [ref=e713]: THE INTEL
+            - paragraph [ref=e714]: The Analyst
+          - button "Open" [ref=e715]:
+            - img [ref=e716]
+        - generic [ref=e723]:
+          - generic [ref=e724]:
+            - paragraph [ref=e725]: THE GENERAL
+            - paragraph [ref=e726]: The Strategist
+          - button "Open" [ref=e727]:
+            - img [ref=e728]
+        - generic [ref=e730]:
+          - generic [ref=e731]:
+            - paragraph [ref=e732]: THE CLOSER
+            - paragraph [ref=e733]: The Negotiator
+          - button "Open" [ref=e734]:
+            - img [ref=e735]
+```

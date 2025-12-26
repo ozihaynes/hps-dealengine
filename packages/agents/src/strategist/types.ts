@@ -63,4 +63,5 @@ export interface StrategistAgentResult {
   model: string;
   totalTokens?: number;
   latencyMs?: number;
+  didAutoTrimRetry?: boolean;
 }

@@ -1,8 +1,6 @@
 // apps/hps-dealengine/app/repairs/page.tsx
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Deal, EngineCalculations, EstimatorState } from "../../../types";
 import RepairsTab from "@/components/repairs/RepairsTab";
@@ -12,6 +10,7 @@ import type { RepairRates } from "@hps-internal/contracts";
 import { createInitialEstimatorState } from "@/lib/repairsEstimator";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Button, GlassCard } from "@/components/ui";
+import NumericInput from "@/components/ui/NumericInput";
 import { Check } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { computeSectionTotals } from "@/lib/repairsMath";
@@ -127,11 +126,6 @@ export default function RepairsPage() {
     autosaveStatus,
     saveWorkingStateNow,
   } = useDealSession();
-  console.log("[Repairs] render", {
-    activeRepairProfileId,
-    activeRepairProfileName: activeRepairProfile?.name ?? null,
-    repairRates,
-  });
 
   const [estimatorState, setEstimatorState] = useState<EstimatorState>(() =>
     createInitialEstimatorState(),
@@ -143,6 +137,7 @@ export default function RepairsPage() {
   const [sqftSaved, setSqftSaved] = useState(false);
 
   useUnsavedChanges(hasUnsavedChanges);
+  const sqftInputId = React.useId();
 
   const marketCode = deriveMarketCode(deal as Deal).toUpperCase();
   const rates: RepairRates | null = repairRates ?? null;
@@ -176,6 +171,8 @@ export default function RepairsPage() {
     : null;
   const profileName =
     repairMeta?.profileName ?? activeRepairProfile?.name;
+  const savedEstimator = (deal as any)?.repairs?.estimatorState;
+  const savedProfileId = (deal as any)?.repairs?.estimatorProfileId ?? null;
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") {
@@ -212,9 +209,6 @@ export default function RepairsPage() {
     const hydrationKey = `${dbDeal?.id ?? "none"}|${currentProfile}`;
     if (estimatorHydratedKeyRef.current === hydrationKey) return;
 
-    const savedEstimator = (deal as any)?.repairs?.estimatorState;
-    const savedProfileId = (deal as any)?.repairs?.estimatorProfileId ?? null;
-
     if (savedEstimator && savedProfileId === currentProfile) {
       setEstimatorState(savedEstimator as EstimatorState);
     } else {
@@ -231,6 +225,8 @@ export default function RepairsPage() {
     rates?.posture,
     rates?.lineItemRates,
     activeRepairProfileId,
+    savedEstimator,
+    savedProfileId,
   ]);
 
   const setDealValue = useCallback(
@@ -268,7 +264,7 @@ export default function RepairsPage() {
     [],
   );
 
-  const handleQuantityChange = useCallback((itemKey: string, qty: number) => {
+  const handleQuantityChange = useCallback((itemKey: string, qty: number | null) => {
     setEstimatorState((prev) => {
       const next: any =
         typeof structuredClone === "function"
@@ -290,14 +286,6 @@ export default function RepairsPage() {
     setHasUnsavedChanges(false);
   }, [rates?.lineItemRates]);
 
-  const handleSqftSave = () => {
-    const sqft = Number(localSqft.replace(/[^\d.]/g, ""));
-    if (!isNaN(sqft) && sqft > 0) {
-      setDealValue("property.sqft", sqft);
-      setHasUnsavedChanges(false);
-    }
-  };
-
   const isNoRepairsNeeded = Boolean((deal as any)?.meta?.noRepairsNeeded);
 
   const handleMarkNoRepairs = useCallback(() => {
@@ -307,7 +295,7 @@ export default function RepairsPage() {
       setDealValue("repairs.total", 0);
       setDealValue("repairs_total", 0);
       setDealValue("repairsTotal", 0);
-      setDealValue("quickEstimate.total", 0);
+      setDealValue("repairs.quickEstimate.total", 0);
     }
     setEstimatorState((prev) => {
       const next: any =
@@ -323,13 +311,12 @@ export default function RepairsPage() {
     setHasUnsavedChanges(true);
   }, [deal, setDealValue]);
 
-  const effectiveSqft = getCurrentSqft(deal as Deal, calc) || Number(localSqft) || 0;
   const handleSqftChange = useCallback(
-    (value: string) => {
-      setLocalSqft(value);
-      const sqft = Number(value.replace(/[^\d.]/g, ""));
-      if (!isNaN(sqft) && sqft > 0) {
-        setDealValue("property.sqft", sqft);
+    (value: number | null) => {
+      const nextText = value == null ? "" : String(value);
+      setLocalSqft(nextText);
+      if (value != null && Number.isFinite(value) && value > 0) {
+        setDealValue("property.sqft", value);
         setHasUnsavedChanges(false);
         setSqftSaved(true);
       } else {
@@ -339,6 +326,12 @@ export default function RepairsPage() {
     },
     [setDealValue],
   );
+
+  const sqftInputValue = useMemo(() => {
+    if (!localSqft || localSqft.trim() === "") return null;
+    const parsed = Number(localSqft.replace(/[^\d.]/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }, [localSqft]);
 
   const quickEstimateApplied = (deal as any)?.repairs?.quickEstimate?.total ?? null;
 
@@ -391,37 +384,38 @@ export default function RepairsPage() {
     setDealValue,
     deal,
   ]);
-const resolvedSqft = useMemo(() => {
-  const base = getCurrentSqft(deal as Deal, calc);
-  if (base > 0) return base;
-  const n = Number(String(localSqft ?? "").replace(/[^\d.]/g, ""));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}, [deal, calc, localSqft]);
 
-const appliedTotal = useMemo(() => {
-  if (isNoRepairsNeeded) return 0;
-  if (totalRepairCost > 0) return totalRepairCost;
-  if (quickEstimateApplied != null) {
-    const n = Number(quickEstimateApplied);
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}, [isNoRepairsNeeded, totalRepairCost, quickEstimateApplied]);
+  const resolvedSqft = useMemo(() => {
+    const base = getCurrentSqft(deal as Deal, calc);
+    if (base > 0) return base;
+    const n = Number(String(localSqft ?? "").replace(/[^\d.]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, [deal, calc, localSqft]);
 
-const repairsPerSqft = useMemo(() => {
-  if (!resolvedSqft || resolvedSqft <= 0) return null;
-  if (!appliedTotal || appliedTotal <= 0) return null;
-  return appliedTotal / resolvedSqft;
-}, [appliedTotal, resolvedSqft]);
+  const appliedTotal = useMemo(() => {
+    if (isNoRepairsNeeded) return 0;
+    if (totalRepairCost > 0) return totalRepairCost;
+    if (quickEstimateApplied != null) {
+      const n = Number(quickEstimateApplied);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  }, [isNoRepairsNeeded, totalRepairCost, quickEstimateApplied]);
 
-const sectionBreakdown = useMemo(() => {
-  const entries = Object.entries(sectionTotals)
-    .map(([key, total]) => ({ key, total }))
-    .filter((row) => Number.isFinite(row.total) && row.total > 0.5)
-    .sort((a, b) => b.total - a.total);
+  const repairsPerSqft = useMemo(() => {
+    if (!resolvedSqft || resolvedSqft <= 0) return null;
+    if (!appliedTotal || appliedTotal <= 0) return null;
+    return appliedTotal / resolvedSqft;
+  }, [appliedTotal, resolvedSqft]);
 
-  return entries;
-}, [sectionTotals]);
+  const sectionBreakdown = useMemo(() => {
+    const entries = Object.entries(sectionTotals)
+      .map(([key, total]) => ({ key, total }))
+      .filter((row) => Number.isFinite(row.total) && row.total > 0.5)
+      .sort((a, b) => b.total - a.total);
+
+    return entries;
+  }, [sectionTotals]);
 
 
   return (
@@ -473,7 +467,7 @@ const sectionBreakdown = useMemo(() => {
     <div className="space-y-6 lg:sticky lg:top-24">
       <GlassCard className="p-4">
         <div className="flex items-center gap-3 lg:flex-col lg:items-start lg:gap-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-white">
+          <label htmlFor={sqftInputId} className="flex items-center gap-2 text-sm font-medium text-white">
             <span>Property Square Footage</span>
             <Tooltip
               content="Square footage is required for Quick Estimate calculator. Please enter it above."
@@ -496,12 +490,12 @@ const sectionBreakdown = useMemo(() => {
               />
             )}
           </label>
-          <input
-            type="number"
-            value={localSqft}
-            onChange={(e) => handleSqftChange(e.target.value)}
+          <NumericInput
+            id={sqftInputId}
+            value={sqftInputValue}
+            onValueChange={handleSqftChange}
             placeholder="Enter sqft"
-            className="w-32 rounded-md border bg-transparent px-2 py-1 text-sm text-white placeholder:text-text-secondary/70 focus:outline-none"
+            className="w-32"
             style={{ borderColor: "var(--accent-color)" }}
           />
         </div>

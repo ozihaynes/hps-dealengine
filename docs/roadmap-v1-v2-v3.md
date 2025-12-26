@@ -355,14 +355,15 @@ Recently shipped (Dec 2025):
 
 Fast-follow items that do not change V1 behavior:
 
-- Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals; run env-gated Playwright specs and consider enabling in CI.
-- Valuation Spine (Address → Comps → ARV → Prefill): document and wire address versioning → valuation_run history, org-scoped property_snapshot caching, and UI hydration from persisted valuations.
-- Repairs UX/ergonomics: fix org alignment for repair profiles/rates, tighten RepairsTab meta and presentation.
-- Overrides/governance: light UI for override request/review, keep governance RLS and trace visibility.
-- AI surfaces: Tri-agent chat with Supabase history is live; `/api/agents` + @hps/agents/HPS MCP groundwork exists. Remaining hardening is tone/copy plus strategist/negotiator stability without changing engine math/policy.
-- Agent Platform vNext: ✅ `/api/agents` tri personas with caller JWT + `agent_runs` logging; ✅ @hps/agents SDK (strategist KB resolver tests, negotiation dataset loader); ✅ HPS MCP server (stdio + Streamable HTTP) with deal/run/evidence/negotiation/KPI/risk/sandbox/KB tools; ⭕ expand Strategist/Negotiator evals/tools and UI retries/backoff.
-- Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
-- Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math (null-backed numeric input foundation in shared components/defaults is done; rollout across all forms still pending).
+- 🟡 Stand up QA Supabase with seeded READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals; run env-gated Playwright specs; CI already includes Playwright steps but they remain env-gated (enable by setting QA env + PLAYWRIGHT_ENABLE).
+- 🟡 Valuation Spine (Address -> Comps -> ARV -> Prefill): document and wire address versioning -> valuation_run history, org-scoped property_snapshot caching, and UI hydration from persisted valuations.
+- ✅ Repairs UX/ergonomics: fix org alignment for repair profiles/rates, tighten RepairsTab meta and presentation.
+- ✅ Overrides/governance: light UI for override request/review, keep governance RLS and trace visibility.
+- 🟡 AI surfaces: Tri-agent chat with Supabase history is live; `/api/agents` + @hps/agents/HPS MCP groundwork exists. Remaining hardening is tone/copy plus strategist/negotiator stability without changing engine math/policy.
+- ✅ Agent resilience: All personas now handle context_length_exceeded with one auto-trim retry + user retry UI.
+- 🟡 Agent Platform vNext: `/api/agents` tri personas with caller JWT + `agent_runs` logging; @hps/agents SDK (strategist KB resolver tests, negotiation dataset loader); HPS MCP server (stdio + Streamable HTTP) with deal/run/evidence/negotiation/KPI/risk/sandbox/KB tools; expand Strategist/Negotiator evals/tools and UI retries/backoff.
+- ✅ Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
+- ✅ Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math; NumericInput rollout across Underwrite/Repairs/DoubleClose complete.
 
 ### Valuation Spine
 
@@ -383,16 +384,18 @@ Fast-follow items that do not change V1 behavior:
   - Slice C ✅ trace UI calibration chip (run output visibility).
   - Slice D ✅ guardrails + parent fallback/blending + freeze switch.
   - Ops: Calibration freeze UI shipped (Valuation QA admin card).
-- 🟡 In progress
-  - Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
-- 🟡 Next
-  1) Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
-  2) Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
-  3) Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions (deal create/valuation refresh/comps/override gating) remain for that slice.
-  4) Offer Package Generation: seller-facing offer artifact tied to run_id + valuation artifact + policy snapshot + timestamp (auditable event).
-  5) Under Contract capture: deal status transition + executed contract price capture, separate from pre-offer workflow.
+- 🟡 Ground-truth/eval harness migrations and admin QA page are in repo; RentCast closed-sales seeder added (caller JWT only). QA rollout/seeded datasets beyond `orlando_smoke_32828_sf_v2` still to be confirmed.
+- ✅ Underwriting integration alignment: engine input uses latest persisted valuation artifacts (ARV/As-Is/market signals) and traces reference valuation artifact IDs; never reintroduce Offer Price as an Underwrite input.
+- ✅ Slice 8A (valuation quality comps-only) - Implemented/evaluated selection_v1_3 (deterministic outliers + diagnostics). Result: regressed on orlando_smoke_32828_sf_v2; keep default selection_v1_1, leave selection_v1_3 policy-gated/opt-in for future datasets.
+- ✅ Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions now include offer package, under contract, and MARKET_PROVENANCE trace.
+- ✅ Offer Package Generation: offer_packages table (RLS/audit) + generate edge function + printable UI page.
+- ✅ Under Contract capture: deal status transition + executed contract price capture (deal_contracts table + edge upsert + UI).
 ## 3 V2 Themes (Planned)
 
+- **OFFER computation research** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- **Deal workflow guide A→Z** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- **Import feature (filled template)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- **CSV upload (bulk-create deals/clients)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
 - **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
 - **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
@@ -412,7 +415,6 @@ Fast-follow items that do not change V1 behavior:
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
-  - Agent Platform vNext: migrate tri-agent behavior off legacy `v1-ai-bridge` into explicit agents backed by @hps/agents, HPS MCP tools, `agent_runs` logging, and Agent Builder workflows, while keeping numeric/policy behavior identical to the existing engine.
 
 ## 4 V3 Themes (Planned)
 

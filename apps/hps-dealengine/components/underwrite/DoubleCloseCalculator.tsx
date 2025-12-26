@@ -106,6 +106,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 />
                 <InputField
                   label="TF Points (e.g., 0.02)"
+                  type="number"
                   value={dc.tf_points_rate || ''}
                   onChange={(e) => setDC('tf_points_rate', e.target.value)}
                 />
@@ -181,7 +182,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
                 <option>Held-days</option>
               </SelectField>
               <InputField
-                label="Days held (A-B → B-C)"
+                label="Days held (A-B to B-C)"
                 type="number"
                 value={dc.days_held || ''}
                 onChange={(e) => setDC('days_held', e.target.value)}

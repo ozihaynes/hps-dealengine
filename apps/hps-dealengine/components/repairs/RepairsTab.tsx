@@ -6,9 +6,10 @@ import type {
   EstimatorItem,
   EstimatorState,
 } from "../../types";
-import { fmt$, num } from "../../utils/helpers";
+import { fmt$ } from "../../utils/helpers";
 import { estimatorSections, Icons } from "../../constants";
 import { GlassCard, Button, Icon, SelectField } from "../ui";
+import NumericInput from "../ui/NumericInput";
 import { InfoTooltip } from "../ui/InfoTooltip";
 import { computeSectionTotals, computeQuickEstimateTotal } from "@/lib/repairsMath";
 
@@ -25,7 +26,7 @@ interface RepairsTabProps {
     field: string,
     value: any
   ) => void;
-  onQuantityChange: (itemKey: string, value: number) => void;
+  onQuantityChange: (itemKey: string, value: number | null) => void;
   onReset: () => void;
   repairRates?: RepairRates;
   marketCode?: string;
@@ -50,9 +51,9 @@ interface EstimatorRowProps {
   itemKey: string;
   item: EstimatorItem;
   value: any;
-  quantity: number;
+  quantity: number | null;
   onValueChange: (itemKey: string, field: string, value: any) => void;
-  onQuantityChange: (itemKey: string, value: number) => void;
+  onQuantityChange: (itemKey: string, value: number | null) => void;
 }
 
 interface EstimatorSectionProps {
@@ -68,7 +69,7 @@ interface EstimatorSectionProps {
     field: string,
     value: any
   ) => void;
-  onQuantityChange: (itemKey: string, value: number) => void;
+  onQuantityChange: (itemKey: string, value: number | null) => void;
 }
 
 // --- Sub-components ---
@@ -174,7 +175,7 @@ const QuickEstimate: React.FC<{
    * ROBUST SQFT RESOLUTION - FIXED VERSION
    * Checks multiple common paths in both calc and deal objects
    */
-  const resolveSqft = () => {
+  const resolveSqft = useCallback(() => {
     const d = deal as any;
     const c = calc as any;
 
@@ -232,7 +233,7 @@ const QuickEstimate: React.FC<{
     }
 
     return 0;
-  };
+  }, [calc, deal]);
 
   const quickEstimateTotal = useMemo(() => {
     const sqft = resolveSqft();
@@ -242,7 +243,7 @@ const QuickEstimate: React.FC<{
       big5Selections: effectiveBig5,
       rates: { psfTiers, big5: big5Rates },
     });
-  }, [effectiveRehabLevel, effectiveBig5, psfTiers, big5Rates, deal, calc]);
+  }, [effectiveRehabLevel, effectiveBig5, psfTiers, big5Rates, resolveSqft]);
 
   const toggle = (k: keyof typeof big5, value: boolean) =>
     setBig5((prev) => ({ ...prev, [k]: value }));
@@ -460,14 +461,14 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
     onValueChange(itemKey, "notes", e.target.value);
   };
 
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextQty = num(e.target.value);
+  const handleQuantityChange = (nextQty: number | null) => {
     onQuantityChange(itemKey, nextQty);
   };
 
-  const handleCostChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const nextCost = Math.max(0, num(e.target.value));
-    onValueChange(itemKey, "cost", nextCost);
+  const handleCostChange = (nextCost: number | null) => {
+    const clamped =
+      nextCost == null ? null : Math.max(0, nextCost);
+    onValueChange(itemKey, "cost", clamped);
   };
 
   return (
@@ -483,6 +484,7 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
               className="input-base w-full"
               value={currentCondition}
               onChange={handleConditionChange}
+              aria-label={`${item.label} condition`}
             >
             {Object.keys(item.options).map((optKey) => (
               <option key={optKey} value={optKey}>
@@ -501,21 +503,22 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
           onChange={handleNotesChange}
           placeholder="Specifics..."
           className="input-base"
+          aria-label={`${item.label} notes`}
         />
       </td>
       <td className="p-2">
         <div className="flex items-center justify-end gap-2">
           {item.isPerUnit ? (
-            <input
-              type="number"
-              min={0}
-              value={quantity ?? 0}
-              onChange={handleQuantityChange}
-              className="w-16 text-right input-base"
+            <NumericInput
+              value={quantity ?? null}
+              onValueChange={handleQuantityChange}
               placeholder="0"
+              min={0}
+              className="w-16"
+              aria-label={`${item.label} quantity`}
             />
           ) : (
-            <span className="muted text-right w-full block pr-2">—</span>
+            <span className="muted text-right w-full block pr-2">-</span>
           )}
           {item.unitName ? (
             <span className="text-xs muted w-14 text-left">
@@ -529,12 +532,12 @@ const EstimatorRow: React.FC<EstimatorRowProps> = ({
           <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-sm text-text-primary/40">
             $
           </span>
-          <input
-            type="number"
-            value={currentCost}
-            onChange={handleCostChange}
-            className="input-base text-right font-semibold text-numeric"
+          <NumericInput
+            value={currentCost ?? null}
+            onValueChange={handleCostChange}
             placeholder={item.isPerUnit ? "Unit $" : "Total $"}
+            className="font-semibold"
+            aria-label={`${item.label} cost`}
           />
         </div>
       </td>
@@ -634,27 +637,6 @@ const RepairsTab: React.FC<RepairsTabProps> = ({
     meta?.profileName ?? repairRates?.profileName ?? activeProfileName;
   const effectiveAsOf = meta?.asOf ?? repairRates?.asOf ?? "unknown";
   const effectiveVersion = meta?.version ?? repairRates?.version;
-  console.log("[RepairsTab] props", {
-    meta,
-    estimatorState,
-    repairRates,
-    marketCode,
-    posture,
-  });
-
-  // Debug: surface which rates are in use for Quick Estimate and Big5 display
-  React.useEffect(() => {
-    if (process.env.NODE_ENV !== "production") {
-      console.debug("[RepairsTab] render rates state", {
-        profileId: repairRates?.profileId ?? null,
-        profileName: repairRates?.profileName ?? null,
-        marketCode: effectiveMarket,
-        posture: effectivePosture,
-        big5: repairRates?.big5 ?? null,
-        usingFallback: !repairRates,
-      });
-    }
-  }, [repairRates, effectivePosture, effectiveMarket]);
 
   const psfTiers = repairRates?.psfTiers ?? {
     none: 0,

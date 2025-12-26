@@ -3,7 +3,8 @@
 export const dynamic = "force-dynamic";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { GlassCard, Icon } from "@/components/ui";
+import { useRouter } from "next/navigation";
+import { Button, GlassCard, Icon, InputField, Modal } from "@/components/ui";
 import OverviewTab from "@/components/overview/OverviewTab";
 import { DealHealthStrip } from "@/components/overview/DealHealthStrip";
 import { GuardrailsCard } from "@/components/overview/GuardrailsCard";
@@ -33,6 +34,12 @@ import {
   formatAddressLine,
 } from "@/lib/deals";
 import { Icons } from "@/constants";
+import { generateOfferPackage } from "@/lib/offerPackages";
+import {
+  fetchDealContractByDealId,
+  upsertDealContract,
+  type DealContractRow,
+} from "@/lib/dealContracts";
 
 /**
  * Layout V1 spec (overview): hero KPIs at top, then a 2x2 grid of cards:
@@ -144,8 +151,9 @@ function getNumberNested(obj: unknown, path: string[]): number | null {
 
 export default function Page() {
   // Shared state coming from DealSession (same session as /underwrite)
-  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture } =
+  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture, lastRunId } =
     useDealSession();
+  const router = useRouter();
 
   // Always normalize the shape so the overview cards + engine get what they expect
   const deal = useMemo(
@@ -274,6 +282,30 @@ export default function Page() {
     wasClientModalOpen.current = isClientProfileOpen;
   }, [isClientProfileOpen]);
 
+  const loadDealContract = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setDealContract(null);
+      setDealContractError(null);
+      return;
+    }
+
+    setDealContractLoading(true);
+    setDealContractError(null);
+    try {
+      const row = await fetchDealContractByDealId(dbDeal.id);
+      setDealContract(row);
+    } catch (err: any) {
+      console.error("[overview] deal contract load failed", err);
+      setDealContractError(err?.message ?? "Failed to load deal contract status.");
+    } finally {
+      setDealContractLoading(false);
+    }
+  }, [dbDeal?.id]);
+
+  useEffect(() => {
+    void loadDealContract();
+  }, [loadDealContract]);
+
   // Canonical outputs from the last analyze (from Edge/runs)
   const calc: any = useMemo(() => {
     const persisted = lastAnalyzeResult as any;
@@ -314,11 +346,107 @@ export default function Page() {
   );
   const workflowReasons = workflowView.reasons ?? [];
 
-  const handleSendOffer = useCallback(() => {
-    console.warn(
-      "[overview] Send Offer action is not wired yet. Reuse the canonical Send Offer flow here when it becomes available.",
-    );
-  }, []);
+  const [dealContract, setDealContract] = useState<DealContractRow | null>(null);
+  const [dealContractError, setDealContractError] = useState<string | null>(null);
+  const [dealContractLoading, setDealContractLoading] = useState(false);
+  const [contractModalOpen, setContractModalOpen] = useState(false);
+  const [contractPriceInput, setContractPriceInput] = useState<string>("");
+  const [contractDateInput, setContractDateInput] = useState<string>("");
+  const [contractNotesInput, setContractNotesInput] = useState<string>("");
+  const [contractSaving, setContractSaving] = useState(false);
+  const [contractSubmitError, setContractSubmitError] = useState<string | null>(null);
+  const [contractSubmitSuccess, setContractSubmitSuccess] = useState<string | null>(null);
+
+  const [offerGenerating, setOfferGenerating] = useState(false);
+
+  const openContractModal = useCallback(() => {
+    setContractSubmitError(null);
+    setContractSubmitSuccess(null);
+    if (dealContract) {
+      const priceValue = dealContract.executed_contract_price;
+      setContractPriceInput(priceValue != null ? String(priceValue) : "");
+      setContractDateInput(dealContract.executed_contract_date ?? "");
+      setContractNotesInput(dealContract.notes ?? "");
+    } else {
+      setContractPriceInput("");
+      setContractDateInput("");
+      setContractNotesInput("");
+    }
+    setContractModalOpen(true);
+  }, [dealContract]);
+
+  const handleSendOffer = useCallback(async () => {
+    if (!dbDeal?.id || !lastRunId) {
+      window.alert("Save a run first");
+      return;
+    }
+
+    if (offerGenerating) return;
+
+    try {
+      setOfferGenerating(true);
+      const { offerPackageId } = await generateOfferPackage({
+        dealId: dbDeal.id,
+        runId: lastRunId,
+      });
+      router.push(`/offer-packages/${offerPackageId}?dealId=${dbDeal.id}`);
+    } catch (err: any) {
+      console.error("[overview] offer package generate failed", err);
+      window.alert(err?.message ?? "Unable to generate offer package.");
+    } finally {
+      setOfferGenerating(false);
+    }
+  }, [dbDeal?.id, lastRunId, offerGenerating, router]);
+
+  const handleSaveContract = useCallback(async () => {
+    if (!dbDeal?.id) {
+      setContractSubmitError("Deal is not loaded yet.");
+      return;
+    }
+
+    if (contractSaving) return;
+
+    const trimmedPrice =
+      contractPriceInput == null || String(contractPriceInput).trim().length === 0
+        ? null
+        : contractPriceInput;
+    const priceValue = trimmedPrice == null ? null : toFiniteNumber(trimmedPrice);
+
+    if (priceValue == null) {
+      setContractSubmitError("Executed contract price is required.");
+      return;
+    }
+
+    setContractSubmitError(null);
+    setContractSubmitSuccess(null);
+    setContractSaving(true);
+
+    try {
+      await upsertDealContract({
+        dealId: dbDeal.id,
+        status: "under_contract",
+        executedContractPrice: priceValue,
+        executedContractDate:
+          contractDateInput.trim().length > 0 ? contractDateInput.trim() : null,
+        notes: contractNotesInput.trim().length > 0 ? contractNotesInput.trim() : null,
+      });
+      await loadDealContract();
+      setContractSubmitSuccess("Deal marked under contract.");
+      setContractModalOpen(false);
+    } catch (err: any) {
+      console.error("[overview] deal contract upsert failed", err);
+      setContractSubmitError(err?.message ?? "Failed to save contract status.");
+    } finally {
+      setContractSaving(false);
+    }
+  }, [
+    dbDeal?.id,
+    contractSaving,
+    contractPriceInput,
+    contractDateInput,
+    contractNotesInput,
+    loadDealContract,
+  ]);
 
   const timelineView = useMemo(
     () => buildTimelineView((lastAnalyzeResult as any)?.outputs ?? null, calc),
@@ -348,6 +476,33 @@ export default function Page() {
     Number((deal as any).debt?.senior_principal ?? 0) > 0;
 
   const canAnalyze = hasUserInput || !!lastAnalyzeResult;
+  const contractStatus = dealContract?.status ?? null;
+  const contractStatusLabel =
+    contractStatus === "under_contract"
+      ? "Under Contract"
+      : contractStatus === "closed"
+      ? "Closed"
+      : contractStatus === "cancelled"
+      ? "Cancelled"
+      : "Not Under Contract";
+  const contractBadgeLabel =
+    contractStatusLabel === "Not Under Contract" ? "Open" : contractStatusLabel;
+  const contractPriceValue =
+    dealContract?.executed_contract_price ?? null;
+  const contractPriceNumber =
+    contractPriceValue == null || String(contractPriceValue).trim().length === 0
+      ? null
+      : Number(contractPriceValue);
+  const contractDateLabel =
+    dealContract?.executed_contract_date ?? null;
+  const contractBadgeClass =
+    contractStatus === "under_contract"
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+      : contractStatus === "closed"
+      ? "border-blue-400/30 bg-blue-400/10 text-blue-200"
+      : contractStatus === "cancelled"
+      ? "border-red-400/30 bg-red-400/10 text-red-200"
+      : "border-white/15 bg-white/5 text-text-secondary";
 const repairsTotal = useMemo(() => {
   const candidates: Array<number | null> = [
     getNumberNested(deal, ["repairs", "total"]),
@@ -441,6 +596,58 @@ const evidenceCounts = useMemo(() => {
           workflowReasons={workflowReasons}
           onSendOffer={handleSendOffer}
         />
+
+        <Modal
+          isOpen={contractModalOpen}
+          onClose={() => setContractModalOpen(false)}
+          title="Mark Under Contract"
+          size="md"
+        >
+          <div className="space-y-4">
+            <InputField
+              label="Executed contract price"
+              type="number"
+              prefix="$"
+              value={contractPriceInput}
+              dataTestId="contract-executed-price"
+              onChange={(e) => {
+                const next = (e.target as HTMLInputElement).value as string | null;
+                setContractPriceInput(next ?? "");
+              }}
+              placeholder=""
+            />
+            <InputField
+              label="Executed contract date"
+              type="date"
+              value={contractDateInput}
+              onChange={(e) => setContractDateInput(e.target.value)}
+            />
+            <InputField
+              label="Notes"
+              value={contractNotesInput}
+              onChange={(e) => setContractNotesInput(e.target.value)}
+            />
+            {contractSubmitError && (
+              <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+                {contractSubmitError}
+              </div>
+            )}
+            <div className="flex items-center justify-end gap-2">
+              <Button size="sm" variant="neutral" onClick={() => setContractModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={contractSaving}
+                dataTestId="contract-submit"
+                onClick={handleSaveContract}
+              >
+                {contractSaving ? "Saving..." : "Mark Under Contract"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
 
         <TopDealKpis
           arv={deal.market?.arv ?? null}
@@ -538,8 +745,80 @@ const evidenceCounts = useMemo(() => {
           </div>
           
 <div className="lg:col-span-4">
-  <div className="space-y-6 lg:sticky lg:top-24">
+    <div className="space-y-6 lg:sticky lg:top-24">
     <KnobFamilySummary runOutput={lastAnalyzeResult ?? null} />
+
+    <GlassCard className="p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase text-text-secondary">Deal status</div>
+          <div className="mt-1 text-sm font-semibold text-text-primary">
+            {contractStatusLabel}
+          </div>
+        </div>
+        <span
+          className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${contractBadgeClass}`}
+        >
+          {contractBadgeLabel}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+          <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+            Executed price
+          </div>
+          <div className="mt-0.5 text-sm font-semibold text-text-primary">
+            {contractPriceNumber != null && Number.isFinite(contractPriceNumber)
+              ? fmtUsd0(contractPriceNumber)
+              : "—"}
+          </div>
+        </div>
+        <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+          <div className="text-[11px] uppercase tracking-wide text-text-secondary">
+            Executed date
+          </div>
+          <div className="mt-0.5 text-sm font-semibold text-text-primary">
+            {contractDateLabel ?? "—"}
+          </div>
+        </div>
+      </div>
+
+      {dealContract?.notes ? (
+        <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-text-secondary">
+          {dealContract.notes}
+        </div>
+      ) : null}
+
+      {dealContractLoading ? (
+        <div className="mt-3 text-xs text-text-secondary">
+          Loading contract status...
+        </div>
+      ) : null}
+
+      {dealContractError ? (
+        <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
+          {dealContractError}
+        </div>
+      ) : null}
+
+      {contractSubmitSuccess ? (
+        <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-200">
+          {contractSubmitSuccess}
+        </div>
+      ) : null}
+
+      <div className="mt-3 flex items-center justify-end">
+        <Button
+          size="sm"
+          variant="primary"
+          dataTestId="cta-mark-under-contract"
+          onClick={openContractModal}
+        >
+          {contractStatus === "under_contract" ? "Update Contract" : "Mark Under Contract"}
+        </Button>
+      </div>
+    </GlassCard>
 
     {/* Desktop-only: fill dead space with high-signal, actionable cards */}
     <div className="hidden lg:block space-y-6">

@@ -1,8 +1,14 @@
-import type { NegotiatorAgentInput, NegotiatorAgentResult } from "./types";
+import type { NegotiatorAgentInput, NegotiatorAgentResult, NegotiationPlanRow } from "./types";
 import { resolveNegotiationPlan } from "./shared";
+import { classifyOpenAiError } from "../shared/openaiErrors";
+import { truncateString } from "../shared/contextSlimming";
 
 const DEFAULT_MODEL = process.env.HPS_NEGOTIATOR_MODEL ?? "gpt-4.1";
 const NEGOTIATOR_MAX_OUTPUT_TOKENS = 1200;
+const NEGOTIATOR_THIN_SCRIPT_MAX = 4000;
+const NEGOTIATOR_THIN_NOTES_MAX = 1200;
+const NEGOTIATOR_THIN_SELLER_CONTEXT_MAX = 800;
+const NEGOTIATOR_THIN_QUESTION_MAX = 800;
 
 function getOpenAIKey() {
   const key = process.env.OPENAI_API_KEY?.trim() ?? "";
@@ -25,7 +31,7 @@ function safeStringify(value: unknown): string {
   }
 }
 
-function buildNegotiatorContext(params: {
+function buildNegotiatorContextFull(params: {
   deal: unknown;
   run: unknown;
   negotiationPlan: unknown;
@@ -53,6 +59,67 @@ function buildNegotiatorContext(params: {
     deal: dealSummary,
     run: runSummary,
     negotiationPlan: params.negotiationPlan,
+  };
+}
+
+function pickNegotiatorOutputs(runOutput: any) {
+  const outputs = runOutput?.outputs ?? runOutput ?? {};
+  return {
+    arv: outputs?.arv ?? null,
+    aiv: outputs?.aiv ?? null,
+    primary_offer:
+      outputs?.primary_offer ??
+      outputs?.mao_wholesale ??
+      outputs?.mao_cap_wholesale ??
+      outputs?.mao_flip ??
+      outputs?.mao_wholetail ??
+      null,
+    spread: outputs?.spread_cash ?? outputs?.spread_wholesale ?? outputs?.spread ?? null,
+    repairs_total: outputs?.total_repairs ?? outputs?.repairs_total ?? outputs?.rehab_total ?? null,
+    payoff: outputs?.payoff ?? null,
+  };
+}
+
+function buildNegotiatorContextThin(params: {
+  deal: unknown;
+  run: unknown;
+  negotiationPlan: NegotiationPlanRow | null;
+}) {
+  const runRow = params.run as any;
+  const runSummary = runRow
+    ? {
+        id: runRow.id ?? null,
+        created_at: runRow.created_at ?? null,
+        outputs: pickNegotiatorOutputs(runRow.output),
+      }
+    : null;
+
+  const dealRow = params.deal as any;
+  const dealSummary = dealRow
+    ? {
+        id: dealRow.id ?? null,
+        org_id: dealRow.org_id ?? null,
+        updated_at: dealRow.updated_at ?? null,
+      }
+    : null;
+
+  const plan = params.negotiationPlan
+    ? {
+        id: params.negotiationPlan.id,
+        module: params.negotiationPlan.module,
+        scenarioLabel: params.negotiationPlan.scenarioLabel,
+        dealFacts: params.negotiationPlan.dealFacts,
+        triggerPhrase: params.negotiationPlan.triggerPhrase ?? null,
+        scriptBody: truncateString(params.negotiationPlan.scriptBody ?? "", NEGOTIATOR_THIN_SCRIPT_MAX),
+        notesForAi: truncateString(params.negotiationPlan.notesForAi ?? "", NEGOTIATOR_THIN_NOTES_MAX),
+        followupQuestion: params.negotiationPlan.followupQuestion ?? null,
+      }
+    : null;
+
+  return {
+    deal: dealSummary,
+    run: runSummary,
+    negotiationPlan: plan,
   };
 }
 
@@ -187,13 +254,52 @@ export async function runNegotiatorAgent(input: NegotiatorAgentInput): Promise<N
     .filter(Boolean)
     .join("\n\n");
 
-  const contextPayload = buildNegotiatorContext({ deal, run: runRow, negotiationPlan });
-  const response = await callNegotiatorLLMWithRetry({
-    model,
-    input: buildNegotiatorInput({ systemPrompt, userPrompt, context: contextPayload }),
-    apiKey,
-    maxAttempts: 3,
+  const fullContextPayload = buildNegotiatorContextFull({ deal, run: runRow, negotiationPlan });
+  const thinContextPayload = buildNegotiatorContextThin({
+    deal,
+    run: runRow,
+    negotiationPlan: negotiationPlan ?? null,
   });
+  const thinUserPrompt = [
+    input.question
+      ? `User question: ${truncateString(input.question, NEGOTIATOR_THIN_QUESTION_MAX)}`
+      : "Provide the next best negotiation move.",
+    input.sellerContext
+      ? `Seller context: ${truncateString(input.sellerContext, NEGOTIATOR_THIN_SELLER_CONTEXT_MAX)}`
+      : "",
+    "Use the negotiationPlan.module and scenarioLabel as your template; keep the scriptBody intact and tailored.",
+    "Context JSON follows.",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  let didAutoTrimRetry = false;
+  let response: any;
+  try {
+    response = await callNegotiatorLLMWithRetry({
+      model,
+      input: buildNegotiatorInput({ systemPrompt, userPrompt, context: fullContextPayload }),
+      apiKey,
+      maxAttempts: 3,
+    });
+  } catch (err: any) {
+    const classified = classifyOpenAiError(err);
+    if (classified.error_code !== "context_length_exceeded") {
+      throw err;
+    }
+    didAutoTrimRetry = true;
+    try {
+      response = await callNegotiatorLLMWithRetry({
+        model,
+        input: buildNegotiatorInput({ systemPrompt, userPrompt: thinUserPrompt, context: thinContextPayload }),
+        apiKey,
+        maxAttempts: 3,
+      });
+    } catch (retryErr: any) {
+      (retryErr as any).didAutoTrimRetry = true;
+      throw retryErr;
+    }
+  }
   const latencyMs = Date.now() - start;
 
   const finalOutput = extractResponseText(response);
@@ -213,12 +319,13 @@ export async function runNegotiatorAgent(input: NegotiatorAgentInput): Promise<N
   return {
     answer,
     context: {
-      deal: contextPayload.deal,
-      run: contextPayload.run,
+      deal: fullContextPayload.deal,
+      run: fullContextPayload.run,
       negotiationPlan,
     },
     model,
     totalTokens,
     latencyMs,
+    didAutoTrimRetry,
   };
 }

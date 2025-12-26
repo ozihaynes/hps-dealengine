@@ -917,10 +917,10 @@ const BusinessLogicSandbox: React.FC<BusinessLogicSandboxProps> = ({
           <div className="border-t border-white/5 bg-white/5 px-5 py-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-text-primary">UX &amp; Presentation</h3>
-              <span className="text-[11px] text-text-secondary">UX-only knobs (display, not math)</span>
+              <span className="text-[11px] text-text-secondary">UX-only knobs (display-only, no underwriting math impact)</span>
             </div>
             <p className="text-sm text-text-secondary">
-              These knobs change how offers and buyer costs are presented. They do not alter core math.
+              These knobs change how offers and buyer costs are presented. They do not alter underwriting math.
             </p>
             <div className="mt-3 grid gap-3 md:grid-cols-3">
               <div className="rounded-lg border border-white/5 bg-surface-elevated/60 p-3">

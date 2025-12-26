@@ -46,7 +46,7 @@ When something significant ships, changes direction, or gets blocked, add a date
   - Trace renders EVIDENCE_FRESHNESS_POLICY, RISK_GATES_POLICY, CONFIDENCE_POLICY, WORKFLOW_STATE_POLICY with thresholds, placeholders, rubric text, and gate enablement.
 
 - **Repairs**
-  - `repair_rate_sets` + `v1-repair-rates` + RepairsTab wired to live ORL defaults with RLS. Profiles served via `v1-repair-profiles`; repairs math uses live rates. (Org alignment bug noted earlier, tracked as v1.1 hardening.)
+  - `repair_rate_sets` + `v1-repair-rates` + RepairsTab wired to live ORL defaults with RLS. Profiles served via `v1-repair-profiles`; repairs math uses live rates. (Org alignment fixed via dealId-based org resolution in v1-repair-rates/v1-repair-profiles.)
 
 - **QA / E2E harness**
   - `docs/QA_ENV_V1.md` defines QA Supabase setup, required env vars (QA user + READY/TIMELINE/STALE_EVIDENCE/HARD_GATE deals), and how to run specs.
@@ -71,14 +71,10 @@ V1 is complete. Near-term is v1.1 hardening; v2+ stays backlog:
    - Run env-gated Playwright specs against QA; optionally enable in CI.
    - ✅ Completed 2025-12-22: qa-preflight gate + centralized Playwright login helper + refreshed pixel baselines + CI clean-runner fixes (pnpm bootstrap + build contracts before typecheck).
 
-2) **Repairs/UX polish**
-   - Fix org alignment for repair profiles/rates sync; tidy RepairsTab meta and presentation.
-   - Consume UX-only knobs where safe (rounding, buyer-cost presentation) without changing math.
-
-3) **Overrides/governance hardening**
+2) **Overrides/governance hardening**
    - Light UI for override request/review and trace visibility; keep governance RLS intact.
 
-4) **Minor ergonomics**
+3) **Minor ergonomics**
    - Tidy Sandbox/Startup/Deals copy and hints; keep Dashboard KPIs stable.
 
 Everything else (connectors, portfolio/analytics, deeper economics, UX-only presentation richness, SRE v2/v3) is explicitly v2+.
@@ -86,6 +82,55 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ---
 
 ## 1. Dated Entries
+
+### 2025-12-24 - Slice: Agent resilience - context-length handling across Analyst/Strategist/Negotiator
+
+- Added shared OpenAI error classifier + deterministic context thinning with one auto-trim retry across Analyst/Strategist/Negotiator.
+- UI now surfaces error_code-derived messages with Retry buttons; aiBridge propagates error_code/retryable for persona panels and playbook generation.
+- agent_runs logging records error_code + did_auto_trim_retry in error/input metadata.
+- Tests: `packages/agents/tests/openaiErrors.test.ts`, `packages/agents/tests/agentRetry.test.ts`, `apps/hps-dealengine/tests/aiBridgeErrorHandling.test.ts`.
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green.
+
+### 2025-12-24 - Slice: Minor ergonomics - NumericInput rollout + UX-only knob presentation
+
+- Rolled NumericInput across Underwrite/Repairs/DoubleClose user-editable numeric fields with null-backed semantics preserved.
+- Labeled UX-only knobs in Business Logic Sandbox; autosave persistence now flushes pending edits after hydration.
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`, `pnpm -w test:e2e` all green.
+
+### 2025-12-24 - Slice: Valuation-specific E2E rails - offer package + under contract + market provenance trace
+
+- Added QA-gated Playwright rails (`tests/e2e/pre-v2-offer-and-contract.spec.ts`) covering offer package generation, under contract capture, and MARKET_PROVENANCE trace.
+- Added deterministic test hooks (data-testid) for Send Offer/Under Contract and offer package/contract displays.
+- Updated QA preflight + QA env doc to validate new Edge functions and note READY run requirement (`scripts/qa-preflight.ps1`, `docs/QA_ENV_V1.md`).
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green; Playwright remains env-gated and skips cleanly when QA vars are absent.
+
+### 2025-12-24 - Slice: Under Contract capture - deal_contracts (RLS/audit) + upsert endpoint + UI
+
+- Added deal_contracts migration with RLS/audit/constraints (`supabase/migrations/20260109161500_deal_contracts.sql`).
+- Added v1-deal-contract-upsert edge function + shared contracts (`supabase/functions/v1-deal-contract-upsert/index.ts`, `supabase/functions/_shared/contracts.ts`, `packages/contracts/src/dealContracts.ts`, `packages/contracts/src/index.ts`).
+- Added UI capture + read-only display (`apps/hps-dealengine/app/(app)/overview/page.tsx`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/components/underwrite/UnderwriteTab.tsx`, `apps/hps-dealengine/lib/dealContracts.ts`).
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green.
+
+### 2025-12-24 - Slice: Offer Package Generation - offer_packages (RLS/audit) + generate endpoint + printable page
+
+- Added offer_packages migration with RLS/audit/immutability and unique per run/template (`supabase/migrations/20260108123000_offer_packages.sql`).
+- Added v1-offer-package-generate edge function with deterministic payload hashing (`supabase/functions/v1-offer-package-generate/index.ts`).
+- Added Offer Package page + generate wiring from Overview (`apps/hps-dealengine/app/(app)/offer-packages/[id]/page.tsx`, `apps/hps-dealengine/app/(app)/overview/page.tsx`, `apps/hps-dealengine/lib/offerPackages.ts`).
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green.
+
+### 2025-12-24 - Slice: Underwriting integration alignment — valuation artifact IDs in AnalyzeInput + trace
+
+- Added valuation provenance fields to AnalyzeInput and analyze payload construction (`packages/contracts/src/analyze.ts`, `apps/hps-dealengine/lib/sandboxPolicy.ts`).
+- v1-analyze now emits a deterministic MARKET_PROVENANCE trace frame referencing persisted valuation IDs/sources (`supabase/functions/v1-analyze/index.ts`).
+- Gates: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` all green.
+
+### 2025-12-24 - Pre-V2 audit + closeout plan
+
+- Completed pre-V2 audit against repo using rg -n evidence for remaining items (datasets, underwriting alignment, valuation E2E rails, offer package, under contract capture, negotiator resilience, numeric input rollout, Playwright enablement, v1-ping verify_jwt).
+- Updated docs/roadmap-v1-v2-v3.md with ✅/🟡/🔴 status markers and added V2 research-required blocks (offer computation, workflow guide, import template, CSV upload).
+- Added docs/pre-v2-closeout-plan.md with evidence-based status breakdown, blockers, and ordered vertical slices with acceptance criteria.
+- Updated docs/devlog-hps-dealengine.md to reflect repairs org-alignment completion and adjusted near-term focus.
+- Blockers: no non-Orlando dataset file under scripts/valuation/datasets; analyze inputs/traces still lack valuation artifact IDs; valuation-specific Playwright assertions absent; offer package + under contract capture missing; v1-ping verify_jwt remains false; QA env values not verified beyond .env.qa presence.
 
 ### 2025-12-23 - Continuous calibration flywheel scaffolding (manual trigger, off by default)
 
@@ -890,7 +935,9 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
   - Refactoring AuthGate.tsx to remove useSearchParams and use window.location.href for redirectTo.
 - Re-ran `pnpm -w typecheck` and `pnpm -w build` - both are green.
 
-### 2025-12-02 - Repairs org alignment & sandbox reset ((pending))
+### 2025-12-02 - Repairs org alignment & sandbox reset (later resolved)
+
+- Status: resolved later in the 2025-12-02 repairs stack entries below (deal-first org resolution + QA org ORL/base E2E).
 
 - v1 stays field-ready per earlier entries; this pass focused on Repairs alignment and the sandbox reset.
 - Repairs DB migrations: applied the normalization/reset chain (`20251206120000`, `20251206121500`, `20251206220000`, `20251206230000`, `20251206231000`, `20251207`, `20251208104500`) to move ORL/base profiles into the canonical deals org (`ed6ae332-2d15-44be-a8fb-36005522ad60`), clear legacy org rows, and enforce a single active+default ORL/base profile per org/market/posture (seeded canonical profile).

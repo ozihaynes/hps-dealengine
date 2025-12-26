@@ -117,6 +117,7 @@ export function ClientProfileModal({
             size="sm"
             variant="primary"
             disabled={!readyForOffer}
+            dataTestId="cta-send-offer"
             onClick={() => {
               if (!readyForOffer) return;
               onSendOffer?.();

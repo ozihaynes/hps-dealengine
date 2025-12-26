@@ -12,6 +12,12 @@ type DealNegotiatorPanelProps = {
   inline?: boolean;
 };
 
+type PanelError = {
+  message: string;
+  retryable: boolean;
+  errorCode?: string | null;
+};
+
 export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
   const { dbDeal, lastRunId, negotiationPlaybook } = useDealSession();
   const { state, dispatch } = useAiWindows();
@@ -23,9 +29,11 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
 
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PanelError | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const lastMessageRef = useRef<string | null>(null);
+  const sendInFlightRef = useRef(false);
   const negotiatorWelcomes = useMemo(
     () => ["Let's get this signed!", "Need a killer counter?", "Objection? I've got you!"],
     [],
@@ -66,22 +74,30 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
     return id;
   }, [dbDeal?.id, dbDeal?.org_id, dispatch, lastRunId, w.activeSessionId]);
 
-  const handleSend = React.useCallback(async () => {
-    if (!dbDeal?.id || !lastRunId || !input.trim()) {
-      setError("Run Analyze first so the Negotiator can ground in the latest run.");
+  const handleSend = React.useCallback(async (overrideMessage?: string, opts?: { isRetry?: boolean }) => {
+    const text = (overrideMessage ?? input).trim();
+    if (!dbDeal?.id || !lastRunId || !text) {
+      setError({
+        message: "Run Analyze first so the Negotiator can ground in the latest run.",
+        retryable: false,
+      });
       return;
     }
     if (!canUseNegotiator) {
-      setError("Generate the playbook to chat with the Negotiator.");
+      setError({
+        message: "Generate the playbook to chat with the Negotiator.",
+        retryable: false,
+      });
       return;
     }
-    if (isSending) return;
+    if (isSending || sendInFlightRef.current) return;
 
     const sessionId = ensureSession();
-    const text = input.trim();
-    setInput("");
+    if (!opts?.isRetry) setInput("");
     setIsSending(true);
     setError(null);
+    sendInFlightRef.current = true;
+    lastMessageRef.current = text;
 
     const userMessage: AiChatMessage = {
       id: crypto.randomUUID(),
@@ -89,7 +105,9 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
       content: text,
       createdAt: new Date().toISOString(),
     };
-    dispatch({ type: "APPEND_MESSAGE", id: "dealNegotiator", message: userMessage });
+    if (!opts?.isRetry) {
+      dispatch({ type: "APPEND_MESSAGE", id: "dealNegotiator", message: userMessage });
+    }
 
     try {
       const response = await askDealNegotiatorChat({
@@ -111,7 +129,11 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
           createdAt: new Date().toISOString(),
         };
         dispatch({ type: "APPEND_MESSAGE", id: "dealNegotiator", message: fallback });
-        setError(response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.");
+        setError({
+          message: response.messages?.[0]?.content ?? "The Negotiator is unavailable. Please try again.",
+          retryable: Boolean((response as any)?.retryable),
+          errorCode: (response as any)?.error_code ?? null,
+        });
         setIsSending(false);
         return;
       }
@@ -130,9 +152,10 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
         },
       });
     } catch (err: any) {
-      setError(err?.message ?? "The Negotiator is unavailable. Please try again.");
+      setError({ message: "Unexpected error. Try again.", retryable: true });
     } finally {
       setIsSending(false);
+      sendInFlightRef.current = false;
     }
   }, [dbDeal?.id, lastRunId, input, canUseNegotiator, isSending, ensureSession, dispatch, threadId]);
 
@@ -140,7 +163,19 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
     <div className={inline ? "flex h-full min-h-0 flex-col p-3 md:p-4" : "flex h-full min-h-0 flex-col p-3"}>
       {error && (
         <div className="mt-2 rounded-md border border-brand-red-subtle bg-brand-red-subtle/20 px-3 py-2 text-xs text-brand-red-light">
-          {error}
+          <div>{error.message}</div>
+          {error.retryable && lastMessageRef.current && (
+            <div className="mt-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleSend(lastMessageRef.current ?? "", { isRetry: true })}
+                disabled={isSending}
+              >
+                Retry
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -199,7 +234,7 @@ export function DealNegotiatorPanel({ inline }: DealNegotiatorPanelProps) {
           />
           <button
             type="button"
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={sendDisabled}
             className={`absolute bottom-3 right-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ai-window-divider)] bg-[color:var(--ai-window-surface-2)] text-text-primary shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-[color:var(--ai-window-border-strong)] hover:bg-[color:var(--ai-window-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ai-window-focus-ring)] ${
               sendDisabled ? "opacity-50 cursor-not-allowed" : ""
