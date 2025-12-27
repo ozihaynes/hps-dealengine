@@ -943,6 +943,7 @@ function computeBuyerCeiling(params: {
   policy: UnderwritingPolicy;
   repairs: number | null;
   carryMonths: number | null;
+  moiZip: number | null;
   infoNeeded: InfoNeeded[];
   track?: 'wholesale' | 'flip' | 'wholetail';
   speedBand?: SpeedBand;
@@ -951,17 +952,159 @@ function computeBuyerCeiling(params: {
   holdCostPerMonth: number;
   carryCostTotal: number;
   holdCostTrace: Record<string, unknown>;
+  marginPctUsed: number | null;
+  marginTrace: Record<string, unknown>;
+  buyerCostsTotal: number;
 } {
-  const { arv, policy, repairs, carryMonths, infoNeeded, track = 'wholesale', speedBand } = params;
+  const { arv, policy, repairs, carryMonths, moiZip, infoNeeded, track = 'wholesale', speedBand } = params;
+
+  // Phase 1 Law (SoT): Buyer Ceiling uses MOI-tiered dynamic target margins.
+  // Conservative selection rule: choose the HIGH end of each MOI tier range.
+  // MOI tiers:
+  // - Hot (MOI <= 2.0): 14-16% -> use 16%
+  // - Balanced (MOI <= 4.0): 16-18% -> use 18%
+  // - Cool (MOI > 4.0): 18-20% -> use 20%
+  //
+  // Policy scalar fallback is allowed ONLY when MOI is missing.
+  const normalizePct = (n: number | null | undefined): number | null => {
+    if (n == null) return null;
+    if (!Number.isFinite(n)) return null;
+    if (n <= 0) return null;
+    // tolerate percent points (e.g., 18 => 18%)
+    if (n > 1) return n / 100;
+    if (n >= 1) return null;
+    return n;
+  };
+
+  const tiers: Array<{
+    tier: 'hot' | 'balanced' | 'cool';
+    moi_max_inclusive: number | null;
+    min_pct: number;
+    max_pct: number;
+  }> = [
+    { tier: 'hot', moi_max_inclusive: 2.0, min_pct: 0.14, max_pct: 0.16 },
+    { tier: 'balanced', moi_max_inclusive: 4.0, min_pct: 0.16, max_pct: 0.18 },
+    { tier: 'cool', moi_max_inclusive: null, min_pct: 0.18, max_pct: 0.20 },
+  ];
+
+  const scalarFallbackPct = normalizePct(policy.buyer_target_margin_wholesale_pct);
+
+  let marginPctUsed: number | null = null;
+  let marginTrace: Record<string, unknown> = {
+    moi_zip: moiZip ?? null,
+    selection_method: null,
+    selected_tier: null,
+    selected_range_min: null,
+    selected_range_max: null,
+    selected_margin_pct: null,
+    policy_scalar_fallback_pct: scalarFallbackPct,
+    tier_definitions: tiers,
+  };
+
+  if (moiZip != null && Number.isFinite(moiZip)) {
+    const tier =
+      tiers.find((t) => t.moi_max_inclusive != null && moiZip <= t.moi_max_inclusive) ??
+      tiers[tiers.length - 1];
+
+    // Conservative selection: high end of tier range.
+    marginPctUsed = tier.max_pct;
+    marginTrace = {
+      ...marginTrace,
+      selection_method: 'moi_tier_conservative_high_end',
+      selected_tier: tier.tier,
+      selected_range_min: tier.min_pct,
+      selected_range_max: tier.max_pct,
+      selected_margin_pct: marginPctUsed,
+    };
+  } else if (scalarFallbackPct != null) {
+    marginPctUsed = scalarFallbackPct;
+    marginTrace = {
+      ...marginTrace,
+      selection_method: 'policy_scalar_fallback_no_moi',
+      selected_margin_pct: marginPctUsed,
+    };
+    infoNeeded.push({
+      path: 'deal.market.moi_zip',
+      token: null,
+      reason: 'MOI missing; using policy scalar wholesale margin fallback (non-tiered).',
+      source_of_truth: 'investor_set',
+    });
+  } else {
+    infoNeeded.push({
+      path: 'deal.market.moi_zip',
+      token: null,
+      reason: 'MOI required to compute Buyer Ceiling (Max_Buyer) under MOI-tiered margin rules.',
+      source_of_truth: 'investor_set',
+    });
+    infoNeeded.push({
+      path: 'policy.floorsSpreads.wholesale_target_margin_pct',
+      token: null,
+      reason: 'Missing policy scalar wholesale target margin fallback.',
+      source_of_truth: 'team_policy_set',
+    });
+    return {
+      buyerCeiling: null,
+      holdCostPerMonth: 0,
+      carryCostTotal: 0,
+      holdCostTrace: {},
+      marginPctUsed: null,
+      marginTrace,
+      buyerCostsTotal: 0,
+    };
+  }
+
+  if (marginPctUsed == null || marginPctUsed <= 0 || marginPctUsed >= 1) {
+    infoNeeded.push({
+      path: 'policy.floorsSpreads.wholesale_target_margin_pct',
+      token: null,
+      reason: 'Invalid buyer target margin selected; must be > 0% and < 100%.',
+      source_of_truth: 'team_policy_set',
+    });
+    return {
+      buyerCeiling: null,
+      holdCostPerMonth: 0,
+      carryCostTotal: 0,
+      holdCostTrace: {},
+      marginPctUsed: null,
+      marginTrace,
+      buyerCostsTotal: 0,
+    };
+  }
 
   if (arv == null) {
     infoNeeded.push({
       path: 'deal.market.arv',
       token: null,
-      reason: 'ARV required to compute Buyer Ceiling.',
+      reason: 'ARV required to compute Buyer Ceiling (Max_Buyer).',
       source_of_truth: 'investor_set',
     });
-    return { buyerCeiling: null, holdCostPerMonth: 0, carryCostTotal: 0, holdCostTrace: {} };
+    return {
+      buyerCeiling: null,
+      holdCostPerMonth: 0,
+      carryCostTotal: 0,
+      holdCostTrace: {},
+      marginPctUsed,
+      marginTrace,
+      buyerCostsTotal: 0,
+    };
+  }
+
+  if (repairs == null) {
+    infoNeeded.push({
+      path: 'deal.repairs.total',
+      token: null,
+      reason: 'Repairs required to compute Buyer Ceiling (Max_Buyer).',
+      source_of_truth: 'investor_set',
+    });
+    return {
+      buyerCeiling: null,
+      holdCostPerMonth: 0,
+      carryCostTotal: 0,
+      holdCostTrace: {},
+      marginPctUsed,
+      marginTrace,
+      buyerCostsTotal: 0,
+    };
   }
 
   const repairsTotal = repairs ?? 0; // TODO(policy): wire to deterministic repairs total input.
@@ -1000,31 +1143,37 @@ function computeBuyerCeiling(params: {
   const carryCostTotal =
     carryMonths != null && holdCostPerMonth != null ? round2(carryMonths * holdCostPerMonth) : 0;
 
-  const base = arv * (1 - policy.buyer_target_margin_wholesale_pct);
-  const ceiling = base - repairsTotal - buyerCostsTotal - carryCostTotal;
+  const holdCostTrace = {
+    track,
+    speed_band: normalizedSpeed,
+    pct_of_arv: pct ?? null,
+    default_bills: {
+      tax: bills?.tax ?? 0,
+      insurance: bills?.insurance ?? 0,
+      hoa: bills?.hoa ?? 0,
+      utilities: bills?.utilities ?? 0,
+    },
+    default_bills_sum: defaultBillsSum,
+    hold_cost_per_month: holdCostPerMonth,
+    carry_months: carryMonths,
+    carry_cost_total: carryCostTotal,
+    buyer_costs_total: buyerCostsTotal,
+    source: pct != null || defaultBillsSum > 0 ? 'policy' : 'legacy_scalar',
+  };
+
+  const base = arv * (1 - marginPctUsed);
+  const buyerCeiling = round2(base - buyerCostsTotal - repairsTotal - carryCostTotal);
+
   return {
-    buyerCeiling: round2(ceiling),
+    buyerCeiling,
     holdCostPerMonth,
     carryCostTotal,
-    holdCostTrace: {
-      track,
-      speed_band: normalizedSpeed,
-      pct_of_arv: pct ?? null,
-      default_bills: {
-        tax: bills?.tax ?? 0,
-        insurance: bills?.insurance ?? 0,
-        hoa: bills?.hoa ?? 0,
-        utilities: bills?.utilities ?? 0,
-      },
-      default_bills_sum: defaultBillsSum,
-      hold_cost_per_month: holdCostPerMonth,
-      carry_months: carryMonths,
-      carry_cost_total: carryCostTotal,
-      source: pct != null || defaultBillsSum > 0 ? 'policy' : 'legacy_scalar',
-    },
+    holdCostTrace,
+    marginPctUsed,
+    marginTrace,
+    buyerCostsTotal,
   };
 }
-
 function computeAivSafetyCap(params: {
   aiv: number | null;
   policy: UnderwritingPolicy;
@@ -2349,6 +2498,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     policy: uwPolicy,
     repairs: repairsTotal,
     carryMonths,
+    moiZip,
     infoNeeded,
     track: 'wholesale',
     speedBand,
@@ -2365,9 +2515,11 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     ],
     details: {
       arv,
-      margin_pct: uwPolicy.buyer_target_margin_wholesale_pct,
+      moi_zip: moiZip ?? null,
+      margin_pct: buyerCeilingResult.marginPctUsed,
+      margin_selection: buyerCeilingResult.marginTrace,
       repairs_total: repairsTotal,
-      buyer_costs_total: totalSellerSide,
+      buyer_costs_total: buyerCeilingResult.buyerCostsTotal,
       carry_months: carryMonths,
       hold_cost_per_month: buyerCeilingResult.holdCostPerMonth,
       buyer_ceiling: buyerCeilingResult.buyerCeiling,
@@ -2431,31 +2583,113 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     },
   });
 
-  const payoffProjected = payoffClose;
+  const payoffProjected = payoffClose;  // ---- Profit Core (Phase 1 Law): Net-to-Seller MAO (Contract Price)
+  // Net_Offer_to_Seller = Max_Buyer (Buyer Ceiling) - Wholesaler_Fee
+  // Wholesaler_Fee is a subtractive constraint resolved from policy min_spread_by_arv_band
+  // with an optional user override (deal.policy.assignment_fee_target) clamped to policy minimum.
+  const assignmentFeeOverrideRaw = getNumber(deal, ['policy', 'assignment_fee_target'], null);
+  const assignmentFeeOverride =
+    assignmentFeeOverrideRaw != null && Number.isFinite(assignmentFeeOverrideRaw)
+      ? Math.max(0, assignmentFeeOverrideRaw)
+      : null;
 
-  const maoPresentationWholesale = respectFloor;
-  const maoCapWholesale = aivCapped ?? aiv ?? null;
-  const maoFinalWholesale = minNonNull([
-    maoPresentationWholesale,
-    maoCapWholesale,
-    buyerCeiling,
-  ]);
+  const feeBands = uwPolicy.min_spread_by_arv_band ?? [];
+  const feeBandSelected =
+    arv != null
+      ? feeBands.find(
+          (band) =>
+            (band.min_arv == null || arv >= band.min_arv) && (band.max_arv == null || arv <= band.max_arv),
+        ) ?? null
+      : null;
+
+  const feeBandMinDollars = feeBandSelected?.min_spread_dollars ?? null;
+  const feeBandMinPct = feeBandSelected?.min_spread_pct_of_arv ?? null;
+  const feeFromPct = arv != null && feeBandMinPct != null ? round2(arv * feeBandMinPct) : null;
+  const wholesalerFeePolicyMin =
+    feeBandMinDollars != null || feeFromPct != null
+      ? round2(Math.max(feeBandMinDollars ?? 0, feeFromPct ?? 0))
+      : null;
+
+  if (wholesalerFeePolicyMin == null && arv != null) {
+    infoNeeded.push({
+      path: 'policy.min_spread_by_arv_band',
+      token: null,
+      reason: 'Missing wholesaler fee bands (min spread by ARV band) required to compute Net-to-Seller offer.',
+      source_of_truth: 'team_policy_set',
+    });
+  }
+
+  const feeOverrideClampedToMin =
+    wholesalerFeePolicyMin != null && assignmentFeeOverride != null
+      ? assignmentFeeOverride < wholesalerFeePolicyMin
+      : false;
+
+  const wholesalerFeeEffective =
+    wholesalerFeePolicyMin != null && assignmentFeeOverride != null
+      ? round2(Math.max(wholesalerFeePolicyMin, assignmentFeeOverride))
+      : assignmentFeeOverride ?? wholesalerFeePolicyMin;
 
   trace.push({
-    rule: 'MAO_CLAMP',
-    used: ['BUYER_CEILING', 'AIV_SAFETY_CAP'],
+    rule: 'WHOLESALE_FEE_CONSTRAINT',
+    used: ['deal.market.arv', 'policy.min_spread_by_arv_band', 'deal.policy.assignment_fee_target'],
     details: {
-      mao_presentation_wholesale: maoPresentationWholesale,
-      mao_cap_wholesale: maoCapWholesale,
-      buyer_ceiling: buyerCeiling,
-      mao_final_wholesale: maoFinalWholesale,
+      arv,
+      selected_band: feeBandSelected
+        ? {
+            min_arv: feeBandSelected.min_arv ?? null,
+            max_arv: feeBandSelected.max_arv ?? null,
+            min_spread_dollars: feeBandMinDollars,
+            min_spread_pct_of_arv: feeBandMinPct,
+          }
+        : null,
+      fee_from_pct: feeFromPct,
+      fee_policy_min: wholesalerFeePolicyMin,
+      fee_override_input: assignmentFeeOverride,
+      fee_override_clamped_to_min: feeOverrideClampedToMin,
+      fee_effective: wholesalerFeeEffective,
     },
   });
 
-  const primaryOffer = maoFinalWholesale;
-  const primaryTrack: UnderwriteOutputs['primary_offer_track'] =
-    primaryOffer != null ? 'wholesale' : null;
+  const rawContractPrice =
+    buyerCeiling != null && wholesalerFeeEffective != null
+      ? round2(buyerCeiling - wholesalerFeeEffective)
+      : null;
+  const rawContractPriceClamped =
+    rawContractPrice != null ? Math.max(0, rawContractPrice) : null;
 
+  // Safety cap (AIV clamp) remains authoritative.
+  const maoCapWholesale = aivCapped ?? aiv ?? null;
+
+  // Final Net-to-Seller MAO (ceiling) for Wholesale.
+  const maoFinalWholesale =
+    rawContractPriceClamped != null
+      ? minNonNull([rawContractPriceClamped, maoCapWholesale])
+      : null;
+
+  // Standard-tier offer (primary_offer) = Sweet Spot (midpoint of corridor overlap) when possible.
+  const sweetSpotWholesale =
+    respectFloor != null && maoFinalWholesale != null && respectFloor <= maoFinalWholesale
+      ? round2((respectFloor + maoFinalWholesale) / 2)
+      : null;
+
+  const primaryOffer = sweetSpotWholesale ?? maoFinalWholesale;
+
+  trace.push({
+    rule: 'MAO_CLAMP',
+    used: ['BUYER_CEILING', 'AIV_SAFETY_CAP', 'WHOLESALE_FEE_CONSTRAINT', 'RESPECT_FLOOR'],
+    details: {
+      buyer_ceiling: buyerCeiling,
+      wholesaler_fee_effective: wholesalerFeeEffective,
+      raw_contract_price: rawContractPriceClamped,
+      mao_cap_wholesale: maoCapWholesale,
+      mao_final_wholesale: maoFinalWholesale,
+      respect_floor: respectFloor,
+      sweet_spot_wholesale: sweetSpotWholesale,
+      primary_offer: primaryOffer,
+    },
+  });
+
+  const primaryTrack: UnderwriteOutputs['primary_offer_track'] = primaryOffer != null ? 'wholesale' : null;
   const windowFloorToOffer =
     primaryOffer != null && respectFloor != null
       ? round2(primaryOffer - respectFloor)

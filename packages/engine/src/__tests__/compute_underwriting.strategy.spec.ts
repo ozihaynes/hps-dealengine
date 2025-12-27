@@ -33,21 +33,21 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.buyer_ceiling_unclamped).toBe(146250);
     expect(o.respect_floor).toBe(180000);
     expect(o.mao_cap_wholesale).toBe(180000);
-    expect(o.primary_offer).toBe(146250);
+    expect(o.primary_offer).toBe(126250);
     expect(o.primary_offer_track).toBe('wholesale');
 
-    expect(o.window_floor_to_offer).toBe(-33750);
-    expect(o.headroom_offer_to_ceiling).toBe(0);
-    expect(o.cushion_vs_payoff).toBe(-3750);
-    expect(o.shortfall_vs_payoff).toBe(3750);
+    expect(o.window_floor_to_offer).toBe(-53750);
+    expect(o.headroom_offer_to_ceiling).toBe(20000);
+    expect(o.cushion_vs_payoff).toBe(-23750);
+    expect(o.shortfall_vs_payoff).toBe(23750);
 
-    expect(o.mao_wholesale).toBe(146250);
-    expect(o.mao_flip).toBe(146250);
-    expect(o.mao_wholetail).toBe(146250);
+    expect(o.mao_wholesale).toBe(126250);
+    expect(o.mao_flip).toBe(126250);
+    expect(o.mao_wholetail).toBe(126250);
     expect(o.mao_as_is_cap).toBe(180000);
 
     expect(o.seller_offer_band).toBe('low');
-    expect(o.buyer_ask_band).toBe('balanced');
+    expect(o.buyer_ask_band).toBe('generous');
     expect(o.sweet_spot_flag).toBe(false);
     expect(o.gap_flag).toBe('wide_gap');
 
@@ -137,7 +137,7 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
 
   it('applies ARV-band min spread ladder and cash gate', () => {
     const deal = {
-      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
+      market: { aiv: 180000, arv: 180000, dom_zip: 30, moi_zip: 2 },
       debt: { payoff: 99000 },
     };
     const policy = {
@@ -157,19 +157,19 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     const o = result.outputs;
 
     expect(o.respect_floor).toBe(108000);
-    expect(o.primary_offer).toBe(108000);
-    expect(o.spread_cash).toBe(9000);
+    expect(o.primary_offer).toBe(122100);
+    expect(o.spread_cash).toBe(23100);
     expect(o.min_spread_required).toBe(15000); // <=200k band
-    expect(o.cash_gate_status).toBe('shortfall');
-    expect(o.cash_deficit).toBe(1000);
+    expect(o.cash_gate_status).toBe('pass');
+    expect(o.cash_deficit).toBe(0);
     const cgTrace = (result.trace as any[]).find((t) => t.rule === 'CASH_GATE');
-    expect(cgTrace?.details?.cash_gate_status).toBe('shortfall');
+    expect(cgTrace?.details?.cash_gate_status).toBe('pass');
   });
 
   it('uses policy-driven spread ladder, cash gate, and borderline band', () => {
     const deal = {
-      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
-      debt: { payoff: 99000 },
+      market: { aiv: 180000, arv: 180000, dom_zip: 30, moi_zip: 2 },
+      debt: { payoff: 107500 },
     };
     const policy = {
       aiv: { safety_cap_pct: 0.9 },
@@ -194,7 +194,7 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
 
     expect(o.min_spread_required).toBe(25000);
     expect(o.cash_gate_status).toBe('shortfall');
-    expect(o.cash_deficit).toBe(11000);
+    expect(o.cash_deficit).toBe(10400);
     expect(o.borderline_flag).toBe(false);
 
     const ladderTrace = (result.trace as any[]).find((t) => t.rule === 'SPREAD_LADDER');
@@ -228,8 +228,8 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
 
   it('sets borderline when spread is within band or confidence is C', () => {
     const deal = {
-      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
-      debt: { payoff: 93000 },
+      market: { aiv: 180000, arv: 180000, dom_zip: 30, moi_zip: 2 },
+      debt: { payoff: 106200 },
     };
     const policy = {
       aiv: { safety_cap_pct: 0.9 },
