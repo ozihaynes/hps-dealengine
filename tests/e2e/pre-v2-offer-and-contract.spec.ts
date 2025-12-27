@@ -25,6 +25,9 @@ test.describe("pre-v2-offer-and-contract: Pre-V2 valuation rails", () => {
 
     const confidenceBadge = page.getByTestId("confidence-badge");
     await expect(confidenceBadge).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId("cta-mark-under-contract")).toBeEnabled({
+      timeout: 60_000,
+    });
 
     const clientButton = page.getByRole("button", { name: /view/i }).first();
     await expect(clientButton).toBeVisible();
@@ -35,25 +38,12 @@ test.describe("pre-v2-offer-and-contract: Pre-V2 valuation rails", () => {
 
     const sendOfferButton = clientModal.getByTestId("cta-send-offer");
     await expect(sendOfferButton).toBeEnabled({ timeout: 60_000 });
-    const [offerResponse] = await Promise.all([
-      page.waitForResponse(
-        (response) =>
-          response
-            .url()
-            .includes("/functions/v1/v1-offer-package-generate") &&
-          response.status() < 400,
-      ),
-      sendOfferButton.click(),
-    ]);
-    expect(offerResponse.ok()).toBeTruthy();
-    const offerPayload = (await offerResponse.json()) as {
-      offer_package_id?: string;
-    };
-    const offerPackageId = offerPayload.offer_package_id ?? "";
-    expect(offerPackageId).not.toEqual("");
-
-    await page.goto(`/offer-packages/${offerPackageId}?dealId=${readyDealId}`);
+    await sendOfferButton.click();
     await page.waitForURL(/\/offer-packages\//, { timeout: 60_000 });
+
+    const offerUrl = new URL(page.url());
+    const offerPackageId = offerUrl.pathname.split("/").pop() ?? "";
+    expect(offerPackageId).not.toEqual("");
 
     const offerPackagePage = page.getByTestId("offer-package-page");
     await expect(offerPackagePage).toBeVisible();
