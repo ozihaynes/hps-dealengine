@@ -317,17 +317,20 @@ export default function Page() {
   }, [loadDealContract]);
 
   // Canonical outputs from the last analyze (from Edge/runs)
-  const outputsAny = useMemo(
-    () => (lastAnalyzeResult as any)?.outputs ?? lastAnalyzeResult ?? null,
-    [lastAnalyzeResult],
-  );
+  const outputsAny = useMemo(() => {
+    const raw = lastAnalyzeResult as any;
+    return raw?.outputs ?? raw ?? null;
+  }, [lastAnalyzeResult]);
   const calc: any = useMemo(() => {
     const persisted = lastAnalyzeResult as any;
     return {
       ...(persisted?.calculations ?? {}),
       ...(outputsAny ?? {}),
     };
-  }, [lastAnalyzeResult, outputsAny]);
+  }, [
+    lastAnalyzeResult,
+    outputsAny,
+  ]);
 
   const guardrailsView = useMemo(
     () =>
@@ -577,19 +580,21 @@ const riskCounts = useMemo(() => {
   return { fail, watch, unknown };
 }, [riskView.gates]);
 
-const evidenceCounts = useMemo(() => {
-  return {
-    missing: evidenceView.missingKinds.length,
-    stale: evidenceView.staleKinds.length,
-    blocking: evidenceView.blockingKinds.length,
-    placeholdersUsed: evidenceView.placeholdersUsed,
-  };
-}, [
-  evidenceView.missingKinds.length,
-  evidenceView.staleKinds.length,
-  evidenceView.blockingKinds.length,
-  evidenceView.placeholdersUsed,
-]);
+  const evidenceCounts = useMemo(() => {
+    return {
+      missing: evidenceView.missingKinds.length,
+      stale: evidenceView.staleKinds.length,
+      blocking: evidenceView.blockingKinds.length,
+      placeholdersUsed: evidenceView.placeholdersUsed,
+    };
+  }, [
+    evidenceView.missingKinds.length,
+    evidenceView.staleKinds.length,
+    evidenceView.blockingKinds.length,
+    evidenceView.placeholdersUsed,
+  ]);
+
+  const o = outputsAny as any;
 
 
   return (
@@ -690,33 +695,19 @@ const evidenceCounts = useMemo(() => {
 
         <TopDealKpis
           arv={deal.market?.arv ?? null}
-          offer={
-            (lastAnalyzeResult as any)?.outputs?.primary_offer ??
-            (lastAnalyzeResult as any)?.outputs?.instant_cash_offer ??
-            (calc as any)?.instantCashOffer ??
-            null
-          }
-          maoFinal={
-            (lastAnalyzeResult as any)?.outputs?.primary_offer ??
-            (lastAnalyzeResult as any)?.outputs?.mao_wholesale ??
-            null
-          }
+          offer={o?.primary_offer ?? null}
+          maoFinal={o?.mao_wholesale ?? null}
           discountToArvPct={
-            deal.market?.arv &&
-            (lastAnalyzeResult as any)?.outputs?.primary_offer
-              ? (deal.market.arv -
-                  (lastAnalyzeResult as any).outputs.primary_offer) /
-                deal.market.arv
+            deal.market?.arv && o?.primary_offer
+              ? (deal.market.arv - o.primary_offer) / deal.market.arv
               : null
           }
           discountToArvDollars={
-            deal.market?.arv &&
-            (lastAnalyzeResult as any)?.outputs?.primary_offer
-              ? deal.market.arv -
-                (lastAnalyzeResult as any).outputs.primary_offer
+            deal.market?.arv && o?.primary_offer
+              ? deal.market.arv - o.primary_offer
               : null
           }
-          assignmentFee={(lastAnalyzeResult as any)?.outputs?.spread_cash ?? null}
+          assignmentFee={o?.spread_cash ?? null}
           assignmentPolicyTargetPct={
             (() => {
               const trace = (lastAnalyzeResult as any)?.trace ?? [];
@@ -738,20 +729,16 @@ const evidenceCounts = useMemo(() => {
             })()
           }
           dtmDays={
-            (lastAnalyzeResult as any)?.outputs?.timeline_summary
-              ?.dtm_selected_days ??
-            (lastAnalyzeResult as any)?.outputs?.timeline_summary?.days_to_money ??
+            o?.timeline_summary?.dtm_selected_days ??
+            o?.timeline_summary?.days_to_money ??
             null
           }
-          speedBand={
-            (lastAnalyzeResult as any)?.outputs?.timeline_summary?.speed_band ?? null
-          }
-          riskOverall={(lastAnalyzeResult as any)?.outputs?.risk_summary?.overall ?? null}
-          confidenceGrade={(lastAnalyzeResult as any)?.outputs?.confidence_grade ?? null}
-          workflowState={(lastAnalyzeResult as any)?.outputs?.workflow_state ?? null}
+          speedBand={o?.timeline_summary?.speed_band ?? null}
+          riskOverall={o?.risk_summary?.overall ?? null}
+          confidenceGrade={o?.confidence_grade ?? null}
+          workflowState={o?.workflow_state ?? null}
         />
-
-        <DealHealthStrip view={guardrailsView} />
+<DealHealthStrip view={guardrailsView} />
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-12 lg:gap-6">
           <div className="lg:col-span-8">
