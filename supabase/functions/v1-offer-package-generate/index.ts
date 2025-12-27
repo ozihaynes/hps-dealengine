@@ -5,7 +5,7 @@ import { hashJson } from "../_shared/contracts.ts";
 
 type RequestBody = {
   deal_id: string;
-  run_id: string;
+  run_id?: string;
   template_version?: "v1";
 };
 
@@ -79,13 +79,13 @@ serve(async (req: Request): Promise<Response> => {
     );
   }
 
-  if (!body?.deal_id || !body?.run_id) {
+  if (!body?.deal_id) {
     return jsonResponse(
       req,
       {
         ok: false,
         error: "invalid_request",
-        message: "deal_id and run_id are required",
+        message: "deal_id is required",
       },
       400,
     );
@@ -127,12 +127,14 @@ serve(async (req: Request): Promise<Response> => {
   const userId = userData.user.id;
 
   try {
-    const { data: run, error: runError } = await supabase
+    const runQuery = supabase
       .from("runs")
       .select("id, org_id, deal_id, posture, input, output, policy_snapshot, policy_hash")
-      .eq("id", body.run_id)
-      .eq("deal_id", body.deal_id)
-      .maybeSingle();
+      .eq("deal_id", body.deal_id);
+    const runId = pickString(body.run_id);
+    const { data: run, error: runError } = await (runId
+      ? runQuery.eq("id", runId)
+      : runQuery.order("created_at", { ascending: false }).limit(1)).maybeSingle();
 
     if (runError) throw runError;
     if (!run) {

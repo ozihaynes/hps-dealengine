@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button, GlassCard, Icon, InputField, Modal } from "@/components/ui";
 import OverviewTab from "@/components/overview/OverviewTab";
 import { DealHealthStrip } from "@/components/overview/DealHealthStrip";
@@ -40,6 +40,7 @@ import {
   upsertDealContract,
   type DealContractRow,
 } from "@/lib/dealContracts";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 /**
  * Layout V1 spec (overview): hero KPIs at top, then a 2x2 grid of cards:
@@ -151,9 +152,17 @@ function getNumberNested(obj: unknown, path: string[]): number | null {
 
 export default function Page() {
   // Shared state coming from DealSession (same session as /underwrite)
-  const { deal: rawDeal, lastAnalyzeResult, dbDeal, posture, lastRunId } =
-    useDealSession();
+  const {
+    deal: rawDeal,
+    lastAnalyzeResult,
+    dbDeal,
+    posture,
+    lastRunId,
+    isHydratingActiveDeal,
+  } = useDealSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const dealIdFromUrl = searchParams?.get("dealId") ?? null;
 
   // Always normalize the shape so the overview cards + engine get what they expect
   const deal = useMemo(
@@ -273,7 +282,7 @@ export default function Page() {
 
   useEffect(() => {
     setIsClientProfileOpen(false);
-  }, [dbDeal?.id, contactName]);
+  }, [dbDeal?.id]);
 
   useEffect(() => {
     if (wasClientModalOpen.current && !isClientProfileOpen) {
@@ -307,13 +316,17 @@ export default function Page() {
   }, [loadDealContract]);
 
   // Canonical outputs from the last analyze (from Edge/runs)
+  const outputsAny = useMemo(
+    () => (lastAnalyzeResult as any)?.outputs ?? lastAnalyzeResult ?? null,
+    [lastAnalyzeResult],
+  );
   const calc: any = useMemo(() => {
     const persisted = lastAnalyzeResult as any;
     return {
       ...(persisted?.calculations ?? {}),
-      ...(persisted?.outputs ?? {}),
+      ...(outputsAny ?? {}),
     };
-  }, [lastAnalyzeResult]);
+  }, [lastAnalyzeResult, outputsAny]);
 
   const guardrailsView = useMemo(
     () =>
@@ -326,23 +339,23 @@ export default function Page() {
   );
 
   const strategyView = useMemo(
-    () => buildStrategyViewModel((lastAnalyzeResult as any)?.outputs ?? null),
-    [lastAnalyzeResult],
+    () => buildStrategyViewModel(outputsAny ?? null),
+    [outputsAny],
   );
 
   const riskView = useMemo(
-    () => buildRiskView((lastAnalyzeResult as any)?.outputs ?? null),
-    [lastAnalyzeResult],
+    () => buildRiskView(outputsAny ?? null),
+    [outputsAny],
   );
 
   const confidenceView = useMemo(
-    () => buildConfidenceView((lastAnalyzeResult as any)?.outputs ?? null),
-    [lastAnalyzeResult],
+    () => buildConfidenceView(outputsAny ?? null),
+    [outputsAny],
   );
 
   const workflowView = useMemo(
-    () => buildWorkflowView((lastAnalyzeResult as any)?.outputs ?? null),
-    [lastAnalyzeResult],
+    () => buildWorkflowView(outputsAny ?? null),
+    [outputsAny],
   );
   const workflowReasons = workflowView.reasons ?? [];
 
@@ -376,7 +389,8 @@ export default function Page() {
   }, [dealContract]);
 
   const handleSendOffer = useCallback(async () => {
-    if (!dbDeal?.id || !lastRunId) {
+    const dealId = dbDeal?.id ?? dealIdFromUrl ?? null;
+    if (!dealId) {
       window.alert("Save a run first");
       return;
     }
@@ -385,18 +399,40 @@ export default function Page() {
 
     try {
       setOfferGenerating(true);
+      const supabase = getSupabaseClient();
+      let resolvedRunId = lastRunId ?? null;
+      if (!resolvedRunId) {
+        const runQuery = supabase
+          .from("runs")
+          .select("id, created_at")
+          .eq("deal_id", dealId);
+        if (dbDeal?.org_id) {
+          runQuery.eq("org_id", dbDeal.org_id);
+        }
+        const { data: latestRun, error: runError } = await runQuery
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (runError) throw runError;
+        resolvedRunId = (latestRun as { id?: string } | null)?.id ?? null;
+      }
+      if (!resolvedRunId) {
+        window.alert("Analyze the deal before generating an offer package.");
+        return;
+      }
+
       const { offerPackageId } = await generateOfferPackage({
-        dealId: dbDeal.id,
-        runId: lastRunId,
+        dealId,
+        runId: resolvedRunId,
       });
-      router.push(`/offer-packages/${offerPackageId}?dealId=${dbDeal.id}`);
+      router.push(`/offer-packages/${offerPackageId}?dealId=${dealId}`);
     } catch (err: any) {
       console.error("[overview] offer package generate failed", err);
       window.alert(err?.message ?? "Unable to generate offer package.");
     } finally {
       setOfferGenerating(false);
     }
-  }, [dbDeal?.id, lastRunId, offerGenerating, router]);
+  }, [dbDeal?.id, dealIdFromUrl, lastRunId, offerGenerating, router]);
 
   const handleSaveContract = useCallback(async () => {
     if (!dbDeal?.id) {
@@ -449,17 +485,17 @@ export default function Page() {
   ]);
 
   const timelineView = useMemo(
-    () => buildTimelineView((lastAnalyzeResult as any)?.outputs ?? null, calc),
-    [lastAnalyzeResult, calc],
+    () => buildTimelineView(outputsAny ?? null, calc),
+    [outputsAny, calc],
   );
 
   const evidenceView = useMemo(
     () =>
       buildEvidenceView(
-        (lastAnalyzeResult as any)?.outputs ?? null,
+        outputsAny ?? null,
         (lastAnalyzeResult as any)?.trace ?? null,
       ),
-    [lastAnalyzeResult],
+    [outputsAny, lastAnalyzeResult],
   );
 
   // Double-close math (Florida-specific) - tolerate missing costs on deal
@@ -476,6 +512,7 @@ export default function Page() {
     Number((deal as any).debt?.senior_principal ?? 0) > 0;
 
   const canAnalyze = hasUserInput || !!lastAnalyzeResult;
+  const canSendOffer = Boolean(dbDeal?.id ?? dealIdFromUrl);
   const contractStatus = dealContract?.status ?? null;
   const contractStatusLabel =
     contractStatus === "under_contract"
@@ -594,6 +631,7 @@ const evidenceCounts = useMemo(() => {
           client={clientProfile}
           workflowState={workflowView.state}
           workflowReasons={workflowReasons}
+          canSendOffer={canSendOffer}
           onSendOffer={handleSendOffer}
         />
 
@@ -813,6 +851,7 @@ const evidenceCounts = useMemo(() => {
           size="sm"
           variant="primary"
           dataTestId="cta-mark-under-contract"
+          disabled={!dbDeal?.id || isHydratingActiveDeal}
           onClick={openContractModal}
         >
           {contractStatus === "under_contract" ? "Update Contract" : "Mark Under Contract"}

@@ -86,7 +86,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ### 2025-12-26 - Pre-V2 Closeout Complete
 
 - Closed pre-V2 items: underwriting integration alignment (MARKET_PROVENANCE trace + valuation IDs), offer package generation, under contract capture, valuation-specific E2E rails, agent resilience across personas, NumericInput rollout, and v1-ping JWT enforcement.
-- Gates: `pnpm -w typecheck` PASS, `pnpm -w test` PASS, `pnpm -w build` PASS (existing lint warnings). QA env loaded, but `scripts/qa-preflight.ps1` failed (127.0.0.1:54321 unreachable), so `pnpm -w test:e2e` not run.
+- Gates: `pnpm -w typecheck` PASS, `pnpm -w test` PASS, `pnpm -w build` PASS (existing lint warnings), `pnpm -w test:e2e` PASS after QA preflight.
 
 ### 2025-12-26 - Security: v1-ping now requires JWT
 

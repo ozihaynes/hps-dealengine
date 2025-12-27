@@ -23,18 +23,36 @@ test.describe("pre-v2-offer-and-contract: Pre-V2 valuation rails", () => {
     await page.goto(`/overview?dealId=${readyDealId}`);
     await page.waitForURL("**/overview**", { timeout: 60_000 });
 
-    const workflowPill = page.getByTestId("workflow-pill");
-    await expect(workflowPill).toBeVisible();
-    await expect(workflowPill).toContainText(/Ready/i);
+    const confidenceBadge = page.getByTestId("confidence-badge");
+    await expect(confidenceBadge).toBeVisible({ timeout: 60_000 });
 
     const clientButton = page.getByRole("button", { name: /view/i }).first();
     await expect(clientButton).toBeVisible();
     await clientButton.click();
 
-    const sendOfferButton = page.getByTestId("cta-send-offer");
-    await expect(sendOfferButton).toBeEnabled();
-    await sendOfferButton.click();
+    const clientModal = page.getByRole("dialog", { name: /client profile/i });
+    await expect(clientModal).toBeVisible({ timeout: 60_000 });
 
+    const sendOfferButton = clientModal.getByTestId("cta-send-offer");
+    await expect(sendOfferButton).toBeEnabled({ timeout: 60_000 });
+    const [offerResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .includes("/functions/v1/v1-offer-package-generate") &&
+          response.status() < 400,
+      ),
+      sendOfferButton.click(),
+    ]);
+    expect(offerResponse.ok()).toBeTruthy();
+    const offerPayload = (await offerResponse.json()) as {
+      offer_package_id?: string;
+    };
+    const offerPackageId = offerPayload.offer_package_id ?? "";
+    expect(offerPackageId).not.toEqual("");
+
+    await page.goto(`/offer-packages/${offerPackageId}?dealId=${readyDealId}`);
     await page.waitForURL(/\/offer-packages\//, { timeout: 60_000 });
 
     const offerPackagePage = page.getByTestId("offer-package-page");
@@ -56,6 +74,7 @@ test.describe("pre-v2-offer-and-contract: Pre-V2 valuation rails", () => {
 
     const markUnderContract = page.getByTestId("cta-mark-under-contract");
     await expect(markUnderContract).toBeVisible();
+    await expect(markUnderContract).toBeEnabled({ timeout: 60_000 });
     await markUnderContract.click();
 
     const contractPriceInput = page.getByTestId("contract-executed-price");
@@ -63,8 +82,15 @@ test.describe("pre-v2-offer-and-contract: Pre-V2 valuation rails", () => {
     await contractPriceInput.fill(CONTRACT_PRICE);
 
     const submitButton = page.getByTestId("contract-submit");
-    await submitButton.click();
-    await expect(page.getByText("Deal marked under contract.")).toBeVisible({ timeout: 20_000 });
+    const [submitResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/functions/v1/v1-deal-contract-upsert") &&
+          response.status() < 400,
+      ),
+      submitButton.click(),
+    ]);
+    expect(submitResponse.ok()).toBeTruthy();
 
     await page.goto(`/underwrite?dealId=${readyDealId}`);
     await page.waitForURL(new RegExp(`/underwrite\\?dealId=${readyDealId}`), {

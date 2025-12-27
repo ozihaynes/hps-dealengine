@@ -27,18 +27,21 @@ export type { OfferPackageRow, OfferPackagePayload };
 
 export async function generateOfferPackage(input: {
   dealId: string;
-  runId: string;
+  runId?: string;
   templateVersion?: "v1";
 }): Promise<{ offerPackageId: string; payloadHash: string }> {
   const supabase = getSupabaseClient();
+  const body: Record<string, unknown> = {
+    deal_id: input.dealId,
+    template_version: input.templateVersion ?? "v1",
+  };
+  if (input.runId) {
+    body.run_id = input.runId;
+  }
   const { data, error } = await supabase.functions.invoke(
     "v1-offer-package-generate",
     {
-      body: {
-        deal_id: input.dealId,
-        run_id: input.runId,
-        template_version: input.templateVersion ?? "v1",
-      },
+      body,
     },
   );
 
