@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   SandboxPreset,
   SandboxSettings,
@@ -40,6 +40,18 @@ export default function SandboxSettingsPage() {
     "business",
   );
 
+  const loadPresets = useCallback(async () => {
+    setPresetsLoading(true);
+    try {
+      const list = await fetchSandboxPresets({ posture });
+      setPresets(list);
+    } catch (err) {
+      console.error("[/sandbox] failed to load presets", err);
+    } finally {
+      setPresetsLoading(false);
+    }
+  }, [posture]);
+
   useEffect(() => {
     let mounted = true;
 
@@ -67,19 +79,7 @@ export default function SandboxSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [posture]);
-
-  const loadPresets = async () => {
-    setPresetsLoading(true);
-    try {
-      const list = await fetchSandboxPresets({ posture });
-      setPresets(list);
-    } catch (err) {
-      console.error("[/sandbox] failed to load presets", err);
-    } finally {
-      setPresetsLoading(false);
-    }
-  };
+  }, [posture, loadPresets]);
 
   const handleSave = async (nextConfig: SandboxConfigValues) => {
     setSaving(true);

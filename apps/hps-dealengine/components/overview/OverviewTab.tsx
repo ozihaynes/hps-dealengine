@@ -195,6 +195,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     setNegotiatorMessages,
   ]);
 
+  const orgId = dbDeal?.org_id;
+
   const handleOpenNegotiatorWindow = React.useCallback(() => {
     if (!dealId || !negotiationPlaybook) return;
 
@@ -203,7 +205,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         type: "START_NEW_SESSION",
         id: "dealNegotiator",
         sessionId: crypto.randomUUID(),
-        context: { dealId, orgId: dbDeal?.org_id, runId: latestRunId ?? undefined, posture },
+        context: { dealId, orgId, runId: latestRunId ?? undefined, posture },
       });
       aiWindowDispatch({ type: "OPEN_WINDOW", id: "dealNegotiator" });
     } else if (negotiatorWindow.visibility === "minimized") {
@@ -211,7 +213,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     } else {
       aiWindowDispatch({ type: "MINIMIZE_WINDOW", id: "dealNegotiator" });
     }
-  }, [aiWindowDispatch, dealId, negotiatorWindow.visibility]);
+  }, [
+    aiWindowDispatch,
+    dealId,
+    negotiatorWindow.visibility,
+    negotiationPlaybook,
+    latestRunId,
+    posture,
+    orgId,
+  ]);
 
   return (
     <div className="flex flex-col gap-6">

@@ -413,7 +413,7 @@ export default function UnderwritePage() {
     } finally {
       setApplyingSuggestedArv(false);
     }
-  }, [dbDeal?.id, valuationRun?.id, setDeal, setDbDeal]);
+  }, [dbDeal, valuationRun?.id, setDeal, setDbDeal]);
 
   const handleOverrideMarketValue = useCallback(
     async (
@@ -512,7 +512,7 @@ export default function UnderwritePage() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [deal, orgId, posture, setLastAnalyzeResult, dbDeal, effectiveSandbox]);
+  }, [deal, orgId, posture, setLastAnalyzeResult, dbDeal, effectiveSandbox, repairRates]);
 
   // ?? Listen for the global header "Analyze" event and route it here
   useEffect(() => {
@@ -641,6 +641,9 @@ export default function UnderwritePage() {
     effectiveSandbox,
     dbDeal,
     repairRates,
+    setHasUnsavedDealChanges,
+    setLastRunAt,
+    setLastRunId,
   ]);
 
   const handleOverrideRequested = useCallback(

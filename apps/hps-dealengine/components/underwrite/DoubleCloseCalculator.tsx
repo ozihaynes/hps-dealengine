@@ -1,5 +1,5 @@
 import React from 'react';
-import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Badge } from '../ui';
+import { GlassCard, Button, InputField, SelectField, Toggle, Badge } from '../ui';
 import { DoubleClose } from '../../services/engine';
 import { fmt$ } from '../../utils/helpers';
 import type { Deal, EngineCalculations } from '../../types';
@@ -32,7 +32,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
         <div className="flex items-center justify-between">
           <div className="label-xs uppercase">Double Close Tools</div>
           <div className="flex items-center gap-3">
-            <ToggleSwitch
+            <Toggle
               label={isSimple ? 'Simple' : 'Advanced'}
               checked={isSimple}
               onChange={() => setDC('use_simple_mode', !isSimple)}
@@ -89,7 +89,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
               onChange={(e) => setDC('days_held', e.target.value)}
               disabled={dc.type === 'Same-day'}
             />
-            <ToggleSwitch
+            <Toggle
               label="Using Transactional Funding?"
               checked={!!dc.using_tf}
               onChange={() => setDC('using_tf', !dc.using_tf)}
@@ -305,7 +305,7 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
           <GlassCard className="p-5 md:p-6 space-y-3">
             <h4 className="label-xs uppercase">F) Transactional Funding (A-B)</h4>
             <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
-              <ToggleSwitch
+              <Toggle
                 label="Using Transactional Funding?"
                 checked={!!dc.using_tf}
                 onChange={() => setDC('using_tf', !dc.using_tf)}
@@ -464,22 +464,22 @@ const DoubleCloseCalculator: React.FC<DoubleCloseCalculatorProps> = ({
           <GlassCard className="p-5 md:p-6 space-y-3">
             <h4 className="label-xs uppercase">J) Outputs & Apply</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
-              <ToggleSwitch
+              <Toggle
                 label="Show items 1-13 full math"
                 checked={dc.show_items_math === undefined ? true : !!dc.show_items_math}
                 onChange={() => setDC('show_items_math', !dc.show_items_math)}
               />
-              <ToggleSwitch
+              <Toggle
                 label="Show fee target check"
                 checked={dc.show_fee_target === undefined ? true : !!dc.show_fee_target}
                 onChange={() => setDC('show_fee_target', !dc.show_fee_target)}
               />
-              <ToggleSwitch
+              <Toggle
                 label="Show FHA/VA 90-day flag"
                 checked={dc.show_90d_flag === undefined ? true : !!dc.show_90d_flag}
                 onChange={() => setDC('show_90d_flag', !dc.show_90d_flag)}
               />
-              <ToggleSwitch
+              <Toggle
                 label="Show notes/assumptions"
                 checked={dc.show_notes === undefined ? true : !!dc.show_notes}
                 onChange={() => setDC('show_notes', !dc.show_notes)}

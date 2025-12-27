@@ -478,6 +478,7 @@ export default function UserSettingsPage() {
                 className="input-base"
               />
               {business.logoDataUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element -- local preview uses user-selected data URL */
                 <img
                   src={business.logoDataUrl}
                   alt="Business logo preview"

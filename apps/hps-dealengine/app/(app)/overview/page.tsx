@@ -163,6 +163,7 @@ export default function Page() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dealIdFromUrl = searchParams?.get("dealId") ?? null;
+  const orgId = dbDeal?.org_id ?? null;
 
   // Always normalize the shape so the overview cards + engine get what they expect
   const deal = useMemo(
@@ -406,8 +407,8 @@ export default function Page() {
           .from("runs")
           .select("id, created_at")
           .eq("deal_id", dealId);
-        if (dbDeal?.org_id) {
-          runQuery.eq("org_id", dbDeal.org_id);
+        if (orgId) {
+          runQuery.eq("org_id", orgId);
         }
         const { data: latestRun, error: runError } = await runQuery
           .order("created_at", { ascending: false })
@@ -432,7 +433,7 @@ export default function Page() {
     } finally {
       setOfferGenerating(false);
     }
-  }, [dbDeal?.id, dealIdFromUrl, lastRunId, offerGenerating, router]);
+  }, [dbDeal?.id, dealIdFromUrl, lastRunId, offerGenerating, router, orgId]);
 
   const handleSaveContract = useCallback(async () => {
     if (!dbDeal?.id) {
