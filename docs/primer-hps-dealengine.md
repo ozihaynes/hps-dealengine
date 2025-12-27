@@ -1,789 +1,706 @@
+---
+doc_id: 'engine.primer-hps-dealengine'
+category: 'engine'
+audience: ['ai-assistant', 'engineer', 'product', 'exec', 'ops']
+trust_tier: 1
+summary: 'Stable architecture, invariants, and operating model for HPS DealEngine (deterministic underwriting SaaS).'
+---
+
 # HPS DealEngine: Project & Development Primer
 
----
+This primer is the **stable, high-signal Source of Truth** for architecture + invariants.
+For “what changed recently” and “what’s next,” use:
 
-## 1. Project Overview: HPS DealEngine
-
-**Name:** `hps-dealengine`
-
-**Purpose:**
-A production-grade, multi-tenant SaaS for deterministic, evidence-backed real-estate underwriting.
-Initial focus is **distressed SFR/townhome deals in Central Florida**, with the architecture designed to grow into a **national, multi-strategy underwriting platform**.
+- `docs/devlog-hps-dealengine.md` — what actually shipped and current blockers
+- `docs/roadmap-v1-v2-v3.md` — phased roadmap framing, v1.1 hardening, v2/v3 themes
 
 ---
 
-## 1.1 Core Principles (Non-Negotiables)
+## Table of contents
 
-### 1. Policy-Driven Underwriting
+- [1. What DealEngine is](#1-what-dealengine-is)
+- [2. Non-negotiable principles](#2-non-negotiable-principles)
+- [3. Current shipped baseline](#3-current-shipped-baseline)
+- [4. Documentation routing and trust tiers](#4-documentation-routing-and-trust-tiers)
+- [5. Core architecture and repo layout](#5-core-architecture-and-repo-layout)
+- [6. App structure and UX invariants](#6-app-structure-and-ux-invariants)
+- [7. Deterministic underwriting engine](#7-deterministic-underwriting-engine)
+- [8. Data model (tables) overview](#8-data-model-tables-overview)
+- [9. Runtime endpoints inventory](#9-runtime-endpoints-inventory)
+- [10. AI and agent platform](#10-ai-and-agent-platform)
+- [11. Testing, QA, and quality gates](#11-testing-qa-and-quality-gates)
+- [12. Operating mode for assistants and agents](#12-operating-mode-for-assistants-and-agents)
 
-- Underwriting rules live as **policies in Postgres**, not hard-coded in React or hidden in ad-hoc scripts.
-- Policies are versioned by **org** and **posture** in `policies` + `policy_versions`.
-- Engine behavior is controlled by:
+---
 
-  - Policy tokens / JSON in the DB.
-  - Engine version.
+## 1. What DealEngine is
 
-- Updating policy JSON can change behavior **without redeploying the UI**.
+**Repo name:** `hps-dealengine`
 
-### 2. Full Determinism
+**Product definition:**
+A production-grade, multi-tenant SaaS for **deterministic**, **evidence-backed** real-estate underwriting and execution support.
+
+**Initial focus:**
+Distressed **SFR / townhome** deals in **Central Florida**.
+
+**Designed to grow into:**
+A national, multi-strategy underwriting platform (connectors, portfolio analytics, CRM, billing, SRE) without compromising determinism, auditability, or RLS posture.
+
+**Core product claim (what must stay true):**
+DealEngine is a **deterministic filter** (policy + math + evidence) — not “gut feel,” not an opaque AI.
+
+---
+
+## 2. Non-negotiable principles
+
+These are invariants. If anything conflicts with these, **these win**.
+
+### 2.1 Policy-driven underwriting
+
+- Underwriting rules live as **versioned policy JSON in Postgres**, not hard-coded in React, not hidden in scripts.
+- Policy artifacts are org-scoped and posture-scoped:
+  - `policies`
+  - `policy_versions`
+  - consumption views like `policy_versions_api`
+- Changing policy JSON can change behavior **without redeploying the UI**.
+
+**Implication:**
+If you “need a rule,” ask: “Should this be a policy token?”
+
+### 2.2 Full determinism
 
 Given the same:
 
-- Deal input,
-- Active policy for that org + posture,
-- Engine version,
+- deal input (normalized),
+- active policy snapshot (org + posture),
+- engine version,
 
-…the system must produce **bit-identical outputs, hashes, and trace**.
+…the system must produce **bit-identical outputs, trace, and hashes**.
 
-Determinism is enforced via the `runs` table:
+**Enforcement anchor:** the `runs` table
 
-- Each run stores:
-
-  - `input`, `output`, `trace`, `policy_snapshot`,
-  - `input_hash`, `policy_hash`, `output_hash`.
-
-- A unique index on:
-
+- `runs` persists:
+  - `input`, `output`, `trace`, `policy_snapshot`
+  - `input_hash`, `policy_hash`, `output_hash`
+- uniqueness constraint on:
   - `(org_id, posture, input_hash, policy_hash)`
 
-- This guarantees:
+**Implication:**
+No hidden randomness. No time-of-day branching. No “AI computed MAO.” If something changes, it must be attributable to input/policy/version.
 
-  - Idempotent runs.
-  - Clean detection of duplicates.
-  - Strong guarantees for replay / regression.
+### 2.3 Complete audit trail
 
-### 3. Complete Audit Trail
+Every underwrite and policy change must be:
 
-Every underwrite and every policy change must be:
+- explainable
+- replayable
+- diffable
 
-- **Explainable**
-- **Replayable**
-- **Diffable**
+**Core audit surfaces:**
 
-Key pieces:
+- `runs` — canonical execution log
+- `policy_versions` — full policy history by org/posture
+- `audit_logs` — row-level change sink for critical org-scoped tables
 
-- `runs`:
+**Implication:**
+A human (or agent) must be able to answer: “Who changed what, when, and why?” with evidence in the DB.
 
-  - Captures the exact `input`, `output`, `trace`, and hashes for every underwriting run.
+### 2.4 Traceable AI
 
-- `policy_versions`:
-
-  - Stores the full JSON policy artifacts over time.
-  - Allows “what was the policy on 2025-11-10?”.
-
-- `audit_logs`:
-
-  - Row-level change history for critical tables.
-  - Enables “who changed what, when, and how?”.
-
-Future v3 SRE (observability) features:
-
-- **Golden replay jobs**:
-
-  - Re-run selected historical deals on the current engine + policy.
-  - Compare hashes and flag regressions.
-
-### 4. Traceable AI
-
-AI is a **strategist layer**, not a magical source of numbers.
+AI is an **advisor/strategist layer**, not a magic calculator.
 
 Rules:
 
-- AI **cannot invent numeric values** out of thin air.
-- All numbers must trace back to:
+- AI **does not invent numbers**.
+- AI references numbers only from:
+  - engine outputs (`AnalyzeOutputs`)
+  - trace frames
+  - policy snapshots/tokens
+  - evidence stored and accessible under RLS (and/or connector artifacts with provenance)
 
-  - Policy tokens,
-  - Explicit deal inputs,
-  - External connectors with logged evidence (e.g. MLS / county / FEMA).
+AI I/O must be schema-validated:
 
-- Every AI-assisted output:
+- All “client ↔ function/route” payloads are defined in `packages/contracts` (Zod).
+- AI outputs should cite which outputs/trace/policies they referenced.
 
-  - Is validated by Zod schemas from `packages/contracts`.
-  - Includes a justification/trace or a link to evidence.
-  - Never silently overwrites deterministic engine results coming from `v1-analyze`.
-
-### 5. RLS-First, Zero-Trust Posture
+### 2.5 RLS-first, zero-trust posture
 
 Security fundamentals:
 
 - All user-facing reads/writes use the **caller’s JWT**, never `service_role`.
-- Every org/user table is protected by **Row-Level Security (RLS)**.
-- **No `service_role` key** appears in:
+- Every org/user-scoped table is protected by **Row-Level Security (RLS)**.
+- `service_role` is reserved strictly for:
+  - bootstrap/seed scripts,
+  - admin maintenance tasks,
+  - migrations (non-user flows).
 
-  - Client-side code,
-  - Edge functions invoked directly by users.
+**Implication:**
+No `service_role` in browser code. No `service_role` in Edge Functions invoked by normal users. Org access is always verified via `memberships`.
 
-`service_role` is reserved strictly for:
+### 2.6 Vertical-slice delivery
 
-- Bootstrap/seed scripts,
-- Admin maintenance and migrations (never user flows).
+Features ship as narrow, end-to-end slices:
 
-### 6. Vertical-Slice Delivery
+> UI → Route/Edge Function → DB → Trace/Audit → Tests
 
-Features are always implemented as **narrow, end-to-end vertical slices**:
+No “UI-only” business rules. No DB changes without wiring.
 
-- UI → Edge Function → DB → Trace/Audit.
+### 2.7 Pixel parity and UX consistency
 
-Each slice:
+UI work must be **pixel-parity** with the existing system:
 
-- Has a clear, testable Definition of Done.
-- Includes routing, data flow, and persistence.
-- Does not break determinism or RLS guarantees.
-
----
-
-## 2. Core Architecture & Stack
-
-### 2.1 Frontend
-
-- **Framework:** Next.js 14 (App Router)
-- **Language:** TypeScript (strict)
-- **Styling:** Tailwind CSS
-- **Animation:** Framer Motion
-- **Design System:** `packages/ui-v2` (and `.tmp/ui-v2`) as the **pixel-parity reference**
-
-Responsibilities:
-
-- The Next.js app is **presentation + orchestration** only.
-- All core underwriting math, risk gates, and policy logic live in:
-
-  - Supabase Edge Functions, and
-  - `packages/engine` (the deterministic engine).
-
-- React components **never** become the source of truth for business rules.
-
-### 2.2 Backend & Infra
-
-- **Platform:** Supabase (Postgres + Auth + Storage + Edge Functions)
-- **Database:** Postgres with RLS on all tenant data
-- **Auth:** Supabase Auth (email/password, JWT)
-
-Business logic:
-
-- **Supabase Edge Functions (Deno)** are the only place where:
-
-  - Underwriting math,
-  - Policy interpretation,
-  - Repairs / rate logic,
-  - External connectors (MLS, county, FEMA, tax),
-  - AVM logic (v3),
-  - CRM sync (v3),
-  - Billing logic (v3),
-  - and other domain-critical logic run.
-
-Storage:
-
-- Supabase Storage buckets (private).
-- Evidence (photos, PDFs, docs) is accessed via **short-lived signed URLs** returned from functions like `v1-evidence-start` / `v1-evidence-url`.
-
-### 2.3 Contracts & Engine
-
-#### `packages/contracts`
-
-- Zod schemas defining all externalized shapes:
-
-  - `AnalyzeInput`, `AnalyzeResult`
-  - Repair rate contracts
-  - Evidence payloads
-  - Connectors / AVM / CRM payloads (v2/v3)
-
-- Roles:
-
-  - Single source of truth for **client ↔ Edge** contracts.
-  - Enforces schema-strict **AI I/O**.
-  - Protects against untyped JSON from functions and external APIs.
-
-#### `packages/engine`
-
-- Deterministic underwriting engine used by Edge Functions.
-- Inputs:
-
-  - Deal facts (normalized structure),
-  - Policy JSON (tokens for that org/posture).
-
-- Outputs:
-
-  - Underwriting calculations:
-
-    - Respect Floor
-    - Buyer Ceiling
-    - MAO corridors
-    - Risk gates / flags
-    - Double-close impact
-
-  - Detailed `trace`:
-
-    - Step-by-step calculation log.
-
-  - `infoNeeded`:
-
-    - Evidence or information required before making an offer.
-
-### 2.4 Monorepo & Tooling
-
-- **Package Manager:** `pnpm` workspaces
-- **Workspaces:**
-
-  - `apps/hps-dealengine` — Next.js UI app
-  - `packages/engine` — deterministic engine
-  - `packages/contracts` — contracts and schemas
-  - `packages/ui-v2` — design system and shared components
-
-- **Testing:** Vitest for engine and shared logic
-- **Build:**
-
-  - `tsc` for packages
-  - `next build` for the app
-
-- **CI/CD (planned/expanding):**
-
-  - `pnpm -w typecheck`
-  - `pnpm -w test`
-  - `pnpm -w build`
-  - Later: Playwright E2E pixel tests
-
-- **Dev Environment:**
-
-  - Default: Windows + VS Code + PowerShell
-  - PowerShell scripts handle:
-
-    - Zipping repo snapshots,
-    - Diagnostics,
-    - Schema exports,
-    - Local CI helpers.
+- reuse existing components/patterns
+- match spacing/typography/interaction
+- if visuals change intentionally, update Playwright snapshots intentionally (and explain why)
 
 ---
 
-## 3. Data Model, Multi-Tenancy & RLS
-
-### 3.1 Core Multi-Tenant Model
-
-**Org & membership backbone:**
-
-- `organizations`
-
-  - One row per org/portfolio.
-  - Holds settings like plan, default markets, etc. (v3).
-
-- `memberships`
-
-  - Join table: `{ org_id, user_id, role }`
-  - Roles: `analyst`, `manager`, `admin` (and any future roles)
-  - Every request is scoped via `auth.uid()` → `memberships`.
-
-Typical RLS pattern:
-
-```sql
-USING (
-  org_id IN (
-    SELECT org_id
-    FROM memberships
-    WHERE user_id = auth.uid()
-  )
-)
-```
-
-Users:
-
-- Managed by Supabase Auth.
-- Mapped via `auth.uid()` to membership rows.
-
-### 3.2 Underwriting Policy & Runs
-
-**`policies`**
-
-- Per-org & per-posture metadata.
-- Partial unique index:
-
-  - `(org_id, posture) WHERE is_active = true`
-
-- Defines active policy posture for a given org.
-
-**`policy_versions`**
-
-- Full JSON policy documents:
-
-  - `{ id, org_id, posture, version, policy_json, created_by, created_at, ... }`
-
-- Supports:
-
-  - Deterministic replay with exact historical policy.
-  - Approvals/governance (v2/v3).
-
-**`runs`**
-
-- Core execution log for every underwriting run:
-
-  - `id`
-  - `org_id`
-  - `posture`
-  - `deal_id` (link to deals table)
-  - `input` (JSON)
-  - `output` (JSON)
-  - `trace` (JSON)
-  - `policy_snapshot` (JSON)
-  - `input_hash`, `policy_hash`, `output_hash`
-  - `created_by`, `created_at`
-
-- Unique index:
-
-  - `runs_uni_org_posture_iohash_polhash` on `(org_id, posture, input_hash, policy_hash)`
-
-- Enables:
-
-  - Deterministic dedupe
-  - Hash-based replays
-  - CRM exports (v3) tied to deals and runs
-
-**`audit_logs`**
-
-- Row-level audit for key tables (deals, policies, runs, etc.):
-
-  - `table_name`, `row_id`, `change_type`, `before`, `after`, `changed_by`, `changed_at`
-
-- Used by:
-
-  - Policy governance
-  - Evidence trail
-  - SRE diagnostics (v3)
-
-### 3.3 Deals
-
-Canonical deals table created via migration (e.g. `20251109000708_org_deals_and_audit_rls.sql`):
-
-Core fields:
-
-- `id`, `org_id`, `created_by`, `created_at`, `updated_at`
-- `address`, `city`, `state`, `zip`
-- `payload` (JSON with normalized deal data)
-
-RLS:
-
-- Org-scoped via `memberships` + `auth.uid()`.
-
-This table is the single source of truth for deal identity in v1.
-
-### 3.4 Repairs (Current + Future)
-
-**`repair_rate_sets`**
-
-Per-org, per-market repair configuration:
-
-- `id`, `org_id`, `market_code` (e.g. `ORL`)
-- `as_of`, `source`, `version`, `is_active`
-- `psf_tiers_json` (light / medium / heavy PSF)
-- `big5_json` (roof / HVAC / repipe / electrical / foundation)
-
-RLS:
-
-- Org-scoped.
-
-Seeded with investor-grade defaults for ORL; extensible to more markets.
-
-Future (v2/v3):
-
-- Potential split into granular tables:
-
-  - `repair_items`, `repair_rates`, etc.
-
-- For more complex unit cost curves if needed.
-
-### 3.5 Connectors / Property Data (v2)
-
-**`property_snapshots`**
-
-Cache of external data for an address:
-
-- `id`
-- `org_id`
-- `address_normalized`
-- `source` (`mls` | `county` | `fema` | `tax` | others)
-- `data_json` (normalized payload)
-- `expires_at`
-
-Used to:
-
-- Reduce connector/api calls.
-- Maintain reproducibility within a TTL window.
-
-### 3.6 AVM Logs (v3)
-
-**`avm_runs`**
-
-Logs each AVM evaluation:
-
-- `id`
-- `org_id`
-- `deal_id` / `run_id`
-- `inputs_hash`
-- `predicted_values` (AIV/ARV, confidence)
-- `comps_snapshot`
-- `created_at`
-
-Enables:
-
-- AVM accuracy tracking vs. final numbers.
-- Feedback loops and QA for AVM behavior.
-
-### 3.7 CRM / Billing (v3)
-
-**`crm_connections`**
-
-Per-org CRM configuration:
-
-- `org_id`
-- `provider` (salesforce, hubspot, etc.)
-- Encrypted tokens
-- Field mapping config (`mapping_config` JSON)
-
-**`plans`**
-
-SaaS plans (Free, Pro, Enterprise):
-
-- `id`, `name`, `run_quota`, `price`, `features_json`.
-
-**`org_subscriptions`**
-
-- Per-org subscription and billing state.
-
-**`usage_counters`**
-
-- Tracks runs/usage per org for quotas and dashboards.
+## 3. Current shipped baseline
+
+DealEngine is already **field-ready** for v1 and includes v1.1 hardening elements.
+
+At a high level, what is already true (and must be preserved):
+
+- deterministic underwriting through `v1-analyze` + `runs` persistence
+- Business Sandbox v1 (policy-driven knobs) wired into runtime math/risk/workflow
+- Dashboard (“/overview”) + Trace surfaces render engine outputs and trace frames (no recompute)
+- repairs pricing backed by org-scoped repair rate sets + profiles
+- valuation spine: property snapshot caching + valuation runs + comps UI rails
+- QA/E2E harness is env-gated and skip-safe when QA env isn’t configured
+- AI platform: tri-agent personas (Analyst/Strategist/Negotiator), logged to `agent_runs`, with Supabase-backed chat history and stale-run gating
 
 ---
 
-## 4. Edge Functions Inventory & Responsibilities
+## 4. Documentation routing and trust tiers
 
-All domain logic runs through Supabase Edge Functions.
+DealEngine docs use lightweight metadata and a trust system so agents and humans can resolve conflicts.
 
-### 4.1 v1.x — Core Underwriting & Evidence
+### 4.1 Doc router
 
-- `v1-ping`
-  Simple health check.
+If you’re unsure where a rule “should live,” start here:
 
-- `v1-policy-get`
-  Returns active policy for caller’s org/posture.
-  Respects RLS and membership.
+- `docs/index-for-ai.md` — doc sitemap / boot sequence
+- `docs/ai/doc-registry.json` — structured doc registry (path + category + trust tier)
+- `docs/ai/doc-metadata-schema.md` — frontmatter schema
+- `docs/ai/data-sources-and-trust-tiers.md` — conflict resolution rules
 
-- `v1-policy-put`
-  Updates policy metadata.
-  Appends to `policy_versions` with a full policy snapshot.
-  Triggers audit logs.
+### 4.2 Trust tiers (when sources conflict)
 
-- `v1-analyze`
-  Core deterministic underwriting endpoint:
+Docs may declare `trust_tier` where **lower is stronger**.
 
-  - Resolves caller’s org via `memberships`.
-  - Fetches active `policy_versions` row.
-  - Calls `packages/engine` with `{ deal, policy }`.
-  - Produces deterministic outputs + trace + hashes.
-  - Either:
+When sources conflict:
 
-    - Persists runs directly, or
-    - Returns a payload that `v1-runs-save` persists.
+1. Prefer the **lowest trust tier number**
+2. Call out the conflict explicitly
+3. If the conflict affects implementation, stop and get an owner decision
 
-- `v1-runs-save`
-  Accepts engine outputs + metadata.
-  Inserts into `runs` with:
+Default hierarchy:
 
-  - `org_id`, `posture`, `deal_id`, `input`, `output`, `trace`, `policy_snapshot`, hashes, meta.
-    Respects RLS and uniqueness constraints.
-
-- `v1-repair-rates`
-  Returns normalized `RepairRates` per org/market:
-
-  - PSF tiers
-  - Big 5 increments
-  - Metadata (`as_of`, `source`, `version`)
-    Backed by `repair_rate_sets`.
-
-- `v1-ai-bridge`
-  Strict wrapper for AI:
-
-  - Uses contracts from `packages/contracts`.
-  - Accepts well-defined modes (e.g. strategist).
-  - Enforces traceable, non-number-inventing behavior.
-
-- `v1-evidence-start` / `v1-evidence-url`
-  Handles evidence uploads:
-
-  - Inserts evidence rows.
-  - Issues signed URLs.
-  - Ensures `org_id` scoping and RLS compliance.
-
-- `v1-policy-override-request`, `v1-policy-override-approve`
-  Support functions for:
-
-  - Policy override governance.
-
-Not shipped in V1 (planned for V1.1):
-- `v1-runs-relay`, `v1-runs-replay` (deterministic relays/replays)
-
-### 4.1.1 Function Environment Vars
-
-Set these in Supabase Dashboard → Settings → Functions (project `zjkihnihhqmnhpxkecpy`):
-
-- `SUPABASE_URL` and `SUPABASE_ANON_KEY` (all functions).
-- `OPENAI_API_KEY` (required for `v1-ai-bridge`; missing keys return a `CONFIG_ERROR` response).
-
-### 4.2 v2.x - Connectors, Strategy Packs, Multi-Posture
-
-- `v2-connectors-proxy`
-  Unified gateway for external property data:
-
-  - MLS
-  - County
-  - FEMA
-  - Tax data
-    Normalizes responses and caches to `property_snapshots`.
-
-- Future v2 functions:
-
-  - Strategy pack load/save.
-  - Multi-posture comparison queries.
-
-### 4.3 v3.x — AVM, CRM, Billing, SRE
-
-- `v3-avm-predict`
-  Combines connectors and AVM logic to propose AIV/ARV with:
-
-  - Comps
-  - Confidence
-  - Method trace
-
-- `v3-crm-sync`
-  Pushes runs or deal updates into CRM based on `crm_connections` config.
-
-- `v3-billing-portal` / Stripe webhooks
-  Handles:
-
-  - Customer portal links.
-  - Plan changes.
-  - Subscription events for `org_subscriptions` and `usage_counters`.
-
-- SRE-oriented functions:
-
-  - Golden replay jobs.
-  - Telemetry exporters.
-  - Health checks and failure simulations.
+- Tier 0: math/contracts/manuals + saved runs/trace
+- Tier 1: engine/app/ops docs (implementation truth)
+- Tier 2: product vision, examples, playbooks
+- Tier 3: external market context (cite; never overrides deal math)
 
 ---
 
-## 5. Frontend Application Structure & UX Targets
+## 5. Core architecture and repo layout
 
-### 5.1 Major Routes (App Router)
+DealEngine is a pnpm-workspace monorepo with:
 
-All under `apps/hps-dealengine/app`:
+- a Next.js App Router frontend
+- Supabase backend (Postgres + RLS, Auth, Storage, Edge Functions)
+- a deterministic engine package used by Edge Functions
+- contract schemas shared across boundaries (Zod)
 
-**Public:**
+### 5.1 Monorepo: where things live
 
-- `/` (landing/brochure or redirect)
+Typical top-level structure:
+
+- `apps/hps-dealengine/` — Next.js app (App Router)
+- `packages/engine/` — deterministic underwriting engine (math + trace)
+- `packages/contracts/` — Zod schemas for input/output shapes
+- `packages/ui-v2/` — design system + UI primitives
+- `packages/agents/` — persona agent SDK (Analyst/Strategist/Negotiator)
+- `packages/hps-mcp/` — MCP server for tooling (stdio + Streamable HTTP)
+- `supabase/` — migrations, edge functions, seed/ops utilities
+- `tests/e2e/` — Playwright E2E specs (env-gated)
+- `docs/` — project docs, specs, and runbooks
+- `scripts/` — PowerShell + Node runbooks (CI, proofs, doctor scripts)
+
+---
+
+## 6. App structure and UX invariants
+
+### 6.1 Next.js app
+
+- Framework: **Next.js 14 App Router**
+- Language: TypeScript (strict)
+- Styling: Tailwind CSS
+- Animations: Framer Motion
+
+The app is **presentation + orchestration** only.
+Business math/rules live in:
+
+- deterministic engine (`packages/engine`)
+- Supabase Edge Functions (JWT + RLS)
+
+### 6.2 Core routes
+
+Public (unauthenticated):
+
+- `/`
 - `/login`
 - `/logout`
 
-**App shell (protected `(app)` group):**
+Post-login routing:
 
-- `/overview` — summary metrics and negotiation playbook for the current deal.
-- `/underwrite` — main underwriting UX for deal inputs and running `v1-analyze`.
-- `/repairs` — repair/rehab UI (QuickEstimate + detailed estimator).
-- `/trace` — run trace explorer (runs, hashes, input/output/trace).
-- `/runs` — (optional) runs list view by deal or org.
-- `/settings/*` — user/org/team settings.
-- `/sandbox` — business logic sandbox / policy editor.
-- `/sources` — connectors/source-of-truth debugging.
-- `/ai-bridge/debug` — AI bridge debug console.
-- `/debug/ping` — internal health checks.
+- `/startup` — hub (empty state + “View all deals”)
+- `/deals` — org-scoped deals list (create/select deal, set DealSession)
+- `/overview` — labeled **Dashboard** in the UI (route path remains `/overview`)
 
-### 5.2 Shell & Navigation
+Authenticated app routes (deal-required unless noted):
 
-- `app/layout.tsx`:
+- `/overview` (Dashboard)
+- `/underwrite`
+- `/repairs`
+- `/trace`
+- `/runs`
+- `/sandbox`
+- `/settings`
+- `/sources` (source/provenance surface)
+- `/ai-bridge/debug` (debug tooling)
+- `/debug/ping` (health checks)
 
-  - Global HTML shell.
+### 6.3 Deal session model
 
-- `app/(app)/layout.tsx`:
+DealEngine is deal-centric. Many routes require an “active deal.”
 
-  - Protected dashboard shell:
+- `/deals` sets the active deal (DealSession) and navigates to `/overview?dealId=...`
+- `DealGuard` protects deal-required routes and bounces to `/startup` when no active deal is present
+- Deep links must survive hydration: `DealGuard` should defer redirect until it can resolve whether a deal is present
 
-    - `AuthGate`
-    - `DealSessionProvider`
-    - Top nav (`AppTopNav`)
-    - Desktop nav (Overview / Repairs / Underwrite / Trace / Settings)
-    - `MobileBottomNav`
+### 6.4 Layout invariants (App Router)
 
-UX targets:
+- `apps/hps-dealengine/app/layout.tsx`:
 
-- Single SPA-style dashboard look/feel across main routes.
-- Navy theme, consistent typography and spacing.
-- Pixel parity with `ui-v2` reference components.
+  - global HTML shell + theme + fonts
+  - root `DealSessionProvider` so session exists across `/startup`, `/login`, and authenticated routes
 
-### 5.3 Pixel Parity & Testing
+- `apps/hps-dealengine/app/(app)/layout.tsx`:
+  - authenticated shell
+  - `AuthGate` for session guard
+  - `DealGuard` for deal-required routes
+  - `AppTopNav` (desktop)
+  - `MobileBottomNav` (mobile)
 
-- `packages/ui-v2` and `.tmp/ui-v2`:
+### 6.5 UI-v2 and pixel parity
 
-  - The truth for look & feel.
-
-- Playwright pixel tests:
-
-  - Capture snapshots of:
-
-    - `/overview`
-    - `/underwrite`
-    - `/repairs`
-    - `/sandbox`
-    - `/settings`
-    - `/underwrite/debug`
-
-  - Used as tripwires for visual regressions.
+- `packages/ui-v2` is the design-system reference for pixel parity.
+- `.tmp/ui-v2` is **prototype-only** and excluded from deploy artifacts (it must not be a production dependency).
+- App code should import stable constants/types via:
+  - `apps/hps-dealengine/lib/ui-v2-constants.ts`
+  - `apps/hps-dealengine/types.ts`
+  - and committed `apps/hps-dealengine/constants*` modules
 
 ---
 
-## 6. Roadmap Snapshot (v1 → v2 → v3)
+## 7. Deterministic underwriting engine
 
-Detailed v1 execution lives in `docs/roadmap-v1-v2-v3.md`.
-This section provides a high-level snapshot.
+### 7.1 `packages/contracts` (schemas)
 
-### 6.1 v1 — Deterministic Underwriting Engine (Core)
+`packages/contracts` defines the canonical shared contracts:
 
-**Goal:**
-Ship a deterministic underwriting OS that is usable day-to-day by HPS and early investors.
+- underwriting:
+  - `AnalyzeInput`
+  - `AnalyzeOutputs` / `AnalyzeResult`
+- repairs:
+  - repair rates and profile shapes
+- evidence:
+  - upload metadata, evidence summary shapes
+- valuation:
+  - `PropertySnapshot`, `MarketSnapshot`, `Comp`, `ValuationRun` (and policy-gated additions)
+- AI:
+  - persona request/response shapes
+  - guardrails schemas (no fabricated numbers)
 
-**Definition of Done:**
+### 7.2 `packages/engine` (math + trace)
 
-- Fully deterministic `v1-analyze` with:
+The deterministic engine:
 
-  - `runs` persistence,
-  - Hashes,
-  - Trace.
+- consumes normalized deal input + policy snapshot
+- computes underwriting outputs (MAO corridors, spread, caps, risk/workflow, timeline/carry, etc.)
+- emits a structured **trace** (frames like RISK_GATES_POLICY, EVIDENCE_FRESHNESS_POLICY, etc.)
+- produces stable hashes through the run persistence layer
 
-- Evidence flows:
+Edge Functions do not “re-implement math”:
 
-  - At least one evidence type wired end-to-end via `v1-evidence-*`.
+- Edge uses a bundled engine artifact (vendor bundle) aligned to `packages/engine`
+- The browser does not recompute underwriting numbers
 
-- Pixel-parity UI:
+### 7.3 Policies: how behavior changes without deploy
 
-  - `/overview`, `/underwrite`, `/repairs`, `/settings`, `/sandbox`.
+Policies live in Postgres and are versioned.
 
-- Trace explorer:
+- the active policy per org/posture is loaded by functions like `v1-policy-get`
+- changes are written via RLS-safe governance flows (`v1-policy-put` and future override pipelines)
+- run persistence stores the exact `policy_snapshot` so outputs are diffable over time
 
-  - `/trace` shows latest runs with hashes and trace.
+### 7.4 Runs: deterministic persistence
 
-- No manual DB hacks needed for normal underwriting usage.
+`runs` is the canonical underwriting execution log:
 
-### 6.2 v2 — Connectors, Strategy Packs, Multi-Posture
+- each run stores `input`, `output`, `trace`, `policy_snapshot`
+- hashes (`input_hash`, `policy_hash`, `output_hash`) enable replay and dedupe
 
-**Goal:**
-Move from “manual entry + engine” to “connected, strategy-driven underwriting”.
+The dedupe invariant is critical:
 
-Key elements:
-
-- Address → connectors → autofill:
-
-  - MLS, county, FEMA, tax.
-
-- Strategy Packs:
-
-  - Multiple buy boxes per org/investor.
-  - Switchable via UI.
-
-- Multi-posture:
-
-  - Conservative / Base / Aggressive comparisons in both:
-
-    - Underwrite page,
-    - Overview KPIs.
-
-Supporting pieces:
-
-- `property_snapshots` table and connectors proxy.
-- Policy-driven posture matrix outputs.
-- UI for posture comparison and toggling.
-
-### 6.3 v3 — Ecosystem, Billing & SRE
-
-**Goal:**
-Turn HPS DealEngine into a connected, billable, observable platform.
-
-Key elements:
-
-- AVM:
-
-  - `v3-avm-predict` + `avm_runs`.
-  - Evidence-backed AVM suggestions with confidence.
-
-- CRM Integration:
-
-  - `crm_connections` + `v3-crm-sync`.
-  - Push key outputs into CRM pipelines.
-
-- Billing:
-
-  - Plans, subscriptions, quotas.
-  - Stripe integration and usage tracking.
-
-- SRE / Observability:
-
-  - Golden replays.
-  - Telemetry and tracing.
-  - Chaos/failure simulations.
+- repeated runs with identical input+policy produce one canonical row
+- regression tests can compare hashes across code changes
 
 ---
 
-## 7. Assistant / Agent Interaction Protocol (High-Level)
+## 8. Data model (tables) overview
 
-Any AI agent (ChatGPT, Codex, or others) working on this project must:
+This section is a conceptual map (not an exhaustive schema dump).
+Migrations under `supabase/migrations/` are the canonical schema truth.
 
-- Treat this primer as a high-level architectural guide.
-- Respect all non-negotiables:
+### 8.1 Multi-tenancy backbone
 
-  - Determinism
-  - Policy-driven design
-  - RLS-first
-  - No `service_role` in user flows
-  - Vertical-slice delivery
+- `organizations`
+  - one portfolio / business entity per row
+- `memberships`
+  - links `user_id` to `org_id` with a role
+  - the anchor for RLS scoping: `auth.uid()` → memberships → org_id
 
-Use the following documents as the local operating manual:
+### 8.2 Deals and working state
 
-- `AGENTS.md` — detailed agent behavior and execution protocol.
-- `docs/roadmap-v1-v2-v3.md` — detailed roadmap, sprints/slices, and v1/v2/v3 definitions.
-- `docs/devlog-hps-dealengine.md` — current progress and “what’s next”.
+- `deals` (canonical org-scoped deals table)
 
-Before editing code or schema, agents must read and align with:
+  - id, org_id
+  - address fields + normalized JSON `payload`
+  - audit fields (created_by, created_at, updated_at)
 
-- `AGENTS.md`
-- `docs/primer-hps-dealengine.md`
-- `docs/roadmap-v1-v2-v3.md`
-- (Optionally) the latest entries in `docs/devlog-hps-dealengine.md`
+- `deal_working_states` (UI autosave buffer, if present in schema)
+  - stores in-progress Underwrite/Repairs edits so UI can autosave without mutating canonical deal fields prematurely
+  - still org-scoped and RLS-protected
+
+### 8.3 Runs and traces
+
+- `runs`
+  - deterministic execution log
+  - persisted input/output/trace/policy_snapshot + hashes
+  - ties to `deal_id` and posture
+
+### 8.4 Policies and governance
+
+- `policies`
+- `policy_versions`
+- `policy_versions_api` (consumption view)
+
+(Planned/iterating) governance surfaces may include:
+
+- `policy_override_requests` (request/review/approve pattern)
+- any additional tables must be org-scoped + RLS + audit-triggered
+
+### 8.5 Repairs
+
+- `repair_rate_sets` (and related normalized structures)
+  - org + market + posture aware
+  - supports PSF tiers and “Big 5 budget killers”
+- repair profiles (backed by tables served via `v1-repair-profiles`)
+
+### 8.6 Evidence and artifacts
+
+Evidence is treated as first-class underwriting input.
+
+- evidence metadata tables (org-scoped, RLS)
+- `audit_logs` is the row-change sink
+- evidence files live in private Supabase Storage buckets and are served by signed URLs
+
+### 8.7 Valuation spine (v1.1 baseline)
+
+Valuation is append-only and policy-driven.
+
+- `property_snapshots`
+  - org-scoped caching of provider snapshots (with TTL/policy gates)
+- `valuation_runs`
+  - append-only valuation run history
+  - ties to deal + property snapshot + policy gates
+  - includes comps set, selection basis/version, confidence/warnings, and provenance
+- `valuation_comp_overrides` (when policy-gated features are enabled)
+  - org/deal/comp-keyed overrides with required notes, RLS, audit
+
+### 8.8 Sandbox and settings
+
+- `user_settings`
+  - user preferences by org (default posture/market, ui prefs, etc.)
+- `sandbox_settings`
+  - org + posture scoped runtime config JSON
+- `sandbox_presets`
+  - org + posture scoped saved sandbox configurations
+
+Business Sandbox v1 lives in policy + these settings layers (not hard-coded UI).
+
+### 8.9 AI / agent platform
+
+- `agent_runs`
+
+  - canonical logging sink for persona agents
+  - org/user/persona + workflow_version + model + input/output/error + timing/tokens
+  - RLS via memberships and `auth.uid()` + audit trigger
+
+- Supabase-backed chat history tables
+  - org/user scoped, RLS-protected
+  - retention via TTL (default 30 days)
+  - used by tri-agent UI surfaces and “Your Chats” history
 
 ---
 
-## 8. Summary for Future Sessions
+## 9. Runtime endpoints inventory
 
-When this primer is present in the repo, any future session (human or AI) should assume:
+DealEngine has two main server-side execution surfaces:
 
-**Primary project:** `hps-dealengine` (and its evolution through v1 → v2 → v3).
+1. Supabase Edge Functions (Deno)
+2. Next.js runtime routes (node) for agent personas and app-specific runtime needs
 
-**Stack + architecture are fixed:**
+### 9.1 Supabase Edge Functions (Deno)
 
-- Next.js 14 App Router.
-- Supabase (Postgres + Auth + Edge Functions + Storage).
-- Deterministic engine + versioned policies.
-- RLS-first, zero trust, no `service_role` in user flows.
+**Health**
 
-**Execution mode:**
+- `v1-ping` — simple health check (used by `/debug/ping`)
 
-- Vertical slices from UI → Edge Function → DB → Trace/Audit.
-- Heavy reliance on `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` as gates.
-- Pixel parity enforced via `ui-v2` and Playwright snapshots.
+**Core underwriting**
 
-**Roadmap context:**
+- `v1-analyze`
 
-- v1: deterministic engine + runs + evidence + pixel-parity SPA.
-- v2: connectors, strategy packs, multi-posture comparison.
-- v3: AVM, CRM, billing, SRE hardening.
+  - deterministic underwriting entrypoint
+  - uses the shared engine bundle and policy builder
+  - returns output + trace + hashes
 
-This document is meant to be stable: roadmap and slice-level details should be maintained primarily in:
+- `v1-runs-save`
+  - persists analyze results to `runs`
+  - enforces dedupe constraint and ties to `deal_id`
 
-- `docs/roadmap-v1-v2-v3.md`
-- `docs/devlog-hps-dealengine.md`
+**Policy**
 
-while this primer anchors the why and high-level how of HPS DealEngine.
+- `v1-policy-get` / `v1-policy-put`
+  - load and update org/posture policy artifacts
+  - must remain RLS-safe and audit-friendly
+
+**Repairs**
+
+- `v1-repair-rates`
+  - serves PSF tiers + Big 5 from `repair_rate_sets`
+- `v1-repair-profiles`
+  - CRUD for repair profiles (org/market/posture scoped)
+
+**Evidence**
+
+- `v1-evidence-start`
+  - creates evidence metadata row + returns upload URL/path
+- `v1-evidence-url`
+  - returns signed URL for viewing a stored evidence artifact
+
+**Settings / sandbox**
+
+- `v1-user-settings` — GET/PUT upsert (user/org scoped)
+- `v1-sandbox-settings` — GET/PUT upsert (org/posture scoped)
+- `v1-sandbox-presets` — GET/POST/DELETE presets (org/posture scoped)
+
+**Valuation**
+
+- `v1-connectors-proxy`
+  - provider proxy with deterministic stub fallback when configured
+- `v1-valuation-run`
+  - policy-driven valuation run creation and persistence
+  - loads overrides when enabled and remains deterministic (hash gated)
+- `v1-valuation-apply-arv` (or equivalent)
+  - persists “use suggested ARV” with provenance under caller JWT
+- valuation override endpoints (read-only display + audited override writes)
+  - must require reason and preserve provenance
+
+**AI (edge bridge)**
+
+- `v1-ai-bridge`
+  - schema-validated AI interface on top of engine outputs/trace/policy snapshots
+  - must not mint numbers; must reference existing outputs and evidence
+
+> **JWT rule:** Every user-facing Edge Function must use the caller JWT and enforce org membership; no `service_role` in user flows.
+
+### 9.2 Next.js runtime routes (node)
+
+**Persona agent routes:**
+
+- `/api/agents/analyst`
+- `/api/agents/strategist`
+- `/api/agents/negotiator`
+
+Responsibilities:
+
+- require `Authorization: Bearer $SUPABASE_ACCESS_TOKEN`
+- resolve `org_id` via memberships
+- forbid cross-org deal access
+- log to `agent_runs` (success and error)
+- return schema-validated output for UI
+
+These routes are the canonical surface for tri-agent UI behavior.
+
+---
+
+## 10. AI and agent platform
+
+### 10.1 Tri-agent model (canonical)
+
+All in-app AI is delivered through **three personas**:
+
+- **Deal Analyst**
+
+  - per-deal, per-run underwriting and gating explanations
+  - default: tactical, evidence-first
+
+- **Deal Strategist**
+
+  - system/sandbox/market strategy and what-if framing
+  - default: operational strategist, policy-aware
+
+- **Deal Negotiator**
+  - seller-facing negotiation planning + playbooks
+  - default: calm closer, structured objections, anchored to engine outputs
+
+If older docs mention a dual-agent model, treat **tri-agent as current**.
+
+### 10.2 AI guardrails (hard)
+
+AI must:
+
+- ground numbers in engine output + trace frames
+- call out missing/stale evidence rather than guessing
+- never weaken risk/compliance gates
+- never write direct offer numbers that conflict with policy/outputs
+- stay RLS-safe: only discuss records the caller can access
+
+### 10.3 Chat history persistence
+
+- AI chats are persisted in Supabase (org/user scoped)
+- protected by RLS
+- TTL retention (default 30 days)
+- UI includes “Your Chats” per persona
+
+### 10.4 Negotiator dataset and strategy matrix
+
+Negotiator relies on a structured dataset:
+
+- preferred path: `data/negotiation-matrix/negotiation-matrix.data.json`
+- fallback/dev path: `docs/ai/negotiation-matrix/negotiation-matrix.example.json`
+- schema reference:
+  - `docs/ai/negotiation-matrix/negotiation-matrix.schema.json`
+  - `docs/ai/negotiation-matrix/spec-negotiation-matrix.md`
+
+The dataset provides scenario → pre-emptive script mappings, with numeric placeholders populated from engine outputs.
+
+### 10.5 HPS MCP server (tooling surface)
+
+There is an MCP server package for vNext tooling:
+
+- package: `packages/hps-mcp`
+- supports stdio and Streamable HTTP
+- HTTP auth uses `HPS_MCP_HTTP_TOKEN`
+
+Example commands (PowerShell):
+
+```powershell
+# From repo root
+pnpm --filter "@hps/hps-mcp" start:http
+
+# Or via a root script if present
+pnpm dev:hps-mcp:http
+Tools include deal/run/evidence retrieval, negotiation strategy lookup, KPI and risk stats aggregation, sandbox settings fetch, and strategist KB search.
+
+11. Testing, QA, and quality gates
+11.1 The “Green Check” baseline
+Before recommending any commit/push/deploy, these must be green:
+
+PowerShell
+
+pnpm -w typecheck
+pnpm -w test
+pnpm -w build
+11.2 Preferred local runner (Windows / PowerShell)
+If present, prefer the repo’s local CI runner:
+
+PowerShell
+
+.\scripts\local-ci.ps1
+Playwright is opt-in locally via an env flag (when supported by the script):
+
+PowerShell
+
+$env:PLAYWRIGHT_ENABLE="true"
+.\scripts\local-ci.ps1
+11.3 QA / E2E harness
+DealEngine uses env-gated Playwright specs that:
+
+follow the IA: /login → /startup → /deals → /overview?dealId=...
+
+validate core vertical slices end-to-end
+
+skip cleanly when QA env is not configured
+
+Reference doc: docs/QA_ENV_V1.md
+
+Preflight gate (when present): .\scripts\qa-preflight.ps1
+
+Playwright specs live under: tests/e2e/
+
+Common E2E runner (when present): pnpm -w test:e2e
+
+11.4 Pixel snapshots
+UI changes that affect layout/visuals require:
+
+intentional snapshot updates
+
+a clear explanation of what changed and why
+
+12. Operating mode for assistants and agents
+This repo is designed to be worked on by:
+
+humans
+
+Codex-style execution agents
+
+in-app AI surfaces
+
+The strict behavioral protocol is defined in: AGENTS.md
+
+High-level non-negotiables for all assistants/agents:
+
+do not bypass determinism, policy-first design, or RLS posture
+
+do not introduce service_role into user flows
+
+work in vertical slices and leave an audit trail
+
+keep UI pixel-parity and avoid business rules in React
+
+when something fails: use diagnostics-first and minimal deterministic fixes
+
+prefer PowerShell commands and explicit file paths (Windows-first workflow)
+
+Cross references (high signal):
+
+AGENTS.md — operating manual for all agents (strict rules)
+
+docs/devlog-hps-dealengine.md — current state + latest shipped slices
+
+docs/roadmap-v1-v2-v3.md — phased plan and “already true” baseline
+
+docs/index-for-ai.md — doc router / boot sequence
+
+docs/ai/data-sources-and-trust-tiers.md — conflict resolution rules
+
+docs/QA_ENV_V1.md — QA Supabase + Playwright env config
+
+docs/knobs-audit-v1.md — sandbox knob inventory + KEEP/DROP classification
+
+tools/knob-coverage-report.cjs — runtime wiring coverage report
+```

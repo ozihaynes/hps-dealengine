@@ -133,6 +133,14 @@ export type AnalyzeRequestPayload = {
     moi_zip_months?: number | null;
     price_to_list_pct?: number | null;
     local_discount_pct?: number | null;
+    market?: {
+      arv_source?: string | null;
+      arv_as_of?: string | null;
+      arv_valuation_run_id?: string | null;
+      as_is_value_source?: string | null;
+      as_is_value_as_of?: string | null;
+      as_is_value_valuation_run_id?: string | null;
+    };
     options?: { trace?: boolean };
   };
   sandboxPolicy: SandboxPolicyOptions;
@@ -530,6 +538,17 @@ export function buildAnalyzeRequestPayload(params: {
 }): AnalyzeRequestPayload {
   const { orgId, posture, dbDealId, deal, sandbox, repairRates } = params;
   const market: any = (deal as any)?.market ?? {};
+  const marketProvenance = {
+    arv_source: market.arv_source,
+    arv_as_of: market.arv_as_of,
+    arv_valuation_run_id: market.arv_valuation_run_id,
+    as_is_value_source: market.as_is_value_source,
+    as_is_value_as_of: market.as_is_value_as_of,
+    as_is_value_valuation_run_id: market.as_is_value_valuation_run_id,
+  };
+  const marketProvenanceHasValues = Object.values(marketProvenance).some(
+    (value) => typeof value !== "undefined",
+  );
 
   return {
     org_id: orgId,
@@ -555,6 +574,7 @@ export function buildAnalyzeRequestPayload(params: {
       local_discount_pct: toNumberOrNull(
         market.local_discount_20th_pct ?? market.local_discount_pct,
       ),
+      market: marketProvenanceHasValues ? marketProvenance : undefined,
       options: { trace: true },
     },
     sandboxPolicy: buildSandboxPolicyOptions(sandbox, posture),

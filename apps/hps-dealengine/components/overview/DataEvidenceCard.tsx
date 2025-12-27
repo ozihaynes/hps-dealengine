@@ -80,10 +80,10 @@ export function DataEvidenceCard({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge color={badge.color} data-testid="confidence-badge">
+          <Badge color={badge.color} dataTestId="confidence-badge">
             Confidence: {badge.label}
           </Badge>
-          <Badge color={workflowBadge.color} data-testid="workflow-pill">
+          <Badge color={workflowBadge.color} dataTestId="workflow-pill">
             Workflow: {workflowBadge.label}
           </Badge>
         </div>
@@ -206,7 +206,7 @@ export function DataEvidenceCard({
                     </div>
                     <Badge
                       color={row.status === "fresh" ? "green" : row.status === "stale" ? "orange" : "blue"}
-                      data-testid={`evidence-status-${row.kind}`}
+                      dataTestId={`evidence-status-${row.kind}`}
                     >
                       {row.status}
                       {row.blocking ? " - blocking" : ""}
@@ -221,5 +221,3 @@ export function DataEvidenceCard({
     </GlassCard>
   );
 }
-
-

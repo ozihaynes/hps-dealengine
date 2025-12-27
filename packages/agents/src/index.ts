@@ -4,6 +4,8 @@ export * from "./analyst/types";
 export * from "./supabase/supabaseRlsClient";
 export * from "./strategist/types";
 export * from "./strategist/shared";
+export * from "./shared/openaiErrors";
+export * from "./shared/contextSlimming";
 export { runStrategistAgent } from "./strategist/strategistAgent";
 export * from "./negotiator/types";
 export { runNegotiatorAgent } from "./negotiator/negotiatorAgent";

@@ -33,5 +33,5 @@ export interface NegotiatorAgentResult {
   model: string;
   totalTokens?: number;
   latencyMs?: number;
+  didAutoTrimRetry?: boolean;
 }
-

@@ -39,6 +39,8 @@ export type AiBridgeResult = {
   provider?: string | null;
   model?: string | null;
   ok?: boolean;
+  error_code?: string | null;
+  retryable?: boolean;
   key_numbers?: AiBridgeSection;
   guardrails?: AiBridgeSection;
   risk_and_evidence?: AiBridgeSection;
@@ -73,6 +75,8 @@ export type NegotiationPlaybookResult = {
   summary?: string;
   threadId?: string | null;
   model?: string | null;
+  error_code?: string | null;
+  retryable?: boolean;
 };
 
 export type NegotiatorChatResult = {
@@ -85,6 +89,8 @@ export type NegotiatorChatResult = {
   provider?: string | null;
   model?: string | null;
   ok?: boolean;
+  error_code?: string | null;
+  retryable?: boolean;
 };
 
 export type AiChatRole = "user" | "assistant" | "system";

@@ -50,7 +50,7 @@ export function RiskComplianceCard({ risk }: { risk: RiskViewModel }) {
             <p className="text-lg font-semibold text-text-primary">Gate status</p>
           </div>
         </div>
-        <Badge color={overallBadge.color} data-testid="risk-overall-badge">
+        <Badge color={overallBadge.color} dataTestId="risk-overall-badge">
           Risk: {overallBadge.label}
         </Badge>
       </div>

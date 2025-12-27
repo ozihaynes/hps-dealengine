@@ -18,6 +18,7 @@ type ClientProfileModalProps = {
   client: ClientProfileDetails | null;
   workflowState: WorkflowViewModel["state"];
   workflowReasons?: string[];
+  canSendOffer?: boolean;
   onSendOffer?: () => void;
 };
 
@@ -27,10 +28,12 @@ export function ClientProfileModal({
   client,
   workflowState,
   workflowReasons,
+  canSendOffer,
   onSendOffer,
 }: ClientProfileModalProps) {
   const contentRef = useRef<HTMLDivElement | null>(null);
   const readyForOffer = workflowState === "ReadyForOffer";
+  const sendOfferEnabled = Boolean(canSendOffer);
 
   useEffect(() => {
     if (!open) return;
@@ -116,9 +119,10 @@ export function ClientProfileModal({
           <Button
             size="sm"
             variant="primary"
-            disabled={!readyForOffer}
+            disabled={!sendOfferEnabled}
+            dataTestId="cta-send-offer"
             onClick={() => {
-              if (!readyForOffer) return;
+              if (!sendOfferEnabled) return;
               onSendOffer?.();
             }}
           >

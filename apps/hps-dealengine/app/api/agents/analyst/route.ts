@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { DEAL_ANALYST_AGENT_NAME, runAnalystAgent } from "@hps/agents";
+import { DEAL_ANALYST_AGENT_NAME, runAnalystAgent, classifyOpenAiError } from "@hps/agents";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,10 @@ type AgentErrorPayload = {
   message: string;
   code: string | number | null;
   status: number | null;
+  error_code: string;
+  user_message: string;
+  retryable: boolean;
+  did_auto_trim_retry?: boolean;
   details?: unknown;
 };
 
@@ -148,6 +152,10 @@ function normalizeAgentError(err: unknown): AgentErrorPayload {
     message: sanitizeMessage(err instanceof Error ? err.message : String(err ?? "Analyst agent failed")),
     code: (err as any)?.code ?? null,
     status: typeof (err as any)?.status === "number" ? (err as any).status : null,
+    error_code: "unknown_error",
+    user_message: "Unexpected error. Try again.",
+    retryable: true,
+    did_auto_trim_retry: Boolean((err as any)?.didAutoTrimRetry),
   };
 
   const candidates = [err as any, (err as any)?.cause, (err as any)?.response];
@@ -187,7 +195,22 @@ function normalizeAgentError(err: unknown): AgentErrorPayload {
     base.details = sanitizeDetails(err);
   }
 
+  const classified = classifyOpenAiError(err);
+  base.error_code = classified.error_code;
+  base.user_message = classified.user_message;
+  base.retryable = classified.retryable;
+  base.status = base.status ?? classified.http_status ?? null;
+
   return base;
+}
+
+function resolveErrorHttpStatus(payload: AgentErrorPayload): number {
+  if (payload.error_code === "rate_limited") return 429;
+  if (payload.error_code === "context_length_exceeded") return 400;
+  if (typeof payload.status === "number" && payload.status >= 400 && payload.status < 600) {
+    return payload.status;
+  }
+  return 500;
 }
 
 export async function POST(req: NextRequest) {
@@ -266,7 +289,7 @@ export async function POST(req: NextRequest) {
         trace_id: traceId,
         model: null,
         status: "error",
-        input: { dealId, runId, question, isStale },
+        input: { dealId, runId, question, isStale, meta: { did_auto_trim_retry: normalizedError.did_auto_trim_retry } },
         error: normalizedError,
         latency_ms: latencyMs,
       });
@@ -277,10 +300,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: "failed_to_run_analyst",
+        error: normalizedError.error_code ?? "failed_to_run_analyst",
+        error_code: normalizedError.error_code,
+        user_message: normalizedError.user_message,
+        retryable: normalizedError.retryable,
+        did_auto_trim_retry: normalizedError.did_auto_trim_retry ?? false,
         details: normalizedError,
       },
-      { status: 500 },
+      { status: resolveErrorHttpStatus(normalizedError) },
     );
   }
   const latencyMs = Date.now() - start;
@@ -319,6 +346,7 @@ export async function POST(req: NextRequest) {
         runId,
         question,
         isStale,
+        meta: { did_auto_trim_retry: agentResult.didAutoTrimRetry ?? false },
       },
       output: agentResult.aiResult,
       latency_ms: latencyMs,

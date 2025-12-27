@@ -7,6 +7,7 @@ import type { AiBridgeResult } from "@/lib/ai/types";
 import { useAiWindows } from "@/lib/ai/aiWindowsContext";
 import { ArrowUpRight } from "lucide-react";
 import { useDealSession } from "@/lib/dealSessionContext";
+import { Button } from "@/components/ui";
 
 type DealStrategistPanelProps = {
   posture?: string;
@@ -15,15 +16,23 @@ type DealStrategistPanelProps = {
   onMinimize?: () => void;
 };
 
+type PanelError = {
+  message: string;
+  retryable: boolean;
+  errorCode?: string | null;
+};
+
 export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinimize }: DealStrategistPanelProps) {
   const pathname = usePathname();
   const { posture: sessionPosture, dbDeal, lastRunId } = useDealSession();
   const [threadId, setThreadId] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<PanelError | null>(null);
   const [result, setResult] = useState<AiBridgeResult | null>(null);
+  const sendInFlightRef = useRef(false);
   const { state, dispatch } = useAiWindows();
+  const lastPromptRef = useRef<string | null>(null);
   const strategistWelcomes = useMemo(
     () => [
       "What's the game plan?",
@@ -70,15 +79,20 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
     }
   }, [activeSession?.id, dbDeal?.id]);
 
-  const onAsk = async (prompt: string) => {
+  const onAsk = async (prompt: string, opts?: { isRetry?: boolean }) => {
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) {
       return;
     }
+    if (sendInFlightRef.current) {
+      return;
+    }
     const postureValue = posture ?? sessionPosture ?? "base";
+    sendInFlightRef.current = true;
+    lastPromptRef.current = trimmedPrompt;
     setLoading(true);
     setError(null);
-    setQuestion("");
+    if (!opts?.isRetry) setQuestion("");
     if (!w.activeSessionId) {
       const id = crypto.randomUUID();
       dispatch({
@@ -89,11 +103,13 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
       });
       setThreadId(id);
     }
-    dispatch({
-      type: "APPEND_MESSAGE",
-      id: "dealStrategist",
-      message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: new Date().toISOString() },
-    });
+    if (!opts?.isRetry) {
+      dispatch({
+        type: "APPEND_MESSAGE",
+        id: "dealStrategist",
+        message: { id: crypto.randomUUID(), role: "user", content: trimmedPrompt, createdAt: new Date().toISOString() },
+      });
+    }
     scrollToLatest();
     try {
       const res = await askDealStrategist({
@@ -110,7 +126,11 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         setThreadId(res.threadId);
       }
       if ((res as any)?.ok === false) {
-        setError(res.summary ?? "Deal Strategist failed.");
+        setError({
+          message: res.summary ?? "Deal Strategist failed.",
+          retryable: Boolean((res as any)?.retryable),
+          errorCode: (res as any)?.error_code ?? null,
+        });
         dispatch({
           type: "APPEND_MESSAGE",
           id: "dealStrategist",
@@ -135,9 +155,10 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         });
       }
     } catch (err: any) {
-      setError(err?.message ?? "Deal Strategist failed.");
+      setError({ message: "Unexpected error. Try again.", retryable: true });
     } finally {
       setLoading(false);
+      sendInFlightRef.current = false;
     }
   };
 
@@ -165,7 +186,19 @@ export function DealStrategistPanel({ posture, sandboxSettings, onClose, onMinim
         >
         {error && (
           <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">
-            {error}
+            <div>{error.message}</div>
+            {error.retryable && lastPromptRef.current && (
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onAsk(lastPromptRef.current ?? "", { isRetry: true })}
+                  disabled={loading}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
         )}
 

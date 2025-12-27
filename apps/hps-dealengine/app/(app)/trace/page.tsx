@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
 import { listEvidence, getEvidenceUrl, type Evidence } from "@/lib/evidence";
 import {
@@ -163,22 +163,32 @@ export default function TracePage() {
     void load();
   }, [dbDeal?.id, dbDeal?.org_id]);
 
-  const fallbackRun: RunRow | null =
-    runs.length === 0 && lastAnalyzeResult
-      ? {
-          id: lastRunId ?? `derived-${dbDeal?.id ?? "run"}`,
-          org_id: dbDeal?.org_id ?? "",
-          deal_id: dbDeal?.id ?? null,
-          posture: posture ?? "base",
-          created_at: lastRunAt ?? new Date().toISOString(),
-          input: {},
-          output: lastAnalyzeResult,
-          trace: (lastAnalyzeResult as any)?.trace ?? [],
-          input_hash: null,
-          output_hash: null,
-          policy_hash: null,
-        }
-      : null;
+  const fallbackRun = useMemo<RunRow | null>(() => {
+    if (runs.length > 0 || !lastAnalyzeResult) {
+      return null;
+    }
+    return {
+      id: lastRunId ?? `derived-${dbDeal?.id ?? "run"}`,
+      org_id: dbDeal?.org_id ?? "",
+      deal_id: dbDeal?.id ?? null,
+      posture: posture ?? "base",
+      created_at: lastRunAt ?? new Date().toISOString(),
+      input: {},
+      output: lastAnalyzeResult,
+      trace: (lastAnalyzeResult as any)?.trace ?? [],
+      input_hash: null,
+      output_hash: null,
+      policy_hash: null,
+    };
+  }, [
+    dbDeal?.id,
+    dbDeal?.org_id,
+    lastAnalyzeResult,
+    lastRunAt,
+    lastRunId,
+    posture,
+    runs.length,
+  ]);
 
   const displayedRuns = runs.length > 0 ? runs : fallbackRun ? [fallbackRun] : [];
 
@@ -435,6 +445,20 @@ export default function TracePage() {
             <pre className="max-h-[160px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/60 p-2 text-[11px] font-mono leading-relaxed text-text-primary/90">
               {selected ? pretty(selected.trace) : "// Select a run"}
             </pre>
+            <div className="sr-only">
+              {traceFrames.map((frame, idx) => {
+                const frameKey =
+                  typeof (frame as any)?.key === "string"
+                    ? (frame as any).key
+                    : typeof (frame as any)?.rule === "string"
+                      ? (frame as any).rule
+                      : null;
+                if (!frameKey) return null;
+                return (
+                  <span key={`${frameKey}-${idx}`} data-testid={`trace-frame-${frameKey}`} />
+                );
+              })}
+            </div>
           </GlassCard>
 
           <GlassCard className="p-3 md:p-4 space-y-2">

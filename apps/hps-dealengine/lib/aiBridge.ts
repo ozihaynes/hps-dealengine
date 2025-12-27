@@ -10,6 +10,41 @@ import type {
   NegotiatorTone,
 } from "./ai/types";
 
+const AI_ERROR_MESSAGES: Record<string, string> = {
+  rate_limited: "Provider rate limiting. Try again in 30-60 seconds.",
+  context_length_exceeded: "Request too large. Reduce notes/evidence or try again (we'll auto-trim).",
+  invalid_api_key: "API key invalid or missing. Check OPENAI_API_KEY and try again.",
+  insufficient_quota: "API quota exceeded. Check billing/usage, then retry.",
+  dataset_missing: "Negotiation dataset missing/invalid. Restore the expected JSON and retry.",
+  dataset_invalid: "Negotiation dataset missing/invalid. Restore the expected JSON and retry.",
+  kb_registry_missing: "Strategist KB registry missing. Restore the registry and retry.",
+  unknown_error: "Unexpected error. Try again.",
+};
+
+type AiErrorInfo = {
+  errorCode: string | null;
+  message: string;
+  retryable: boolean;
+};
+
+function resolveAiErrorInfo(payload: any, fallbackMessage: string): AiErrorInfo {
+  const rawCode = payload?.error_code ?? payload?.error ?? null;
+  const errorCode =
+    rawCode && AI_ERROR_MESSAGES[rawCode]
+      ? rawCode
+      : "unknown_error";
+  const message =
+    payload?.user_message ??
+    AI_ERROR_MESSAGES[errorCode] ??
+    fallbackMessage ??
+    AI_ERROR_MESSAGES.unknown_error;
+  const retryable =
+    typeof payload?.retryable === "boolean"
+      ? payload.retryable
+      : Boolean(errorCode && AI_ERROR_MESSAGES[errorCode]);
+  return { errorCode, message, retryable };
+}
+
 function safeError(message: string): AiBridgeResult {
   return {
     persona: "dealAnalyst",
@@ -63,12 +98,18 @@ export async function askDealAnalyst(params: {
 
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) {
+      const errorInfo = resolveAiErrorInfo(
+        json,
+        "Analyst is unavailable. Please try again.",
+      );
       return {
         persona: "dealAnalyst",
-        summary: json?.error ?? "Analyst is unavailable. Please try again.",
+        summary: errorInfo.message,
         sources: [],
         ok: false,
         threadId: json?.threadId ?? params.threadId ?? null,
+        error_code: errorInfo.errorCode,
+        retryable: errorInfo.retryable,
       };
     }
 
@@ -82,12 +123,15 @@ export async function askDealAnalyst(params: {
       model: json.model ?? null,
     };
   } catch (err: any) {
+    const errorInfo = resolveAiErrorInfo(null, AI_ERROR_MESSAGES.unknown_error);
     return {
       persona: "dealAnalyst",
-      summary: err?.message ?? "Analyst is unavailable. Please try again.",
+      summary: errorInfo.message,
       sources: [],
       ok: false,
       threadId: params.threadId ?? null,
+      error_code: errorInfo.errorCode,
+      retryable: errorInfo.retryable,
     };
   }
 }
@@ -134,12 +178,18 @@ export async function askDealStrategist(params: {
     });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.ok) {
+      const errorInfo = resolveAiErrorInfo(
+        json,
+        "Strategist is unavailable. Please try again.",
+      );
       return {
         persona: "dealStrategist",
-        summary: json?.error ?? "Strategist is unavailable. Please try again.",
+        summary: errorInfo.message,
         sources: [],
         ok: false,
         threadId: json?.threadId ?? params.threadId ?? null,
+        error_code: errorInfo.errorCode,
+        retryable: errorInfo.retryable,
       };
     }
     return {
@@ -152,12 +202,15 @@ export async function askDealStrategist(params: {
       model: json.model ?? null,
     };
   } catch (err: any) {
+    const errorInfo = resolveAiErrorInfo(null, AI_ERROR_MESSAGES.unknown_error);
     return {
       persona: "dealStrategist",
-      summary: err?.message ?? "Strategist is unavailable. Please try again.",
+      summary: errorInfo.message,
       sources: [],
       ok: false,
       threadId: params.threadId ?? null,
+      error_code: errorInfo.errorCode,
+      retryable: errorInfo.retryable,
     };
   }
 }
@@ -212,24 +265,13 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
   }).catch(() => null);
 
   const json = await res?.json().catch(() => null);
-  const error = json?.error;
   const threadId = json?.threadId ?? null;
-  const rateLimitSummary =
-    "The Negotiator agent is temporarily rate-limited by the AI provider. Please wait a few seconds and try again.";
 
   if (!res || !json?.ok) {
-    if (error === "rate_limited") {
-      return {
-        persona: "dealNegotiator",
-        mode: "generate_playbook",
-        runId: params.runId,
-        logicRowIds: [],
-        sections: { anchor: null, script: null, pivot: null, all: [] },
-        ok: false,
-        summary: rateLimitSummary,
-        threadId,
-      };
-    }
+    const errorInfo = resolveAiErrorInfo(
+      json,
+      "Negotiator is unavailable. Please try again.",
+    );
 
     return {
       persona: "dealNegotiator",
@@ -238,8 +280,10 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
       logicRowIds: [],
       sections: { anchor: null, script: null, pivot: null, all: [] },
       ok: false,
-      summary: error ?? "Negotiator is unavailable. Please try again.",
+      summary: errorInfo.message,
       threadId,
+      error_code: errorInfo.errorCode,
+      retryable: errorInfo.retryable,
     };
   }
 
@@ -270,6 +314,8 @@ export async function askDealNegotiatorGeneratePlaybook(params: {
     ok: false,
     summary: "Negotiator is unavailable. Please try again.",
     threadId,
+    error_code: "unknown_error",
+    retryable: true,
   };
 }
 
@@ -338,11 +384,12 @@ export async function askDealNegotiatorChat(params: {
     }),
   });
   const json = await res.json().catch(() => null);
-    const error = json?.error;
-    const rateLimitMessage =
-      "The Negotiator agent is temporarily rate-limited by the AI provider. Please wait a few seconds and try again.";
     if (!res.ok || !json?.ok) {
-      const message = error === "rate_limited" ? rateLimitMessage : json?.error ?? "Negotiator is unavailable. Please try again.";
+      const errorInfo = resolveAiErrorInfo(
+        json,
+        "Negotiator is unavailable. Please try again.",
+      );
+      const message = errorInfo.message;
       return {
         persona: "dealNegotiator",
         mode: "chat",
@@ -351,6 +398,8 @@ export async function askDealNegotiatorChat(params: {
         messages: [buildMessage("assistant", message)],
         ok: false,
         threadId: json?.threadId ?? params.threadId ?? null,
+        error_code: errorInfo.errorCode,
+        retryable: errorInfo.retryable,
       };
     }
     return {
@@ -365,14 +414,17 @@ export async function askDealNegotiatorChat(params: {
       model: json.model ?? null,
     };
   } catch (err: any) {
+    const errorInfo = resolveAiErrorInfo(null, AI_ERROR_MESSAGES.unknown_error);
     return {
       persona: "dealNegotiator",
       mode: "chat",
       runId: params.runId ?? null,
       logicRowIds: params.logicRowIds ?? [],
-      messages: [buildMessage("assistant", err?.message ?? "Negotiator is unavailable. Please try again.")],
+      messages: [buildMessage("assistant", errorInfo.message)],
       ok: false,
       threadId: params.threadId ?? null,
+      error_code: errorInfo.errorCode,
+      retryable: errorInfo.retryable,
     };
   }
 }

@@ -47,9 +47,9 @@ export interface EstimatorSectionDef {
 export interface EstimatorState {
   costs: Record<
     string,
-    Record<string, { condition?: string; cost: number; notes?: string }>
+    Record<string, { condition?: string; cost: number | null; notes?: string }>
   >;
-  quantities: Record<string, number>;
+  quantities: Record<string, number | null>;
 }
 
 /** Icon + common UI props */
@@ -81,6 +81,7 @@ export interface ButtonProps {
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   children?: ReactNode;
   disabled?: boolean;
+  dataTestId?: string;
 }
 export interface InputFieldProps {
   label?: string;
@@ -90,6 +91,7 @@ export interface InputFieldProps {
   placeholder?: string;
   prefix?: ReactNode | string;
   suffix?: ReactNode | string;
+  id?: string;
   className?: string;
   dataTestId?: string;
   description?: string;
@@ -105,8 +107,11 @@ export interface SelectFieldProps {
   value?: any;
   onChange?: (v: any) => void;
   options?: { label: string; value: string | number }[];
+  id?: string;
   className?: string;
   description?: string;
+  warning?: string | null;
+  disabled?: boolean;
   children?: ReactNode;
   helpKey?: GlossaryKey;
   dataTestId?: string;

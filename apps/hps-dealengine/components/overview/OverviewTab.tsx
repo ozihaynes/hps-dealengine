@@ -52,7 +52,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const { state: aiWindowState, dispatch: aiWindowDispatch } = useAiWindows();
   const negotiatorWindow = aiWindowState.windows.dealNegotiator;
   const [isGeneratingPlaybook, setIsGeneratingPlaybook] = React.useState(false);
-  const [negotiatorError, setNegotiatorError] = React.useState<string | null>(null);
+  const [negotiatorError, setNegotiatorError] = React.useState<{
+    message: string;
+    retryable: boolean;
+  } | null>(null);
   const dealId = dbDeal?.id ?? null;
   const latestRunId = lastRunId;
   const wholesaleFeeView: WholesaleFeeView = getWholesaleFeeView(calc as any, deal);
@@ -94,11 +97,17 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
   const handleGeneratePlaybook = React.useCallback(async () => {
     if (!dealId) {
-      setNegotiatorError("Deal ID missing. Save the deal before generating a playbook.");
+      setNegotiatorError({
+        message: "Deal ID missing. Save the deal before generating a playbook.",
+        retryable: false,
+      });
       return;
     }
     if (!latestRunId) {
-      setNegotiatorError("No completed run found. Run the analysis first, then generate a playbook.");
+      setNegotiatorError({
+        message: "No completed run found. Run the analysis first, then generate a playbook.",
+        retryable: false,
+      });
       return;
     }
     setIsGeneratingPlaybook(true);
@@ -110,6 +119,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         dealId,
         runId: latestRunId ?? null,
       });
+
+      if (result.ok === false) {
+        setNegotiatorError({
+          message: result.summary ?? "Negotiator is unavailable. Please try again.",
+          retryable: Boolean(result.retryable),
+        });
+        return;
+      }
 
       setNegotiationPlaybook(result);
       setNegotiatorLogicRowIds(result.logicRowIds ?? []);
@@ -161,7 +178,10 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       setNegotiatorMessages([firstMessage, secondMessage]);
     } catch (err) {
       console.error("Negotiator playbook generation failed", err);
-      setNegotiatorError("Could not generate a playbook. Ensure a run exists, then try again.");
+      setNegotiatorError({
+        message: "Could not generate a playbook. Ensure a run exists, then try again.",
+        retryable: true,
+      });
     } finally {
       setIsGeneratingPlaybook(false);
     }
@@ -175,6 +195,8 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     setNegotiatorMessages,
   ]);
 
+  const orgId = dbDeal?.org_id;
+
   const handleOpenNegotiatorWindow = React.useCallback(() => {
     if (!dealId || !negotiationPlaybook) return;
 
@@ -183,7 +205,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         type: "START_NEW_SESSION",
         id: "dealNegotiator",
         sessionId: crypto.randomUUID(),
-        context: { dealId, orgId: dbDeal?.org_id, runId: latestRunId ?? undefined, posture },
+        context: { dealId, orgId, runId: latestRunId ?? undefined, posture },
       });
       aiWindowDispatch({ type: "OPEN_WINDOW", id: "dealNegotiator" });
     } else if (negotiatorWindow.visibility === "minimized") {
@@ -191,7 +213,15 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
     } else {
       aiWindowDispatch({ type: "MINIMIZE_WINDOW", id: "dealNegotiator" });
     }
-  }, [aiWindowDispatch, dealId, negotiatorWindow.visibility]);
+  }, [
+    aiWindowDispatch,
+    dealId,
+    negotiatorWindow.visibility,
+    negotiationPlaybook,
+    latestRunId,
+    posture,
+    orgId,
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -371,7 +401,19 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
 
         {negotiatorError && (
           <div className="rounded-md border border-brand-red-subtle bg-brand-red-subtle/20 px-3 py-2 text-sm text-brand-red-light">
-            {negotiatorError}
+            <div>{negotiatorError.message}</div>
+            {negotiatorError.retryable && (
+              <div className="mt-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGeneratePlaybook}
+                  disabled={isGeneratingPlaybook}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
         )}
         <DealNegotiatorPanel inline />

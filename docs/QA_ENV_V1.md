@@ -69,3 +69,4 @@ pnpm -w test:e2e     # Full e2e suite; will also use loaded env
 - The seed script uses the **service role** only for seeding; no service_role is used in user flows.
 - No secrets are printed to stdout; only variable names and seeded IDs are echoed.
 - If you change seeded values, re-run steps 2-4 to refresh both DB and `.env.qa`.
+- Valuation-specific rails (offer package + under contract + market provenance trace) run against `DEALENGINE_QA_READY_DEAL_ID` and require a saved run; the seed script already creates runs for READY.

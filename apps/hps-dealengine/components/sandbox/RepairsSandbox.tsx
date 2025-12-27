@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   Posture,
   RepairRateProfile,
@@ -114,7 +114,7 @@ export const RepairsSandbox: React.FC<{
     [profiles, selectedId, activeProfile],
   );
 
-  const loadProfiles = async () => {
+  const loadProfiles = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -153,11 +153,18 @@ export const RepairsSandbox: React.FC<{
     } finally {
       setLoading(false);
     }
-  };
+  }, [dbDeal?.id, marketCode, posture]);
 
   useEffect(() => {
     void loadProfiles();
-  }, [posture, marketCode, activeRepairProfileId, activeRepairProfile?.id, dbDeal?.org_id]);
+  }, [
+    posture,
+    marketCode,
+    activeRepairProfileId,
+    activeRepairProfile?.id,
+    dbDeal?.org_id,
+    loadProfiles,
+  ]);
 
   const handleSelectProfile = (id: string) => {
     setSelectedId(id);

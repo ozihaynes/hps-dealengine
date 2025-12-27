@@ -10,6 +10,7 @@ import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeB
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import CompsPanel from "./CompsPanel";
 import { useDealSession } from "@/lib/dealSessionContext";
+import type { DealContractRow } from "@/lib/dealContracts";
 
 const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number }) => {
   if (value == null || !Number.isFinite(Number(value))) return "-";
@@ -42,6 +43,7 @@ const FieldGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ ti
 
 interface UnderwriteTabProps {
   deal: Deal;
+  dealContract?: DealContractRow | null;
   calc: EngineCalculations;
   setDealValue: (path: string, value: any) => void;
   sandbox: SandboxConfig;
@@ -74,6 +76,7 @@ interface UnderwriteTabProps {
 
 const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   deal,
+  dealContract,
   calc,
   setDealValue,
   sandbox,
@@ -190,7 +193,11 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     (valuationRun as any)?.output?.avm_reference_range_high ??
     (market as any)?.avm_price_range_high ??
     null;
-  const contractPriceExecuted = market.contract_price_executed ?? null;
+  const contractPriceRaw = dealContract?.executed_contract_price ?? null;
+  const contractPriceExecuted =
+    contractPriceRaw == null || String(contractPriceRaw).trim().length === 0
+      ? null
+      : Number(contractPriceRaw);
   const valuationBasis = market.valuation_basis ?? "";
   const compCount = valuationRun?.output?.comp_count ?? null;
   const valuationConfidence = valuationRun?.output?.valuation_confidence ?? null;
@@ -214,7 +221,11 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       valuationRun?.id &&
       market?.arv_valuation_run_id === valuationRun.id,
   );
-  const comps = Array.isArray(valuationSnapshot?.comps) ? valuationSnapshot.comps : [];
+  const compsFromSnapshot = valuationSnapshot?.comps;
+  const comps = React.useMemo(
+    () => (Array.isArray(compsFromSnapshot) ? compsFromSnapshot : []),
+    [compsFromSnapshot],
+  );
   const marketSnapshot: any = (valuationSnapshot as any)?.market ?? null;
   const closedSalesCount = comps.filter((c: any) => (c as any)?.comp_kind === "closed_sale").length;
   const listingCount = comps.filter((c: any) => (c as any)?.comp_kind === "sale_listing").length;
@@ -267,6 +278,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const [overrideReason, setOverrideReason] = React.useState<string>("");
   const [overrideLocalError, setOverrideLocalError] = React.useState<string | null>(null);
   const [overrideSubmitting, setOverrideSubmitting] = React.useState(false);
+  const overrideReasonId = React.useId();
+  const overrideReasonHelpId = `${overrideReasonId}-help`;
 
   // Live engine outputs from Edge (via /underwrite/debug analyzeBus)
   const [analysisOutputs, setAnalysisOutputs] = React.useState<any | null>(null);
@@ -400,10 +413,10 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   const LockedHint = ({
     tokenKey,
-  newValue,
-}: {
-  tokenKey: string;
-  newValue: unknown;
+    newValue,
+  }: {
+    tokenKey: string;
+    newValue: unknown;
   }) =>
     !canEditPolicy ? (
       <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-text-secondary">
@@ -642,12 +655,16 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <div className="space-y-2 text-sm text-text-secondary">
               <div className="flex items-center gap-2">
                 <span className="w-40 text-text-primary">Contract Price (Executed)</span>
-                <span className="rounded border border-white/10 px-2 py-1">
-                  {contractPriceExecuted != null && contractPriceExecuted !== ""
-                    ? fmt$(Number(contractPriceExecuted), 0)
+                <span
+                  className="rounded border border-white/10 px-2 py-1"
+                  data-testid="executed-contract-price"
+                >
+                  {contractPriceExecuted != null && Number.isFinite(contractPriceExecuted)
+                    ? fmt$(contractPriceExecuted, 0)
                     : "—"}
                 </span>
-                {contractPriceExecuted == null && (
+                {(contractPriceExecuted == null ||
+                  !Number.isFinite(contractPriceExecuted)) && (
                   <Tooltip content="Set when the deal is marked Under Contract.">
                     <span className="sr-only">No contract price yet</span>
                   </Tooltip>
@@ -845,7 +862,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
               label="County"
               value={property.county}
               dataTestId="uw-county"
-              onChange={(e: any) => setDealValue("property.county", e.target.value)}
+              onChange={(e: any) => {
+                const nextValue = e.target.value;
+                setDealValue("property.county", nextValue);
+                setTimeout(() => {
+                  void saveWorkingStateNow();
+                }, 0);
+              }}
             />
           </div>
 
@@ -1084,12 +1107,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 ? costs.list_commission_pct * 100
                 : ""
             }
-            onChange={(e: any) =>
+            onChange={(e: any) => {
+              const raw = e.target.value;
               setDealValue(
                 "costs.list_commission_pct",
-                e.target.value === "" ? null : parseFloat(e.target.value) / 100,
-              )
-            }
+                raw == null || raw === "" ? null : parseFloat(raw) / 100,
+              );
+            }}
             placeholder={`${commissionDefault}% (Policy)`}
             disabled={!canEditPolicy}
           />
@@ -1103,9 +1127,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             type="number"
             suffix="%"
             value={Number(costs.sell_close_pct ?? 0) * 100}
-            onChange={(e: any) =>
-              setDealValue("costs.sell_close_pct", parseFloat(e.target.value) / 100)
-            }
+            onChange={(e: any) => {
+              const raw = e.target.value;
+              setDealValue(
+                "costs.sell_close_pct",
+                raw == null || raw === "" ? null : parseFloat(raw) / 100,
+              );
+            }}
             min="0"
             max="30"
             step="0.1"
@@ -1122,9 +1150,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             type="number"
             suffix="%"
             value={Number(costs.concessions_pct ?? 0) * 100}
-            onChange={(e: any) =>
-              setDealValue("costs.concessions_pct", parseFloat(e.target.value) / 100)
-            }
+            onChange={(e: any) => {
+              const raw = e.target.value;
+              setDealValue(
+                "costs.concessions_pct",
+                raw == null || raw === "" ? null : parseFloat(raw) / 100,
+              );
+            }}
             min="0"
             max="30"
             step="0.1"
@@ -1141,9 +1173,13 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             type="number"
             suffix="%"
             value={Number(policy.safety_on_aiv_pct ?? 0) * 100}
-            onChange={(e: any) =>
-              setDealValue("policy.safety_on_aiv_pct", parseFloat(e.target.value) / 100)
-            }
+            onChange={(e: any) => {
+              const raw = e.target.value;
+              setDealValue(
+                "policy.safety_on_aiv_pct",
+                raw == null || raw === "" ? null : parseFloat(raw) / 100,
+              );
+            }}
             min="0"
             max="10"
             step="0.1"
@@ -1287,18 +1323,27 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             type="number"
             prefix="$"
             value={overrideValue}
-            onChange={(e: any) => setOverrideValue(e.target.value)}
+            onChange={(e: any) => {
+              const raw = e.target.value;
+              setOverrideValue(raw == null ? "" : raw);
+            }}
           />
           <div className="space-y-1">
-            <label className="text-sm text-text-primary">Reason (required)</label>
+            <label htmlFor={overrideReasonId} className="text-sm text-text-primary">
+              Reason (required)
+            </label>
             <textarea
+              id={overrideReasonId}
+              aria-describedby={overrideReasonHelpId}
               className="w-full rounded-md border border-white/10 bg-white/5 px-2 py-2 text-sm text-text-primary focus:border-accent-blue/60 focus:outline-none"
               value={overrideReason}
               onChange={(e) => setOverrideReason(e.target.value)}
               minLength={10}
               rows={3}
             />
-            <p className="text-[11px] text-text-secondary">Minimum 10 characters.</p>
+            <p id={overrideReasonHelpId} className="text-[11px] text-text-secondary">
+              Minimum 10 characters.
+            </p>
           </div>
           {overrideLocalError && (
             <div className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-100">

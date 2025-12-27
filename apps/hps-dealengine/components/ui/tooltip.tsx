@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -28,7 +28,7 @@ export function Tooltip({
     left: 0,
   });
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     const node = triggerRef.current;
     if (!node) return;
     const rect = node.getBoundingClientRect();
@@ -55,7 +55,7 @@ export function Tooltip({
     }
 
     setCoords({ top, left });
-  };
+  }, [side, align]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -77,7 +77,7 @@ export function Tooltip({
       window.removeEventListener("resize", onResize);
       window.removeEventListener("scroll", onResize, true);
     };
-  }, [open, side, align]);
+  }, [open, side, align, updatePosition]);
 
   return (
     <div

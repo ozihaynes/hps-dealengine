@@ -213,13 +213,13 @@ function makeInitialDeal(): Deal {
   });
 }
 
-function deriveMarketCode(deal: Deal): string {
-  const market: any = (deal as any)?.market ?? {};
+function deriveMarketCode(market: Record<string, unknown> | null | undefined): string {
+  const m: any = market ?? {};
   return (
-    market.market_code ||
-    market.market ||
-    market.code ||
-    market.msa ||
+    m.market_code ||
+    m.market ||
+    m.code ||
+    m.msa ||
     "ORL"
   );
 }
@@ -261,17 +261,24 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const [membershipRole, setMembershipRole] = useState<OrgMembershipRole | null>(null);
   const [isHydratingActiveDeal, setIsHydratingActiveDeal] = useState(false);
   const [hydratedDealId, setHydratedDealId] = useState<string | null>(null);
+  const [workingHydratedTick, setWorkingHydratedTick] = useState(0);
   const workingHydratedRef = useRef(false);
+  const pendingAutosaveRef = useRef(false);
   const lastSavedHashRef = useRef<string | null>(null);
   const lastSavedDealRef = useRef<string | null>(null);
+  const marketCodeValue = (deal as any)?.market?.market_code ?? null;
+  const marketMarketValue = (deal as any)?.market?.market ?? null;
+  const marketAltCodeValue = (deal as any)?.market?.code ?? null;
+  const marketMsaValue = (deal as any)?.market?.msa ?? null;
   const derivedMarketCode = useMemo(
-    () => deriveMarketCode(deal as Deal).toUpperCase(),
-    [
-      (deal as any)?.market?.market_code,
-      (deal as any)?.market?.market,
-      (deal as any)?.market?.code,
-      (deal as any)?.market?.msa,
-    ],
+    () =>
+      deriveMarketCode({
+        market_code: marketCodeValue,
+        market: marketMarketValue,
+        code: marketAltCodeValue,
+        msa: marketMsaValue,
+      }).toUpperCase(),
+    [marketCodeValue, marketMarketValue, marketAltCodeValue, marketMsaValue],
   );
   const repairRatesRequestRef = React.useRef(0);
   const searchParams = useSearchParams();
@@ -407,7 +414,6 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
 
   // On mount, hydrate selection from localStorage if present
   useEffect(() => {
-    const supabase = getSupabaseClient();
     const savedId = localStorage.getItem("hps-active-deal-id");
     if (!savedId) return;
 
@@ -562,13 +568,6 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
                 Record<string, unknown>),
             },
           } as RepairRates;
-          console.log("[DealSession] repairRates updated", {
-            profileId: normalized.profileId,
-            marketCode: normalized.marketCode,
-            posture: normalized.posture,
-            psf: normalized.psfTiers,
-            big5: normalized.big5,
-          });
           setRepairRates(normalized);
           if (next.profileId && next.profileId !== activeRepairProfileId) {
             setActiveRepairProfileId(next.profileId);
@@ -631,7 +630,7 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [dbDeal?.org_id, derivedMarketCode, posture, activeRepairProfileId],
+    [dbDeal, derivedMarketCode, posture, activeRepairProfileId],
   );
 
   // Hydrate working state (draft vs latest run) when deal/user changes
@@ -641,6 +640,7 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       setLastRunId(null);
       setLastRunAt(null);
       workingHydratedRef.current = false;
+      pendingAutosaveRef.current = false;
       lastSavedHashRef.current = null;
       lastSavedDealRef.current = null;
       return;
@@ -797,16 +797,22 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         lastSavedHashRef.current = null;
       } finally {
         workingHydratedRef.current = true;
+        setWorkingHydratedTick((tick) => tick + 1);
       }
     };
 
     void hydrate();
-  }, [dbDeal?.id, dbDeal?.org_id, userId, supabase]);
+  }, [dbDeal?.id, dbDeal?.org_id, dbDeal?.payload, posture, userId, supabase]);
 
   // Autosave working state (deal + sandbox + repair profile) per user/deal/org
   const persistWorkingState = useCallback(
     async (opts?: { payload?: WorkingStatePayload; debounceMs?: number }) => {
-      if (!workingHydratedRef.current) return;
+      if (!workingHydratedRef.current) {
+        if (hasUnsavedDealChanges) {
+          pendingAutosaveRef.current = true;
+        }
+        return;
+      }
       if (!dbDeal?.id || !dbDeal.org_id || !userId) return;
 
       const outputsAny = (lastAnalyzeResult as any)?.outputs ?? lastAnalyzeResult ?? null;
@@ -883,9 +889,9 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     },
     [
       activeRepairProfileId,
-      dbDeal?.id,
-      dbDeal?.org_id,
+      dbDeal,
       deal,
+      hasUnsavedDealChanges,
       lastAnalyzeResult,
       lastRunId,
       posture,
@@ -895,6 +901,13 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       userId,
     ],
   );
+
+  useEffect(() => {
+    if (!pendingAutosaveRef.current) return;
+    if (!workingHydratedRef.current) return;
+    pendingAutosaveRef.current = false;
+    void persistWorkingState({ debounceMs: 0 });
+  }, [persistWorkingState, workingHydratedTick]);
 
   // Autosave working state (debounced)
   useEffect(() => {

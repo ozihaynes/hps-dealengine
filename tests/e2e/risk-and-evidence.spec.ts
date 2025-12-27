@@ -21,7 +21,7 @@ async function gotoDealDashboard(page: Page, dealId: string) {
   if (await viewAllDeals.isVisible()) {
     await viewAllDeals.click();
     await page.waitForURL("**/deals**", { timeout: 60_000 }).catch(() => {});
-    await expect(page.getByRole("heading", { name: /Deals/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Deals/i, level: 1 })).toBeVisible();
   }
   await page.goto(`/overview?dealId=${dealId}`);
   await page.waitForURL("**/overview**", { timeout: 60_000 });

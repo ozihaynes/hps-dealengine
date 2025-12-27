@@ -34,6 +34,14 @@ type AnalyzeInput = {
   months_of_inventory_zip?: number | null;
   price_to_list_pct?: number | null;
   local_discount_pct?: number | null;
+  market?: {
+    arv_source?: string | null;
+    arv_as_of?: string | null;
+    arv_valuation_run_id?: string | null;
+    as_is_value_source?: string | null;
+    as_is_value_as_of?: string | null;
+    as_is_value_valuation_run_id?: string | null;
+  };
   options?: {
     trace?: boolean;
   };
@@ -159,6 +167,22 @@ function coerceInput(raw: unknown): {
     (dealLike?.posture as string | undefined) ??
     null;
 
+  const market = dealLike?.market;
+  const marketProvenance =
+    market && typeof market === "object"
+      ? {
+          arv_source: (market as any)?.arv_source,
+          arv_as_of: (market as any)?.arv_as_of,
+          arv_valuation_run_id: (market as any)?.arv_valuation_run_id,
+          as_is_value_source: (market as any)?.as_is_value_source,
+          as_is_value_as_of: (market as any)?.as_is_value_as_of,
+          as_is_value_valuation_run_id: (market as any)?.as_is_value_valuation_run_id,
+        }
+      : undefined;
+  const marketProvenanceHasValues =
+    marketProvenance &&
+    Object.values(marketProvenance).some((value) => typeof value !== "undefined");
+
   const input: AnalyzeInput = {
     arv: numOrNull(dealLike?.arv),
     aiv: numOrNull(dealLike?.aiv ?? dealLike?.as_is_value),
@@ -177,6 +201,7 @@ function coerceInput(raw: unknown): {
     local_discount_pct: numOrNull(
       dealLike?.local_discount_pct ?? dealLike?.local_discount_20th_pct,
     ),
+    market: marketProvenanceHasValues ? marketProvenance : undefined,
     options: dealLike?.options,
   };
 
@@ -299,6 +324,14 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 500);
   }
 
+  const traceFrames = Array.isArray(result.trace) ? result.trace : [];
+  const provenanceFrame: TraceFrame = {
+    key: "MARKET_PROVENANCE",
+    label: "Market Provenance",
+    details: input.market ?? {},
+  };
+  const traceWithProvenance = [...traceFrames, provenanceFrame];
+
   const outputs = result.outputs as AnalyzeOutputs;
   const aivCapPct = 0.97;
   const aiv = input.aiv ?? outputs.aiv ?? null;
@@ -345,7 +378,7 @@ serve(async (req: Request): Promise<Response> => {
     result: {
       outputs: mergedOutputs,
       infoNeeded: result.infoNeeded ?? [],
-      trace: result.trace as TraceFrame[],
+      trace: traceWithProvenance,
     },
   };
 
