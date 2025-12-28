@@ -352,6 +352,19 @@ const OfferMenuCashSchema = z
   })
   .strict();
 
+const HviUnlockStatusSchema = z.enum(["locked", "unlocked"]);
+
+const HviUnlockSchema = z
+  .object({
+    key: z.string(),
+    title: z.string(),
+    missing_field_path: z.string(),
+    penalty_delta_dollars: z.number(),
+    why: z.string(),
+    status: HviUnlockStatusSchema,
+  })
+  .strict();
+
 /** Output surface matching UI cards */
 const AnalyzeOutputsSchema = z
   .object({
@@ -402,6 +415,7 @@ const AnalyzeOutputsSchema = z
     cash_gate_status: z.enum(["pass", "shortfall", "unknown"]).nullable().optional(),
     cash_deficit: z.number().nullable().optional(),
     offer_menu_cash: OfferMenuCashSchema.nullable().optional(),
+    hvi_unlocks: z.array(HviUnlockSchema).nullable().optional(),
     borderline_flag: z.boolean().nullable().optional(),
 
     strategy_recommendation: z.string().nullable().optional(),
