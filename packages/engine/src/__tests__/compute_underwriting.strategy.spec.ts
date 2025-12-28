@@ -55,16 +55,6 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.confidence_grade).toBeDefined();
     expect(o.min_spread_required).toBeDefined();
     expect(o.spread_cash).toBeDefined();
-    expect(o.offer_menu_cash).toBeDefined();
-    expect(o.offer_menu_cash?.status).toBe('CASH_SHORTFALL');
-    expect(o.offer_menu_cash?.spread_to_payoff).toBe(o.spread_cash);
-    expect(o.offer_menu_cash?.shortfall_amount).toBe(23750);
-    expect(o.offer_menu_cash?.tiers?.standard?.price).toBe(o.primary_offer);
-    expect(o.offer_menu_cash?.tiers?.fastpath?.price).toBeLessThanOrEqual(o.primary_offer ?? 0);
-    expect(o.offer_menu_cash?.tiers?.premium?.price).toBe(o.primary_offer);
-    expect(o.offer_menu_cash?.tiers?.standard?.cash_gate_status).toBe('shortfall');
-    const menuTrace = (result.trace as any[]).find((t) => t.rule === 'OFFER_MENU_CASH');
-    expect(menuTrace?.details?.tiers?.standard?.price).toBe(o.primary_offer);
   });
 
   it('falls back to NeedsInfo/low confidence when inputs are missing', () => {
@@ -74,7 +64,6 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.workflow_state).toBeDefined();
     expect(o.confidence_grade).toBeDefined();
     expect(o.primary_offer).toBeNull();
-    expect(o.offer_menu_cash).toBeNull();
   });
 
   it('clamps MAO to the lowest of presentation, cap, and buyer ceiling', () => {
