@@ -71,6 +71,17 @@ type OfferMenuCash = {
   } | null;
 };
 
+type HviUnlockStatus = 'locked' | 'unlocked';
+
+type HviUnlock = {
+  key: string;
+  title: string;
+  missing_field_path: string;
+  penalty_delta_dollars: number;
+  why: string;
+  status: HviUnlockStatus;
+};
+
 type DtmSelectionMethod = 'default_cash_close_days' | 'earliest_compliant' | 'manual_only';
 type DtmUrgencyBand = { label: string; max_dtm_days: number };
 
@@ -1530,6 +1541,16 @@ function computeCashGateForPrice(
   };
 }
 
+function hasEvidenceValue(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return true;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'object') return true;
+  return false;
+}
+
 function computeSpeedBandPolicy(
   domZip: number | null,
   moiZip: number | null,
@@ -2180,6 +2201,7 @@ export type UnderwriteOutputs = {
   cash_gate_status?: CashGateStatus | null;
   cash_deficit?: number | null;
   offer_menu_cash?: OfferMenuCash | null;
+  hvi_unlocks?: HviUnlock[] | null;
   borderline_flag?: boolean | null;
 
   timeline_summary?: {
@@ -3205,6 +3227,77 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     },
   });
 
+  const evidenceRoot = (deal as any)?.property?.evidence ?? {};
+  const roofVal = evidenceRoot?.roof_age;
+  const hvacVal = evidenceRoot?.hvac_year;
+  const fourPointVal = evidenceRoot?.four_point;
+  const evidenceByKind = evidenceSummary.freshness_by_kind ?? {};
+  const roofMissing =
+    !hasEvidenceValue(roofVal) || evidenceByKind['roof_age']?.status === 'missing';
+  const hvacMissing =
+    !hasEvidenceValue(hvacVal) || evidenceByKind['hvac_year']?.status === 'missing';
+  const fourPointMissing =
+    !hasEvidenceValue(fourPointVal) || evidenceByKind['four_point']?.status === 'missing';
+  const hviCandidates = [
+    {
+      key: 'missing_roof_age',
+      title: 'Roof Age Verification',
+      missing_field_path: 'property.evidence.roof_age',
+      why: 'Unknown roof condition forces conservative underwriting.',
+      missing: roofMissing,
+    },
+    {
+      key: 'missing_hvac_year',
+      title: 'HVAC Year Verification',
+      missing_field_path: 'property.evidence.hvac_year',
+      why: 'Unknown HVAC condition forces conservative underwriting.',
+      missing: hvacMissing,
+    },
+    {
+      key: 'missing_four_point',
+      title: '4-Point Inspection',
+      missing_field_path: 'property.evidence.four_point',
+      why: 'Missing 4-point inspection limits confidence in condition.',
+      missing: fourPointMissing,
+    },
+  ];
+  const lockedKeys = hviCandidates.filter((item) => item.missing).map((item) => item.key);
+  const lockedCount = lockedKeys.length;
+  const standardPrice = offerMenuCash?.tiers?.standard?.price;
+  const premiumPrice = offerMenuCash?.tiers?.premium?.price;
+  const standardNumber =
+    typeof standardPrice === 'number' && Number.isFinite(standardPrice) ? standardPrice : null;
+  const premiumNumber =
+    typeof premiumPrice === 'number' && Number.isFinite(premiumPrice) ? premiumPrice : null;
+  const upsideRaw =
+    standardNumber != null && premiumNumber != null ? premiumNumber - standardNumber : 0;
+  const upsideTotal =
+    Number.isFinite(upsideRaw) && upsideRaw > 0 ? Math.round(upsideRaw) : 0;
+  const penaltyEach = lockedCount > 0 ? Math.round(upsideTotal / lockedCount) : 0;
+  const hviUnlocks: HviUnlock[] | null =
+    lockedCount > 0
+      ? hviCandidates.map((item) => ({
+          key: item.key,
+          title: item.title,
+          missing_field_path: item.missing_field_path,
+          penalty_delta_dollars: item.missing ? penaltyEach : 0,
+          why: item.why,
+          status: item.missing ? 'locked' : 'unlocked',
+        }))
+      : null;
+  trace.push({
+    rule: 'HVI_UNLOCK_LOOP',
+    used: ['offer_menu_cash', 'deal.property.evidence'],
+    details: {
+      standard_price: standardNumber,
+      premium_price: premiumNumber,
+      upside_total: upsideTotal,
+      locked_keys: lockedKeys,
+      penalty_each: penaltyEach,
+      unlocks: hviUnlocks,
+    },
+  });
+
   const outputs: UnderwriteOutputs = {
     caps: { aivCapApplied, aivCapValue: aivCapped },
     carry: {
@@ -3262,6 +3355,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     cash_gate_status: cashGate.status,
     cash_deficit: cashGate.deficit,
     offer_menu_cash: offerMenuCash,
+    hvi_unlocks: hviUnlocks,
     borderline_flag: borderlineFlag,
   };
 

@@ -289,6 +289,78 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(eligibility?.blocking_evidence_kinds).toContain('payoff');
   });
 
+  it('computes hvi unlock penalties when HVIs are missing', () => {
+    const deal = {
+      market: { aiv: 200000, arv: 220000, dom_zip: 30 },
+      debt: { payoff: 120000 },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0, concessions_pct: 0, sell_close_pct: 0 },
+      floorsSpreads: {
+        wholesale_target_margin_pct: 0,
+        investor_floor_discount_p20_pct: 0.2,
+        investor_floor_discount_typical_pct: 0.1,
+        retained_equity_pct: 0.05,
+        move_out_cash_default: 0,
+      },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    const unlocks = result.outputs.hvi_unlocks;
+
+    expect(unlocks).not.toBeNull();
+    const list = unlocks ?? [];
+    const locked = list.filter((item) => item.status === 'locked');
+    const lockedKeys = locked.map((item) => item.key);
+    expect(lockedKeys).toEqual(
+      expect.arrayContaining(['missing_roof_age', 'missing_hvac_year', 'missing_four_point']),
+    );
+
+    const standardPrice = result.outputs.offer_menu_cash?.tiers?.standard?.price ?? null;
+    const premiumPrice = result.outputs.offer_menu_cash?.tiers?.premium?.price ?? null;
+    const standardNumber =
+      typeof standardPrice === 'number' && Number.isFinite(standardPrice) ? standardPrice : 0;
+    const premiumNumber =
+      typeof premiumPrice === 'number' && Number.isFinite(premiumPrice) ? premiumPrice : 0;
+    const expectedPenalty = Math.round(Math.max(0, premiumNumber - standardNumber) / locked.length);
+
+    locked.forEach((item) => {
+      expect(Number.isFinite(item.penalty_delta_dollars)).toBe(true);
+      expect(item.penalty_delta_dollars).toBe(expectedPenalty);
+    });
+  });
+
+  it('returns null when all HVI evidence is present', () => {
+    const deal = {
+      market: { aiv: 200000, arv: 220000, dom_zip: 30 },
+      debt: { payoff: 120000 },
+      property: {
+        evidence: {
+          roof_age: 10,
+          hvac_year: 2010,
+          four_point: { inspected: true },
+        },
+      },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0, concessions_pct: 0, sell_close_pct: 0 },
+      floorsSpreads: {
+        wholesale_target_margin_pct: 0,
+        investor_floor_discount_p20_pct: 0.2,
+        investor_floor_discount_typical_pct: 0.1,
+        retained_equity_pct: 0.05,
+        move_out_cash_default: 0,
+      },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    expect(result.outputs.hvi_unlocks).toBeNull();
+  });
+
   it('uses policy-driven spread ladder, cash gate, and borderline band', () => {
     const deal = {
       market: { aiv: 180000, arv: 180000, dom_zip: 30, moi_zip: 2 },
