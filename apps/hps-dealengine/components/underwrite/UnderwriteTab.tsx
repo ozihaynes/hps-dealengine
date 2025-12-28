@@ -881,6 +881,73 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 }, 0);
               }}
             />
+
+            <div id="property.evidence.roof_age">
+              <InputField
+                label="Roof Age (years)"
+                type="number"
+                value={property?.evidence?.roof_age ?? ""}
+                onChange={(e: any) => {
+                  const raw = (e.target as HTMLInputElement).value ?? "";
+                  const trimmed = raw.trim();
+                  if (trimmed.length === 0) {
+                    setDealValue("property.evidence.roof_age", null);
+                    return;
+                  }
+                  const next = Number(trimmed);
+                  setDealValue(
+                    "property.evidence.roof_age",
+                    Number.isFinite(next) ? next : null,
+                  );
+                }}
+              />
+            </div>
+
+            <div id="property.evidence.hvac_year">
+              <InputField
+                label="HVAC Year"
+                type="number"
+                value={property?.evidence?.hvac_year ?? ""}
+                onChange={(e: any) => {
+                  const raw = (e.target as HTMLInputElement).value ?? "";
+                  const trimmed = raw.trim();
+                  if (trimmed.length === 0) {
+                    setDealValue("property.evidence.hvac_year", null);
+                    return;
+                  }
+                  const next = Number(trimmed);
+                  setDealValue(
+                    "property.evidence.hvac_year",
+                    Number.isFinite(next) ? next : null,
+                  );
+                }}
+              />
+            </div>
+
+            <div id="property.evidence.four_point">
+              <SelectField
+                label="4-Point Inspection"
+                value={
+                  typeof property?.evidence?.four_point?.inspected === "boolean"
+                    ? property.evidence.four_point.inspected
+                      ? "true"
+                      : "false"
+                    : ""
+                }
+                onChange={(e: any) => {
+                  const raw = (e.target as HTMLSelectElement).value;
+                  if (raw === "") {
+                    setDealValue("property.evidence.four_point.inspected", null);
+                    return;
+                  }
+                  setDealValue("property.evidence.four_point.inspected", raw === "true");
+                }}
+              >
+                <option value="">Unknown</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </SelectField>
+            </div>
           </div>
 
           <div className="info-card space-y-3 p-4">
