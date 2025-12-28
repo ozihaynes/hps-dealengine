@@ -10,6 +10,7 @@ import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeB
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import CompsPanel from "./CompsPanel";
 import OfferMenu from "../offers/OfferMenu";
+import ConfidenceUnlock from "../offers/ConfidenceUnlock";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { DealContractRow } from "@/lib/dealContracts";
 
@@ -416,6 +417,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const o = (analysisOutputs as any) ?? null;
   const offerMenuCash = o?.offer_menu_cash ?? null;
   const offerMenuFeeMetadata = offerMenuCash?.fee_metadata ?? null;
+  const hviUnlocks = o?.hvi_unlocks ?? null;
 
   const LockedHint = ({
     tokenKey,
@@ -826,6 +828,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       )}
 
       <OfferMenu offerMenuCash={offerMenuCash} />
+      <ConfidenceUnlock hviUnlocks={hviUnlocks} />
 
       {/* Property & Risk */}
       <UnderwritingSection title="Property & Risk" icon={Icons.shield}>
