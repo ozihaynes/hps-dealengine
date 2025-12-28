@@ -33,6 +33,33 @@ type FloorComponents = {
 };
 
 type CashGateStatus = 'pass' | 'shortfall' | 'unknown';
+type OfferMenuCashStatus = 'CASH_OFFER' | 'CASH_SHORTFALL';
+
+type OfferMenuCashTier = {
+  price: number | null;
+  close_window_days: number | null;
+  terms_posture_key: string | null;
+  notes: string | null;
+  cash_gate_status?: CashGateStatus | null;
+  cash_deficit?: number | null;
+};
+
+type OfferMenuCash = {
+  status: OfferMenuCashStatus | null;
+  spread_to_payoff: number | null;
+  shortfall_amount: number | null;
+  gap_flag?: 'no_gap' | 'narrow_gap' | 'wide_gap' | null;
+  fee_metadata: {
+    policy_band_amount: number | null;
+    effective_amount: number | null;
+    source: 'policy_band' | 'user_override' | null;
+  } | null;
+  tiers: {
+    fastpath: OfferMenuCashTier | null;
+    standard: OfferMenuCashTier | null;
+    premium: OfferMenuCashTier | null;
+  } | null;
+};
 
 type DtmSelectionMethod = 'default_cash_close_days' | 'earliest_compliant' | 'manual_only';
 type DtmUrgencyBand = { label: string; max_dtm_days: number };
@@ -1466,6 +1493,180 @@ function computeCashGate(
   return { status: 'shortfall', deficit: round2(cashGateMin - spreadCash), cashGateMin };
 }
 
+function computeOfferMenuCash(params: {
+  primaryOffer: number | null;
+  payoffProjected: number | null;
+  shortfallVsPayoff: number | null;
+  spreadCash: number | null;
+  gapFlag: UnderwriteOutputs['gap_flag'];
+  minSpreadRequired: number | null;
+  cashGateMin: number | null;
+  timelineSummary: {
+    dtm_selected_days?: number | null;
+    days_to_money?: number | null;
+    dtm_cash_wholesale_days?: number | null;
+    dtm_list_mls_days?: number | null;
+  } | null;
+}): { menu: OfferMenuCash | null; trace: Record<string, unknown> } {
+  const {
+    primaryOffer,
+    payoffProjected,
+    shortfallVsPayoff,
+    spreadCash,
+    gapFlag,
+    minSpreadRequired,
+    cashGateMin,
+    timelineSummary,
+  } = params;
+
+  if (primaryOffer == null) {
+    return {
+      menu: null,
+      trace: {
+        reason: 'missing_primary_offer',
+        primary_offer: null,
+      },
+    };
+  }
+
+  const baseDays = timelineSummary?.dtm_selected_days ?? timelineSummary?.days_to_money ?? null;
+  const fastpathDays = timelineSummary?.dtm_cash_wholesale_days ?? baseDays;
+  const standardDays = baseDays;
+  const premiumDays = timelineSummary?.dtm_list_mls_days ?? baseDays;
+
+  const cashGateMinResolved = cashGateMin ?? 0;
+  const computeGateForPrice = (price: number | null) => {
+    if (price == null || payoffProjected == null) {
+      return { status: null, deficit: null, spread_to_payoff: null };
+    }
+    const spread = round2(price - payoffProjected);
+    if (spread >= cashGateMinResolved) {
+      return { status: 'pass' as CashGateStatus, deficit: 0, spread_to_payoff: spread };
+    }
+    return {
+      status: 'shortfall' as CashGateStatus,
+      deficit: round2(cashGateMinResolved - spread),
+      spread_to_payoff: spread,
+    };
+  };
+
+  let fastpathPrice = primaryOffer;
+  let fastpathBasis: string | null = 'primary_offer_fallback';
+  let fastpathTarget: number | null = null;
+  if (payoffProjected != null && minSpreadRequired != null) {
+    fastpathTarget = round2(payoffProjected + minSpreadRequired);
+    fastpathPrice = round2(Math.min(primaryOffer, fastpathTarget));
+    fastpathBasis = 'min_spread_floor';
+  }
+
+  const buildTier = (params: {
+    key: string;
+    price: number | null;
+    targetPrice: number | null;
+    closeWindowDays: number | null;
+    basis: string | null;
+  }): { tier: OfferMenuCashTier | null; trace: Record<string, unknown> } => {
+    const { key, price, targetPrice, closeWindowDays, basis } = params;
+    if (price == null) {
+      return {
+        tier: null,
+        trace: {
+          key,
+          price: null,
+          target_price: targetPrice,
+          close_window_days: closeWindowDays,
+          reason: 'missing_price',
+        },
+      };
+    }
+    const gate = computeGateForPrice(price);
+    return {
+      tier: {
+        price,
+        close_window_days: closeWindowDays,
+        terms_posture_key: key,
+        notes: null,
+        cash_gate_status: gate.status,
+        cash_deficit: gate.deficit,
+      },
+      trace: {
+        key,
+        price,
+        target_price: targetPrice,
+        close_window_days: closeWindowDays,
+        price_basis: basis,
+        cash_gate_status: gate.status,
+        cash_deficit: gate.deficit,
+        spread_to_payoff: gate.spread_to_payoff,
+      },
+    };
+  };
+
+  const fastpath = buildTier({
+    key: 'fastpath',
+    price: fastpathPrice,
+    targetPrice: fastpathTarget ?? primaryOffer,
+    closeWindowDays: fastpathDays,
+    basis: fastpathBasis,
+  });
+  const standard = buildTier({
+    key: 'standard',
+    price: primaryOffer,
+    targetPrice: primaryOffer,
+    closeWindowDays: standardDays,
+    basis: 'primary_offer',
+  });
+  const premium = buildTier({
+    key: 'premium',
+    price: primaryOffer,
+    targetPrice: primaryOffer,
+    closeWindowDays: premiumDays,
+    basis: 'primary_offer',
+  });
+
+  const status =
+    spreadCash != null
+      ? spreadCash >= cashGateMinResolved
+        ? 'CASH_OFFER'
+        : 'CASH_SHORTFALL'
+      : null;
+
+  const menu: OfferMenuCash = {
+    status,
+    spread_to_payoff: spreadCash ?? null,
+    shortfall_amount: shortfallVsPayoff != null ? Math.max(0, shortfallVsPayoff) : null,
+    gap_flag: gapFlag ?? null,
+    fee_metadata: {
+      policy_band_amount: minSpreadRequired ?? null,
+      effective_amount: minSpreadRequired ?? null,
+      source: minSpreadRequired != null ? 'policy_band' : null,
+    },
+    tiers: {
+      fastpath: fastpath.tier,
+      standard: standard.tier,
+      premium: premium.tier,
+    },
+  };
+
+  return {
+    menu,
+    trace: {
+      primary_offer: primaryOffer,
+      payoff_projected: payoffProjected,
+      min_spread_required: minSpreadRequired,
+      cash_gate_min: cashGateMinResolved,
+      spread_cash: spreadCash,
+      shortfall_vs_payoff: shortfallVsPayoff,
+      status,
+      tiers: {
+        fastpath: fastpath.trace,
+        standard: standard.trace,
+        premium: premium.trace,
+      },
+    },
+  };
+}
+
 function computeSpeedBandPolicy(
   domZip: number | null,
   moiZip: number | null,
@@ -2115,6 +2316,7 @@ export type UnderwriteOutputs = {
   min_spread_required?: number | null;
   cash_gate_status?: CashGateStatus | null;
   cash_deficit?: number | null;
+  offer_menu_cash?: OfferMenuCash | null;
   borderline_flag?: boolean | null;
 
   timeline_summary?: {
@@ -2894,6 +3096,23 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     auction_date_iso: auctionDateIso,
   };
 
+  const offerMenuCashResult = computeOfferMenuCash({
+    primaryOffer,
+    payoffProjected,
+    shortfallVsPayoff,
+    spreadCash,
+    gapFlag,
+    minSpreadRequired: minSpreadRequired ?? null,
+    cashGateMin: cashGate.cashGateMin ?? null,
+    timelineSummary,
+  });
+
+  trace.push({
+    rule: 'OFFER_MENU_CASH',
+    used: ['primary_offer', 'deal.debt.payoff', 'policy.min_spread_by_arv_band', 'policy.cash_gate_min', 'timeline_summary'],
+    details: offerMenuCashResult.trace,
+  });
+
   const nowIso =
     getString(deal, ['analysis', 'as_of_date'], null) ??
     getString(policy, ['analysis', 'as_of_date'], null) ??
@@ -3068,6 +3287,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     min_spread_required: minSpreadRequired,
     cash_gate_status: cashGate.status,
     cash_deficit: cashGate.deficit,
+    offer_menu_cash: offerMenuCashResult.menu,
     borderline_flag: borderlineFlag,
   };
 
