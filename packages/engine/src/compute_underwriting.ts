@@ -3168,6 +3168,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
   const offerMenuEligibility: OfferMenuTierEligibility = {
     enabled:
       riskGateStatus !== 'fail' &&
+      riskGateStatus !== 'info_needed' &&
       evidenceGateStatus !== 'fail' &&
       evidenceGateStatus !== 'info_needed',
     risk_gate_status: riskGateStatus,

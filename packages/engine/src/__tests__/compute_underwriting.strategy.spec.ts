@@ -187,6 +187,41 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(cgTrace?.details?.cash_gate_status).toBe('pass');
   });
 
+  it('blocks offer menu eligibility when a risk gate fails', () => {
+    const deal = {
+      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
+      debt: { payoff: 99000 },
+      flags: { bankruptcy_stay: true },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0, concessions_pct: 0, sell_close_pct: 0 },
+      floorsSpreads: {
+        wholesale_target_margin_pct: 0,
+        investor_floor_discount_p20_pct: 0.4,
+        investor_floor_discount_typical_pct: 0.4,
+        retained_equity_pct: 0,
+        move_out_cash_default: 0,
+      },
+      compliance_policy: { bankruptcy_stay_gate_enabled: true },
+      gates: {
+        bankruptcy_stay: {
+          label: 'Bankruptcy stay gate',
+          hard_fail_conditions: ['bankruptcy_stay'],
+          enabled: true,
+        },
+      },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    const eligibility = result.outputs.offer_menu_cash?.tiers?.standard?.eligibility;
+
+    expect(eligibility?.risk_gate_status).toBe('fail');
+    expect(eligibility?.enabled).toBe(false);
+    expect(eligibility?.blocking_gate_keys).toContain('bankruptcy_stay');
+  });
+
   it('blocks offer menu eligibility when required evidence is missing', () => {
     const deal = {
       market: { aiv: 180000, arv: 180000, dom_zip: 30 },
@@ -217,6 +252,39 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     const eligibility = result.outputs.offer_menu_cash?.tiers?.standard?.eligibility;
 
     expect(eligibility?.evidence_gate_status).toBe('fail');
+    expect(eligibility?.enabled).toBe(false);
+    expect(eligibility?.blocking_evidence_kinds).toContain('payoff');
+  });
+
+  it('blocks offer menu eligibility when evidence is info_needed', () => {
+    const deal = {
+      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
+      debt: { payoff: 99000 },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0, concessions_pct: 0, sell_close_pct: 0 },
+      floorsSpreads: {
+        wholesale_target_margin_pct: 0,
+        investor_floor_discount_p20_pct: 0.4,
+        investor_floor_discount_typical_pct: 0.4,
+        retained_equity_pct: 0,
+        move_out_cash_default: 0,
+      },
+      evidence_freshness: {
+        payoff: {
+          max_age_days: 30,
+          is_required_for_ready: true,
+          is_required_for_conf_a: true,
+        },
+      },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    const eligibility = result.outputs.offer_menu_cash?.tiers?.standard?.eligibility;
+
+    expect(eligibility?.evidence_gate_status).toBe('info_needed');
     expect(eligibility?.enabled).toBe(false);
     expect(eligibility?.blocking_evidence_kinds).toContain('payoff');
   });
