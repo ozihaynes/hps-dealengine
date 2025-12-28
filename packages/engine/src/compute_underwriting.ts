@@ -34,6 +34,32 @@ type FloorComponents = {
 
 type CashGateStatus = 'pass' | 'shortfall' | 'unknown';
 
+type OfferMenuCashTier = {
+  price: number | null;
+  close_window_days: number | null;
+  terms_posture_key: string | null;
+  notes: string | null;
+  cash_gate_status?: CashGateStatus | null;
+  cash_deficit?: number | null;
+};
+
+type OfferMenuCash = {
+  status: 'CASH_OFFER' | 'CASH_SHORTFALL' | null;
+  spread_to_payoff: number | null;
+  shortfall_amount: number | null;
+  gap_flag?: 'no_gap' | 'narrow_gap' | 'wide_gap' | null;
+  fee_metadata: {
+    policy_band_amount: number | null;
+    effective_amount: number | null;
+    source: 'policy_band' | 'user_override' | null;
+  } | null;
+  tiers: {
+    fastpath: OfferMenuCashTier | null;
+    standard: OfferMenuCashTier | null;
+    premium: OfferMenuCashTier | null;
+  } | null;
+};
+
 type DtmSelectionMethod = 'default_cash_close_days' | 'earliest_compliant' | 'manual_only';
 type DtmUrgencyBand = { label: string; max_dtm_days: number };
 
@@ -1466,6 +1492,33 @@ function computeCashGate(
   return { status: 'shortfall', deficit: round2(cashGateMin - spreadCash), cashGateMin };
 }
 
+function computeCashGateForPrice(
+  price: number | null,
+  payoffProjected: number | null,
+  minSpreadRequired: number | null,
+): { cash_gate_status: CashGateStatus; cash_deficit: number | null } {
+  if (
+    price == null ||
+    payoffProjected == null ||
+    minSpreadRequired == null ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(payoffProjected) ||
+    !Number.isFinite(minSpreadRequired)
+  ) {
+    return { cash_gate_status: 'unknown', cash_deficit: null };
+  }
+
+  const spread = round2(price - payoffProjected);
+  if (spread >= minSpreadRequired) {
+    return { cash_gate_status: 'pass', cash_deficit: 0 };
+  }
+
+  return {
+    cash_gate_status: 'shortfall',
+    cash_deficit: round2(Math.max(0, minSpreadRequired - spread)),
+  };
+}
+
 function computeSpeedBandPolicy(
   domZip: number | null,
   moiZip: number | null,
@@ -2115,6 +2168,7 @@ export type UnderwriteOutputs = {
   min_spread_required?: number | null;
   cash_gate_status?: CashGateStatus | null;
   cash_deficit?: number | null;
+  offer_menu_cash?: OfferMenuCash | null;
   borderline_flag?: boolean | null;
 
   timeline_summary?: {
@@ -2592,6 +2646,10 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     assignmentFeeOverrideRaw != null && Number.isFinite(assignmentFeeOverrideRaw)
       ? Math.max(0, assignmentFeeOverrideRaw)
       : null;
+  const feeSource: 'policy_band' | 'user_override' =
+    assignmentFeeOverrideRaw != null && Number.isFinite(assignmentFeeOverrideRaw)
+      ? 'user_override'
+      : 'policy_band';
 
   const feeBands = uwPolicy.min_spread_by_arv_band ?? [];
   const feeBandSelected =
@@ -2894,6 +2952,64 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     auction_date_iso: auctionDateIso,
   };
 
+  const closeWindowDays =
+    timelineSummary?.dtm_selected_days ?? timelineSummary?.days_to_money ?? null;
+  const fastpathGate = computeCashGateForPrice(respectFloor, payoffProjected, minSpreadRequired);
+  const standardGateFromPrice = computeCashGateForPrice(primaryOffer, payoffProjected, minSpreadRequired);
+  const premiumGate = computeCashGateForPrice(maoFinalWholesale, payoffProjected, minSpreadRequired);
+  const standardGate =
+    cashGate.status === 'unknown'
+      ? standardGateFromPrice
+      : { cash_gate_status: cashGate.status, cash_deficit: cashGate.deficit };
+  const offerMenuStatus =
+    standardGate.cash_gate_status === 'pass'
+      ? 'CASH_OFFER'
+      : standardGate.cash_gate_status === 'shortfall'
+      ? 'CASH_SHORTFALL'
+      : null;
+  const offerMenuSpreadToPayoff =
+    spreadCash ??
+    (primaryOffer != null && payoffProjected != null
+      ? round2(primaryOffer - payoffProjected)
+      : null);
+  const offerMenuCash: OfferMenuCash = {
+    status: offerMenuStatus,
+    spread_to_payoff: offerMenuSpreadToPayoff,
+    shortfall_amount: standardGate.cash_deficit ?? null,
+    gap_flag: gapFlag ?? null,
+    fee_metadata: {
+      policy_band_amount: wholesalerFeePolicyMin ?? null,
+      effective_amount: wholesalerFeeEffective ?? null,
+      source: feeSource ?? null,
+    },
+    tiers: {
+      fastpath: {
+        price: respectFloor ?? null,
+        close_window_days: closeWindowDays,
+        terms_posture_key: 'fastpath',
+        notes: 'FastPath: anchored at respect floor.',
+        cash_gate_status: fastpathGate.cash_gate_status,
+        cash_deficit: fastpathGate.cash_deficit,
+      },
+      standard: {
+        price: primaryOffer ?? null,
+        close_window_days: closeWindowDays,
+        terms_posture_key: 'standard',
+        notes: 'Standard: anchored at primary offer.',
+        cash_gate_status: standardGate.cash_gate_status,
+        cash_deficit: standardGate.cash_deficit,
+      },
+      premium: {
+        price: maoFinalWholesale ?? null,
+        close_window_days: closeWindowDays,
+        terms_posture_key: 'premium',
+        notes: 'Premium: anchored at MAO.',
+        cash_gate_status: premiumGate.cash_gate_status,
+        cash_deficit: premiumGate.cash_deficit,
+      },
+    },
+  };
+
   const nowIso =
     getString(deal, ['analysis', 'as_of_date'], null) ??
     getString(policy, ['analysis', 'as_of_date'], null) ??
@@ -3068,6 +3184,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     min_spread_required: minSpreadRequired,
     cash_gate_status: cashGate.status,
     cash_deficit: cashGate.deficit,
+    offer_menu_cash: offerMenuCash,
     borderline_flag: borderlineFlag,
   };
 

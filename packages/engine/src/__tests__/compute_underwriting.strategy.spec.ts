@@ -55,6 +55,23 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.confidence_grade).toBeDefined();
     expect(o.min_spread_required).toBeDefined();
     expect(o.spread_cash).toBeDefined();
+    expect(o.offer_menu_cash).toBeDefined();
+    expect(o.offer_menu_cash?.tiers?.fastpath?.price).toBe(o.respect_floor);
+    expect(o.offer_menu_cash?.tiers?.standard?.price).toBe(o.primary_offer);
+    expect(o.offer_menu_cash?.tiers?.premium?.price).toBe(o.mao_wholesale);
+    if (o.spread_cash != null) {
+      expect(o.offer_menu_cash?.spread_to_payoff).toBe(o.spread_cash);
+    }
+    if (o.cash_deficit != null) {
+      expect(o.offer_menu_cash?.shortfall_amount).toBe(o.cash_deficit);
+    }
+    if (o.cash_gate_status === 'pass') {
+      expect(o.offer_menu_cash?.status).toBe('CASH_OFFER');
+    }
+    if (o.cash_gate_status === 'shortfall') {
+      expect(o.offer_menu_cash?.status).toBe('CASH_SHORTFALL');
+    }
+    expect(o.offer_menu_cash?.fee_metadata?.source).toBe('policy_band');
   });
 
   it('falls back to NeedsInfo/low confidence when inputs are missing', () => {
@@ -162,6 +179,7 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.min_spread_required).toBe(15000); // <=200k band
     expect(o.cash_gate_status).toBe('pass');
     expect(o.cash_deficit).toBe(0);
+    expect(o.offer_menu_cash?.status).toBe('CASH_OFFER');
     const cgTrace = (result.trace as any[]).find((t) => t.rule === 'CASH_GATE');
     expect(cgTrace?.details?.cash_gate_status).toBe('pass');
   });
@@ -196,6 +214,8 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.cash_gate_status).toBe('shortfall');
     expect(o.cash_deficit).toBe(10400);
     expect(o.borderline_flag).toBe(false);
+    expect(o.offer_menu_cash?.status).toBe('CASH_SHORTFALL');
+    expect(o.offer_menu_cash?.shortfall_amount).toBe(o.cash_deficit);
 
     const ladderTrace = (result.trace as any[]).find((t) => t.rule === 'SPREAD_LADDER');
     expect(ladderTrace?.details?.min_spread_required).toBe(25000);
