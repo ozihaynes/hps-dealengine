@@ -311,6 +311,17 @@ const OfferMenuCashFeeMetadataSchema = z
   })
   .strict();
 
+const OfferMenuTierEligibilitySchema = z
+  .object({
+    enabled: z.boolean().nullable(),
+    risk_gate_status: GateStatusSchema.nullable(),
+    evidence_gate_status: GateStatusSchema.nullable(),
+    reasons: z.array(z.string()).nullable(),
+    blocking_gate_keys: z.array(z.string()).nullable(),
+    blocking_evidence_kinds: z.array(z.string()).nullable(),
+  })
+  .strict();
+
 const OfferMenuCashTierSchema = z
   .object({
     price: z.number().nullable(),
@@ -319,6 +330,7 @@ const OfferMenuCashTierSchema = z
     notes: z.string().nullable(),
     cash_gate_status: z.enum(["pass", "shortfall", "unknown"]).nullable().optional(),
     cash_deficit: z.number().nullable().optional(),
+    eligibility: OfferMenuTierEligibilitySchema.nullable().optional(),
   })
   .strict();
 
