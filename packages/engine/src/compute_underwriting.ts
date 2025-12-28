@@ -33,6 +33,16 @@ type FloorComponents = {
 };
 
 type CashGateStatus = 'pass' | 'shortfall' | 'unknown';
+type GateStatus = 'pass' | 'watch' | 'fail' | 'info_needed';
+
+type OfferMenuTierEligibility = {
+  enabled: boolean | null;
+  risk_gate_status: GateStatus | null;
+  evidence_gate_status: GateStatus | null;
+  reasons: string[] | null;
+  blocking_gate_keys: string[] | null;
+  blocking_evidence_kinds: string[] | null;
+};
 
 type OfferMenuCashTier = {
   price: number | null;
@@ -41,6 +51,7 @@ type OfferMenuCashTier = {
   notes: string | null;
   cash_gate_status?: CashGateStatus | null;
   cash_deficit?: number | null;
+  eligibility?: OfferMenuTierEligibility | null;
 };
 
 type OfferMenuCash = {
@@ -2952,64 +2963,6 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     auction_date_iso: auctionDateIso,
   };
 
-  const closeWindowDays =
-    timelineSummary?.dtm_selected_days ?? timelineSummary?.days_to_money ?? null;
-  const fastpathGate = computeCashGateForPrice(respectFloor, payoffProjected, minSpreadRequired);
-  const standardGateFromPrice = computeCashGateForPrice(primaryOffer, payoffProjected, minSpreadRequired);
-  const premiumGate = computeCashGateForPrice(maoFinalWholesale, payoffProjected, minSpreadRequired);
-  const standardGate =
-    cashGate.status === 'unknown'
-      ? standardGateFromPrice
-      : { cash_gate_status: cashGate.status, cash_deficit: cashGate.deficit };
-  const offerMenuStatus =
-    standardGate.cash_gate_status === 'pass'
-      ? 'CASH_OFFER'
-      : standardGate.cash_gate_status === 'shortfall'
-      ? 'CASH_SHORTFALL'
-      : null;
-  const offerMenuSpreadToPayoff =
-    spreadCash ??
-    (primaryOffer != null && payoffProjected != null
-      ? round2(primaryOffer - payoffProjected)
-      : null);
-  const offerMenuCash: OfferMenuCash = {
-    status: offerMenuStatus,
-    spread_to_payoff: offerMenuSpreadToPayoff,
-    shortfall_amount: standardGate.cash_deficit ?? null,
-    gap_flag: gapFlag ?? null,
-    fee_metadata: {
-      policy_band_amount: wholesalerFeePolicyMin ?? null,
-      effective_amount: wholesalerFeeEffective ?? null,
-      source: feeSource ?? null,
-    },
-    tiers: {
-      fastpath: {
-        price: respectFloor ?? null,
-        close_window_days: closeWindowDays,
-        terms_posture_key: 'fastpath',
-        notes: 'FastPath: anchored at respect floor.',
-        cash_gate_status: fastpathGate.cash_gate_status,
-        cash_deficit: fastpathGate.cash_deficit,
-      },
-      standard: {
-        price: primaryOffer ?? null,
-        close_window_days: closeWindowDays,
-        terms_posture_key: 'standard',
-        notes: 'Standard: anchored at primary offer.',
-        cash_gate_status: standardGate.cash_gate_status,
-        cash_deficit: standardGate.cash_deficit,
-      },
-      premium: {
-        price: maoFinalWholesale ?? null,
-        close_window_days: closeWindowDays,
-        terms_posture_key: 'premium',
-        notes: 'Premium: anchored at MAO.',
-        cash_gate_status: premiumGate.cash_gate_status,
-        cash_deficit: premiumGate.cash_deficit,
-      },
-    },
-  };
-
   const nowIso =
     getString(deal, ['analysis', 'as_of_date'], null) ??
     getString(policy, ['analysis', 'as_of_date'], null) ??
@@ -3127,6 +3080,129 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     any_blocking_for_ready: evidenceSummary.any_blocking_for_ready,
     missing_required_kinds: evidenceSummary.missing_required_kinds,
   };
+
+  const closeWindowDays =
+    timelineSummary?.dtm_selected_days ?? timelineSummary?.days_to_money ?? null;
+  const fastpathGate = computeCashGateForPrice(respectFloor, payoffProjected, minSpreadRequired);
+  const standardGateFromPrice = computeCashGateForPrice(primaryOffer, payoffProjected, minSpreadRequired);
+  const premiumGate = computeCashGateForPrice(maoFinalWholesale, payoffProjected, minSpreadRequired);
+  const standardGate =
+    cashGate.status === 'unknown'
+      ? standardGateFromPrice
+      : { cash_gate_status: cashGate.status, cash_deficit: cashGate.deficit };
+  const offerMenuStatus =
+    standardGate.cash_gate_status === 'pass'
+      ? 'CASH_OFFER'
+      : standardGate.cash_gate_status === 'shortfall'
+      ? 'CASH_SHORTFALL'
+      : null;
+  const offerMenuSpreadToPayoff =
+    spreadCash ??
+    (primaryOffer != null && payoffProjected != null
+      ? round2(primaryOffer - payoffProjected)
+      : null);
+  const offerMenuTiers: {
+    fastpath: OfferMenuCashTier;
+    standard: OfferMenuCashTier;
+    premium: OfferMenuCashTier;
+  } = {
+    fastpath: {
+      price: respectFloor ?? null,
+      close_window_days: closeWindowDays,
+      terms_posture_key: 'fastpath',
+      notes: 'FastPath: anchored at respect floor.',
+      cash_gate_status: fastpathGate.cash_gate_status,
+      cash_deficit: fastpathGate.cash_deficit,
+    },
+    standard: {
+      price: primaryOffer ?? null,
+      close_window_days: closeWindowDays,
+      terms_posture_key: 'standard',
+      notes: 'Standard: anchored at primary offer.',
+      cash_gate_status: standardGate.cash_gate_status,
+      cash_deficit: standardGate.cash_deficit,
+    },
+    premium: {
+      price: maoFinalWholesale ?? null,
+      close_window_days: closeWindowDays,
+      terms_posture_key: 'premium',
+      notes: 'Premium: anchored at MAO.',
+      cash_gate_status: premiumGate.cash_gate_status,
+      cash_deficit: premiumGate.cash_deficit,
+    },
+  };
+
+  const riskGateStatus: GateStatus = riskSummary?.overall ?? 'info_needed';
+  const missingRequiredKinds = evidenceSummary.missing_required_kinds ?? [];
+  const freshnessEntries = evidenceSummary.freshness_by_kind ?? {};
+  const anyStaleEvidence = Object.values(freshnessEntries).some((entry) => entry?.status === 'stale');
+  const evidenceGateStatus: GateStatus =
+    evidenceSummary.any_blocking_for_ready === true
+      ? 'fail'
+      : missingRequiredKinds.length > 0
+      ? 'info_needed'
+      : anyStaleEvidence
+      ? 'watch'
+      : 'pass';
+  const blockingGateKeys =
+    riskSummary?.per_gate != null
+      ? Object.entries(riskSummary.per_gate)
+          .filter(([_, gate]) => gate?.status === 'fail')
+          .map(([key]) => key)
+      : null;
+  const blockingEvidenceKinds =
+    evidenceGateStatus === 'fail'
+      ? Object.entries(freshnessEntries)
+          .filter(([_, entry]) => entry?.blocking_for_ready)
+          .map(([key]) => key)
+      : evidenceGateStatus === 'info_needed'
+      ? missingRequiredKinds
+      : [];
+  const eligibilityReasons: string[] = [];
+  if (riskGateStatus === 'fail') eligibilityReasons.push('risk_gate_fail');
+  if (riskGateStatus === 'watch') eligibilityReasons.push('risk_gate_watch');
+  if (riskGateStatus === 'info_needed') eligibilityReasons.push('risk_gate_info_needed');
+  if (evidenceGateStatus === 'fail') eligibilityReasons.push('evidence_blocking');
+  if (evidenceGateStatus === 'info_needed') eligibilityReasons.push('evidence_missing');
+  if (evidenceGateStatus === 'watch') eligibilityReasons.push('evidence_stale');
+  const offerMenuEligibility: OfferMenuTierEligibility = {
+    enabled:
+      riskGateStatus !== 'fail' &&
+      evidenceGateStatus !== 'fail' &&
+      evidenceGateStatus !== 'info_needed',
+    risk_gate_status: riskGateStatus,
+    evidence_gate_status: evidenceGateStatus,
+    reasons: eligibilityReasons.length > 0 ? eligibilityReasons : null,
+    blocking_gate_keys: blockingGateKeys,
+    blocking_evidence_kinds: blockingEvidenceKinds,
+  };
+  const attachEligibility = (tier: OfferMenuCashTier | null): OfferMenuCashTier | null =>
+    tier ? { ...tier, eligibility: offerMenuEligibility } : null;
+  const offerMenuCash: OfferMenuCash = {
+    status: offerMenuStatus,
+    spread_to_payoff: offerMenuSpreadToPayoff,
+    shortfall_amount: standardGate.cash_deficit ?? null,
+    gap_flag: gapFlag ?? null,
+    fee_metadata: {
+      policy_band_amount: wholesalerFeePolicyMin ?? null,
+      effective_amount: wholesalerFeeEffective ?? null,
+      source: feeSource ?? null,
+    },
+    tiers: {
+      fastpath: attachEligibility(offerMenuTiers.fastpath),
+      standard: attachEligibility(offerMenuTiers.standard),
+      premium: attachEligibility(offerMenuTiers.premium),
+    },
+  };
+  trace.push({
+    rule: 'OFFER_MENU_ELIGIBILITY_OVERLAY',
+    used: ['risk_summary', 'evidence_summary'],
+    details: {
+      eligibility: offerMenuEligibility,
+      blocking_gate_keys: blockingGateKeys,
+      blocking_evidence_kinds: blockingEvidenceKinds,
+    },
+  });
 
   const outputs: UnderwriteOutputs = {
     caps: { aivCapApplied, aivCapValue: aivCapped },

@@ -72,6 +72,9 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
       expect(o.offer_menu_cash?.status).toBe('CASH_SHORTFALL');
     }
     expect(o.offer_menu_cash?.fee_metadata?.source).toBe('policy_band');
+    expect(o.offer_menu_cash?.tiers?.fastpath?.eligibility).toBeDefined();
+    expect(o.offer_menu_cash?.tiers?.standard?.eligibility).toBeDefined();
+    expect(o.offer_menu_cash?.tiers?.premium?.eligibility).toBeDefined();
   });
 
   it('falls back to NeedsInfo/low confidence when inputs are missing', () => {
@@ -182,6 +185,40 @@ describe('computeUnderwriting strategy bundle (provisional)', () => {
     expect(o.offer_menu_cash?.status).toBe('CASH_OFFER');
     const cgTrace = (result.trace as any[]).find((t) => t.rule === 'CASH_GATE');
     expect(cgTrace?.details?.cash_gate_status).toBe('pass');
+  });
+
+  it('blocks offer menu eligibility when required evidence is missing', () => {
+    const deal = {
+      market: { aiv: 180000, arv: 180000, dom_zip: 30 },
+      debt: { payoff: 99000 },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0, concessions_pct: 0, sell_close_pct: 0 },
+      floorsSpreads: {
+        wholesale_target_margin_pct: 0,
+        investor_floor_discount_p20_pct: 0.4,
+        investor_floor_discount_typical_pct: 0.4,
+        retained_equity_pct: 0,
+        move_out_cash_default: 0,
+      },
+      evidence_freshness: {
+        payoff: {
+          max_age_days: 30,
+          is_required_for_ready: true,
+          is_required_for_conf_a: true,
+          block_ready_if_missing: true,
+        },
+      },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    const eligibility = result.outputs.offer_menu_cash?.tiers?.standard?.eligibility;
+
+    expect(eligibility?.evidence_gate_status).toBe('fail');
+    expect(eligibility?.enabled).toBe(false);
+    expect(eligibility?.blocking_evidence_kinds).toContain('payoff');
   });
 
   it('uses policy-driven spread ladder, cash gate, and borderline band', () => {
