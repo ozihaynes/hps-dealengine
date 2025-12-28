@@ -301,6 +301,45 @@ export const AnalyzeInputSchema = z.union([
 
 export type AnalyzeInput = z.infer<typeof AnalyzeInputSchema>;
 
+const OfferMenuCashStatusSchema = z.enum(["CASH_OFFER", "CASH_SHORTFALL"]);
+
+const OfferMenuCashFeeMetadataSchema = z
+  .object({
+    policy_band_amount: z.number().nullable(),
+    effective_amount: z.number().nullable(),
+    source: z.enum(["policy_band", "user_override"]).nullable(),
+  })
+  .strict();
+
+const OfferMenuCashTierSchema = z
+  .object({
+    price: z.number().nullable(),
+    close_window_days: z.number().nullable(),
+    terms_posture_key: z.string().nullable(),
+    notes: z.string().nullable(),
+    cash_gate_status: z.enum(["pass", "shortfall", "unknown"]).nullable().optional(),
+    cash_deficit: z.number().nullable().optional(),
+  })
+  .strict();
+
+const OfferMenuCashSchema = z
+  .object({
+    status: OfferMenuCashStatusSchema.nullable(),
+    spread_to_payoff: z.number().nullable(),
+    shortfall_amount: z.number().nullable(),
+    gap_flag: z.enum(["no_gap", "narrow_gap", "wide_gap"]).nullable().optional(),
+    fee_metadata: OfferMenuCashFeeMetadataSchema.nullable(),
+    tiers: z
+      .object({
+        fastpath: OfferMenuCashTierSchema.nullable(),
+        standard: OfferMenuCashTierSchema.nullable(),
+        premium: OfferMenuCashTierSchema.nullable(),
+      })
+      .strict()
+      .nullable(),
+  })
+  .strict();
+
 /** Output surface matching UI cards */
 const AnalyzeOutputsSchema = z
   .object({
@@ -350,6 +389,7 @@ const AnalyzeOutputsSchema = z
     min_spread_required: z.number().nullable().optional(),
     cash_gate_status: z.enum(["pass", "shortfall", "unknown"]).nullable().optional(),
     cash_deficit: z.number().nullable().optional(),
+    offer_menu_cash: OfferMenuCashSchema.nullable().optional(),
     borderline_flag: z.boolean().nullable().optional(),
 
     strategy_recommendation: z.string().nullable().optional(),
