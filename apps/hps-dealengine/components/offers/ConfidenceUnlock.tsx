@@ -48,9 +48,14 @@ function StatusPill(props: { status: HviUnlock["status"] | null | undefined }) {
   );
 }
 
-function PenaltyPill(props: { amount: number | null | undefined }) {
+function PenaltyPill(props: {
+  amount: number | null | undefined;
+  status: HviUnlock["status"] | null | undefined;
+}) {
   const amount = props.amount ?? null;
-  const hasPenalty = typeof amount === "number" && Number.isFinite(amount) && amount > 0;
+  const status = props.status ?? null;
+  const hasPenalty =
+    status === "locked" && typeof amount === "number" && Number.isFinite(amount) && amount > 0;
 
   if (!hasPenalty) return null;
 
@@ -91,7 +96,7 @@ function UnlockCard(props: { unlock: HviUnlock }) {
         <div className="text-sm font-semibold">{fmtText(unlock.title)}</div>
         <div className="flex flex-col items-end gap-2">
           <StatusPill status={unlock.status} />
-          <PenaltyPill amount={unlock.penalty_delta_dollars} />
+          <PenaltyPill amount={unlock.penalty_delta_dollars} status={unlock.status} />
           <UpdateAction status={unlock.status} target={unlock.missing_field_path} />
         </div>
       </div>

@@ -3230,14 +3230,15 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
   const evidenceRoot = (deal as any)?.property?.evidence ?? {};
   const roofVal = evidenceRoot?.roof_age;
   const hvacVal = evidenceRoot?.hvac_year;
-  const fourPointVal = evidenceRoot?.four_point;
+  const fourPointInspected = evidenceRoot?.four_point?.inspected;
+  const fourPointPresent = fourPointInspected === true;
   const evidenceByKind = evidenceSummary.freshness_by_kind ?? {};
   const roofMissing =
     !hasEvidenceValue(roofVal) || evidenceByKind['roof_age']?.status === 'missing';
   const hvacMissing =
     !hasEvidenceValue(hvacVal) || evidenceByKind['hvac_year']?.status === 'missing';
   const fourPointMissing =
-    !hasEvidenceValue(fourPointVal) || evidenceByKind['four_point']?.status === 'missing';
+    !fourPointPresent || evidenceByKind['four_point']?.status === 'missing';
   const hviCandidates = [
     {
       key: 'missing_roof_age',
@@ -3292,6 +3293,7 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
       standard_price: standardNumber,
       premium_price: premiumNumber,
       upside_total: upsideTotal,
+      four_point_present: fourPointPresent,
       locked_keys: lockedKeys,
       penalty_each: penaltyEach,
       unlocks: hviUnlocks,

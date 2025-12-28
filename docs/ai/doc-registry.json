@@ -1,5 +1,47 @@
 [
   {
+    "docId": "ai.ai-strict-instructions",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Highest-priority non-negotiable operating rules for all AI agents in this repo. Supersedes other assistant guidance unless explicitly overridden.",
+    "path": "docs/ai/ai-strict-instructions.md"
+  },
+  {
+    "docId": "ai.agents",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Repo operating manual for AI agents (determinism, RLS-first, no service_role in user flows, vertical slices, auditability, execution standards).",
+    "path": "AGENTS.md"
+  },
+  {
+    "docId": "ai.primer-hps-dealengine",
+    "category": "ai",
+    "trustTier": 1,
+    "summary": "Repo primer for HPS DealEngine: what it is, how it works, how to operate safely (deterministic engine, Supabase/RLS model, UI↔engine contract).",
+    "path": "docs/primer-hps-dealengine.md"
+  },
+  {
+    "docId": "product.roadmap-v1-v2-v3",
+    "category": "product",
+    "trustTier": 1,
+    "summary": "Authoritative product roadmap across V1/V2/V3 themes and slices; governs sequencing, scope boundaries, and completion criteria.",
+    "path": "docs/roadmap-v1-v2-v3.md"
+  },
+  {
+    "docId": "ops.devlog-hps-dealengine",
+    "category": "ops",
+    "trustTier": 1,
+    "summary": "Changelog/devlog of shipped work, decisions, pivots, and closeouts; used to keep historical truth and planning alignment.",
+    "path": "docs/devlog-hps-dealengine.md"
+  },
+  {
+    "docId": "ops.qa-env-v1",
+    "category": "ops",
+    "trustTier": 1,
+    "summary": "QA/E2E harness instructions: local Supabase reset/start, seeding, env loading (.env.qa), preflight checks, and Playwright run posture.",
+    "path": "docs/QA_ENV_V1.md"
+  },
+  {
     "docId": "ai.assistant-behavior-guide",
     "category": "ai",
     "trustTier": 1,

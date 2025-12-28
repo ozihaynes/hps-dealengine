@@ -887,6 +887,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 label="Roof Age (years)"
                 type="number"
                 value={property?.evidence?.roof_age ?? ""}
+                disabled={!canEditPolicy}
                 onChange={(e: any) => {
                   const raw = (e.target as HTMLInputElement).value ?? "";
                   const trimmed = raw.trim();
@@ -908,6 +909,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
                 label="HVAC Year"
                 type="number"
                 value={property?.evidence?.hvac_year ?? ""}
+                disabled={!canEditPolicy}
                 onChange={(e: any) => {
                   const raw = (e.target as HTMLInputElement).value ?? "";
                   const trimmed = raw.trim();
@@ -927,6 +929,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             <div id="property.evidence.four_point">
               <SelectField
                 label="4-Point Inspection"
+                disabled={!canEditPolicy}
                 value={
                   typeof property?.evidence?.four_point?.inspected === "boolean"
                     ? property.evidence.four_point.inspected

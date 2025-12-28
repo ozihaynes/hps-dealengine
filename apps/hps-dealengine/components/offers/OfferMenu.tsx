@@ -1,44 +1,16 @@
 import React from "react";
 import { GlassCard } from "@/components/ui";
+import type { AnalyzeOutputs } from "@hps-internal/contracts";
 
-type CashGateStatus = "pass" | "shortfall" | "unknown";
-type GateStatus = "pass" | "watch" | "fail" | "info_needed";
-
-type OfferMenuTierEligibility = {
-  enabled: boolean | null;
-  risk_gate_status: GateStatus | null;
-  evidence_gate_status: GateStatus | null;
-  reasons: string[] | null;
-  blocking_gate_keys: string[] | null;
-  blocking_evidence_kinds: string[] | null;
-};
-
-type OfferMenuCashTier = {
-  price: number | null;
-  close_window_days: number | null;
-  terms_posture_key: string | null;
-  notes: string | null;
-  cash_gate_status?: CashGateStatus | null;
-  cash_deficit?: number | null;
-  eligibility?: OfferMenuTierEligibility | null;
-};
-
-type OfferMenuCash = {
-  status: "CASH_OFFER" | "CASH_SHORTFALL" | null;
-  spread_to_payoff: number | null;
-  shortfall_amount: number | null;
-  gap_flag?: "no_gap" | "narrow_gap" | "wide_gap" | null;
-  fee_metadata: {
-    policy_band_amount: number | null;
-    effective_amount: number | null;
-    source: "policy_band" | "user_override" | null;
-  } | null;
-  tiers: {
-    fastpath: OfferMenuCashTier | null;
-    standard: OfferMenuCashTier | null;
-    premium: OfferMenuCashTier | null;
-  } | null;
-} | null;
+type OfferMenuCash = AnalyzeOutputs["offer_menu_cash"];
+type OfferMenuCashNonNull = NonNullable<OfferMenuCash>;
+type OfferMenuCashTiers = NonNullable<OfferMenuCashNonNull["tiers"]>;
+type OfferMenuCashTier = OfferMenuCashTiers["standard"];
+type OfferMenuCashTierNonNull = NonNullable<OfferMenuCashTier>;
+type OfferMenuTierEligibility = NonNullable<OfferMenuCashTierNonNull["eligibility"]>;
+type CashGateStatus = OfferMenuCashTierNonNull["cash_gate_status"];
+type GateStatus = OfferMenuTierEligibility["risk_gate_status"];
+type OfferMenuStatus = OfferMenuCashNonNull["status"];
 
 const USD0 = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -156,7 +128,7 @@ function EligibilityDetails(props: { eligibility: OfferMenuTierEligibility | nul
 }
 
 function OfferMenuStatusPill(props: {
-  status: "CASH_OFFER" | "CASH_SHORTFALL" | null | undefined;
+  status: OfferMenuStatus | null | undefined;
   spreadToPayoff: number | null | undefined;
   shortfallAmount: number | null | undefined;
 }) {
