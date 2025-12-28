@@ -9,6 +9,7 @@ import { Icons } from "../../constants";
 import { getLastAnalyzeResult, subscribeAnalyzeResult } from "../../lib/analyzeBus";
 import type { PropertySnapshot, ValuationRun } from "@hps-internal/contracts";
 import CompsPanel from "./CompsPanel";
+import OfferMenu from "../offers/OfferMenu";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { DealContractRow } from "@/lib/dealContracts";
 
@@ -410,6 +411,11 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
     analysisOutputs && typeof (analysisOutputs as any).carryMonths === "number"
       ? ((analysisOutputs as any).carryMonths as number)
       : null;
+
+  // Engine outputs alias (Offer Menu + Ghost Fee UX must bind to outputs only)
+  const o = (analysisOutputs as any) ?? null;
+  const offerMenuCash = o?.offer_menu_cash ?? null;
+  const offerMenuFeeMetadata = offerMenuCash?.fee_metadata ?? null;
 
   const LockedHint = ({
     tokenKey,
@@ -819,6 +825,8 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         />
       )}
 
+      <OfferMenu offerMenuCash={offerMenuCash} />
+
       {/* Property & Risk */}
       <UnderwritingSection title="Property & Risk" icon={Icons.shield}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -1089,14 +1097,47 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             type="number"
             prefix="$"
             value={policy.assignment_fee_target ?? ""}
-            onChange={(e: any) => setDealValue("policy.assignment_fee_target", e.target.value)}
-            placeholder="Optional"
+            onChange={(e: any) => {
+              const raw = (e.target as HTMLInputElement).value ?? "";
+              const trimmed = raw.trim();
+              if (trimmed.length === 0) {
+                setDealValue("policy.assignment_fee_target", null);
+                return;
+              }
+              const next = Number(trimmed);
+              setDealValue(
+                "policy.assignment_fee_target",
+                Number.isFinite(next) ? next : null,
+              );
+            }}
+            placeholder={
+              offerMenuFeeMetadata?.policy_band_amount != null
+                ? `Policy: ${fmt$(offerMenuFeeMetadata.policy_band_amount, 0)}`
+                : "Policy: -"
+            }
             disabled={!canEditPolicy}
           />
           <LockedHint
             tokenKey="policy.assignment_fee_target"
             newValue={policy.assignment_fee_target ?? null}
           />
+          {offerMenuFeeMetadata ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+              <span>
+                Policy: {fmt$(offerMenuFeeMetadata.policy_band_amount ?? null, 0)} | Effective:{" "}
+                {fmt$(offerMenuFeeMetadata.effective_amount ?? null, 0)}
+              </span>
+              {offerMenuFeeMetadata.source === "user_override" ? (
+                <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200">
+                  Override
+                </span>
+              ) : offerMenuFeeMetadata.source === "policy_band" ? (
+                <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-text-secondary">
+                  Policy default
+                </span>
+              ) : null}
+            </div>
+          ) : null}
 
           <InputField
             label="List Commission Override %"
