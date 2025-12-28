@@ -1147,4 +1147,48 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
     - `pnpm -w typecheck`
     - `pnpm -w test` (includes glossary invariants)
     - `pnpm run check:glossary`
-- **Result:** Glossary + tooltips v1 is now **locked** — single source of truth, tests + alignment script, and a consistent, portal-based tooltip UX across Overview/Underwrite/Repairs/Trace/Sandbox. Future tooltip work must go through `GlossaryKey` + `GLOSSARY` and respect these guardrails.
+- **Result:** Glossary + tooltips v1 is now **locked** - single source of truth, tests + alignment script, and a consistent, portal-based tooltip UX across Overview/Underwrite/Repairs/Trace/Sandbox. Future tooltip work must go through `GlossaryKey` + `GLOSSARY` and respect these guardrails.
+
+### 2025-12-28 - Phase 5 - Competitive Offer Engine V2 MVP (Slices 1-4) - Code Complete
+
+Goal
+- Ship the Competitive Offer Engine V2 vertical slice with strict separation of concerns (Contracts -> Engine -> UI).
+- UI remains presentational only; all calculations and gate semantics live in the engine.
+
+What shipped (by slice)
+- Slice 1 - Stop-the-Bleeding Profit Core
+  - Fixed primary offer selection semantics and core profitability surfaces.
+  - Implemented MOI-tiered margins, AIV cap, and cash gate outputs to support downstream UI.
+
+- Slice 2 - Pristine Offer Menu UI + Ghost Fee UX
+  - Contracts: Added outputs.offer_menu_cash schema (status, spread_to_payoff, shortfall_amount, gap_flag, tiers, fee_metadata) with optional+nullable for back-compat.
+  - Engine: Populated outputs.offer_menu_cash and fee_metadata deterministically from underwriting outputs (no UI math).
+  - UI: Added OfferMenu (dumb renderer) + UnderwriteTab wiring; added Ghost Fee UX surfaces bound to fee_metadata.
+
+- Slice 3 - Compliance & Risk Overlay
+  - Contracts: Added per-tier eligibility overlay schema (enabled + risk/evidence statuses + reasons + blocking keys).
+  - Engine: Attached eligibility overlay to offer menu tiers using risk_summary + evidence_summary only; hardened enabled semantics; added trace + tests.
+  - UI: Presentational eligibility pills/details rendered from engine outputs only (no calculations).
+
+- Slice 4 - HVI Unlock Loop + Action Cards
+  - Contracts: Added outputs.hvi_unlocks schema for unlock action cards.
+  - Engine: Implemented deterministic delta logic to quantify opportunity cost when key evidence is missing (roof age, HVAC year, 4-point) and emitted HVI_UNLOCK_LOOP trace.
+  - UI: Added ConfidenceUnlock (dumb card renderer) + UnderwriteTab wiring so users see what to update and the penalty dollars with zero UI math.
+
+Notable commits captured in this session
+- feat(underwrite): render offer menu + ghost fee UX
+- feat(contracts): add offer menu tier eligibility overlay
+- feat(engine): add offer menu tier eligibility overlay
+- feat(engine): harden offer menu eligibility semantics
+- feat(offers): render offer menu eligibility overlay
+- feat(underwrite): render confidence unlock cards
+
+Quality gates (green)
+- pnpm -w typecheck
+- pnpm -w lint
+- pnpm -w test (expected KB registry warning only)
+- pnpm -w build
+
+Notes / follow-ups
+- If phase5_complete.zip appeared in the repo root, keep it out of git (delete and/or add to .gitignore).
+- Optional hardening: remove remaining analysisOutputs "as any" by typing the analyze bus/hook to return AnalyzeOutputs end-to-end.

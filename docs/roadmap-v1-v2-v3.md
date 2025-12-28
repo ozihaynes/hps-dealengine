@@ -1,4 +1,4 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-24)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-28)
 
 ---
 
@@ -393,7 +393,17 @@ Fast-follow items that do not change V1 behavior:
 - ✅ Under Contract capture: deal status transition + executed contract price capture (deal_contracts table + edge upsert + UI).
 ## 3 V2 Themes (Planned)
 
-- **OFFER computation research** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- **OFFER computation research** (needs more thought and build out) - research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- ✅ **Phase 5 - Competitive Offer Engine V2 MVP** (vertical slice) - code complete (2025-12-28)
+  - Slice 1: Profit Core (primary offer semantics, MOI-tiered margins, AIV cap, cash gate)
+  - Slice 2: Offer Menu + Ghost Fee UX (offer_menu_cash + fee_metadata + presentational UI wiring)
+  - Slice 3: Compliance overlay (tier eligibility from risk/evidence summaries; traced + tested)
+  - Slice 4: HVI unlock loop + action cards (hvi_unlocks deterministic deltas; presentational cards)
+  - Post-polish: 4-point evidence requires inspected === true; contract-derived UI types; locked-only penalty display
+- Post-Phase 5 hardening (recommended before broad rollout)
+  - Type the analyze outputs flow end-to-end (remove analysisOutputs as any in UI wiring).
+  - Add a lightweight UI regression test/screenshot for Offer Menu + Unlock cards.
+  - Document user-facing interpretation of tiers, gates, and unlock penalties.
 - **Deal workflow guide A→Z** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
 - **Import feature (filled template)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
 - **CSV upload (bulk-create deals/clients)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
