@@ -14,6 +14,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { AutosaveIndicator } from "@/components/shared/AutosaveIndicator";
 
 import { getSupabase } from "@/lib/supabaseClient";
+import DealFlowGuideMount from "@/components/dealflowGuide/DealFlowGuideMount";
 import { publishAnalyzeResult } from "@/lib/analyzeBus";
 import { analyze, saveRun } from "@/lib/edge";
 import { EvidenceUpload } from "@/components/shared/EvidenceUpload";
@@ -1049,6 +1050,8 @@ const summary = useMemo(() => {
     </div>
   </div>
 </div>
+
+      <DealFlowGuideMount dealId={dbDeal?.id ?? null} />
 
       <RequestOverrideModal
         open={isOverrideModalOpen}
