@@ -5,6 +5,8 @@ import { X, CheckCircle, Circle, AlertCircle, Minus, AlertTriangle } from "lucid
 import { useOfferChecklist } from "../../lib/offerChecklist/useOfferChecklist";
 import type { OfferChecklistItemVM } from "../../lib/offerChecklist/derive";
 import { Button } from "../ui";
+import { applyDealFlowToOfferChecklist } from "../../lib/dealflowGuide/guideModel";
+import { useDealTaskStates } from "../../lib/dealflowGuide/useDealTaskStates";
 
 type OfferChecklistPanelProps = {
   dealId: string;
@@ -28,23 +30,26 @@ const THEME = {
 };
 
 export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId, onClose }) => {
-  const { checklist, isLoading, error, deal, editedFields } = useOfferChecklist(dealId);
+  const { checklist: baseChecklist, isLoading, error, deal, editedFields } = useOfferChecklist(dealId);
+
+  const taskStates = useDealTaskStates(dealId);
+  const legacyNoRepairsNeeded = (deal as any)?.meta?.noRepairsNeeded === true;
+
+  const checklist = useMemo(
+    () =>
+      applyDealFlowToOfferChecklist(baseChecklist, taskStates.byKey, {
+        legacyNoRepairsNeeded,
+      }),
+    // IMPORTANT: preserve deterministic ordering (no sorting).
+    // Depend on legacyNoRepairsNeeded, per spec, to keep legacy behavior correct.
+    [baseChecklist, taskStates.byKey, legacyNoRepairsNeeded],
+  );
+
   const hasEditedFields = editedFields.size > 0;
 
-  const noRepairsNeeded = Boolean((deal as any)?.meta?.noRepairsNeeded);
+  const adjustedGroups = checklist.itemsByGroup;
 
-  const adjustedGroups = useMemo(() => {
-    if (!noRepairsNeeded) return checklist.itemsByGroup;
-    return checklist.itemsByGroup.map((group) => ({
-      ...group,
-      items: group.items.map((item) => {
-        if (item.item_id === "repairs_estimated" || item.item_id === "repairs_evidence") {
-          return { ...item, state: "PASS" as const, isBlocking: false };
-        }
-        return item;
-      }),
-    }));
-  }, [checklist.itemsByGroup, noRepairsNeeded]);
+
 
   const allItems = adjustedGroups.flatMap((g) => g.items);
   const applicableItems = allItems.filter((i) => i.state !== "NA");

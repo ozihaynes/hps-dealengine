@@ -39,6 +39,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.80.0",
-    "@vercel/speed-insights": "^1.2.0"
+    "@vercel/speed-insights": "^1.2.0",
+    "framer-motion": "^12.23.26"
   }
 }
