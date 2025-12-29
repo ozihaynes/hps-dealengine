@@ -33,15 +33,16 @@ export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId
   const { checklist: baseChecklist, isLoading, error, deal, editedFields } = useOfferChecklist(dealId);
 
   const taskStates = useDealTaskStates(dealId);
+  const legacyNoRepairsNeeded = (deal as any)?.meta?.noRepairsNeeded === true;
 
   const checklist = useMemo(
     () =>
       applyDealFlowToOfferChecklist(baseChecklist, taskStates.byKey, {
-        legacyNoRepairsNeeded: (deal as any)?.meta?.noRepairsNeeded === true,
+        legacyNoRepairsNeeded,
       }),
     // IMPORTANT: preserve deterministic ordering (no sorting).
-    // Depend explicitly on deal.meta, per spec, to keep legacy behavior correct.
-    [baseChecklist, taskStates.byKey, (deal as any)?.meta],
+    // Depend on legacyNoRepairsNeeded, per spec, to keep legacy behavior correct.
+    [baseChecklist, taskStates.byKey, legacyNoRepairsNeeded],
   );
 
   const hasEditedFields = editedFields.size > 0;

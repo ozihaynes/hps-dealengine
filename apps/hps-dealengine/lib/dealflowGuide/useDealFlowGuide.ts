@@ -39,10 +39,20 @@ export function useDealFlowGuide(dealId: string | null) {
   } = useOfferChecklist(dealId);
 
   const taskStates = useDealTaskStates(dealId, posture);
+  const {
+    byKey,
+    policy,
+    isLoading: overridesLoading,
+    isSaving,
+    error: overridesError,
+    list,
+    upsert,
+    clear,
+  } = taskStates;
 
   // Policy tokens (from latest saved run snapshot, returned by Edge list())
-  const enabled = taskStates.policy?.enabled ?? true;
-  const taskRulesByKey = taskStates.policy?.taskRulesByKey ?? {};
+  const enabled = policy?.enabled ?? true;
+  const taskRulesByKey = useMemo(() => policy?.taskRulesByKey ?? {}, [policy?.taskRulesByKey]);
 
   const tasks: DealFlowGuideTaskVM[] = useMemo(() => {
     if (!checklist) return [];
@@ -57,7 +67,7 @@ export function useDealFlowGuide(dealId: string | null) {
     // - group.items[] order is canonical
     for (const group of vm.itemsByGroup) {
       for (const item of group.items) {
-        const override = taskStates.byKey.get(item.item_id) ?? null;
+        const override = byKey.get(item.item_id) ?? null;
         const override_status = override?.override_status ?? null;
 
         const rule = taskRulesByKey[item.item_id] ?? {};
@@ -89,7 +99,7 @@ export function useDealFlowGuide(dealId: string | null) {
     }
 
     return out;
-  }, [checklist, taskStates.byKey, taskRulesByKey]);
+  }, [checklist, byKey, taskRulesByKey]);
 
   const outstandingMissing = useMemo(() => tasks.filter((t) => t.merged_status === "MISSING"), [tasks]);
   const deferredNYA = useMemo(() => tasks.filter((t) => t.merged_status === "NOT_YET_AVAILABLE"), [tasks]);
@@ -103,59 +113,59 @@ export function useDealFlowGuide(dealId: string | null) {
   }, [tasks]);
 
   const vm = useMemo(
-    () => buildDealFlowGuideVM(checklist, taskStates.byKey),
-    [checklist, taskStates.byKey],
+    () => buildDealFlowGuideVM(checklist, byKey),
+    [checklist, byKey],
   );
 
   const setNYA = useCallback(
     async (task_key: string) => {
-      await taskStates.upsert({ task_key, override_status: "NOT_YET_AVAILABLE" });
+      await upsert({ task_key, override_status: "NOT_YET_AVAILABLE" });
     },
-    [taskStates],
+    [upsert],
   );
 
   const setNA = useCallback(
     async (task_key: string) => {
-      await taskStates.upsert({ task_key, override_status: "NOT_APPLICABLE" });
+      await upsert({ task_key, override_status: "NOT_APPLICABLE" });
     },
-    [taskStates],
+    [upsert],
   );
 
   const clearOverride = useCallback(
     async (task_key: string) => {
-      await taskStates.clear(task_key);
+      await clear(task_key);
     },
-    [taskStates],
+    [clear],
   );
 
   const onToggleNYA = useCallback(
     async (task_key: string) => {
-      const existing = taskStates.byKey.get(task_key);
+      const existing = byKey.get(task_key);
       if (existing?.override_status === "NOT_YET_AVAILABLE") {
-        await taskStates.clear(task_key);
+        await clear(task_key);
         return;
       }
-      await taskStates.upsert({ task_key, override_status: "NOT_YET_AVAILABLE" });
+      await upsert({ task_key, override_status: "NOT_YET_AVAILABLE" });
     },
-    [taskStates],
+    [byKey, clear, upsert],
   );
 
-  const isLoading = checklistLoading || taskStates.isLoading;
-  const error = checklistError ?? taskStates.error;
+  const isLoading = checklistLoading || overridesLoading;
+  const error = checklistError ?? overridesError;
 
   return {
     enabled,
     posture,
-    policy: taskStates.policy,
+    policy,
 
     checklist,
     checklistLoading,
     checklistError,
 
-    overridesLoading: taskStates.isLoading,
-    overridesError: taskStates.error,
+    overridesLoading,
+    overridesError,
     isLoading,
-    isSaving: taskStates.isSaving,
+    isSaving,
     error,
 
     vm,
@@ -169,7 +179,7 @@ export function useDealFlowGuide(dealId: string | null) {
       setNYA,
       setNA,
       clearOverride,
-      refresh: taskStates.list,
+      refresh: list,
     },
   };
 }
