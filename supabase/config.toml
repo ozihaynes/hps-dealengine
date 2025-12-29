@@ -346,3 +346,6 @@ verify_jwt = true
 [functions.v1-deal-task-states]
 verify_jwt = true
 
+[functions.v1-deal-workflow-events]
+verify_jwt = true
+

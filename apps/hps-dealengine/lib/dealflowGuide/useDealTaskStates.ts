@@ -1,99 +1,67 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabaseClient";
-import type { DealTaskOverrideStatus, DealTaskStateRow } from "./guideModel";
 
-type ListOp = { op: "list"; deal_id: string };
-type UpsertOp = {
-  op: "upsert";
+export type DealTaskOverrideStatus = "NOT_YET_AVAILABLE" | "NOT_APPLICABLE";
+
+export type DealTaskStateRow = {
   deal_id: string;
   task_key: string;
   override_status: DealTaskOverrideStatus;
-  note?: string;
-  expected_by?: string;
+  note: string | null;
+  expected_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
-type ClearOp = { op: "clear"; deal_id: string; task_key: string };
 
-type ListResponse =
-  | { ok: true; task_states: DealTaskStateRow[] }
-  | { ok: false; error: string; message: string };
+export type DealflowGuidePolicyTokens = {
+  source: "runs" | "none";
+  run_id: string | null;
+  policy_hash: string | null;
+  enabled: boolean;
+  taskRulesByKey: Record<string, { na_allowed?: boolean }>;
+};
 
-type UpsertResponse =
-  | { ok: true; task_state: DealTaskStateRow }
-  | { ok: false; error: string; message: string };
+type ListOk = {
+  ok: true;
+  task_states: DealTaskStateRow[];
+  policy?: DealflowGuidePolicyTokens;
+};
 
-type ClearResponse =
-  | { ok: true }
-  | { ok: false; error: string; message: string };
+type UpsertOk = {
+  ok: true;
+  task_state: DealTaskStateRow;
+};
 
-async function invokeDealTaskStates<T>(
-  body: ListOp | UpsertOp | ClearOp,
-): Promise<T> {
-  const supabase = getSupabase();
-  const { data, error } = await supabase.functions.invoke("v1-deal-task-states", { body });
+type ClearOk = {
+  ok: true;
+};
 
-  if (error) {
-    throw new Error(error.message);
-  }
+type ApiErr = {
+  ok: false;
+  error: string;
+  message: string;
+  [k: string]: unknown;
+};
 
-  return data as T;
+function asErrorMessage(e: unknown): string {
+  if (typeof e === "string") return e;
+  if (e && typeof e === "object" && "message" in e && typeof (e as any).message === "string") return (e as any).message;
+  return "Unknown error";
 }
 
-function upsertLocal(
-  prev: DealTaskStateRow[],
-  next: DealTaskStateRow,
-): DealTaskStateRow[] {
-  const idx = prev.findIndex((r) => r.task_key === next.task_key);
-  if (idx === -1) return [...prev, next];
-  const copy = prev.slice();
-  copy[idx] = next;
-  return copy;
-}
-
-function removeLocal(
-  prev: DealTaskStateRow[],
-  taskKey: string,
-): DealTaskStateRow[] {
-  return prev.filter((r) => r.task_key !== taskKey);
-}
-
-export function useDealTaskStates(dealId: string | null) {
+/**
+ * Low-level persistence hook for deal_task_states.
+ * - Uses caller JWT (RLS-first).
+ * - Supports NOT_YET_AVAILABLE and NOT_APPLICABLE (NA is server-validated by policy).
+ */
+export function useDealTaskStates(dealId: string | null, posture?: string | null) {
   const [rows, setRows] = useState<DealTaskStateRow[]>([]);
+  const [policy, setPolicy] = useState<DealflowGuidePolicyTokens | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const confirmedRowsRef = useRef<DealTaskStateRow[]>([]);
-
-  const refresh = useCallback(async () => {
-    if (!dealId) {
-      confirmedRowsRef.current = [];
-      setRows([]);
-      setError(null);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const res = await invokeDealTaskStates<ListResponse>({ op: "list", deal_id: dealId });
-      if (!res.ok) throw new Error(res.message);
-
-      confirmedRowsRef.current = res.task_states ?? [];
-      setRows(confirmedRowsRef.current);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to load task states.";
-      setError(msg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [dealId]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   const byKey = useMemo(() => {
     const m = new Map<string, DealTaskStateRow>();
@@ -101,81 +69,156 @@ export function useDealTaskStates(dealId: string | null) {
     return m;
   }, [rows]);
 
-  const setNYA = useCallback(async (taskKey: string) => {
-    if (!dealId) return;
+  const list = useCallback(async () => {
+    if (!dealId) {
+      setRows([]);
+      setPolicy(null);
+      setError(null);
+      return;
+    }
 
-    const now = new Date().toISOString();
-    const optimistic: DealTaskStateRow = {
-      deal_id: dealId,
-      task_key: taskKey,
-      override_status: "NOT_YET_AVAILABLE",
-      note: null,
-      expected_by: null,
-      created_at: now,
-      updated_at: now,
-    };
-
+    setIsLoading(true);
     setError(null);
-    setIsSaving(true);
 
-    setRows((prev) => upsertLocal(prev, optimistic));
-
+    const supabase = getSupabase();
     try {
-      const res = await invokeDealTaskStates<UpsertResponse>({
-        op: "upsert",
-        deal_id: dealId,
-        task_key: taskKey,
-        override_status: "NOT_YET_AVAILABLE",
+      const { data, error } = await supabase.functions.invoke("v1-deal-task-states", {
+        body: {
+          op: "list",
+          deal_id: dealId,
+          posture: posture ?? undefined,
+        },
       });
 
-      if (!res.ok) throw new Error(res.message);
+      if (error) {
+        setError(error.message);
+        return;
+      }
 
-      confirmedRowsRef.current = upsertLocal(confirmedRowsRef.current, res.task_state);
-      setRows((prev) => upsertLocal(prev, res.task_state));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to persist task state.";
-      setError(msg);
-      setRows(confirmedRowsRef.current);
+      const payload = data as ListOk | ApiErr | null;
+      if (!payload || payload.ok !== true) {
+        setError(payload?.message ?? "Failed to load task states.");
+        return;
+      }
+
+      setRows(payload.task_states ?? []);
+      setPolicy(payload.policy ?? null);
     } finally {
-      setIsSaving(false);
+      setIsLoading(false);
     }
-  }, [dealId]);
+  }, [dealId, posture]);
 
-  const clear = useCallback(async (taskKey: string) => {
-    if (!dealId) return;
+  useEffect(() => {
+    list().catch((e) => setError(asErrorMessage(e)));
+  }, [list]);
 
-    setError(null);
-    setIsSaving(true);
+  const upsert = useCallback(
+    async (args: { task_key: string; override_status: DealTaskOverrideStatus; note?: string | null; expected_by?: string | null }) => {
+      if (!dealId) throw new Error("dealId is required");
 
-    setRows((prev) => removeLocal(prev, taskKey));
-
-    try {
-      const res = await invokeDealTaskStates<ClearResponse>({
-        op: "clear",
+      setIsSaving(true);
+      // Optimistic update: reflect immediately, rollback on failure.
+      const prev = rows;
+      const nowIso = new Date().toISOString();
+      const optimisticRow: DealTaskStateRow = {
         deal_id: dealId,
-        task_key: taskKey,
+        task_key: args.task_key,
+        override_status: args.override_status,
+        note: args.note ?? null,
+        expected_by: args.expected_by ?? null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+
+      setRows((cur) => {
+        const next = cur.filter((r) => r.task_key !== args.task_key);
+        next.push(optimisticRow);
+        next.sort((a, b) => a.task_key.localeCompare(b.task_key));
+        return next;
       });
 
-      if (!res.ok) throw new Error(res.message);
+      const supabase = getSupabase();
+      try {
+        const { data, error } = await supabase.functions.invoke("v1-deal-task-states", {
+          body: {
+            op: "upsert",
+            deal_id: dealId,
+            posture: posture ?? undefined,
+            task_key: args.task_key,
+            override_status: args.override_status,
+            note: args.note ?? undefined,
+            expected_by: args.expected_by ?? undefined,
+          },
+        });
 
-      confirmedRowsRef.current = removeLocal(confirmedRowsRef.current, taskKey);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to clear task state.";
-      setError(msg);
-      setRows(confirmedRowsRef.current);
-    } finally {
-      setIsSaving(false);
-    }
-  }, [dealId]);
+        if (error) {
+          setRows(prev);
+          setError(error.message);
+          throw new Error(error.message);
+        }
 
-  return {
-    rows,
-    byKey,
-    isLoading,
-    isSaving,
-    error,
-    refresh,
-    setNYA,
-    clear,
-  };
+        const payload = data as UpsertOk | ApiErr | null;
+        if (!payload || payload.ok !== true) {
+          setRows(prev);
+          const message = payload?.message ?? "Failed to persist task state.";
+          setError(message);
+          throw new Error(message);
+        }
+
+        // Authoritative row from server
+        setRows((cur) => {
+          const next = cur.filter((r) => r.task_key !== payload.task_state.task_key);
+          next.push(payload.task_state);
+          next.sort((a, b) => a.task_key.localeCompare(b.task_key));
+          return next;
+        });
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [dealId, posture, rows],
+  );
+
+  const clear = useCallback(
+    async (task_key: string) => {
+      if (!dealId) throw new Error("dealId is required");
+
+      setIsSaving(true);
+      const prev = rows;
+
+      // Optimistic removal
+      setRows((cur) => cur.filter((r) => r.task_key !== task_key));
+
+      const supabase = getSupabase();
+      try {
+        const { data, error } = await supabase.functions.invoke("v1-deal-task-states", {
+          body: {
+            op: "clear",
+            deal_id: dealId,
+            posture: posture ?? undefined,
+            task_key,
+          },
+        });
+
+        if (error) {
+          setRows(prev);
+          setError(error.message);
+          throw new Error(error.message);
+        }
+
+        const payload = data as ClearOk | ApiErr | null;
+        if (!payload || payload.ok !== true) {
+          setRows(prev);
+          const message = payload?.message ?? "Failed to clear task state.";
+          setError(message);
+          throw new Error(message);
+        }
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [dealId, posture, rows],
+  );
+
+  return { rows, byKey, policy, isLoading, isSaving, error, list, upsert, clear };
 }

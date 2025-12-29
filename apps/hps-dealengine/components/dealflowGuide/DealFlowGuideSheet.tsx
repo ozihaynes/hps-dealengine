@@ -315,7 +315,7 @@ export default function DealFlowGuideSheet(props: DealFlowGuideSheetProps) {
           </motion.ul>
 
           <div className="mt-4 text-xs text-white/50">
-            Slice 1 note: NA is intentionally disabled (fail-closed). NYA is persisted and auditable.
+            Slice 2 note: NOT_APPLICABLE is policy-gated; NYA is persisted and auditable.
           </div>
         </div>
       </motion.div>

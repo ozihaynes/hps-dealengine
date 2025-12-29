@@ -5,6 +5,8 @@ import { X, CheckCircle, Circle, AlertCircle, Minus, AlertTriangle } from "lucid
 import { useOfferChecklist } from "../../lib/offerChecklist/useOfferChecklist";
 import type { OfferChecklistItemVM } from "../../lib/offerChecklist/derive";
 import { Button } from "../ui";
+import { applyDealFlowToOfferChecklist } from "../../lib/dealflowGuide/guideModel";
+import { useDealTaskStates } from "../../lib/dealflowGuide/useDealTaskStates";
 
 type OfferChecklistPanelProps = {
   dealId: string;
@@ -28,10 +30,24 @@ const THEME = {
 };
 
 export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId, onClose }) => {
-  const { checklist, isLoading, error, deal, editedFields } = useOfferChecklist(dealId);
+  const { checklist: baseChecklist, isLoading, error, deal, editedFields } = useOfferChecklist(dealId);
+
+  const taskStates = useDealTaskStates(dealId);
+
+  const checklist = useMemo(
+    () =>
+      applyDealFlowToOfferChecklist(baseChecklist, taskStates.byKey, {
+        legacyNoRepairsNeeded: (deal as any)?.meta?.noRepairsNeeded === true,
+      }),
+    // IMPORTANT: preserve deterministic ordering (no sorting).
+    // Depend explicitly on deal.meta, per spec, to keep legacy behavior correct.
+    [baseChecklist, taskStates.byKey, (deal as any)?.meta],
+  );
+
   const hasEditedFields = editedFields.size > 0;
 
-  const noRepairsNeeded = Boolean((deal as any)?.meta?.noRepairsNeeded);
+  const adjustedGroups = checklist.itemsByGroup;
+
 
   const adjustedGroups = useMemo(() => {
     if (!noRepairsNeeded) return checklist.itemsByGroup;

@@ -1,131 +1,217 @@
-import type { OfferChecklistViewModel, OfferChecklistItemVM } from "@/lib/offerChecklist/derive";
-import type { ImportanceTag } from "@/lib/offerChecklist/schema";
+import type { OfferChecklistItemVM, OfferChecklistViewModel } from "@/lib/offerChecklist/derive";
+import { OFFER_CHECKLIST_DEFS } from "@/lib/offerChecklist/schema";
+import type { DealTaskOverrideStatus, DealTaskStateRow } from "@/lib/dealflowGuide/useDealTaskStates";
 
-export type DealTaskOverrideStatus = "NOT_YET_AVAILABLE" | "NOT_APPLICABLE";
+export type GuideEffectiveState = "PROVIDED" | "MISSING" | "NYA" | "NA" | "WARN";
 
-export interface DealTaskStateRow {
-  deal_id: string;
+export type GuideTaskVM = {
   task_key: string;
-  override_status: DealTaskOverrideStatus;
-  note: string | null;
-  expected_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
 
-export type GuideEffectiveState = "PROVIDED" | "NA" | "NYA" | "MISSING" | "WARN";
-
-export interface GuideTaskVM {
-  task_key: string;
   group_id: string;
+  group_label: string;
+
   label: string;
   why_it_matters: string;
-  importance_tag: ImportanceTag;
+
+  importance_tag: OfferChecklistItemVM["importance_tag"];
+
+  // Canonical derived checklist state (PASS/FAIL/WARN/NA) AFTER legacy adjustments (if any).
   checklist_state: OfferChecklistItemVM["state"];
-  effective_state: GuideEffectiveState;
+
+  // True when this task blocks readiness when unmet.
   is_blocking: boolean;
-  is_deferred: boolean;
-}
 
-export interface DealFlowGuideVM {
-  next_best: GuideTaskVM | null;
+  // Persisted override (NYA/NA) from public.deal_task_states (may be null).
+  override_status: DealTaskOverrideStatus | null;
+
+  // Final state used by DealFlow Guide UI.
+  effective_state: GuideEffectiveState;
+};
+
+export type DealFlowGuideProgressVM = {
+  blockers_done: number;
+  blockers_total: number;
+  overall_done: number;
+  overall_total: number;
+};
+
+export type DealFlowGuideVM = {
+  tasks: GuideTaskVM[];
   outstanding: GuideTaskVM[];
-  progress: {
-    blockers_done: number;
-    blockers_total: number;
-    overall_done: number;
-    overall_total: number;
-  };
+  next_best: GuideTaskVM | null;
+
+  progress: DealFlowGuideProgressVM;
+
+  // Mirrors the engine-derived readiness signal for determinism.
   can_finalize: boolean;
+
+  // Debug/compat flags (kept small; useful during rollout).
+  legacy: {
+    noRepairsNeededApplied: boolean;
+  };
+};
+
+type BuildOptions = {
+  legacyNoRepairsNeeded?: boolean;
+};
+
+const DEF_BY_ID = new Map<string, { why_it_matters?: string }>(
+  OFFER_CHECKLIST_DEFS.map((d) => [d.item_id, d]),
+);
+
+// Legacy UI-only override from OfferChecklistPanel.tsx (must not be silently dropped).
+const LEGACY_NO_REPAIRS_TASK_KEYS = new Set<string>(["repairs_estimated", "repairs_evidence"]);
+
+function isMustHave(tag: OfferChecklistItemVM["importance_tag"]): boolean {
+  return tag === "MUST_HAVE_FOR_READY" || tag === "MUST_HAVE_FOR_MATH";
 }
 
-const MUST_TAGS: ReadonlySet<ImportanceTag> = new Set([
-  "MUST_HAVE_FOR_MATH",
-  "MUST_HAVE_FOR_READY",
-]);
+function applyLegacyChecklistAdjustments(
+  item: OfferChecklistItemVM,
+  opts: BuildOptions | undefined,
+): OfferChecklistItemVM {
+  if (opts?.legacyNoRepairsNeeded && LEGACY_NO_REPAIRS_TASK_KEYS.has(item.item_id)) {
+    // Preserve historical behavior: treat as DONE + non-blocking (PASS), not persisted NA.
+    return { ...item, state: "PASS", isBlocking: false };
+  }
+  return item;
+}
 
-function baseEffectiveState(item: OfferChecklistItemVM): GuideEffectiveState {
-  if (item.state === "PASS") return "PROVIDED";
-  if (item.state === "NA") return "NA";
-  if (item.state.startsWith("WARN")) return "WARN";
+function computeEffectiveState(args: {
+  base_state: OfferChecklistItemVM["state"];
+  override_status: DealTaskOverrideStatus | null;
+}): GuideEffectiveState {
+  const { base_state, override_status } = args;
+
+  // PASS and NA are canonical terminal states.
+  if (base_state === "PASS") return "PROVIDED";
+  if (base_state === "NA") return "NA";
+
+  // Overrides apply only when not already PASS/NA.
+  if (override_status === "NOT_APPLICABLE") return "NA";
+  if (override_status === "NOT_YET_AVAILABLE") return "NYA";
+
+  // Warnings are outstanding but non-blocking.
+  if (base_state === "WARN_PLACEHOLDER" || base_state === "WARN_RECOMMENDED") return "WARN";
+
   return "MISSING";
 }
 
-function applyOverride(
-  base: GuideEffectiveState,
-  override: DealTaskStateRow | undefined,
-): GuideEffectiveState {
-  if (!override) return base;
-  if (override.override_status === "NOT_YET_AVAILABLE") return "NYA";
-  if (override.override_status === "NOT_APPLICABLE") return "NA";
-  return base;
-}
-
+/**
+ * Build the DealFlow Guide view model.
+ *
+ * Deterministic ordering guarantee:
+ * - We do NOT sort. We iterate checklist.itemsByGroup in the exact order produced by derive.ts.
+ */
 export function buildDealFlowGuideVM(
   checklist: OfferChecklistViewModel | null | undefined,
   overridesByKey: Map<string, DealTaskStateRow> | null | undefined,
+  opts?: BuildOptions,
 ): DealFlowGuideVM {
   if (!checklist) {
     return {
-      next_best: null,
+      tasks: [],
       outstanding: [],
+      next_best: null,
       progress: { blockers_done: 0, blockers_total: 0, overall_done: 0, overall_total: 0 },
       can_finalize: false,
+      legacy: { noRepairsNeededApplied: false },
     };
   }
 
   const overrides = overridesByKey ?? new Map<string, DealTaskStateRow>();
-  const flattened: GuideTaskVM[] = [];
+  const tasks: GuideTaskVM[] = [];
 
   for (const group of checklist.itemsByGroup) {
-    for (const item of group.items) {
-      const base = baseEffectiveState(item);
-      const override = overrides.get(item.item_id);
-      const effective = applyOverride(base, override);
+    for (const rawItem of group.items) {
+      const item = applyLegacyChecklistAdjustments(rawItem, opts);
 
-      const isMust = MUST_TAGS.has(item.importance_tag);
-      const isDone = effective === "PROVIDED" || effective === "NA";
-      const isBlocking = isMust && !isDone;
+      const override = overrides.get(item.item_id) ?? null;
+      const override_status = override?.override_status ?? null;
 
-      flattened.push({
+      const def = DEF_BY_ID.get(item.item_id);
+      const why_it_matters = typeof def?.why_it_matters === "string" ? def.why_it_matters : "";
+
+      const effective_state = computeEffectiveState({
+        base_state: item.state,
+        override_status,
+      });
+
+      tasks.push({
         task_key: item.item_id,
         group_id: group.groupId,
+        group_label: group.groupLabel,
         label: item.label,
-        why_it_matters: item.why_it_matters,
+        why_it_matters,
         importance_tag: item.importance_tag,
         checklist_state: item.state,
-        effective_state: effective,
-        is_blocking: isBlocking,
-        is_deferred: effective === "NYA",
+        is_blocking: item.isBlocking === true,
+        override_status,
+        effective_state,
       });
     }
   }
 
-  const outstanding = flattened.filter(
-    (t) => t.effective_state === "MISSING" || t.effective_state === "WARN" || t.effective_state === "NYA",
-  );
+  const outstanding = tasks.filter((t) => t.effective_state !== "PROVIDED" && t.effective_state !== "NA");
 
-  const blockers_total = flattened.filter(
-    (t) => MUST_TAGS.has(t.importance_tag) && t.effective_state !== "NA",
-  ).length;
-  const blockers_done = flattened.filter(
-    (t) => MUST_TAGS.has(t.importance_tag) && (t.effective_state === "PROVIDED" || t.effective_state === "NA"),
-  ).length;
+  // Next best step selection:
+  // - Prefer must-have blockers that are not done.
+  // - Otherwise pick the first outstanding task.
+  const next_best =
+    tasks.find((t) => isMustHave(t.importance_tag) && t.effective_state !== "PROVIDED" && t.effective_state !== "NA") ??
+    outstanding[0] ??
+    null;
 
-  const overall_total = flattened.filter((t) => t.effective_state !== "NA").length;
-  const overall_done = flattened.filter(
-    (t) => t.effective_state === "PROVIDED" || t.effective_state === "NA",
-  ).length;
+  const overallApplicable = tasks.filter((t) => t.effective_state !== "NA");
+  const overall_done = overallApplicable.filter((t) => t.effective_state === "PROVIDED").length;
+  const overall_total = overallApplicable.length;
 
-  const next_best = outstanding.find((t) => t.is_blocking) ?? outstanding[0] ?? null;
+  const blockerApplicable = tasks.filter((t) => isMustHave(t.importance_tag) && t.effective_state !== "NA");
+  const blockers_done = blockerApplicable.filter((t) => t.effective_state === "PROVIDED").length;
+  const blockers_total = blockerApplicable.length;
 
-  const can_finalize =
-    checklist.status === "READY" && outstanding.every((t) => !t.is_blocking);
+  // Determinism: do not recompute underwriting readiness here; mirror engine-derived READY.
+  const can_finalize = checklist.status === "READY";
 
   return {
-    next_best,
+    tasks,
     outstanding,
+    next_best,
     progress: { blockers_done, blockers_total, overall_done, overall_total },
     can_finalize,
+    legacy: { noRepairsNeededApplied: opts?.legacyNoRepairsNeeded === true },
   };
+}
+
+/**
+ * Produce an OfferChecklistViewModel with display-only adjustments applied.
+ * This enables the Slice 3 "brain transplant" without duplicating legacy logic in the component.
+ *
+ * Today we apply:
+ * - legacyNoRepairsNeeded (repairs tasks => PASS + non-blocking)
+ * - NOT_APPLICABLE override => checklist state NA (NYA remains Guide-only for now)
+ */
+export function applyDealFlowToOfferChecklist(
+  checklist: OfferChecklistViewModel,
+  overridesByKey: Map<string, DealTaskStateRow> | null | undefined,
+  opts?: BuildOptions,
+): OfferChecklistViewModel {
+  const overrides = overridesByKey ?? new Map<string, DealTaskStateRow>();
+
+  const itemsByGroup = checklist.itemsByGroup.map((group) => {
+    const items = group.items.map((raw) => {
+      let item = applyLegacyChecklistAdjustments(raw, opts);
+
+      const override = overrides.get(item.item_id) ?? null;
+      if (override?.override_status === "NOT_APPLICABLE") {
+        item = { ...item, state: "NA", isBlocking: false };
+      }
+
+      return item;
+    });
+
+    return { ...group, items };
+  });
+
+  return { ...checklist, itemsByGroup };
 }

@@ -1,46 +1,25 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ListTodo } from "lucide-react";
 import { Button } from "@/components/ui";
-import { useOfferChecklist } from "@/lib/offerChecklist/useOfferChecklist";
-import { buildDealFlowGuideVM } from "@/lib/dealflowGuide/guideModel";
-import { useDealTaskStates } from "@/lib/dealflowGuide/useDealTaskStates";
 import DealFlowGuideSheet from "@/components/dealflowGuide/DealFlowGuideSheet";
+import { useDealFlowGuide } from "@/lib/dealflowGuide/useDealFlowGuide";
 
-export default function DealFlowGuideMount({ dealId }: { dealId: string | null }) {
+export default function DealFlowGuideMount(props: { dealId: string | null }) {
+  const { dealId } = props;
   const [open, setOpen] = useState(false);
   const [detent, setDetent] = useState<"medium" | "large">("medium");
 
-  const {
-    checklist,
-    isLoading: checklistLoading,
-    error: checklistError,
-  } = useOfferChecklist(dealId);
+  const guide = useDealFlowGuide(dealId);
 
-  const {
-    byKey,
-    isLoading: overridesLoading,
-    isSaving,
-    error: overridesError,
-    setNYA,
-    clear,
-  } = useDealTaskStates(dealId);
+  const isEnabled = useMemo(() => {
+    // Default true for backward-compat with Slice 1 if policy token is absent.
+    // When policy explicitly disables it, hide.
+    return guide.enabled === true;
+  }, [guide.enabled]);
 
-  const vm = useMemo(() => buildDealFlowGuideVM(checklist, byKey), [checklist, byKey]);
-  const error = checklistError ? String(checklistError) : overridesError;
-
-  const onToggleNYA = useCallback(
-    (taskKey: string) => {
-      const existing = byKey.get(taskKey);
-      if (existing && existing.override_status === "NOT_YET_AVAILABLE") {
-        void clear(taskKey);
-        return;
-      }
-      void setNYA(taskKey);
-    },
-    [byKey, clear, setNYA],
-  );
+  if (!dealId || !isEnabled) return null;
 
   return (
     <>
@@ -52,7 +31,6 @@ export default function DealFlowGuideMount({ dealId }: { dealId: string | null }
           onClick={() => setOpen((v) => !v)}
           size="sm"
           variant={open ? "secondary" : "primary"}
-          disabled={!dealId}
         >
           <ListTodo className="mr-2 h-4 w-4" />
           Guide
@@ -64,11 +42,11 @@ export default function DealFlowGuideMount({ dealId }: { dealId: string | null }
         detent={detent}
         onOpenChange={setOpen}
         onDetentChange={setDetent}
-        vm={vm}
-        isLoading={checklistLoading || overridesLoading}
-        isSaving={isSaving}
-        error={error ?? null}
-        onToggleNYA={onToggleNYA}
+        vm={guide.vm}
+        isLoading={guide.isLoading}
+        isSaving={guide.isSaving}
+        error={guide.error ?? null}
+        onToggleNYA={guide.onToggleNYA}
       />
     </>
   );
