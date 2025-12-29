@@ -49,18 +49,6 @@ export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId
   const adjustedGroups = checklist.itemsByGroup;
 
 
-  const adjustedGroups = useMemo(() => {
-    if (!noRepairsNeeded) return checklist.itemsByGroup;
-    return checklist.itemsByGroup.map((group) => ({
-      ...group,
-      items: group.items.map((item) => {
-        if (item.item_id === "repairs_estimated" || item.item_id === "repairs_evidence") {
-          return { ...item, state: "PASS" as const, isBlocking: false };
-        }
-        return item;
-      }),
-    }));
-  }, [checklist.itemsByGroup, noRepairsNeeded]);
 
   const allItems = adjustedGroups.flatMap((g) => g.items);
   const applicableItems = allItems.filter((i) => i.state !== "NA");
