@@ -86,7 +86,9 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ## 2025-12-30 — DealFlow Guide A→Z + readiness gate fix (prod)
 
 ### Summary
-- DealFlow Guide A→Z (repo implementation; pending deploy/smoke)
+- DealFlow Guide A→Z verified in prod (DB preflight + smoke PASS, UI proof PASS).
+  - Evidence: `docs/audits/phase5-dealflow-taskstates-smoke-2025-12-30_152350.zip`, `docs/audits/phase5-dealflow-ui-proof-2025-12-30_171542.zip`.
+  - Functions list: `v1-deal-task-states` ACTIVE v1 (updated_at 2025-12-29 17:22:47 UTC); `v1-deal-workflow-events` ACTIVE v3 (updated_at 2025-12-30 16:24:55 UTC).
   - UI: `DealFlowGuideMount` + `DealFlowGuideSheet` mounted on `/underwrite` (`apps/hps-dealengine/app/(app)/underwrite/page.tsx`).
   - Model: `apps/hps-dealengine/lib/dealflowGuide/guideModel.ts` maps offer checklist state + overrides into a deterministic guide VM (next-best step + progress).
   - Data: `apps/hps-dealengine/lib/dealflowGuide/useDealTaskStates.ts` calls `supabase/functions/v1-deal-task-states/index.ts` (caller JWT + anon key) against `deal_task_states` (RLS/audit in `supabase/migrations/20260109163001_deal_task_states.sql`).

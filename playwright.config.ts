@@ -58,7 +58,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm --filter "./apps/hps-dealengine" dev',
     port: 3000,
-    reuseExistingServer: false,
+    reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "true",
     stdout: "pipe",
     stderr: "pipe",
 
