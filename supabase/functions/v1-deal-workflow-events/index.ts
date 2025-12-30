@@ -62,8 +62,11 @@ function runIndicatesReady(run: Record<string, unknown>): boolean {
 
   const candidates: Array<[string, unknown]> = [
     ["output", run["output"]],
+    ["output.outputs", getPath(run, "output.outputs")],
+    ["output.outputs.outputs", getPath(run, "output.outputs.outputs")],
     ["outputs", run["outputs"]],
     ["result", run["result"]],
+    ["result.outputs", getPath(run, "result.outputs")],
     ["workflow_state", run["workflow_state"]],
   ];
 
