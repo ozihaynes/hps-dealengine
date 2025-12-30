@@ -116,7 +116,7 @@ export function NewDealForm({
             {cancelLabel}
           </Button>
         ) : null}
-        <Button variant="primary" disabled={submitting}>
+        <Button variant="primary" type="submit" disabled={submitting}>
           {submitting ? "Creating..." : submitLabel}
         </Button>
       </div>
