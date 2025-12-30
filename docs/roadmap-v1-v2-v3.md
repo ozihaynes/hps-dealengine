@@ -401,6 +401,11 @@ Fast-follow items that do not change V1 behavior:
   - Slice 4: HVI unlock loop + action cards (hvi_unlocks deterministic deltas; presentational cards)
   - Post-polish: 4-point evidence requires inspected === true; contract-derived UI types; locked-only penalty display
 - Post-Phase 5 hardening (recommended before broad rollout)
+  - ✅ 2025-12-30 — Readiness gate fix for underwriting_complete (prod)
+    - v1-deal-workflow-events now inspects `output.outputs` / `result.outputs` in addition to top-level `output.*` when detecting `offer_checklist` + `workflow_state`.
+    - Verified in prod on smoke deal `f84bab8d-e377-4512-a4c8-0821c23a82ea` (event 200 + event_hash verification).
+    - Commit: `ef8f5d3`
+
   - Type the analyze outputs flow end-to-end (remove analysisOutputs as any in UI wiring).
   - Add a lightweight UI regression test/screenshot for Offer Menu + Unlock cards.
   - Document user-facing interpretation of tiers, gates, and unlock penalties.
@@ -433,3 +438,4 @@ Fast-follow items that do not change V1 behavior:
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
+

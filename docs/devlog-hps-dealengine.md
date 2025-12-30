@@ -83,6 +83,19 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+## 2025-12-30 — DealFlow readiness gate fix (prod) + underwriting_complete smoke
+
+### Summary
+- Fixed a prod readiness mismatch where workflow events only inspected top-level `output.*` and missed the common run output envelope (`output.outputs` / `result.outputs`).
+- Updated `supabase/functions/v1-deal-workflow-events/index.ts` to detect `offer_checklist` and `workflow_state` inside the envelope too.
+- Verified end-to-end in prod using smoke deal `f84bab8d-e377-4512-a4c8-0821c23a82ea`: `create_underwriting_complete` returned 200 on attempt 1 and event hash verification passed.
+- Commit: `ef8f5d3`
+- Audit pack: `docs/audits/phase5-underwriting-complete-autopilot-v3-2025-12-30_112801.zip`
+
+### Notes
+- RLS-first: used anon key + user JWT only (no `service_role` in user flows).
+- Root cause: readiness signals were present under `run.output.outputs.*` but the gate only checked `run.output.offer_checklist` / `run.output.workflow_state`.
+
 ### 2025-12-26 - Pre-V2 Closeout Complete
 
 - Closed pre-V2 items: underwriting integration alignment (MARKET_PROVENANCE trace + valuation IDs), offer package generation, under contract capture, valuation-specific E2E rails, agent resilience across personas, NumericInput rollout, and v1-ping JWT enforcement.
@@ -1192,3 +1205,4 @@ Quality gates (green)
 Notes / follow-ups
 - If phase5_complete.zip appeared in the repo root, keep it out of git (delete and/or add to .gitignore).
 - Optional hardening: remove remaining analysisOutputs "as any" by typing the analyze bus/hook to return AnalyzeOutputs end-to-end.
+
