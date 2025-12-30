@@ -409,7 +409,10 @@ Fast-follow items that do not change V1 behavior:
   - Type the analyze outputs flow end-to-end (remove analysisOutputs as any in UI wiring).
   - Add a lightweight UI regression test/screenshot for Offer Menu + Unlock cards.
   - Document user-facing interpretation of tiers, gates, and unlock penalties.
-- **Deal workflow guide A→Z** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
+- 🟡 Deal workflow guide A→Z (DealFlow Guide) implemented in repo; pending deploy/smoke
+  - Files: `apps/hps-dealengine/components/dealflowGuide/DealFlowGuideMount.tsx`, `apps/hps-dealengine/components/dealflowGuide/DealFlowGuideSheet.tsx`, `apps/hps-dealengine/lib/dealflowGuide/guideModel.ts`, `apps/hps-dealengine/lib/dealflowGuide/useDealTaskStates.ts`, `apps/hps-dealengine/lib/dealflowGuide/useDealFlowGuide.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `supabase/functions/v1-deal-task-states/index.ts`, `supabase/migrations/20260109163001_deal_task_states.sql`, `supabase/migrations/20260109180000_deal_workflow_events.sql`.
+  - Missing evidence/actions: confirm DB migration applied, deploy `v1-deal-task-states`, run smoke validation for the guide (no audit artifact documented).
+  - Policy schema doc `docs/policies/dealflow-guide.policy.schema.additions.json` not present in repo.
 - **Import feature (filled template)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
 - **CSV upload (bulk-create deals/clients)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
 - **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.

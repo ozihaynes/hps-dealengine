@@ -83,9 +83,14 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
-## 2025-12-30 — DealFlow readiness gate fix (prod) + underwriting_complete smoke
+## 2025-12-30 — DealFlow Guide A→Z + readiness gate fix (prod)
 
 ### Summary
+- DealFlow Guide A→Z (repo implementation; pending deploy/smoke)
+  - UI: `DealFlowGuideMount` + `DealFlowGuideSheet` mounted on `/underwrite` (`apps/hps-dealengine/app/(app)/underwrite/page.tsx`).
+  - Model: `apps/hps-dealengine/lib/dealflowGuide/guideModel.ts` maps offer checklist state + overrides into a deterministic guide VM (next-best step + progress).
+  - Data: `apps/hps-dealengine/lib/dealflowGuide/useDealTaskStates.ts` calls `supabase/functions/v1-deal-task-states/index.ts` (caller JWT + anon key) against `deal_task_states` (RLS/audit in `supabase/migrations/20260109163001_deal_task_states.sql`).
+  - Policy: `docs/policies/dealflow-guide.policy.schema.additions.json` not present in repo.
 - Fixed a prod readiness mismatch where workflow events only inspected top-level `output.*` and missed the common run output envelope (`output.outputs` / `result.outputs`).
 - Updated `supabase/functions/v1-deal-workflow-events/index.ts` to detect `offer_checklist` and `workflow_state` inside the envelope too.
 - Verified end-to-end in prod using smoke deal `f84bab8d-e377-4512-a4c8-0821c23a82ea`: `create_underwriting_complete` returned 200 on attempt 1 and event hash verification passed.
