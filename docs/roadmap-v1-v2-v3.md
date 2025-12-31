@@ -423,9 +423,10 @@ Fast-follow items that do not change V1 behavior:
   - Files: `supabase/functions/v1-analyze/index.ts`, `supabase/functions/v1-runs-save/index.ts`, `packages/contracts/src/analyze.ts`, `packages/contracts/src/runsSave.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/lib/edge.ts`, `docs/engine/architecture-overview.md`.
   - ✅ Slice 4 (policyHash canonicalization + agent_runs persona alignment) complete in repo; not yet validated in prod.
   - Files: `supabase/functions/v1-analyze/index.ts`, `apps/hps-dealengine/app/api/agents/analyst/route.ts`, `apps/hps-dealengine/app/api/agents/strategist/route.ts`, `apps/hps-dealengine/app/api/agents/negotiator/route.ts`, `deno.lock`.
-  - ✅ Slice 5 (Support Console MVP: tenant-safe + audited) complete in repo; not yet validated in prod.
+  - ✅ Slice 5 (Support Console MVP: tenant-safe + audited) complete in repo; ✅ validated in prod (2025-12-31).
   - Files: `supabase/migrations/20251231125955_o11y_support_cases.sql`, `apps/hps-dealengine/app/(app)/admin/support/page.tsx`, `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`.
-  - ✅ Slice 6 (Support Console correlation hardening + API UUID validation) complete in repo; not yet validated in prod.
+  - ✅ Slice 6 (Support Console correlation hardening + API UUID validation) complete in repo; ✅ validated in prod (2025-12-31).
+  - Evidence (Slices 5-6): `docs/audits/o11y-support-prod-validate-2025-12-31_143756.zip`.
   - Files: `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 - **Dashboard KPI Expansion (post Dual-Agent)**:
   - Promote selected candidates from `docs/dashboard/kpi-candidates.md` into real cards on `/dashboard`.
