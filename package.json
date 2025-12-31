@@ -18,7 +18,7 @@
     "generate:doc-registry": "tsx scripts/generate-doc-registry.ts",
     "dev:hps-mcp:http": "set PORT=8787&& set MCP_HTTP_PATH=/mcp&& set HPS_MCP_HTTP_TOKEN=__SET_ME__&& pnpm --filter \"@hps/hps-mcp\" start:http",
     "start": "pnpm --filter \"@hps/agents\" build && pnpm --filter \"@hps/hps-mcp\" build && pnpm --filter \"@hps/hps-mcp\" start:runtime",
-    "doctor:valuation": "powershell -ExecutionPolicy Bypass -File scripts/doctor-valuation-spine.ps1",
+    "doctor:valuation": "node scripts/run-valuation-doctor.cjs",
     "clean:next": "pwsh -File scripts/dev/clean-next.ps1"
   },
   "workspaces": [
