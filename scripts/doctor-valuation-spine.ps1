@@ -129,6 +129,27 @@ if ($envSource) {
   Write-Host "Env source: process env"
 }
 
+try { $uriObj = [Uri]$SUPABASE_URL } catch {
+  Write-Host "FAIL: NEXT_PUBLIC_SUPABASE_URL is not a valid URL." -ForegroundColor Red
+  Write-Host $SUPABASE_URL
+  exit 1
+}
+
+$projectRefFromUrl = $uriObj.Host.Split(".")[0]
+Write-Host ("Supabase project ref (from URL): {0}" -f $projectRefFromUrl)
+
+$linkFile = Join-Path $RepoRoot "supabase\\.temp\\project-ref"
+if (Test-Path $linkFile) {
+  $linkedRef = (Get-Content $linkFile -Raw).Trim()
+  if ($linkedRef -and $linkedRef -ne $projectRefFromUrl) {
+    Write-Host ("WARN: supabase/.temp/project-ref ({0}) != env URL ref ({1})" -f $linkedRef, $projectRefFromUrl) -ForegroundColor Yellow
+  } else {
+    Write-Host "OK: linked project ref matches env URL ref" -ForegroundColor Green
+  }
+} else {
+  Write-Host ("WARN: Missing supabase/.temp/project-ref. If needed: supabase link --project-ref {0}" -f $projectRefFromUrl) -ForegroundColor Yellow
+}
+
 $headers = @{
   apikey = $ANON_KEY
   Authorization = "Bearer $accessToken"
