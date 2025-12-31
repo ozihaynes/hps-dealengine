@@ -1,5 +1,6 @@
 "use client";
 
+import { getRequestIdFromCookie } from "@/lib/o11y/requestId";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export type SupportCaseSeverity = "low" | "medium" | "high" | "critical";
@@ -80,6 +81,10 @@ async function fetchWithAuth<T>(input: string, init?: RequestInit): Promise<T> {
   headers.set("Authorization", `Bearer ${token}`);
   if (!headers.has("Content-Type") && init?.body) {
     headers.set("Content-Type", "application/json");
+  }
+  if (!headers.has("x-request-id")) {
+    const requestId = getRequestIdFromCookie() ?? crypto.randomUUID();
+    headers.set("x-request-id", requestId);
   }
 
   const res = await fetch(input, { ...init, headers });

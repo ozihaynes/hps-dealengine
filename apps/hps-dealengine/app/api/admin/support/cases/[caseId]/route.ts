@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   createSupabaseWithJwt,
+  getRequestCorrelation,
   jsonError,
   mapSupabaseError,
   parseAuthHeader,
@@ -8,32 +10,46 @@ import {
 
 export const runtime = "nodejs";
 
+const CaseIdSchema = z.string().uuid();
+
 function normalizeCaseId(value: string | string[] | undefined): string | null {
   if (!value) return null;
-  return Array.isArray(value) ? value[0] : value;
+  const raw = Array.isArray(value) ? value[0] : value;
+  const trimmed = raw?.trim();
+  return trimmed ? trimmed : null;
 }
 
 export async function GET(
   req: NextRequest,
   context: { params: { caseId?: string | string[] } },
 ) {
+  const correlation = getRequestCorrelation(req);
   const token = parseAuthHeader(req);
   if (!token) {
-    return jsonError("auth_missing", 401);
+    return jsonError("auth_missing", 401, undefined, correlation);
   }
 
   const caseId = normalizeCaseId(context.params.caseId);
   if (!caseId) {
-    return jsonError("case_id_missing", 400);
+    return jsonError("case_id_missing", 400, undefined, correlation);
+  }
+  const caseParse = CaseIdSchema.safeParse(caseId);
+  if (!caseParse.success) {
+    return jsonError("bad_request", 400, caseParse.error.flatten(), correlation);
   }
 
   let supabase;
   try {
     supabase = createSupabaseWithJwt(token);
   } catch (error) {
-    return jsonError("supabase_config_error", 500, {
-      message: (error as Error).message,
-    });
+    return jsonError(
+      "supabase_config_error",
+      500,
+      {
+        message: (error as Error).message,
+      },
+      correlation,
+    );
   }
 
   const { data: caseRow, error: caseError } = await supabase
@@ -45,10 +61,10 @@ export async function GET(
     .maybeSingle();
 
   if (caseError) {
-    return mapSupabaseError(caseError, "support_case_fetch_failed");
+    return mapSupabaseError(caseError, "support_case_fetch_failed", correlation);
   }
   if (!caseRow) {
-    return jsonError("not_found", 404);
+    return jsonError("not_found", 404, undefined, correlation);
   }
 
   const { data: events, error: eventsError } = await supabase
@@ -60,7 +76,11 @@ export async function GET(
     .order("created_at", { ascending: true });
 
   if (eventsError) {
-    return mapSupabaseError(eventsError, "support_case_events_fetch_failed");
+    return mapSupabaseError(
+      eventsError,
+      "support_case_events_fetch_failed",
+      correlation,
+    );
   }
 
   let run: {
@@ -78,7 +98,7 @@ export async function GET(
       .eq("id", caseRow.run_id)
       .maybeSingle();
     if (runError) {
-      return mapSupabaseError(runError, "support_case_run_fetch_failed");
+      return mapSupabaseError(runError, "support_case_run_fetch_failed", correlation);
     }
     run = runRow ?? null;
   }

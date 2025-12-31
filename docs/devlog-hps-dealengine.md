@@ -124,6 +124,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Support API routes use caller JWT only (no service_role) and enforce admin-only access through RLS.
 - Files: `supabase/migrations/20251231125955_o11y_support_cases.sql`, `apps/hps-dealengine/app/(app)/admin/support/page.tsx`, `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`.
 
+### 2025-12-31 - Observability Slice 6: Support Console correlation hardening + Slice 5 polish
+
+- Admin gating for Support Case detail now resolves org role the same way as the Support Console list page.
+- Support APIs now validate orgId/caseId UUIDs, extract request/trace correlation from headers, and include request_id (trace_id when present) in error payloads plus response headers.
+- Support case creation defaults request_id/trace_id from inbound headers when missing; client support fetches now send `x-request-id`.
+- Files: `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).

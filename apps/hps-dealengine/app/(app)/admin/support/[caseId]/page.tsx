@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Badge, Button, GlassCard, SelectField } from "@/components/ui";
+import { resolveOrgId } from "@/lib/deals";
 import { getActiveOrgMembershipRole, type OrgMembershipRole } from "@/lib/orgMembership";
 import { getReleaseInfo } from "@/lib/o11y/releaseInfo";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -56,6 +57,7 @@ export default function SupportCaseDetailPage() {
   const releaseInfo = getReleaseInfo();
 
   const [role, setRole] = useState<OrgMembershipRole | null>(null);
+  const [roleLoading, setRoleLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SupportCaseDetailResponse | null>(null);
@@ -91,8 +93,16 @@ export default function SupportCaseDetailPage() {
 
   useEffect(() => {
     const resolveRole = async () => {
-      const nextRole = await getActiveOrgMembershipRole(supabase);
-      setRole(nextRole);
+      setRoleLoading(true);
+      try {
+        const nextOrgId = await resolveOrgId(supabase);
+        const nextRole = await getActiveOrgMembershipRole(supabase, nextOrgId);
+        setRole(nextRole);
+      } catch (err) {
+        setError((err as Error).message ?? "Unable to resolve org.");
+      } finally {
+        setRoleLoading(false);
+      }
     };
     void resolveRole();
   }, [supabase]);
@@ -100,6 +110,8 @@ export default function SupportCaseDetailPage() {
   useEffect(() => {
     void loadDetail();
   }, [loadDetail]);
+
+  const isLoading = loading || roleLoading;
 
   const handleAddNote = async () => {
     if (!caseId) return;
@@ -140,7 +152,7 @@ export default function SupportCaseDetailPage() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold text-text-primary">Support Case</h1>
