@@ -420,8 +420,13 @@ Fast-follow items that do not change V1 behavior:
   - Promote selected candidates from `docs/dashboard/kpi-candidates.md` into real cards on `/dashboard`.
   - Close high-value gaps surfaced by `check:dashboard-coverage` (e.g., occupancy, structural flags, payoff buffer, Market Temp).
 - **Policy Docs Hardening**:
-  - Fill in placeholders: `domain.risk-gates-and-compliance`, `engine.knobs-and-sandbox-mapping`, `app.routes-overview`.
-  - Confirm each gate/knob is wired to trace and KPIs.
+  - ✅ Completed (PR #19): Phase 3B KPI inventory per_gate alignment + /overview labels (no raw key fallback).
+  - ✅ Completed (PR #19): Phase 3C/3D docs wired to current code; placeholders removed.
+  - `apps/hps-dealengine/lib/overviewRiskTimeline.ts`
+  - `docs/dashboard/kpi-inventory.json`
+  - `docs/domain/risk-gates-and-compliance.md`
+  - `docs/engine/knobs-and-sandbox-mapping.md`
+  - `docs/app/routes-overview.md`
 - **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early; CI guard prevents committing deno.lock v5 (Supabase Edge supports lockfile v4) and per-function deno.json is adopted for valuation functions.
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
