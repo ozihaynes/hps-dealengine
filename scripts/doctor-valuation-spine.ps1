@@ -2,10 +2,8 @@ $ErrorActionPreference = "Stop"
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..") | Select-Object -ExpandProperty Path
 
-# Requires:
-# - NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY in env file
-# - DEAL_ID environment variable
-# - SUPABASE_ACCESS_TOKEN environment variable (caller JWT; no service role)
+# Offline (default): repo drift checks only.
+# Online (optional): requires env vars to hit Supabase and run a forced valuation.
 
 function Read-EnvFile([string]$Path) {
   $dict = @{}
@@ -24,65 +22,111 @@ function Read-EnvFile([string]$Path) {
   return $dict
 }
 
-$envPaths = @(
-  Join-Path -Path $RepoRoot -ChildPath ".env.local"
-  Join-Path -Path $RepoRoot -ChildPath "apps\hps-dealengine\.env.local"
+function Fail-Offline([string]$Message) {
+  Write-Host ("FAIL: {0}" -f $Message) -ForegroundColor Red
+  $script:offlineOk = $false
+}
+
+$offlineOk = $true
+
+$requiredFiles = @(
+  "supabase\functions\deno.lock"
+  "supabase\functions\v1-valuation-run\deno.json"
+  "supabase\functions\v1-valuation-continuous-calibrate\deno.json"
 )
 
-$Env = $null
-$EnvSource = $null
-
-foreach ($p in $envPaths) {
-  if (-not (Test-Path $p)) { continue }
-  $e = Read-EnvFile $p
-  if ($e.ContainsKey("NEXT_PUBLIC_SUPABASE_URL") -and $e.ContainsKey("NEXT_PUBLIC_SUPABASE_ANON_KEY")) {
-    $Env = $e
-    $EnvSource = $p
-    break
+foreach ($rel in $requiredFiles) {
+  if (-not (Test-Path (Join-Path $RepoRoot $rel))) {
+    Fail-Offline ("Missing required file: {0}" -f $rel)
   }
 }
 
-if (-not $Env) {
-  Write-Host "FAIL: Could not find NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local files." -ForegroundColor Red
-  exit 1
-}
-
-$SUPABASE_URL = $Env["NEXT_PUBLIC_SUPABASE_URL"].Trim().TrimEnd("/")
-$ANON_KEY = $Env["NEXT_PUBLIC_SUPABASE_ANON_KEY"].Trim()
-
-Write-Host ("Env source: {0}" -f (Split-Path -Leaf $EnvSource))
-
-try { $uriObj = [Uri]$SUPABASE_URL } catch {
-  Write-Host "FAIL: NEXT_PUBLIC_SUPABASE_URL is not a valid URL." -ForegroundColor Red
-  Write-Host $SUPABASE_URL
-  exit 1
-}
-
-$projectRefFromUrl = $uriObj.Host.Split(".")[0]
-Write-Host ("Supabase project ref (from URL): {0}" -f $projectRefFromUrl)
-
-$linkFile = Join-Path $RepoRoot "supabase\.temp\project-ref"
-if (Test-Path $linkFile) {
-  $linkedRef = (Get-Content $linkFile -Raw).Trim()
-  if ($linkedRef -and $linkedRef -ne $projectRefFromUrl) {
-    Write-Host ("WARN: supabase/.temp/project-ref ({0}) != env URL ref ({1})" -f $linkedRef, $projectRefFromUrl) -ForegroundColor Yellow
-  } else {
-    Write-Host "OK: linked project ref matches env URL ref" -ForegroundColor Green
+$lockPath = Join-Path $RepoRoot "supabase\functions\deno.lock"
+if (Test-Path $lockPath) {
+  $lockText = Get-Content $lockPath -Raw
+  if (-not ($lockText -match '"version"\s*:\s*"4"')) {
+    Fail-Offline "supabase/functions/deno.lock must declare version 4"
   }
+}
+
+$requiredDirs = @(
+  "supabase\functions\v1-valuation-run"
+  "supabase\functions\v1-valuation-apply-arv"
+  "supabase\functions\v1-connectors-proxy"
+)
+
+foreach ($rel in $requiredDirs) {
+  if (-not (Test-Path (Join-Path $RepoRoot $rel))) {
+    Fail-Offline ("Missing required function folder: {0}" -f $rel)
+  }
+}
+
+$migrationsDir = Join-Path $RepoRoot "supabase\migrations"
+if (-not (Test-Path $migrationsDir)) {
+  Fail-Offline "Missing migrations folder: supabase/migrations"
 } else {
-  Write-Host ("WARN: Missing supabase/.temp/project-ref. If needed: supabase link --project-ref {0}" -f $projectRefFromUrl) -ForegroundColor Yellow
+  $migrationFiles = Get-ChildItem -Path $migrationsDir -Filter *.sql -File
+  if (-not $migrationFiles) {
+    Fail-Offline "No migration files found in supabase/migrations"
+  } else {
+    $allSql = ($migrationFiles | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+    $hasValuationRuns = $allSql -match '(?is)create\s+table\s+[^;]*\bvaluation_runs\b'
+    $hasPropertySnapshots = $allSql -match '(?is)create\s+table\s+[^;]*\bproperty_snapshots\b'
+    if (-not $hasValuationRuns) { Fail-Offline "Missing migration create table for valuation_runs" }
+    if (-not $hasPropertySnapshots) { Fail-Offline "Missing migration create table for property_snapshots" }
+  }
+}
+
+if (-not $offlineOk) {
+  Write-Host "FAIL: Valuation Spine doctor (offline) failed" -ForegroundColor Red
+  exit 1
+}
+
+Write-Host "PASS: Valuation Spine doctor (offline) OK" -ForegroundColor Green
+
+$envSupabaseUrl = $env:NEXT_PUBLIC_SUPABASE_URL
+$envAnonKey = $env:NEXT_PUBLIC_SUPABASE_ANON_KEY
+$envSource = $null
+
+if (-not $envSupabaseUrl -or -not $envAnonKey) {
+  $envPaths = @(
+    Join-Path -Path $RepoRoot -ChildPath ".env.local"
+    Join-Path -Path $RepoRoot -ChildPath "apps\hps-dealengine\.env.local"
+  )
+
+  foreach ($p in $envPaths) {
+    if (-not (Test-Path $p)) { continue }
+    $e = Read-EnvFile $p
+    if ($e.ContainsKey("NEXT_PUBLIC_SUPABASE_URL") -and $e.ContainsKey("NEXT_PUBLIC_SUPABASE_ANON_KEY")) {
+      $envSupabaseUrl = $e["NEXT_PUBLIC_SUPABASE_URL"]
+      $envAnonKey = $e["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+      $envSource = $p
+      break
+    }
+  }
 }
 
 $dealId = $env:DEAL_ID
-if (-not $dealId) {
-  Write-Host "FAIL: DEAL_ID env var is required to run valuation doctor." -ForegroundColor Red
-  exit 1
+$accessToken = $env:SUPABASE_ACCESS_TOKEN
+
+$missing = @()
+if (-not $envSupabaseUrl) { $missing += "NEXT_PUBLIC_SUPABASE_URL" }
+if (-not $envAnonKey) { $missing += "NEXT_PUBLIC_SUPABASE_ANON_KEY" }
+if (-not $dealId) { $missing += "DEAL_ID" }
+if (-not $accessToken) { $missing += "SUPABASE_ACCESS_TOKEN" }
+
+if ($missing.Count -gt 0) {
+  Write-Host "SKIP: deep checks (set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, DEAL_ID, SUPABASE_ACCESS_TOKEN to enable)." -ForegroundColor Yellow
+  exit 0
 }
 
-$accessToken = $env:SUPABASE_ACCESS_TOKEN
-if (-not $accessToken) {
-  Write-Host "FAIL: SUPABASE_ACCESS_TOKEN env var (caller JWT) is required. Use a real user token, not service role." -ForegroundColor Red
-  exit 1
+$SUPABASE_URL = $envSupabaseUrl.Trim().TrimEnd("/")
+$ANON_KEY = $envAnonKey.Trim()
+
+if ($envSource) {
+  Write-Host ("Env source: {0}" -f (Split-Path -Leaf $envSource))
+} else {
+  Write-Host "Env source: process env"
 }
 
 $headers = @{
@@ -231,7 +275,7 @@ if ($closedSaleComps -eq 0 -and $snapshot.raw.closed_sales) {
 
 if ($okTables -and $okFns) {
   Write-Host ""
-  Write-Host "PASS: Valuation Spine doctor OK" -ForegroundColor Green
+  Write-Host "PASS: Valuation Spine doctor (online) OK" -ForegroundColor Green
   exit 0
 }
 

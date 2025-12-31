@@ -28,6 +28,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Valuation doctor (offline)
+        run: pnpm doctor:valuation
+
       - name: Build contracts (required for typecheck)
         run: pnpm --filter "./packages/contracts" build
 
