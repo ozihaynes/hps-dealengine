@@ -83,6 +83,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
+
+- KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).
+- /overview unblocked with local RiskGateKey typing + safe type guard; labels cover all compliance keys (no raw key fallback).
+- Replaced placeholder docs with wiring-accurate content for risk gates, knobs mapping, and routes overview.
+- PR #19.
+
 ### 2025-12-26 - Pre-V2 Closeout Complete
 
 - Closed pre-V2 items: underwriting integration alignment (MARKET_PROVENANCE trace + valuation IDs), offer package generation, under contract capture, valuation-specific E2E rails, agent resilience across personas, NumericInput rollout, and v1-ping JWT enforcement.

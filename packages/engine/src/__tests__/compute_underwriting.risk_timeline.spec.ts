@@ -102,6 +102,23 @@ describe('compute_underwriting risk/timeline bundles', () => {
     expect(timelineSummary?.dtm_max_days).toBe(30);
   });
 
+  it('emits offer_validity_days from policy snapshot in DTM trace', () => {
+    const deal = {
+      market: { aiv: 200000, dom_zip: 30 },
+      debt: { payoff: 120000 },
+    };
+    const policy = {
+      aiv: { safety_cap_pct: 0.9 },
+      carry: { dom_to_months_rule: 'DOM/30', months_cap: 6 },
+      fees: { list_commission_pct: 0.06, concessions_pct: 0.02, sell_close_pct: 0.015 },
+      dtm: { offer_validity_days: 999 },
+    };
+
+    const result = computeUnderwriting(deal, policy);
+    const dtmTrace = result.trace.find((t) => t.rule === 'DTM_URGENCY_POLICY');
+    expect(dtmTrace?.details?.offer_validity_days).toBe(999);
+  });
+
   it('toggles compliance gates via policy (bankruptcy)', () => {
     const deal = {
       market: { aiv: 200000, dom_zip: 45 },

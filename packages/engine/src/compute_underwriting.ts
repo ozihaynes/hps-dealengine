@@ -150,6 +150,16 @@ export type UnderwritingPolicy = {
     payoff_move_out_cash_max?: number | null;
     payoff_move_out_cash_min?: number | null;
   };
+  payoff_policy?: {
+    accrual_basis_day_count_convention?: string | null;
+    accrual_components?: string[] | null;
+    payoff_letter_evidence_required_attachment?: boolean | null;
+  };
+  repairs_policy?: {
+    contingency_percentage_by_class?: Array<Record<string, unknown>> | null;
+    hard_max?: number | null;
+    soft_max_vs_arv_pct?: number | null;
+  };
   aiv_cap_pct: number;
   allow_aiv_cap_99_insurable?: boolean;
   aiv_safety_cap?: {
@@ -188,6 +198,7 @@ export type UnderwritingPolicy = {
     default_cash_close_days?: number | null;
     default_wholesale_close_days?: number | null;
     manual_days_to_money_default?: number | null;
+    offer_validity_days?: number | null;
     roll_forward_rule?: 'next_business_day' | 'previous_business_day' | 'none' | null;
     clear_to_close_buffer_days?: number | null;
     board_approval_buffer_days?: number | null;
@@ -526,8 +537,14 @@ function buildUnderwritingPolicy(input: any, infoNeeded: InfoNeeded[]): Underwri
       getNumber(policy, ['defaultDaysToWholesaleClose'], null) ??
       null,
     manual_days_to_money_default:
-      getNumber(policy, ['dtm', 'manual_days_to_money_default'], null) ??
+      getNumber(policy, ['dtm', 'manual_days_to_money_default'], null) ??       
       getNumber(policy, ['dtm', 'manual_days_to_money'], null) ??
+      null,
+    offer_validity_days:
+      getNumber(policy, ['dtm', 'offer_validity_days'], null) ??
+      getNumber(timelinePolicy, ['offerValidityPeriodDaysPolicy'], null) ??
+      getNumber(timelinePolicy, ['offerValidityDays'], null) ??
+      getNumber(policy, ['offerValidityPeriodDaysPolicy'], null) ??
       null,
     roll_forward_rule: ((): 'next_business_day' | 'previous_business_day' | 'none' | null => {
       const r = getString(policy, ['dtm', 'roll_forward_rule'], null);
@@ -605,6 +622,56 @@ function buildUnderwritingPolicy(input: any, infoNeeded: InfoNeeded[]): Underwri
       getNumber(policy, ['floors', 'floorPayoffMoveOutCashMin'], null) ??
       getNumber(policy, ['floorsSpreads', 'move_out_cash_min'], null) ??
       getNumber(policy, ['floorPayoffMoveOutCashMin'], null),
+  };
+
+  const payoffAccrualComponentsRaw =
+    policy?.payoff_policy?.accrual_components ??
+    policy?.debtPayoff?.payoffAccrualComponents ??
+    null;
+  const payoffAccrualComponents = Array.isArray(payoffAccrualComponentsRaw)
+    ? payoffAccrualComponentsRaw.filter((value) => typeof value === 'string')
+    : null;
+  const payoffPolicy: UnderwritingPolicy['payoff_policy'] = {
+    accrual_basis_day_count_convention:
+      getString(policy, ['payoff_policy', 'accrual_basis_day_count_convention'], null) ??
+      getString(policy, ['debtPayoff', 'payoffAccrualBasisDayCountConvention'], null) ??
+      null,
+    accrual_components:
+      payoffAccrualComponents && payoffAccrualComponents.length > 0
+        ? payoffAccrualComponents
+        : null,
+    payoff_letter_evidence_required_attachment:
+      getBoolean(
+        policy,
+        ['payoff_policy', 'payoff_letter_evidence_required_attachment'],
+        null,
+      ) ??
+      getBoolean(
+        policy,
+        ['debtPayoff', 'payoffLetterEvidenceRequiredAttachment'],
+        null,
+      ) ??
+      null,
+  };
+
+  const repairsContingencyRaw =
+    policy?.repairs_policy?.contingency_percentage_by_class ??
+    policy?.repairs?.repairsContingencyPercentageByClass ??
+    null;
+  const repairsContingency = Array.isArray(repairsContingencyRaw)
+    ? repairsContingencyRaw
+    : null;
+  const repairsSoftMaxRaw =
+    getNumber(policy, ['repairs_policy', 'soft_max_vs_arv_pct'], null) ??
+    getNumber(policy, ['repairs', 'repairsSoftMaxVsArvPercentage'], null) ??
+    null;
+  const repairsPolicy: UnderwritingPolicy['repairs_policy'] = {
+    contingency_percentage_by_class: repairsContingency,
+    hard_max:
+      getNumber(policy, ['repairs_policy', 'hard_max'], null) ??
+      getNumber(policy, ['repairs', 'repairsHardMax'], null) ??
+      null,
+    soft_max_vs_arv_pct: pctToDecimal(repairsSoftMaxRaw),
   };
 
   const investorDiscountP20 =
@@ -927,6 +994,8 @@ function buildUnderwritingPolicy(input: any, infoNeeded: InfoNeeded[]): Underwri
   return {
     valuation: valuationPolicy,
     floors: floorsPolicy,
+    payoff_policy: payoffPolicy,
+    repairs_policy: repairsPolicy,
     aiv_cap_pct: aivSafetyCapDefaultPct ?? 1,
     aiv_safety_cap: {
       default_pct: aivSafetyCapDefaultPct ?? null,
@@ -1738,6 +1807,7 @@ function computeDaysToMoneyPolicy(params: {
     clearToCloseBufferDays: buffer,
     trace: {
       today_iso: null, // TODO(data): supply deterministic "today" to compute true date offsets.
+      offer_validity_days: dtmPolicy.offer_validity_days ?? null,
       candidates: buffered,
       selected_source: source,
       dtm_selected: dtmSelected,
@@ -2579,6 +2649,17 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     },
   });
 
+  trace.push({
+    rule: 'REPAIRS_POLICY',
+    used: ['policy.repairs_policy'],
+    details: {
+      contingency_percentage_by_class:
+        uwPolicy.repairs_policy?.contingency_percentage_by_class ?? null,
+      hard_max: uwPolicy.repairs_policy?.hard_max ?? null,
+      soft_max_vs_arv_pct: uwPolicy.repairs_policy?.soft_max_vs_arv_pct ?? null,
+    },
+  });
+
   // ---- Strategy & posture derived values (provisional, policy-light)
   const buyerCeilingResult = computeBuyerCeiling({
     arv,
@@ -2623,6 +2704,18 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
     getNumber(deal, ['debt', 'payoff'], null) ??
     getNumber(deal, ['debt', 'senior_principal'], null) ??
     null;
+
+  trace.push({
+    rule: 'PAYOFF_POLICY',
+    used: ['policy.payoff_policy'],
+    details: {
+      accrual_basis_day_count_convention:
+        uwPolicy.payoff_policy?.accrual_basis_day_count_convention ?? null,
+      accrual_components: uwPolicy.payoff_policy?.accrual_components ?? null,
+      payoff_letter_evidence_required_attachment:
+        uwPolicy.payoff_policy?.payoff_letter_evidence_required_attachment ?? null,
+    },
+  });
 
   const floorInvestorResult = computeFloorInvestor(
     aiv,
@@ -3085,6 +3178,8 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
       workflow_state: workflowResult.workflow_state,
       reasons: workflowResult.reasons,
       workflow_policy: uwPolicy.workflow_policy ?? null,
+      allow_advisor_override_workflow_state:
+        uwPolicy.workflow_policy?.allow_advisor_override_workflow_state ?? null,
       allow_placeholders_when_evidence_missing: evidenceSummary.allow_placeholders,
       placeholders_used: evidenceSummary.placeholders_used,
       placeholder_kinds: evidenceSummary.placeholder_kinds,
