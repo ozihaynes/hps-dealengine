@@ -117,6 +117,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Deno checks added to the local gate for touched Edge functions.
 - Files: `supabase/functions/v1-analyze/index.ts`, `apps/hps-dealengine/app/api/agents/analyst/route.ts`, `apps/hps-dealengine/app/api/agents/strategist/route.ts`, `apps/hps-dealengine/app/api/agents/negotiator/route.ts`, `deno.lock`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 
+### 2025-12-31 - Observability Slice 5: Support Console MVP (tenant-safe + audited)
+
+- Added `support_cases` + append-only `support_case_events` with privileged-role RLS, audit triggers, and correlation anchors (no PII payloads).
+- Admin Support Console lists/searches cases, shows detail + “what changed” pointers, and appends notes/status changes via event stream.
+- Support API routes use caller JWT only (no service_role) and enforce admin-only access through RLS.
+- Files: `supabase/migrations/20251231125955_o11y_support_cases.sql`, `apps/hps-dealengine/app/(app)/admin/support/page.tsx`, `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).
