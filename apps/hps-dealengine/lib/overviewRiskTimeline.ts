@@ -6,7 +6,7 @@ import type { EngineCalculations } from "../types";
 export type RiskStatus = "pass" | "watch" | "fail" | "unknown";
 
 export type RiskGate = {
-  key: keyof NonNullable<AnalyzeOutputs["risk_summary"]>;
+  key: RiskGateKey;
   label: string;
   status: RiskStatus;
   reasons: string[];
@@ -67,17 +67,27 @@ export type EvidenceFreshnessRow = {
   reasons: string[];
 };
 
-const RISK_GATE_LABELS: Record<string, string> = {
+const RISK_GATE_LABELS = {
   insurability: "Insurability",
   payoff: "Payoff",
   title: "Title / Liens",
-  fha_va_flip: "FHA / VA Flip Rules",
-  firpta: "FIRPTA",
+  bankruptcy_stay: "Bankruptcy Stay",
+  fha_90_day: "FHA 90-Day Resale",
+  fha_va_overlays: "FHA/VA Overlays",
+  firpta_withholding: "FIRPTA Withholding",
+  flood_50_rule: "FEMA 50% Rule",
+  va_wdo_water: "VA WDO / Water Test",
+  warrantability_review: "Warrantability Review",
   pace_solar_ucc: "PACE / Solar / UCC",
   condo_sirs: "Condo / SIRS",
   manufactured: "Manufactured",
   scra: "SCRA / Active Duty",
-};
+} as const;
+
+type RiskGateKey = keyof typeof RISK_GATE_LABELS;
+
+const isRiskGateKey = (key: string): key is RiskGateKey =>
+  key in RISK_GATE_LABELS;
 
 const toNumber = (value: unknown): number | null => {
   const n = Number(value);
@@ -151,18 +161,22 @@ export function buildRiskView(
   const reasons = Array.isArray(summary?.reasons) ? summary?.reasons ?? [] : [];
 
   const perGate = summary?.per_gate ?? {};
-  const gateEntries =
+  const gateEntries: Array<[RiskGateKey, unknown]> =
     Object.keys(perGate).length > 0
-      ? Object.entries(perGate)
-      : Object.entries(RISK_GATE_LABELS).map(([key]) => [key, (summary as any)?.[key]]);
+      ? Object.keys(perGate)
+          .filter(isRiskGateKey)
+          .map((key) => [key, perGate[key]] as [RiskGateKey, unknown])
+      : (Object.keys(RISK_GATE_LABELS) as RiskGateKey[]).map(
+          (key) => [key, (summary as any)?.[key]] as [RiskGateKey, unknown],
+        );
 
   const gates: RiskGate[] = gateEntries.map(([key, value]) => {
     const status = mapGateStatus((value as any)?.status ?? (value as any));
     const gateReasons =
       (Array.isArray((value as any)?.reasons) ? ((value as any).reasons as string[]) : []) ?? [];
     return {
-      key: key as any,
-      label: RISK_GATE_LABELS[key] ?? key,
+      key,
+      label: RISK_GATE_LABELS[key],
       status,
       reasons: gateReasons,
     };
