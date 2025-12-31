@@ -83,6 +83,14 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2025-12-31 — Environment hygiene: valuation doctor offline + CI gate
+
+- Doctor now passes offline by default; deep mode gated on env vars (no secrets required).
+- CI runs `pnpm doctor:valuation` to catch valuation spine drift early.
+- Edge dependency hygiene: per-function deno.json; deno.lock version pinned to v4; CI guard blocks v5.
+- Evidence pointers: commits 60d1e852db8ab8d3c05093bd348432079d2ded02 and 5dde38a53ba4aeb9718108ac6e47828b9f209161.
+- Key files: `scripts/doctor-valuation-spine.ps1`, `.github/workflows/ci.yml`, `supabase/functions/deno.lock`, `supabase/functions/v1-valuation-run/deno.json`, `supabase/functions/v1-valuation-continuous-calibrate/deno.json`.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).
