@@ -91,6 +91,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Evidence pointers: commits 60d1e852db8ab8d3c05093bd348432079d2ded02 and 5dde38a53ba4aeb9718108ac6e47828b9f209161.
 - Key files: `scripts/doctor-valuation-spine.ps1`, `.github/workflows/ci.yml`, `supabase/functions/deno.lock`, `supabase/functions/v1-valuation-run/deno.json`, `supabase/functions/v1-valuation-continuous-calibrate/deno.json`.
 
+### 2025-12-31 - Observability Slice 1: instrumentation + request correlation + support ID
+
+- Added Next.js instrumentation entrypoint with vendor-agnostic OTel registration guard (node runtime only).
+- Middleware now preserves inbound trace headers, sets `x-request-id`, and writes `hps_request_id` cookie for client error UX.
+- Global error UI displays a safe Support ID with copy-to-clipboard (no stack traces).
+- New helpers added under `apps/hps-dealengine/lib/o11y/` for request ID and release info.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).

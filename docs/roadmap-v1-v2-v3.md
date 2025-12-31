@@ -416,6 +416,8 @@ Fast-follow items that do not change V1 behavior:
 - **Deeper economics and policy refinements**: uninsurable margin adders in offer selection; deterministic hold-cost per track/speed/zip; deterministic repairs totals by track; explicit AIV override % knob; richer DTM/gap tokens; doc-stamp/closing-cost tables feeding disposition math.
 - **UX/presentation refinements**: full consumption of UX-only knobs (bankers rounding, buyer-cost dual scenarios, line-item vs aggregate); richer cost stack/scenario presentation.
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.
+  - ✅ Slice 1 (instrumentation foundation + request correlation + Support ID in global error) complete in repo; not yet validated in prod.
+  - Files: `apps/hps-dealengine/instrumentation.ts`, `apps/hps-dealengine/middleware.ts`, `apps/hps-dealengine/app/global-error.tsx`, `apps/hps-dealengine/lib/o11y/requestId.ts`, `apps/hps-dealengine/lib/o11y/releaseInfo.ts`, `apps/hps-dealengine/package.json`, `pnpm-lock.yaml`.
 - **Dashboard KPI Expansion (post Dual-Agent)**:
   - Promote selected candidates from `docs/dashboard/kpi-candidates.md` into real cards on `/dashboard`.
   - Close high-value gaps surfaced by `check:dashboard-coverage` (e.g., occupancy, structural flags, payoff buffer, Market Temp).
