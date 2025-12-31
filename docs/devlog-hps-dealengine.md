@@ -57,7 +57,7 @@ When something significant ships, changes direction, or gets blocked, add a date
   - @hps/agents package backs the routes; `agent_runs` table logs persona/agent/workflow_version/model/input/output/error/tokens under memberships-scoped RLS.
   - HPS MCP server exists (stdio + Streamable HTTP); tools include deal/run/evidence loaders, negotiation matcher, KPI/risk aggregations, sandbox fetch, and KB search; HTTP auth via `HPS_MCP_HTTP_TOKEN` env.
   - Known blocker: Negotiator "Generate playbook" can hit provider rate limits (429) on the OpenAI responses endpoint; UI surfaces a rate-limit message when triggered.
-- **Calibration loop (Slice 7)**: `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall~0.3636`; ensemble sweep best at `avm_weight=0` (`MAE~85091.95`, `MAPE~0.1422`) so ensemble stays OFF by default.
+- **Calibration loop (Slice 7)**: proof output captured in `scripts/valuation/prove-eval-run-inrange.ps1` (ranges_present=11, in_range_rate_overall~0.3636); ensemble sweep best at `avm_weight=0` (`MAE~85091.95`, `MAPE~0.1422`) so ensemble stays OFF by default.
 - Continuous calibration flywheel shipped end-to-end (Slices A-D): auto-trigger on ground truth, calibrated weights applied during valuation runs (ensemble-enabled only), trace UI visibility, and guardrails (freeze + parent fallback/blending) with ops UI.
 
 ---
@@ -88,7 +88,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Doctor now passes offline by default; deep mode gated on env vars (no secrets required).
 - CI runs `pnpm doctor:valuation` to catch valuation spine drift early.
 - Edge dependency hygiene: per-function deno.json; deno.lock version pinned to v4; CI guard blocks v5.
-- Evidence pointers: commits 60d1e852db8ab8d3c05093bd348432079d2ded02 and 5dde38a53ba4aeb9718108ac6e47828b9f209161.
+- Evidence pointers: see key files listed below.
 - Key files: `scripts/doctor-valuation-spine.ps1`, `.github/workflows/ci.yml`, `supabase/functions/deno.lock`, `supabase/functions/v1-valuation-run/deno.json`, `supabase/functions/v1-valuation-continuous-calibrate/deno.json`.
 
 ### 2025-12-31 - Observability Slice 1: instrumentation + request correlation + support ID
@@ -102,7 +102,14 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 - Enforced `verify_jwt = true` for `v1-analyze` in Supabase config.
 - Added manual Authorization guard with `supabase.auth.getUser()` before compute for local no-verify-jwt safety.
-- Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.
+- Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.      
+
+### 2025-12-31 - Observability Slice 3: policy snapshot linkage hardening
+
+- `v1-analyze` now resolves active policy_versions under RLS, builds policy snapshot for compute, and returns policy linkage fields (`policyVersionId`, `policyHash`, `policySnapshot`).
+- `v1-runs-save` enforces policy linkage on save and persists `policy_version_id` with hashes.
+- Underwrite save payload now forwards `policyVersionId` from analyze; contracts updated to carry the linkage.
+- Files: `supabase/functions/v1-analyze/index.ts`, `supabase/functions/v1-runs-save/index.ts`, `packages/contracts/src/analyze.ts`, `packages/contracts/src/runsSave.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/lib/edge.ts`, `docs/engine/architecture-overview.md`.
 
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
@@ -238,36 +245,36 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ### 2025-12-18 - Slice 8A (valuation quality): selection_v1_3 experiment (policy-gated) + diagnostics + proofs
 - What changed: added selection_v1_3 (comps-only) with deterministic subject typing, SFR↔townhome compatibility, IQR outlier handling gated by secondary signals, stable ordering, and selection diagnostics surfaced in UI/admin QA. Behavior remains policy-gated; defaults stay at selection_v1_1.
-- Determinism proof (Org=033ff93d..., Deal=f84bab8d..., Posture=base): `output_hash=e8b3f56d5ffb62bbc17e850f86482b835f3d711824eabdc3c62746a7a086ef2c`, `run_hash=c9325d1df48fc6f4bc1057455b77bb40bc5f4a05fab1e442bbe78dc0c9f6da54`, `selection_version=selection_v1_3`, `outliers_removed=2` (runs identical across repeats).
+- Determinism proof (Org/Deal captured in proof output, Posture=base): selection_version=selection_v1_3, outliers_removed=2 (runs identical across repeats; hashes recorded in proof output).
 - Eval comparison (Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true):
-  - Baseline (Slice 7): `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, `ranges_present=11`, `in_range_rate_overall=0.363636`, `MAE=85091.952784`, `MAPE=0.142222`.
-  - selection_v1_3: `input_hash=92d41394075a9182d558c3ca18fe705afd0dda0c2639d13677e2fcb8ec86f0ab`, `eval_run_id=d4289655-7d3e-46f4-912a-5358250a0a94`, `ranges_present=11`, `in_range_rate_overall=0.272727`, `MAE=114383.116604`, `MAPE=0.190272`.
+  - Baseline (Slice 7): ranges_present=11, in_range_rate_overall=0.363636, MAE=85091.952784, MAPE=0.142222.
+  - selection_v1_3: ranges_present=11, in_range_rate_overall=0.272727, MAE=114383.116604, MAPE=0.190272.
   - Deltas (v1_3 - baseline): `delta_in_range_rate=-0.090909`, `delta_MAE=+29291.163820`, `delta_MAPE=+0.048049`.
 - Decision: selection_v1_3 regressed on orlando_smoke_32828_sf_v2; do NOT promote. Default remains selection_v1_1; keep selection_v1_3 opt-in via policy and revisit in future evaluation cycles.
 
 ### 2025-12-18 - Slice 7 calibration loop closed (eval + sweep + proofs)
 - Fixes: comp selection now excludes the subject property, townhouse/singlefamily are treated as one compatibility group with warning code `property_type_group_match_sfr_townhome`, and eval posture normalizes `underwrite` -> `base`.
-- Proofs: `prove-eval-run-inrange.ps1` (Org=033ff93d..., Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced `input_hash=fa0ed738edbe9c0258b382bf86b453d5618bca19700f9cea01e6e12351f1f7b4`, `eval_run_id=c8aef542-09b9-4a0b-9a6c-4ff6bf3b3de9`, deduped on rerun, `ranges_present=11`, `in_range_rate_overall~0.3636`.
+- Proofs: `prove-eval-run-inrange.ps1` (Org/Deal referenced in script output, Dataset=orlando_smoke_32828_sf_v2, Posture=base, Limit=50, Force=true) produced deterministic hashes and deduped on rerun; ranges_present=11; in_range_rate_overall~0.3636.
 - Sweep: `v1-valuation-ensemble-sweep` on that eval run scored 11/11; best_by_mae/best_by_mape both at `avm_weight=0` (`mae~85091.95`, `mape~0.1422`); diagnostics all zero for missing cases.
 - Scripts committed: RentCast ground-truth seeder (caller-JWT only), self-comp exclusion proof, failsoft townhouse/SFR proof, eval inspector. Functions re-deployed: `v1-valuation-run`, `v1-valuation-eval-run`, `v1-valuation-ensemble-sweep` to zjkihnihhqmnhpxkecpy. Gates re-run: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w clean:next`, `pnpm -w build`.
 
 ### 2025-12-16 16:20 ET - Slice 4 proof hardened (time + sqft ledger) and redeployed
 - `_shared/valuationAdjustments.ts` now always emits `time` and `sqft` ledger lines (applied or skipped) with explicit skip reasons/notes; sqft entry reflects basis selection (ppsf_subject vs time_adjusted_price). Feature adjustments remain policy-driven and can skip when unit_value is 0.
 - Proof script `scripts/valuation/prove-adjustments-ledger.ps1` hardened: verifies policy patch by id (no policy_versions), asserts `suggested_arv_basis=adjusted_v1_2`, `adjustments_version=selection_v1_2`, selected comps present, and time+sqft ledger lines exist (fails otherwise). Policies are backed up/restored; uses `policy@hps.test.local` (role=vp) to satisfy RLS update on `policies`.
-- Proof run (Org=033ff93d..., Deal=f84bab8d..., Posture=base) after deploy: `output_hash=3251ffabbe47ba88dcf5410212d5b1c2703e5e3a3cfe07ae3dc783038ad42b39`, `run_hash=7acab0501fd827cc8285c6345709f4c0dac7629a8fe96d0b67f9ff3ee0ba164d`; first comp ledger shows time (skipped: missing_time_adjustment) and sqft (applied) even with zero unit_values.
-- Deploy/DB push executed against zjkihnihhqmnhpxkecpy: `supabase db push` (linked) and `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`. `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea` PASS post-deploy; backups at `supabase/backups/prove-adjustments-ledger-*.json`.
+- Proof run (Org/Deal referenced in proof output, Posture=base) after deploy: output_hash/run_hash recorded in proof output; first comp ledger shows time (skipped: missing_time_adjustment) and sqft (applied) even with zero unit_values.
+- Deploy/DB push executed against zjkihnihhqmnhpxkecpy: `supabase db push` (linked) and `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`. `scripts/valuation/coverage-smoke.ps1` PASS post-deploy with a seeded deal id; backups written under `supabase/backups`.
 
 ### 2025-12-16 15:00 ET - Slice 4: adjustments ledger v1.2 (policy-gated, default OFF)
-- New migration `20260107120000_valuation_adjustments_v1_2_tokens.sql` seeds valuation.adjustments tokens (enabled=false, version=selection_v1_2, rounding.cents=2, missing_field_behavior=skip, enabled_types [time,sqft,beds,baths,lot,year_built], caps, unit_values all 0) only on active policies; legacy backups relocated to `supabase/migrations_bak/_bak` to keep push clean.
+- New migration for valuation adjustments tokens in `supabase/migrations` (valuation_adjustments_v1_2_tokens.sql) seeds valuation.adjustments tokens (enabled=false, version=selection_v1_2, rounding.cents=2, missing_field_behavior=skip, enabled_types [time,sqft,beds,baths,lot,year_built], caps, unit_values all 0) only on active policies; legacy backups relocated to `supabase/migrations_bak/_bak` to keep push clean.
 - Added deterministic adjustments module `_shared/valuationAdjustments.ts` (roundMoney, weightedMedianDeterministic, buildCompAdjustedValue with caps/skip reasons). `v1-valuation-run` now policy-gates an adjustments ledger and adjusted ARV (weighted median of adjusted_value) when enabled; hashes unchanged when disabled.
 - Contracts updated for optional adjustments fields; CompsPanel shows time-adjusted/adjusted values + expandable ledger per selected comp (date fallback close/listed/listed_at); admin valuation-qa page surfaces adjustments enabled/basis/version and per-comp ledger for recent runs.
-- Proof script `scripts/valuation/prove-adjustments-ledger.ps1` executed (Org=033ff93d..., Posture=base) via owner@hps.test.local; output_hash/run_hash matched (5ad2fb27... / 495c438d...), policies backed up to `supabase/backups/prove-adjustments-ledger-<timestamp>.json` and restored.
-- Supabase deploys: `supabase db push --include-all` applied migration chain; `supabase functions deploy v1-valuation-run` completed. Coverage smoke `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea` PASS.
+- Proof script `scripts/valuation/prove-adjustments-ledger.ps1` executed (Org referenced in proof output, Posture=base) via owner@hps.test.local; output_hash/run_hash matched (see proof output), policies backed up under `supabase/backups` and restored.
+- Supabase deploys: `supabase db push --include-all` applied migration chain; `supabase functions deploy v1-valuation-run` completed. Coverage smoke `scripts/valuation/coverage-smoke.ps1` PASS with a seeded deal id.
 - Gates rerun locally: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build`.
 
 ### 2025-12-30 - Closed-sale comps raw coverage + smoke verifier
 - Policy guardrail: active policies/policy_versions backfilled with closed-sales valuation tokens when missing; valuation snapshots now always persist subject_property, closed_sales (primary + stepout + attempted flag), AVM request/response, and market request/response even when providers error out.
-- Smoke check: `scripts/valuation/coverage-smoke.ps1 -DealId f84bab8d-e377-4512-a4c8-0821c23a82ea -SupabaseAccessToken $env:SUPABASE_ACCESS_TOKEN` forces a valuation run, prints comp counts + raw flags, and exits non-zero if `raw.closed_sales` is absent.
+- Smoke check: `scripts/valuation/coverage-smoke.ps1` run with a seeded deal id and `SUPABASE_ACCESS_TOKEN` forces a valuation run, prints comp counts + raw flags, and exits non-zero if `raw.closed_sales` is absent.
 - Deploy (PowerShell):
   ```powershell
   supabase db push --project-ref zjkihnihhqmnhpxkecpy
@@ -279,7 +286,7 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - New artifacts:
   - Edge/runtime: deterministic market time adjustment (FHFA/FRED HPI fallback, eligibility gating, adjusted price/factor surfaced) in `_shared/marketIndex.ts` + selection passthrough, ATTOM basicprofile normalizer in `_shared/publicRecordsSubject.ts`, valuation confidence helper in `_shared/valuationConfidence.ts`.
   - Functions deployed: `v1-valuation-run`, `v1-connectors-proxy` (supabase functions deploy ... zjkihnihhqmnhpxkecpy).
-  - Migrations: `20251214182758_market_price_index.sql` (state HPI cache), `20251215140000_public_records_subject_enrichment.sql`, `20260107101500_valuation_ground_truth_eval_runs.sql` (ground-truth/eval harness), plus ATTOM/public-records evidence paths. Nonconforming backup remains: `20251215120000_valuation_ground_truth_eval_runs.sql.bak-20260107` (skip on db push).
+  - Migrations: market_price_index, public_records_subject_enrichment, valuation_ground_truth_eval_runs (timestamped files in `supabase/migrations`), plus ATTOM/public-records evidence paths. Nonconforming backup remains under `supabase/migrations_bak/_bak` (skip on db push).
   - Contracts/tests: marketIndex helpers + tests, determinism hash, valuation confidence/determinism/public-records subject tests, ATTOM fixture; valuation selection exposes adjusted comps; docs `valuation-eval-harness.md`.
   - Scripts: `prove-market-time-adjustment.ps1`, `coverage-smoke.ps1`, `prove-attom-enrichment.ps1`, policy set scripts, eval harness dataset (`scripts/valuation/datasets/orlando-dealids.json`), admin QA page `/admin/valuation-qa`.
   - UI: comps panel collapse controls; address autocomplete support components.
@@ -980,13 +987,13 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 - Status: resolved later in the 2025-12-02 repairs stack entries below (deal-first org resolution + QA org ORL/base E2E).
 
 - v1 stays field-ready per earlier entries; this pass focused on Repairs alignment and the sandbox reset.
-- Repairs DB migrations: applied the normalization/reset chain (`20251206120000`, `20251206121500`, `20251206220000`, `20251206230000`, `20251206231000`, `20251207`, `20251208104500`) to move ORL/base profiles into the canonical deals org (`ed6ae332-2d15-44be-a8fb-36005522ad60`), clear legacy org rows, and enforce a single active+default ORL/base profile per org/market/posture (seeded canonical profile).
+- Repairs DB migrations: applied the normalization/reset chain in `supabase/migrations` to move ORL/base profiles into the canonical deals org, clear legacy org rows, and enforce a single active+default ORL/base profile per org/market/posture (seeded canonical profile).
 - v1-repair-rates now enforces a strict `RepairRatesRequest` contract `{ dealId: uuid; marketCode: string; posture: string; profileId: uuid | null }`, resolves org_id deal-first (membership RPC fallback), and returns structured 404/400/500 errors with no silent defaults.
 - v1-repair-profiles resolves org_id via `dealId` when present (membership fallback otherwise), filters list/create/update/activate by org_id + marketCode + posture, and clears competing active/default rows when toggling flags.
 - Client/UI alignment: `repairRates.ts`, `repairProfiles.ts`, DealSession, RepairsSandbox, `/repairs`, and `RepairsTab` now pass `dealId` through, use DealSession.repairRates as the single source of truth, and surface active profile metadata in UI.
 - Still broken: RepairsSandbox list (`v1-repair-profiles?dealId=<dealId>&marketCode=ORL&posture=base&includeInactive=true`) returns `count: 0` with edge error `{"error":"Missing or invalid orgId in request body."}`; `/repairs` sees v1-repair-rates 400/404 for ORL/base and falls back to zero/investor defaults.
 - Diagnosis: residual org resolution bug in v1-repair-profiles (still validating/expecting a request-body orgId on some paths) rather than React wiring; data is seeded but not visible under the callers deal org.
-- Surgical reset plan: treat `ed6ae332-2d15-44be-a8fb-36005522ad60` as the canonical deals org; ship one reset/seed migration that deletes all ORL/base profiles for that org + the legacy org, inserts one active+default ORL/base profile, and enforces one active+default per org/market/posture; fix v1-repair-profiles list/create/update/activate so it never requires client orgId when `dealId` is present and always filters by the deal-resolved org.
+- Surgical reset plan: treat the canonical deals org as the source of truth; ship one reset/seed migration that deletes all ORL/base profiles for that org + the legacy org, inserts one active+default ORL/base profile, and enforces one active+default per org/market/posture; fix v1-repair-profiles list/create/update/activate so it never requires client orgId when `dealId` is present and always filters by the deal-resolved org.
 - Expected after fix: `/sandbox -> Repairs` lists the seeded ORL/base profile; `/repairs` calls to v1-repair-rates return 200 for ORL/base and stop showing the "falling back to defaults" banner.
 - Files/migrations touched (high level): the repair_rate_sets normalization/reset migrations above; `supabase/functions/v1-repair-rates`; `supabase/functions/v1-repair-profiles`; `apps/hps-dealengine/lib/repairRates.ts`; `apps/hps-dealengine/lib/repairProfiles.ts`; `apps/hps-dealengine/lib/dealSessionContext.tsx`; `apps/hps-dealengine/components/sandbox/RepairsSandbox.tsx`; `apps/hps-dealengine/app/(app)/repairs/page.tsx`; `apps/hps-dealengine/components/repairs/RepairsTab.tsx`.
 - Commands: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` (re-run this session; all green).
@@ -1018,13 +1025,13 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 
 - v1-repair-profiles: orgId now resolves strictly via dealId (deals.org_id) under the caller JWT; client orgId is not accepted. List/create/update/activate scope by {orgId, marketCode, posture}, and RepairsSandbox list for QA Org / ORL / base returns the seeded "ORL base default (reset)" profile with activation triggering refreshRepairRates.
 - v1-repair-rates: uses the shared RepairRatesRequest contract `{ dealId, marketCode, posture, profileId|null }`, resolves orgId from deals with RLS (no client orgId or membership fallback), enforces org/market/posture when profileId is provided, and falls back to the active default when null. Returns structured psf tiers, Big5, and lineItemRates; the old "Missing or invalid orgId in request body." path is gone.
-- Data alignment: QA Org (2025-11-11) seeded with ORL/base profile `f5b95d23-...` marked `is_active=true`, `is_default=true`; `request.jwt.claims` in SQL satisfied `audit_logs.actor_user_id` while updating that row by hand.
-- E2E verification: For QA Org / ORL / base, RepairsSandbox shows the seeded profile and can activate/sync it; `/repairs` calls `v1-repair-rates` with `{ dealId, marketCode: "ORL", posture: "base", profileId: "f5b95d23-..." }` and receives 200 + `hasData:true`; DealSession stores repairRates and RepairsTab renders with `usingFallback=false`.
+- Data alignment: QA Org (2025-11-11) seeded with an ORL/base profile marked `is_active=true`, `is_default=true`; `request.jwt.claims` in SQL satisfied `audit_logs.actor_user_id` while updating that row by hand.
+- E2E verification: For QA Org / ORL / base, RepairsSandbox shows the seeded profile and can activate/sync it; `/repairs` calls `v1-repair-rates` with `{ dealId, marketCode: "ORL", posture: "base", profileId }` and receives 200 + `hasData:true`; DealSession stores repairRates and RepairsTab renders with `usingFallback=false`.
 
 ### 2025-12-02 - Repairs v1.1 hardening wrap + org observability
 
 - Repairs stack: `v1-repair-profiles` and `v1-repair-rates` now both use deal-first org resolution under caller JWT; client orgId is removed from the request contract. QA Org / ORL / base returns the seeded active/default profile and `/repairs` consumes live rates (no fallback). Logging added for request parse/org resolution/query results.
-- Data seeding: QA Org (`ed6ae332-2d15-44be-a8fb-36005522ad60`) carries ORL/base profile `f5b95d23-...` marked active/default; audit trigger satisfied via `request.jwt.claims` when promoting the row.
+- Data seeding: QA Org carries ORL/base profile marked active/default; audit trigger satisfied via `request.jwt.claims` when promoting the row.
 - UI/org observability: `/deals` and `/startup` now display an Org column (orgName else truncated orgId) using enriched deal queries (`orgId`, `orgName`, `organization` join). DealSession hydrates orgId/orgName on DbDeal.
 - Edge import map: `supabase/functions/import_map.json` now maps `"zod"` to `https://esm.sh/zod@3.23.8` for Deno edge imports from shared contracts.
 - Tests/checks: `pnpm -w typecheck`, `pnpm -w test`, `pnpm -w build` run and green post-changes.
@@ -1058,7 +1065,7 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 
 - Context: v1.1 hardening for dev auth hygiene + underwrite ergonomics.
 - Done:
-  - `scripts/reset-dev-auth-users.ts`: dev guard enforces Supabase ref `zjkihnihhqmnhpxkecpy`; backs up auth.users/memberships/organizations to `supabase/backups/dev-auth-users-<timestamp>.json`; deletes memberships/auth users; upserts dev org `033ff93d-ff97-4af9-b3a1-a114d3c04da6` / "HPS DealEngine Dev Org"; reseeds 6 accounts (owner@hps.test.local -> owner, manager@hps.test.local -> manager, policy@hps.test.local -> vp, qa-policy@hps.test.local -> analyst, underwriter@hps.test.local -> analyst, viewer@hps.test.local -> analyst) with dev-only password `HpsDev!2025` (service role env required).
+  - `scripts/reset-dev-auth-users.ts`: dev guard enforces Supabase ref `zjkihnihhqmnhpxkecpy`; backs up auth.users/memberships/organizations to `supabase/backups/dev-auth-users-<timestamp>.json`; deletes memberships/auth users; upserts dev org (see script constants) / "HPS DealEngine Dev Org"; reseeds 6 accounts (owner@hps.test.local -> owner, manager@hps.test.local -> manager, policy@hps.test.local -> vp, qa-policy@hps.test.local -> analyst, underwriter@hps.test.local -> analyst, viewer@hps.test.local -> analyst) with dev-only password `HpsDev!2025` (service role env required).
   - Audit logs: `audit_logs.actor_user_id` NOT NULL dropped manually in dev console (no migration in repo). SQL to codify later: `alter table public.audit_logs alter column actor_user_id drop not null;`.
   - Underwrite UX: themed dark posture select; header actions renamed to "Analyze Deal" / "Save"; header Request Override button removed (OverridesPanel + field-level overrides remain); Recent Runs card on `/underwrite` queries org+deal runs newest-first limit 5 with "View all" link; file-level nav comment added.
 - Code touched: `scripts/reset-dev-auth-users.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`.
@@ -1131,13 +1138,13 @@ This file is the story of how HPS DealEngine actually got from v1 -> v2 -> v3, o
 
 - DB: Added `valuation_comp_overrides` (org/deal/comp-keyed, RLS + audit + updated_at trigger, unique on org/deal/comp_id/comp_kind, seller_credit_pct/usd, condition_adjustment_usd, required notes) and seeded active policies with concessions/condition tokens + ceiling defaults (defaults OFF; precedence usd_over_pct). Ceiling token seed migration applied via `supabase db push --project-ref zjkihnihhqmnhpxkecpy`.
 - Engine/Edge: `v1-valuation-run` now loads overrides, computes `overrides_hash`, applies concessions pre-selection (policy-gated) and condition as a ledger line (policy-gated), includes overrides_hash/applied_count in outputs when enabled, and prevents time/sqft double-counting. Deployed with `supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`.
-- Ledger/proof: valuationAdjustments adds informational concessions + applied condition line items. Proof `scripts/valuation/prove-comp-overrides.ps1` shows overrides change hashes and remain deterministic on repeat; baseline input_hash `568dd228dbb26a6541c2536b8e7f679b47e89b676511822086c103d43730114c`, override input_hash `a1ca1df01bbcbfea81d1f51eabc3820a59fb50b03d0ccc76349fe2dbb765cd5e`, Run2/Run3 output_hash equal True, run_hash equal True, policies restored and override row deleted. Coverage smoke: PASS (valuation_run.id `6a929802-f7fd-4bf3-a423-55883c4334bd`).
+- Ledger/proof: valuationAdjustments adds informational concessions + applied condition line items. Proof `scripts/valuation/prove-comp-overrides.ps1` shows overrides change hashes and remain deterministic on repeat; baseline and override hashes recorded in proof output; Run2/Run3 output_hash equal True, run_hash equal True, policies restored and override row deleted. Coverage smoke: PASS (valuation_run.id recorded in proof output).
 - UI (5C): Admin Valuation QA page now surfaces Comp Overrides CRUD (caller JWT/RLS) for selected comps; Underwrite CompsPanel shows an Override badge when ledger contains manual_override concessions/condition. Docs updated to record proof/deploy evidence; Slice 5 marked ✅ after gates+proof+smoke.
 
 ### 2025-12-16 21:30 ET - Slice 6 ensemble/uncertainty UI surfaces (read-only)
 
 - UI: Underwrite valuation summary now shows an Ensemble badge when basis=`ensemble_v1`, weights (comps/avm), ceiling value/applied flag, and uncertainty range (low/high + pct) when present. Admin Valuation QA adds an “Ensemble & Uncertainty” panel for the selected run (basis, version, weights, comp/avm estimates, cap, uncertainty range/method); displays OFF badge when unset. No policy toggles in UI; caller JWT only.
-- Engine proof reused from Slice 6A: `scripts/valuation/prove-ensemble-uncertainty.ps1` PASS (Org=033ff93d..., Deal=f84bab8d..., Posture=base). Baseline input_hash `f36a52eb7cbd821f9a3e954d0c54308895b556e48385c904d2cd62c594b5edf9` → ensemble/uncertainty input_hash `47bca9f7aa0725705b00bcea3aac9106ed2e8dfd7eeb88606897014fd9ea1c06`; Run2/Run3 output_hash equal True; run_hash equal True; policies restored. Coverage smoke PASS. Edge already deployed (`supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`).
+- Engine proof reused from Slice 6A: `scripts/valuation/prove-ensemble-uncertainty.ps1` PASS (Org/Deal referenced in proof output, Posture=base). Baseline and ensemble/uncertainty hashes recorded in proof output; Run2/Run3 output_hash equal True; run_hash equal True; policies restored. Coverage smoke PASS. Edge already deployed (`supabase functions deploy v1-valuation-run --project-ref zjkihnihhqmnhpxkecpy`).
 - Build note: `pnpm -w build` still blocked on Windows `.next/trace` access-denied; typecheck/test are green.
 
 ### 2025-12-06 - Glossary-driven tooltips v1 + guardrails

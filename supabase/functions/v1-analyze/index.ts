@@ -139,6 +139,9 @@ type AnalyzeResult = {
   outputs: AnalyzeOutputs;
   infoNeeded: string[];
   trace: unknown;
+  policySnapshot?: unknown;
+  policyHash?: string | null;
+  policyVersionId?: string | null;
 };
 
 type TraceFrame = {
@@ -149,7 +152,11 @@ type TraceFrame = {
 
 type AnalyzeOkEnvelope = {
   ok: true;
+  outputs?: AnalyzeOutputs;
   result: AnalyzeResult;
+  policySnapshot?: unknown;
+  policyHash?: string | null;
+  policyVersionId?: string | null;
 };
 
 type AnalyzeErrorEnvelope = {
@@ -172,6 +179,36 @@ function numOrNull(value: unknown): number | null {
   return parsed;
 }
 
+function canonicalJson(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return (value as unknown[]).map((v) => sortKeys(v));
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const sortedKeys = Object.keys(obj).sort();
+    const out: Record<string, unknown> = {};
+    for (const key of sortedKeys) {
+      out[key] = sortKeys(obj[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
+function hashJson(value: unknown): string {
+  const str = canonicalJson(value);
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  // unsigned 32-bit → hex
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 /**
  * Normalize the incoming body from either:
  *  - { arv, aiv, dom_zip_days, ... }
@@ -182,11 +219,35 @@ function coerceInput(raw: unknown): {
   input: AnalyzeInput;
   sandboxOptions?: AnalyzeSandboxOptions;
   sandboxSnapshot?: unknown;
+  orgId: string | null;
+  dealId: string | null;
+  policyVersionId: string | null;
 } {
   const anyRaw = raw as any;
 
   const dealLike =
     anyRaw && typeof anyRaw.deal === "object" ? anyRaw.deal : anyRaw;
+
+  const orgId =
+    typeof anyRaw?.org_id === "string"
+      ? anyRaw.org_id
+      : typeof anyRaw?.orgId === "string"
+        ? anyRaw.orgId
+        : null;
+
+  const dealId =
+    typeof dealLike?.dealId === "string"
+      ? dealLike.dealId
+      : typeof anyRaw?.dealId === "string"
+        ? anyRaw.dealId
+        : null;
+
+  const policyVersionId =
+    typeof anyRaw?.policy_version_id === "string"
+      ? anyRaw.policy_version_id
+      : typeof anyRaw?.policyVersionId === "string"
+        ? anyRaw.policyVersionId
+        : null;
 
   const posture: string | null =
     (anyRaw?.posture as string | undefined) ??
@@ -236,6 +297,9 @@ function coerceInput(raw: unknown): {
     input,
     sandboxOptions: anyRaw?.sandboxOptions ?? anyRaw?.analysisOptions,
     sandboxSnapshot: anyRaw?.sandboxSnapshot ?? anyRaw?.sandbox,
+    orgId,
+    dealId,
+    policyVersionId,
   };
 }
 
@@ -282,6 +346,74 @@ function validateInput(posture: string | null, input: AnalyzeInput): {
   }
 
   return { ok: true };
+}
+
+type PolicyVersionRow = {
+  id: string;
+  org_id: string;
+  posture: string;
+  policy_json: unknown;
+  created_at?: string;
+};
+
+async function resolveOrgId(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  orgId: string | null,
+  dealId: string | null,
+): Promise<string | null> {
+  if (orgId) return orgId;
+  if (!dealId) return null;
+
+  const { data, error } = await supabase
+    .from("deals")
+    .select("org_id")
+    .eq("id", dealId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[v1-analyze] deal org lookup failed", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    });
+    return null;
+  }
+
+  return typeof data?.org_id === "string" ? data.org_id : null;
+}
+
+async function loadPolicyVersion(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  orgId: string,
+  posture: string | null,
+  policyVersionId: string | null,
+): Promise<{ row: PolicyVersionRow | null; error: unknown | null }> {
+  if (policyVersionId) {
+    let query = supabase
+      .from("policy_versions")
+      .select("id, org_id, posture, policy_json, created_at")
+      .eq("org_id", orgId)
+      .eq("id", policyVersionId);
+
+    if (posture) {
+      query = query.eq("posture", posture);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    return { row: (data as PolicyVersionRow | null) ?? null, error: error ?? null };
+  }
+
+  const postureKey = posture ?? "base";
+  const { data, error } = await supabase
+    .from("policy_versions")
+    .select("id, org_id, posture, policy_json, created_at")
+    .eq("org_id", orgId)
+    .eq("posture", postureKey)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { row: (data as PolicyVersionRow | null) ?? null, error: error ?? null };
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -347,7 +479,14 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 400);
   }
 
-  const { posture, input, sandboxOptions, sandboxSnapshot } = coerceInput(raw);
+  const {
+    posture,
+    input,
+    sandboxOptions,
+    orgId: rawOrgId,
+    dealId,
+    policyVersionId: requestedPolicyVersionId,
+  } = coerceInput(raw);
 
   const validation = validateInput(posture, input);
   if (!validation.ok) {
@@ -361,11 +500,73 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 400);
   }
 
-  const basePolicy: UnderwritingPolicy = {} as UnderwritingPolicy;
+  const orgId = await resolveOrgId(supabase, rawOrgId, dealId);
+  if (!orgId) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: "Missing org_id; provide org_id or dealId in AnalyzeInput.",
+        code: "missing_org_id",
+      },
+    };
+    return jsonResponse(envelope, 400);
+  }
+
+  const { row: policyRow, error: policyError } = await loadPolicyVersion(
+    supabase,
+    orgId,
+    posture,
+    requestedPolicyVersionId,
+  );
+
+  if (policyError) {
+    console.error("[v1-analyze] policy lookup failed", policyError);
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: "Failed to load policy snapshot.",
+        code: "policy_lookup_failed",
+      },
+    };
+    return jsonResponse(envelope, 500);
+  }
+
+  if (!policyRow) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: requestedPolicyVersionId
+          ? "Policy version not found for caller org."
+          : "Active policy snapshot not found for caller org/posture.",
+        code: requestedPolicyVersionId
+          ? "policy_version_not_found"
+          : "policy_not_found",
+        details: {
+          orgId,
+          posture: posture ?? "base",
+          policyVersionId: requestedPolicyVersionId ?? null,
+        },
+      },
+    };
+    return jsonResponse(envelope, 404);
+  }
+
+  const basePolicyRaw = policyRow.policy_json ?? {};
+  const basePolicy =
+    basePolicyRaw && typeof basePolicyRaw === "object"
+      ? (basePolicyRaw as UnderwritingPolicy)
+      : ({} as UnderwritingPolicy);
+
   const uwPolicy = buildUnderwritingPolicyFromOptions(
     basePolicy,
     sandboxOptions ?? null,
   );
+
+  const policySnapshot = JSON.parse(
+    JSON.stringify(uwPolicy ?? {}),
+  ) as unknown;
+  const policyHash = hashJson(policySnapshot);
+  const policyVersionId = policyRow.id;
 
   const deal = {
     market: {
@@ -378,7 +579,10 @@ serve(async (req: Request): Promise<Response> => {
     },
   };
 
-  const result = computeUnderwriting(deal as unknown as Record<string, unknown>, uwPolicy as unknown as Record<string, unknown>);
+  const result = computeUnderwriting(
+    deal as unknown as Record<string, unknown>,
+    policySnapshot as unknown as Record<string, unknown>,
+  );
 
   if (!result.ok) {
     const envelope: AnalyzeErrorEnvelope = {
@@ -434,16 +638,23 @@ serve(async (req: Request): Promise<Response> => {
     borderline_flag: borderlineFlag ?? null,
   };
 
+  const analyzeResult: AnalyzeResult = {
+    outputs: mergedOutputs,
+    infoNeeded: result.infoNeeded ?? [],
+    trace: traceWithProvenance,
+    policySnapshot,
+    policyHash,
+    policyVersionId,
+  };
+
   const envelope: AnalyzeOkEnvelope = {
     ok: true,
     // Back-compat for consumers expecting outputs at the top level.
-    // @ts-expect-error widen envelope for convenience
     outputs: mergedOutputs,
-    result: {
-      outputs: mergedOutputs,
-      infoNeeded: result.infoNeeded ?? [],
-      trace: traceWithProvenance,
-    },
+    policySnapshot,
+    policyHash,
+    policyVersionId,
+    result: analyzeResult,
   };
 
   return jsonResponse(envelope, 200);

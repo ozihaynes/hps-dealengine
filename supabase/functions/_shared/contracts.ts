@@ -134,6 +134,7 @@ export const SaveRunArgsSchema = z.object({
       durationMs: z.number().optional(),
     })
     .default({}),
+  policyVersionId: z.string().uuid().nullable().optional(),
   policySnapshot: z.unknown().optional(),
 });
 
@@ -142,6 +143,7 @@ export type SaveRunArgs = z.infer<typeof SaveRunArgsSchema>;
 export type RunRowInsert = {
   org_id: string;
   posture: string;
+  policy_version_id: string | null;
   input: RunInputEnvelope;
   output: RunOutputEnvelope;
   policy_snapshot: PolicySnapshot | null;
@@ -229,6 +231,7 @@ export function buildRunRow(args: SaveRunArgs): RunRowInsert {
   return {
     org_id: args.orgId,
     posture: args.posture,
+    policy_version_id: args.policyVersionId ?? null,
     input: inputEnvelope,
     output: outputEnvelope,
     policy_snapshot: policySnapshot,

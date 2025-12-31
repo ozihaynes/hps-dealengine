@@ -27,6 +27,7 @@ export const SaveRunArgsSchema = z.object({
       durationMs: z.number().optional(),
     })
     .default({}),
+  policyVersionId: z.string().uuid().nullable().optional(),
   // We keep snapshot flexible for now; it will be validated upstream when we
   // crystallize the PolicySnapshot shape.
   policySnapshot: z.unknown().optional(),
@@ -38,6 +39,7 @@ export type RunRowInsert = {
   org_id: string;
   posture: string;
   deal_id: string;
+  policy_version_id: string | null;
   input: RunInputEnvelope;
   output: RunOutputEnvelope;
   trace: RunTraceFrame[];
@@ -93,6 +95,7 @@ export function buildRunRow(args: SaveRunArgs): RunRowInsert {
     org_id: args.orgId,
     posture: args.posture,
     deal_id: args.dealId,
+    policy_version_id: args.policyVersionId ?? null,
     input: inputEnvelope,
     output: outputEnvelope,
     trace: outputEnvelope.trace,

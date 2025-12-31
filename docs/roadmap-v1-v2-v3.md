@@ -419,6 +419,8 @@ Fast-follow items that do not change V1 behavior:
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.
   - ✅ Slice 1 (instrumentation foundation + request correlation + Support ID in global error) complete in repo; not yet validated in prod.
   - Files: `apps/hps-dealengine/instrumentation.ts`, `apps/hps-dealengine/middleware.ts`, `apps/hps-dealengine/app/global-error.tsx`, `apps/hps-dealengine/lib/o11y/requestId.ts`, `apps/hps-dealengine/lib/o11y/releaseInfo.ts`, `apps/hps-dealengine/package.json`, `pnpm-lock.yaml`.
+  - ✅ Slice 3 (policy snapshot linkage hardening) complete in repo; not yet validated in prod.
+  - Files: `supabase/functions/v1-analyze/index.ts`, `supabase/functions/v1-runs-save/index.ts`, `packages/contracts/src/analyze.ts`, `packages/contracts/src/runsSave.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/lib/edge.ts`, `docs/engine/architecture-overview.md`.
 - **Dashboard KPI Expansion (post Dual-Agent)**:
   - Promote selected candidates from `docs/dashboard/kpi-candidates.md` into real cards on `/dashboard`.
   - Close high-value gaps surfaced by `check:dashboard-coverage` (e.g., occupancy, structural flags, payoff buffer, Market Temp).
