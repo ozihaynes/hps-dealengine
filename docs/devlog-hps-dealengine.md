@@ -98,6 +98,12 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Global error UI displays a safe Support ID with copy-to-clipboard (no stack traces).
 - New helpers added under `apps/hps-dealengine/lib/o11y/` for request ID and release info.
 
+### 2025-12-31 - Observability Slice 2: v1-analyze auth hardening
+
+- Enforced `verify_jwt = true` for `v1-analyze` in Supabase config.
+- Added manual Authorization guard with `supabase.auth.getUser()` before compute for local no-verify-jwt safety.
+- Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).

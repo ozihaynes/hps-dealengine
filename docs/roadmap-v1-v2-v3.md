@@ -365,6 +365,7 @@ Fast-follow items that do not change V1 behavior:
 - ✅ Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - ✅ Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math; NumericInput rollout across Underwrite/Repairs/DoubleClose complete.
 - ✅ Security: `v1-ping` now requires JWT (`verify_jwt=true`) and `/debug/ping` uses the caller token.
+- ✅ Security: `v1-analyze` now requires Authorization (`verify_jwt=true` + manual JWT guard) — complete in repo; not yet validated in prod. Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.
 
 ### Valuation Spine
 

@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 import { computeUnderwriting } from "../_vendor/engine/index.js";
 import {
   buildUnderwritingPolicyFromOptions,
@@ -20,6 +21,31 @@ function jsonResponse(body: unknown, status = 200): Response {
       "Content-Type": "application/json",
     },
   });
+}
+
+function createSupabaseClient(authorization: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars.");
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: authorization,
+      },
+    },
+  });
+}
+
+function parseBearerToken(authorization: string | null): string | null {
+  if (!authorization) return null;
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1]?.trim();
+  return token ? token : null;
 }
 
 /**
@@ -270,6 +296,44 @@ serve(async (req: Request): Promise<Response> => {
       error: { message: "Method not allowed", code: "method_not_allowed" },
     };
     return jsonResponse(envelope, 405);
+  }
+
+  const requestId = req.headers.get("x-request-id") ?? "(missing)";
+  const hasTraceparent = Boolean(req.headers.get("traceparent"));
+  const hasTracestate = Boolean(req.headers.get("tracestate"));
+  console.info("[v1-analyze] request", {
+    function: "v1-analyze",
+    request_id: requestId,
+    has_traceparent: hasTraceparent,
+    has_tracestate: hasTracestate,
+  });
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return jsonResponse({ error: "missing_authorization" }, 401);
+  }
+
+  const token = parseBearerToken(authHeader);
+  if (!token) {
+    return jsonResponse({ error: "invalid_authorization" }, 401);
+  }
+
+  let supabase;
+  try {
+    supabase = createSupabaseClient(`Bearer ${token}`);
+  } catch (error) {
+    console.error("[v1-analyze] auth config error", error);
+    return jsonResponse({ error: "server_misconfigured" }, 500);
+  }
+
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
+  } catch (error) {
+    console.error("[v1-analyze] auth check failed", error);
+    return jsonResponse({ error: "unauthorized" }, 401);
   }
 
   let raw: unknown;
