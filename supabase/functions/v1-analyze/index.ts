@@ -4,13 +4,21 @@ import { computeUnderwriting } from "../_vendor/engine/index.js";
 import {
   buildUnderwritingPolicyFromOptions,
 } from "../_vendor/engine/policy_builder.js";
-import type { UnderwritingPolicy } from "../_vendor/engine/index.js";
+import { stableHash } from "../_shared/determinismHash.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+type UnderwritingPolicy = Record<string, unknown>;
+type InfoNeeded = {
+  path: string;
+  token?: string | null;
+  reason: string;
+  source_of_truth?: string;
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -137,7 +145,7 @@ type AnalyzeOutputs = {
 
 type AnalyzeResult = {
   outputs: AnalyzeOutputs;
-  infoNeeded: string[];
+  infoNeeded: InfoNeeded[];
   trace: unknown;
   policySnapshot?: unknown;
   policyHash?: string | null;
@@ -177,36 +185,6 @@ function numOrNull(value: unknown): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return null;
   return parsed;
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(sortKeys(value));
-}
-
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return (value as unknown[]).map((v) => sortKeys(v));
-  }
-  if (value && typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const sortedKeys = Object.keys(obj).sort();
-    const out: Record<string, unknown> = {};
-    for (const key of sortedKeys) {
-      out[key] = sortKeys(obj[key]);
-    }
-    return out;
-  }
-  return value;
-}
-
-function hashJson(value: unknown): string {
-  const str = canonicalJson(value);
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
-  // unsigned 32-bit → hex
-  return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
 /**
@@ -565,7 +543,7 @@ serve(async (req: Request): Promise<Response> => {
   const policySnapshot = JSON.parse(
     JSON.stringify(uwPolicy ?? {}),
   ) as unknown;
-  const policyHash = hashJson(policySnapshot);
+  const policyHash = await stableHash(policySnapshot);
   const policyVersionId = policyRow.id;
 
   const deal = {
@@ -600,7 +578,7 @@ serve(async (req: Request): Promise<Response> => {
   };
   const traceWithProvenance = [...traceFrames, provenanceFrame];
 
-  const outputs = result.outputs as AnalyzeOutputs;
+  const outputs = result.outputs as unknown as AnalyzeOutputs;
   const aivCapPct = 0.97;
   const aiv = input.aiv ?? outputs.aiv ?? null;
   const arv = input.arv ?? outputs.arv ?? null;

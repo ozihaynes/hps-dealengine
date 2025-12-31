@@ -88,7 +88,6 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Doctor now passes offline by default; deep mode gated on env vars (no secrets required).
 - CI runs `pnpm doctor:valuation` to catch valuation spine drift early.
 - Edge dependency hygiene: per-function deno.json; deno.lock version pinned to v4; CI guard blocks v5.
-- Evidence pointers: see key files listed below.
 - Key files: `scripts/doctor-valuation-spine.ps1`, `.github/workflows/ci.yml`, `supabase/functions/deno.lock`, `supabase/functions/v1-valuation-run/deno.json`, `supabase/functions/v1-valuation-continuous-calibrate/deno.json`.
 
 ### 2025-12-31 - Observability Slice 1: instrumentation + request correlation + support ID
@@ -104,12 +103,19 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Added manual Authorization guard with `supabase.auth.getUser()` before compute for local no-verify-jwt safety.
 - Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.      
 
-### 2025-12-31 - Observability Slice 3: policy snapshot linkage hardening
+### 2025-12-31 - Observability Slice 3: policy snapshot linkage hardening        
 
 - `v1-analyze` now resolves active policy_versions under RLS, builds policy snapshot for compute, and returns policy linkage fields (`policyVersionId`, `policyHash`, `policySnapshot`).
 - `v1-runs-save` enforces policy linkage on save and persists `policy_version_id` with hashes.
 - Underwrite save payload now forwards `policyVersionId` from analyze; contracts updated to carry the linkage.
 - Files: `supabase/functions/v1-analyze/index.ts`, `supabase/functions/v1-runs-save/index.ts`, `packages/contracts/src/analyze.ts`, `packages/contracts/src/runsSave.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/lib/edge.ts`, `docs/engine/architecture-overview.md`.
+
+### 2025-12-31 - Observability Slice 4: policyHash canonicalization + agent_runs persona alignment
+
+- `v1-analyze` now uses canonical SHA-256 hashing for `policyHash` (stable JSON) and removes DJB2 hashing from that path.
+- Agent routes now write `dealAnalyst`/`dealStrategist`/`dealNegotiator` personas for `agent_runs` and chat threads to match DB enums.
+- Deno checks added to the local gate for touched Edge functions.
+- Files: `supabase/functions/v1-analyze/index.ts`, `apps/hps-dealengine/app/api/agents/analyst/route.ts`, `apps/hps-dealengine/app/api/agents/strategist/route.ts`, `apps/hps-dealengine/app/api/agents/negotiator/route.ts`, `deno.lock`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
