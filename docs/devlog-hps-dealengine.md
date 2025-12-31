@@ -127,8 +127,8 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ### 2025-12-31 - Observability Slice 6: Support Console correlation hardening + Slice 5 polish
 
 - Admin gating for Support Case detail now resolves org role the same way as the Support Console list page.
-- Support APIs now validate orgId/caseId UUIDs, extract request/trace correlation from headers, and include request_id (trace_id when present) in error payloads plus response headers.
-- Support case creation defaults request_id/trace_id from inbound headers when missing; client support fetches now send `x-request-id`.
+- Support APIs validate orgId/caseId UUIDs, extract request correlation from `x-request-id` and `traceparent`/`x-trace-id`, and return requestId/traceId in both error payloads and response headers.
+- Support case creation defaults request_id/trace_id anchors when missing; client support fetches now send `x-request-id`.
 - Files: `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
