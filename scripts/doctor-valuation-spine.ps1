@@ -163,7 +163,9 @@ if (-not $payload) {
   exit 1
 }
 if (-not $payload.ok) {
-  Write-Host ("FAIL: valuation-run error: {0}" -f ($payload.error ?? "unknown")) -ForegroundColor Red
+  $payloadError = $payload.error
+  if (-not $payloadError) { $payloadError = "unknown" }
+  Write-Host ("FAIL: valuation-run error: {0}" -f $payloadError) -ForegroundColor Red
   if ($payload.message) { Write-Host $payload.message }
   exit 1
 }

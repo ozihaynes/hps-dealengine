@@ -427,7 +427,9 @@ Fast-follow items that do not change V1 behavior:
   - `docs/domain/risk-gates-and-compliance.md`
   - `docs/engine/knobs-and-sandbox-mapping.md`
   - `docs/app/routes-overview.md`
-- **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early; CI guard prevents committing deno.lock v5 (Supabase Edge supports lockfile v4) and per-function deno.json is adopted for valuation functions.
+- ✅ **Environment hygiene**: standardize lint entrypoint (`pnpm -w lint`) and add valuation spine drift doctor script to catch missing tables/functions early; CI guard prevents committing deno.lock v5 (Supabase Edge supports lockfile v4) and per-function deno.json is adopted for valuation functions.
+  - Evidence: devlog 2025-12-24 (Ops: Edge function deploy hygiene) + devlog 2025-12-13 (Slice 2.2.1 — release hygiene).
+  - Files: `scripts/doctor-valuation-spine.ps1`, `supabase/functions/deno.lock`, `supabase/functions/v1-valuation-run/deno.json`, `supabase/functions/v1-valuation-continuous-calibrate/deno.json`, `.github/workflows/ci.yml` (check-deno-lock-version).
 - **AI Persona Voice Tuning**:
   - Tri-agent pipeline (Analyst, Strategist, Negotiator) is already live via persona-aware `v1-ai-bridge`; Negotiator runs against `docs/ai/negotiation-matrix/*` and `negotiation_logic_tree.json`.
   - V2 focus: refine tones/copy for each persona, expand the negotiation matrix under the documented schema, and enrich `docs/ai/assistant-behavior-guide.md` with examples.
