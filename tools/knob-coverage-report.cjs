@@ -84,6 +84,18 @@ const keyAliases = {
   buyerCostsLineItemModelingMethod: ["buyer_costs_line_item_modeling_method"],
 };
 
+const traceRuleAliases = {
+  allowAdvisorOverrideWorkflowState: ["WORKFLOW_STATE_POLICY"],
+  carryMonthsMaximumCap: ["CARRY_MONTHS_POLICY"],
+  offerValidityPeriodDaysPolicy: ["DTM_URGENCY_POLICY"],
+  payoffAccrualBasisDayCountConvention: ["PAYOFF_POLICY"],
+  payoffAccrualComponents: ["PAYOFF_POLICY"],
+  payoffLetterEvidenceRequiredAttachment: ["PAYOFF_POLICY"],
+  repairsContingencyPercentageByClass: ["REPAIRS_POLICY"],
+  repairsHardMax: ["REPAIRS_POLICY"],
+  repairsSoftMaxVsArvPercentage: ["REPAIRS_POLICY"],
+};
+
 function fileHasKey(relativeFiles, key) {
   const needles = [key, ...(keyAliases[key] ?? [])];
   return relativeFiles.some((file) =>
@@ -125,6 +137,10 @@ function buildCoverageRows() {
     const builderText = policyBuilderFile;
     return fields.some((f) => engineText.includes(f) || builderText.includes(f));
   };
+  const traceHasRule = (rule) =>
+    targetFiles.trace.some((file) =>
+      readFile(file).includes(`rule: '${rule}'`),
+    );
 
   return keeps.map((meta) => {
     const ui =
@@ -137,7 +153,8 @@ function buildCoverageRows() {
       fileHasKey(targetFiles.engine, meta.key) || (policy && policyFieldUsedInEngine(policyFields));
     const trace =
       fileHasKey(targetFiles.trace, meta.key) ||
-      policyFields.some((f) => targetFiles.trace.some((file) => readFile(file).includes(f)));
+      policyFields.some((f) => targetFiles.trace.some((file) => readFile(file).includes(f))) ||
+      (traceRuleAliases[meta.key] ?? []).some((rule) => traceHasRule(rule));
 
     return {
       key: meta.key,

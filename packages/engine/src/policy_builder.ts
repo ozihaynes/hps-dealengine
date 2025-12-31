@@ -71,6 +71,8 @@ export function buildUnderwritingPolicyFromOptions(
   const ensureHoldFlip = () => ((ensureHoldCosts().flip ??= {}));
   const ensureHoldWholetail = () => ((ensureHoldCosts().wholetail ??= {}));
   const ensureHoldDefaults = () => ((ensureHoldCosts().default_monthly_bills ??= {}));
+  const ensurePayoffPolicy = () => (policy.payoff_policy ??= {});
+  const ensureRepairsPolicy = () => (policy.repairs_policy ??= {});
 
   // Valuation
   if (sandboxOptions.valuation) {
@@ -116,6 +118,19 @@ export function buildUnderwritingPolicyFromOptions(
       floors.payoff_move_out_cash_default = f.floorPayoffMoveOutCashDefault;
     if (f.floorPayoffMoveOutCashMax !== undefined) floors.payoff_move_out_cash_max = f.floorPayoffMoveOutCashMax;
     if (f.floorPayoffMoveOutCashMin !== undefined) floors.payoff_move_out_cash_min = f.floorPayoffMoveOutCashMin;
+  }
+
+  // Repairs
+  if (sandboxOptions.repairs) {
+    const r = sandboxOptions.repairs;
+    const repairs = ensureRepairsPolicy();
+    if (r.repairsContingencyPercentageByClass !== undefined) {
+      repairs.contingency_percentage_by_class = r.repairsContingencyPercentageByClass ?? null;
+    }
+    if (r.repairsHardMax !== undefined) repairs.hard_max = r.repairsHardMax ?? null;
+    if (r.repairsSoftMaxVsArvPercentage !== undefined) {
+      repairs.soft_max_vs_arv_pct = pctToDecimal(r.repairsSoftMaxVsArvPercentage);
+    }
   }
 
   // Spreads / ladder
@@ -237,6 +252,22 @@ export function buildUnderwritingPolicyFromOptions(
       ensureDocStamps().title_premium_rate_source = d.titlePremiumRateSource ?? null;
   }
 
+  // Debt payoff
+  if (sandboxOptions.debtPayoff) {
+    const d = sandboxOptions.debtPayoff;
+    const payoff = ensurePayoffPolicy();
+    if (d.payoffAccrualBasisDayCountConvention !== undefined) {
+      payoff.accrual_basis_day_count_convention = d.payoffAccrualBasisDayCountConvention ?? null;
+    }
+    if (d.payoffAccrualComponents !== undefined) {
+      payoff.accrual_components = d.payoffAccrualComponents ?? null;
+    }
+    if (d.payoffLetterEvidenceRequiredAttachment !== undefined) {
+      payoff.payoff_letter_evidence_required_attachment =
+        d.payoffLetterEvidenceRequiredAttachment ?? null;
+    }
+  }
+
   // Compliance / gates
   if (sandboxOptions.compliance_and_risk_gates) {
     const c = sandboxOptions.compliance_and_risk_gates;
@@ -281,7 +312,9 @@ export function buildUnderwritingPolicyFromOptions(
     if (sandboxOptions.timeline.defaultDaysToWholesaleClose !== undefined) {
       policy.dtm.default_wholesale_close_days = sandboxOptions.timeline.defaultDaysToWholesaleClose ?? null;
     }
-    // offerValidityDays retained inside dtm/timeline outputs via engine defaults; no extra mapping needed here.
+    if (sandboxOptions.timeline.offerValidityPeriodDaysPolicy !== undefined) {
+      policy.dtm.offer_validity_days = sandboxOptions.timeline.offerValidityPeriodDaysPolicy ?? null;
+    }
   }
 
   // Workflow / UX

@@ -57,6 +57,10 @@ export type SandboxPolicyOptions = {
     carryMonthsFormulaDefinition?: string | null;
     uninsurableAdderExtraHoldCosts?: number | null;
   };
+  carry_months_cap?: number | null;
+  dtm?: {
+    offer_validity_days?: number | null;
+  };
   holdCosts?: {
     flip?: {
       fast?: { monthly_pct_of_arv?: number | null };
@@ -107,6 +111,16 @@ export type SandboxPolicyOptions = {
     stateProgramGateFhaVaOverlays?: boolean;
     vaProgramRequirementsWdoWaterTestEvidence?: boolean;
     warrantabilityReviewRequirementCondoEligibilityScreens?: boolean;
+  };
+  payoff_policy?: {
+    accrual_basis_day_count_convention?: string | null;
+    accrual_components?: string[] | null;
+    payoff_letter_evidence_required_attachment?: boolean | null;
+  };
+  repairs_policy?: {
+    contingency_percentage_by_class?: Array<Record<string, unknown>> | null;
+    hard_max?: number | null;
+    soft_max_vs_arv_pct?: number | null;
   };
   workflow_policy?: {
     analyst_review_borderline_threshold?: number | null;
@@ -173,6 +187,15 @@ const toStringSafe = (value: unknown): string | undefined => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const toStringArray = (value: unknown): string[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  const values = value.filter((entry) => typeof entry === "string");
+  return values.length > 0 ? values : undefined;
+};
+
 const pctToDecimal = (value: unknown): number | undefined => {
   const num = Number(value);
   if (!Number.isFinite(num)) return undefined;
@@ -223,6 +246,9 @@ export function buildSandboxPolicyOptions(
       posture,
       "buyerSegmentationWholetailMaxRepairsAsArvPercentage",
     ),
+  );
+  const carryMonthsCap = toNumber(
+    pickPostureValue(sandbox, posture, "carryMonthsMaximumCap"),
   );
   const carryMonthsFormulaDefinition = toStringSafe(
     pickPostureValue(sandbox, posture, "carryMonthsFormulaDefinition"),
@@ -281,6 +307,9 @@ export function buildSandboxPolicyOptions(
       "dispositionRecommendationUrgentCashMaxAuctionDays",
     ),
   );
+  const offerValidityDays = toNumber(
+    pickPostureValue(sandbox, posture, "offerValidityPeriodDaysPolicy"),
+  );
   const dispositionTrackEnablement = Array.isArray(
     (sandbox as any)?.dispositionTrackEnablement,
   )
@@ -293,6 +322,31 @@ export function buildSandboxPolicyOptions(
   );
   const titlePremiumRateSource = toStringSafe(
     (sandbox as any)?.titlePremiumRateSource,
+  );
+  const payoffAccrualBasisDayCountConvention = toStringSafe(
+    pickPostureValue(sandbox, posture, "payoffAccrualBasisDayCountConvention"),
+  );
+  const payoffAccrualComponents = toStringArray(
+    pickPostureValue(sandbox, posture, "payoffAccrualComponents"),
+  );
+  const payoffLetterEvidenceRequiredAttachment = toBoolean(
+    pickPostureValue(sandbox, posture, "payoffLetterEvidenceRequiredAttachment"),
+  );
+  const repairsContingencyPercentageByClass = (() => {
+    const raw = pickPostureValue(
+      sandbox,
+      posture,
+      "repairsContingencyPercentageByClass",
+    );
+    if (!Array.isArray(raw)) return undefined;
+    const entries = raw.filter(isRecord);
+    return entries.length > 0 ? entries : undefined;
+  })();
+  const repairsHardMax = toNumber(
+    pickPostureValue(sandbox, posture, "repairsHardMax"),
+  );
+  const repairsSoftMaxVsArvPct = pctToDecimal(
+    pickPostureValue(sandbox, posture, "repairsSoftMaxVsArvPercentage"),
   );
   const compliance = {
     bankruptcyStayGateLegalBlock: toBoolean(
@@ -463,12 +517,11 @@ export function buildSandboxPolicyOptions(
         : undefined,
     },
     carry: {
-      carryMonthsCap: toNumber(
-        pickPostureValue(sandbox, posture, "carryMonthsMaximumCap"),
-      ),
+      carryMonthsCap,
       carryMonthsFormulaDefinition,
       uninsurableAdderExtraHoldCosts,
     },
+    carry_months_cap: carryMonthsCap,
     holdCosts: {
       flip: {
         fast: { monthly_pct_of_arv: holdCostsFlipFast },
@@ -501,15 +554,16 @@ export function buildSandboxPolicyOptions(
           "dispositionRecommendationUrgentCashMaxDtm",
         ),
       ),
-      offerValidityDays: toNumber(
-        pickPostureValue(sandbox, posture, "offerValidityPeriodDaysPolicy"),
-      ),
+      offerValidityDays,
       clearToCloseBufferDays,
       daysToMoneySelectionMethod,
       daysToMoneyDefaultCashCloseDays,
       defaultDaysToWholesaleClose,
       daysToMoneyMaxDays,
       dispositionRecommendationUrgentCashMaxAuctionDays,
+    },
+    dtm: {
+      offer_validity_days: offerValidityDays,
     },
     disposition: {
       doubleCloseMinSpreadThreshold: toNumber(
@@ -523,6 +577,17 @@ export function buildSandboxPolicyOptions(
       titlePremiumRateSource,
     },
     compliance,
+    payoff_policy: {
+      accrual_basis_day_count_convention: payoffAccrualBasisDayCountConvention,
+      accrual_components: payoffAccrualComponents,
+      payoff_letter_evidence_required_attachment:
+        payoffLetterEvidenceRequiredAttachment,
+    },
+    repairs_policy: {
+      contingency_percentage_by_class: repairsContingencyPercentageByClass,
+      hard_max: repairsHardMax,
+      soft_max_vs_arv_pct: repairsSoftMaxVsArvPct,
+    },
     workflow_policy: workflowPolicy,
     ux_policy: uxPolicy,
   };
