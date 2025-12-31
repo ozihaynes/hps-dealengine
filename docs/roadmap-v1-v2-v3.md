@@ -365,6 +365,7 @@ Fast-follow items that do not change V1 behavior:
 - ✅ Negotiator Playbook Unblock: handle OpenAI responses 429/token caps/dataset load resilience and user-facing retry/error copy.
 - ✅ Minor ergonomics: Sandbox/Startup/Deals copy and hints; numeric/UX-only knob presentation where safe (rounding, buyer-cost presentation) without changing math; NumericInput rollout across Underwrite/Repairs/DoubleClose complete.
 - ✅ Security: `v1-ping` now requires JWT (`verify_jwt=true`) and `/debug/ping` uses the caller token.
+- ✅ Security: `v1-analyze` now requires Authorization (`verify_jwt=true` + manual JWT guard) — complete in repo; not yet validated in prod. Files: `supabase/config.toml`, `supabase/functions/v1-analyze/index.ts`.
 
 ### Valuation Spine
 
@@ -416,6 +417,16 @@ Fast-follow items that do not change V1 behavior:
 - **Deeper economics and policy refinements**: uninsurable margin adders in offer selection; deterministic hold-cost per track/speed/zip; deterministic repairs totals by track; explicit AIV override % knob; richer DTM/gap tokens; doc-stamp/closing-cost tables feeding disposition math.
 - **UX/presentation refinements**: full consumption of UX-only knobs (bankers rounding, buyer-cost dual scenarios, line-item vs aggregate); richer cost stack/scenario presentation.
 - **Observability/support (v2 level)**: improved Sentry/OTel posture, lightweight support tooling.
+  - ✅ Slice 1 (instrumentation foundation + request correlation + Support ID in global error) complete in repo; not yet validated in prod.
+  - Files: `apps/hps-dealengine/instrumentation.ts`, `apps/hps-dealengine/middleware.ts`, `apps/hps-dealengine/app/global-error.tsx`, `apps/hps-dealengine/lib/o11y/requestId.ts`, `apps/hps-dealengine/lib/o11y/releaseInfo.ts`, `apps/hps-dealengine/package.json`, `pnpm-lock.yaml`.
+  - ✅ Slice 3 (policy snapshot linkage hardening) complete in repo; not yet validated in prod.
+  - Files: `supabase/functions/v1-analyze/index.ts`, `supabase/functions/v1-runs-save/index.ts`, `packages/contracts/src/analyze.ts`, `packages/contracts/src/runsSave.ts`, `apps/hps-dealengine/app/(app)/underwrite/page.tsx`, `apps/hps-dealengine/lib/edge.ts`, `docs/engine/architecture-overview.md`.
+  - ✅ Slice 4 (policyHash canonicalization + agent_runs persona alignment) complete in repo; not yet validated in prod.
+  - Files: `supabase/functions/v1-analyze/index.ts`, `apps/hps-dealengine/app/api/agents/analyst/route.ts`, `apps/hps-dealengine/app/api/agents/strategist/route.ts`, `apps/hps-dealengine/app/api/agents/negotiator/route.ts`, `deno.lock`.
+  - ✅ Slice 5 (Support Console MVP: tenant-safe + audited) complete in repo; not yet validated in prod.
+  - Files: `supabase/migrations/20251231125955_o11y_support_cases.sql`, `apps/hps-dealengine/app/(app)/admin/support/page.tsx`, `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`.
+  - ✅ Slice 6 (Support Console correlation hardening + API UUID validation) complete in repo; not yet validated in prod.
+  - Files: `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 - **Dashboard KPI Expansion (post Dual-Agent)**:
   - Promote selected candidates from `docs/dashboard/kpi-candidates.md` into real cards on `/dashboard`.
   - Close high-value gaps surfaced by `check:dashboard-coverage` (e.g., occupancy, structural flags, payoff buffer, Market Temp).

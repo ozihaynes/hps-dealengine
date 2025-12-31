@@ -34,3 +34,6 @@ tmp_ai_chat_*.py
 _audit_export/
 _tmp_public_schema.sql
 .env.qa
+.tmp/
+.tmp/codex-diffs/
+.tmp/codex-diffs/**

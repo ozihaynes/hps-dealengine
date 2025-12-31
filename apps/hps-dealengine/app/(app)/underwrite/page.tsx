@@ -575,6 +575,12 @@ export default function UnderwritePage() {
         policyVersion?: string;
         durationMs?: number;
       };
+      const policyVersionId =
+        typeof resultAny?.policyVersionId === "string"
+          ? resultAny.policyVersionId
+          : typeof resultAny?.policy_version_id === "string"
+            ? resultAny.policy_version_id
+            : null;
 
       const payloadMeta: {
         engineVersion?: string;
@@ -592,6 +598,9 @@ export default function UnderwritePage() {
       if (typeof metaRaw.durationMs === "number") {
         payloadMeta.durationMs = metaRaw.durationMs;
       }
+      if (!payloadMeta.policyVersion && policyVersionId) {
+        payloadMeta.policyVersion = policyVersionId;
+      }
 
       const response = (await saveRun({
         orgId,
@@ -604,6 +613,7 @@ export default function UnderwritePage() {
         meta: payloadMeta,
         repairProfile: repairRates ?? undefined,
         policySnapshot: (resultAny as any).policySnapshot,
+        policyVersionId,
       })) as RunSaveResponse;
 
       if (!response.ok) {

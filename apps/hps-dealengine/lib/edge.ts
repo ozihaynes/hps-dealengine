@@ -33,6 +33,7 @@ export interface SaveRunInput {
     source?: string;
     durationMs?: number;
   };
+  policyVersionId?: string | null;
   policySnapshot?: unknown;
 }
 

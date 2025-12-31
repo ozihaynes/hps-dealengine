@@ -118,7 +118,7 @@ async function ensureThread(
   const { error } = await supabase.from("ai_chat_threads").upsert(
     {
       id: params.threadId,
-      persona: "analyst",
+      persona: "dealAnalyst",
       org_id: params.orgId,
       user_id: params.userId,
       deal_id: params.dealId,
@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
       await supabase.from("agent_runs").insert({
         org_id: orgId,
         user_id: userId,
-        persona: "analyst",
+        persona: "dealAnalyst",
         agent_name: "HPS - Deal Analyst v2",
         workflow_version: "wf_6939e31f09bc8190b7c7c486389377e4066a586984412bb5",
         deal_id: dealId,
@@ -332,7 +332,7 @@ export async function POST(req: NextRequest) {
     await supabase.from("agent_runs").insert({
       org_id: orgId,
       user_id: userId,
-      persona: "analyst",
+      persona: "dealAnalyst",
       agent_name: "HPS - Deal Analyst v2",
       workflow_version: "wf_6939e31f09bc8190b7c7c486389377e4066a586984412bb5",
       deal_id: dealId,

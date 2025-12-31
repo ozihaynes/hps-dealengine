@@ -1,15 +1,24 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.0";
 import { computeUnderwriting } from "../_vendor/engine/index.js";
 import {
   buildUnderwritingPolicyFromOptions,
 } from "../_vendor/engine/policy_builder.js";
-import type { UnderwritingPolicy } from "../_vendor/engine/index.js";
+import { stableHash } from "../_shared/determinismHash.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+type UnderwritingPolicy = Record<string, unknown>;
+type InfoNeeded = {
+  path: string;
+  token?: string | null;
+  reason: string;
+  source_of_truth?: string;
 };
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -20,6 +29,31 @@ function jsonResponse(body: unknown, status = 200): Response {
       "Content-Type": "application/json",
     },
   });
+}
+
+function createSupabaseClient(authorization: string) {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY env vars.");
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: authorization,
+      },
+    },
+  });
+}
+
+function parseBearerToken(authorization: string | null): string | null {
+  if (!authorization) return null;
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1]?.trim();
+  return token ? token : null;
 }
 
 /**
@@ -111,8 +145,11 @@ type AnalyzeOutputs = {
 
 type AnalyzeResult = {
   outputs: AnalyzeOutputs;
-  infoNeeded: string[];
+  infoNeeded: InfoNeeded[];
   trace: unknown;
+  policySnapshot?: unknown;
+  policyHash?: string | null;
+  policyVersionId?: string | null;
 };
 
 type TraceFrame = {
@@ -123,7 +160,11 @@ type TraceFrame = {
 
 type AnalyzeOkEnvelope = {
   ok: true;
+  outputs?: AnalyzeOutputs;
   result: AnalyzeResult;
+  policySnapshot?: unknown;
+  policyHash?: string | null;
+  policyVersionId?: string | null;
 };
 
 type AnalyzeErrorEnvelope = {
@@ -156,11 +197,35 @@ function coerceInput(raw: unknown): {
   input: AnalyzeInput;
   sandboxOptions?: AnalyzeSandboxOptions;
   sandboxSnapshot?: unknown;
+  orgId: string | null;
+  dealId: string | null;
+  policyVersionId: string | null;
 } {
   const anyRaw = raw as any;
 
   const dealLike =
     anyRaw && typeof anyRaw.deal === "object" ? anyRaw.deal : anyRaw;
+
+  const orgId =
+    typeof anyRaw?.org_id === "string"
+      ? anyRaw.org_id
+      : typeof anyRaw?.orgId === "string"
+        ? anyRaw.orgId
+        : null;
+
+  const dealId =
+    typeof dealLike?.dealId === "string"
+      ? dealLike.dealId
+      : typeof anyRaw?.dealId === "string"
+        ? anyRaw.dealId
+        : null;
+
+  const policyVersionId =
+    typeof anyRaw?.policy_version_id === "string"
+      ? anyRaw.policy_version_id
+      : typeof anyRaw?.policyVersionId === "string"
+        ? anyRaw.policyVersionId
+        : null;
 
   const posture: string | null =
     (anyRaw?.posture as string | undefined) ??
@@ -210,6 +275,9 @@ function coerceInput(raw: unknown): {
     input,
     sandboxOptions: anyRaw?.sandboxOptions ?? anyRaw?.analysisOptions,
     sandboxSnapshot: anyRaw?.sandboxSnapshot ?? anyRaw?.sandbox,
+    orgId,
+    dealId,
+    policyVersionId,
   };
 }
 
@@ -258,6 +326,74 @@ function validateInput(posture: string | null, input: AnalyzeInput): {
   return { ok: true };
 }
 
+type PolicyVersionRow = {
+  id: string;
+  org_id: string;
+  posture: string;
+  policy_json: unknown;
+  created_at?: string;
+};
+
+async function resolveOrgId(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  orgId: string | null,
+  dealId: string | null,
+): Promise<string | null> {
+  if (orgId) return orgId;
+  if (!dealId) return null;
+
+  const { data, error } = await supabase
+    .from("deals")
+    .select("org_id")
+    .eq("id", dealId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[v1-analyze] deal org lookup failed", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+    });
+    return null;
+  }
+
+  return typeof data?.org_id === "string" ? data.org_id : null;
+}
+
+async function loadPolicyVersion(
+  supabase: ReturnType<typeof createSupabaseClient>,
+  orgId: string,
+  posture: string | null,
+  policyVersionId: string | null,
+): Promise<{ row: PolicyVersionRow | null; error: unknown | null }> {
+  if (policyVersionId) {
+    let query = supabase
+      .from("policy_versions")
+      .select("id, org_id, posture, policy_json, created_at")
+      .eq("org_id", orgId)
+      .eq("id", policyVersionId);
+
+    if (posture) {
+      query = query.eq("posture", posture);
+    }
+
+    const { data, error } = await query.maybeSingle();
+    return { row: (data as PolicyVersionRow | null) ?? null, error: error ?? null };
+  }
+
+  const postureKey = posture ?? "base";
+  const { data, error } = await supabase
+    .from("policy_versions")
+    .select("id, org_id, posture, policy_json, created_at")
+    .eq("org_id", orgId)
+    .eq("posture", postureKey)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return { row: (data as PolicyVersionRow | null) ?? null, error: error ?? null };
+}
+
 serve(async (req: Request): Promise<Response> => {
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -272,6 +408,44 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 405);
   }
 
+  const requestId = req.headers.get("x-request-id") ?? "(missing)";
+  const hasTraceparent = Boolean(req.headers.get("traceparent"));
+  const hasTracestate = Boolean(req.headers.get("tracestate"));
+  console.info("[v1-analyze] request", {
+    function: "v1-analyze",
+    request_id: requestId,
+    has_traceparent: hasTraceparent,
+    has_tracestate: hasTracestate,
+  });
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader) {
+    return jsonResponse({ error: "missing_authorization" }, 401);
+  }
+
+  const token = parseBearerToken(authHeader);
+  if (!token) {
+    return jsonResponse({ error: "invalid_authorization" }, 401);
+  }
+
+  let supabase;
+  try {
+    supabase = createSupabaseClient(`Bearer ${token}`);
+  } catch (error) {
+    console.error("[v1-analyze] auth config error", error);
+    return jsonResponse({ error: "server_misconfigured" }, 500);
+  }
+
+  try {
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return jsonResponse({ error: "unauthorized" }, 401);
+    }
+  } catch (error) {
+    console.error("[v1-analyze] auth check failed", error);
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
+
   let raw: unknown;
   try {
     raw = await req.json();
@@ -283,7 +457,14 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 400);
   }
 
-  const { posture, input, sandboxOptions, sandboxSnapshot } = coerceInput(raw);
+  const {
+    posture,
+    input,
+    sandboxOptions,
+    orgId: rawOrgId,
+    dealId,
+    policyVersionId: requestedPolicyVersionId,
+  } = coerceInput(raw);
 
   const validation = validateInput(posture, input);
   if (!validation.ok) {
@@ -297,11 +478,73 @@ serve(async (req: Request): Promise<Response> => {
     return jsonResponse(envelope, 400);
   }
 
-  const basePolicy: UnderwritingPolicy = {} as UnderwritingPolicy;
+  const orgId = await resolveOrgId(supabase, rawOrgId, dealId);
+  if (!orgId) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: "Missing org_id; provide org_id or dealId in AnalyzeInput.",
+        code: "missing_org_id",
+      },
+    };
+    return jsonResponse(envelope, 400);
+  }
+
+  const { row: policyRow, error: policyError } = await loadPolicyVersion(
+    supabase,
+    orgId,
+    posture,
+    requestedPolicyVersionId,
+  );
+
+  if (policyError) {
+    console.error("[v1-analyze] policy lookup failed", policyError);
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: "Failed to load policy snapshot.",
+        code: "policy_lookup_failed",
+      },
+    };
+    return jsonResponse(envelope, 500);
+  }
+
+  if (!policyRow) {
+    const envelope: AnalyzeErrorEnvelope = {
+      ok: false,
+      error: {
+        message: requestedPolicyVersionId
+          ? "Policy version not found for caller org."
+          : "Active policy snapshot not found for caller org/posture.",
+        code: requestedPolicyVersionId
+          ? "policy_version_not_found"
+          : "policy_not_found",
+        details: {
+          orgId,
+          posture: posture ?? "base",
+          policyVersionId: requestedPolicyVersionId ?? null,
+        },
+      },
+    };
+    return jsonResponse(envelope, 404);
+  }
+
+  const basePolicyRaw = policyRow.policy_json ?? {};
+  const basePolicy =
+    basePolicyRaw && typeof basePolicyRaw === "object"
+      ? (basePolicyRaw as UnderwritingPolicy)
+      : ({} as UnderwritingPolicy);
+
   const uwPolicy = buildUnderwritingPolicyFromOptions(
     basePolicy,
     sandboxOptions ?? null,
   );
+
+  const policySnapshot = JSON.parse(
+    JSON.stringify(uwPolicy ?? {}),
+  ) as unknown;
+  const policyHash = await stableHash(policySnapshot);
+  const policyVersionId = policyRow.id;
 
   const deal = {
     market: {
@@ -314,7 +557,10 @@ serve(async (req: Request): Promise<Response> => {
     },
   };
 
-  const result = computeUnderwriting(deal as unknown as Record<string, unknown>, uwPolicy as unknown as Record<string, unknown>);
+  const result = computeUnderwriting(
+    deal as unknown as Record<string, unknown>,
+    policySnapshot as unknown as Record<string, unknown>,
+  );
 
   if (!result.ok) {
     const envelope: AnalyzeErrorEnvelope = {
@@ -332,7 +578,7 @@ serve(async (req: Request): Promise<Response> => {
   };
   const traceWithProvenance = [...traceFrames, provenanceFrame];
 
-  const outputs = result.outputs as AnalyzeOutputs;
+  const outputs = result.outputs as unknown as AnalyzeOutputs;
   const aivCapPct = 0.97;
   const aiv = input.aiv ?? outputs.aiv ?? null;
   const arv = input.arv ?? outputs.arv ?? null;
@@ -370,16 +616,23 @@ serve(async (req: Request): Promise<Response> => {
     borderline_flag: borderlineFlag ?? null,
   };
 
+  const analyzeResult: AnalyzeResult = {
+    outputs: mergedOutputs,
+    infoNeeded: result.infoNeeded ?? [],
+    trace: traceWithProvenance,
+    policySnapshot,
+    policyHash,
+    policyVersionId,
+  };
+
   const envelope: AnalyzeOkEnvelope = {
     ok: true,
     // Back-compat for consumers expecting outputs at the top level.
-    // @ts-expect-error widen envelope for convenience
     outputs: mergedOutputs,
-    result: {
-      outputs: mergedOutputs,
-      infoNeeded: result.infoNeeded ?? [],
-      trace: traceWithProvenance,
-    },
+    policySnapshot,
+    policyHash,
+    policyVersionId,
+    result: analyzeResult,
   };
 
   return jsonResponse(envelope, 200);

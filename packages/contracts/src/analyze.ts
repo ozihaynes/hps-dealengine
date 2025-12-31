@@ -283,6 +283,8 @@ export const AnalyzeInputSchema = z.union([
   .object({
     org_id: z.string().uuid().optional(),
     posture: z.enum(Postures).optional(),
+    policy_version_id: z.string().uuid().optional(),
+    policyVersionId: z.string().uuid().optional(),
     sandboxOptions: AnalyzeSandboxOptionsSchema.optional(),
     sandboxSnapshot: z.unknown().optional(),
     repairProfile: RepairRatesSchema.extend({
@@ -496,6 +498,9 @@ export const AnalyzeResultSchema = z
     outputs: AnalyzeOutputsSchema,
     infoNeeded: z.array(z.string()).default([]),
     trace: z.any(),
+    policySnapshot: z.unknown().optional(),
+    policyHash: z.string().nullable().optional(),
+    policyVersionId: z.string().uuid().nullable().optional(),
   })
   .strict();
 

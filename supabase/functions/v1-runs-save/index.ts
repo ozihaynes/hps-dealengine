@@ -152,6 +152,7 @@ const SaveRunArgsSchema = z.object({
       durationMs: z.number().optional(),
     })
     .default({}),
+  policyVersionId: z.string().uuid().nullable().optional(),
   // Flexible snapshot; upstream policy logic is responsible for shape.
   policySnapshot: z.unknown().optional(),
 });
@@ -162,6 +163,7 @@ type RunRowInsert = {
   org_id: string;
   posture: string;
   deal_id: string;
+  policy_version_id: string | null;
   input: RunInputEnvelope;
   output: RunOutputEnvelope;
   trace: RunTraceFrame[];
@@ -258,6 +260,7 @@ function buildRunRow(args: SaveRunArgs, createdBy: string): RunRowInsert {
     org_id: args.orgId,
     posture: args.posture,
     deal_id: args.dealId,
+    policy_version_id: args.policyVersionId ?? null,
     input: inputEnvelope,
     output: outputEnvelope,
     trace: outputEnvelope.trace,
@@ -313,12 +316,25 @@ serve(async (req: Request): Promise<Response> => {
     }
 
     const args = parsed.data;
+    const policySnapshot = args.policySnapshot ?? null;
+    const policyVersionId =
+      typeof args.policyVersionId === "string" ? args.policyVersionId : null;
+
+    if (!policySnapshot || !policyVersionId) {
+      return errorResponse(
+        400,
+        "missing_policy_snapshot_linkage",
+        "Run save requires policySnapshot and policyVersionId.",
+      );
+    }
     payloadSummary = {
       orgId: args.orgId,
       dealId: args.dealId,
       posture: args.posture,
       hasOutputs: typeof args.outputs !== "undefined",
       traceCount: Array.isArray(args.trace) ? args.trace.length : 0,
+      hasPolicySnapshot: true,
+      policyVersionId,
     };
 
     const authHeader = req.headers.get("Authorization");
