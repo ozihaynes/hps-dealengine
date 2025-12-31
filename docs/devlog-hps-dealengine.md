@@ -131,6 +131,13 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 - Support case creation defaults request_id/trace_id anchors when missing; client support fetches now send `x-request-id`.
 - Files: `apps/hps-dealengine/app/(app)/admin/support/[caseId]/page.tsx`, `apps/hps-dealengine/app/api/admin/support/_shared.ts`, `apps/hps-dealengine/app/api/admin/support/cases/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/route.ts`, `apps/hps-dealengine/app/api/admin/support/cases/[caseId]/events/route.ts`, `apps/hps-dealengine/lib/supportCases.ts`, `docs/devlog-hps-dealengine.md`, `docs/roadmap-v1-v2-v3.md`.
 
+### 2025-12-31 - Observability Support: prod validation closeout
+
+- PR #21 merged.
+- Supabase migration `20251231125955_o11y_support_cases.sql` applied to prod (project ref `zjkihnihhqmnhpxkecpy`).
+- Prod smoke validation executed: support cases list/create/note/status/detail.
+- Evidence zip: `docs/audits/o11y-support-prod-validate-2025-12-31_143756.zip`.
+
 ### 2025-12-31 - Phase 3 closeout: KPI gate alignment + wiring docs
 
 - KPI inventory aligned to outputs.risk_summary.per_gate keys (split fha_va_flip into fha_90_day + fha_va_overlays; replaced firpta with firpta_withholding; added bankruptcy_stay, flood_50_rule, va_wdo_water, warrantability_review).
