@@ -165,21 +165,20 @@ serve(async (req: Request): Promise<Response> => {
       // Non-fatal - continue without existing submission
     }
 
-    // Get deal context (address info)
+    // Get deal context (address info) - deals have top-level address fields
     const { data: deal, error: dealError } = await supabase
       .from("deals")
-      .select("payload")
+      .select("address, city, state, zip")
       .eq("id", link.deal_id)
       .maybeSingle();
 
     let dealContext = null;
-    if (!dealError && deal?.payload) {
-      const payload = deal.payload as Record<string, unknown>;
+    if (!dealError && deal) {
       dealContext = {
-        address: payload.address ?? payload.propertyAddress ?? null,
-        city: payload.city ?? null,
-        state: payload.state ?? null,
-        zip: payload.zip ?? payload.zipCode ?? null,
+        address: deal.address ?? null,
+        city: deal.city ?? null,
+        state: deal.state ?? null,
+        zip: deal.zip ?? null,
       };
     }
 
@@ -191,32 +190,19 @@ serve(async (req: Request): Promise<Response> => {
         .eq("id", link.id);
     }
 
+    // Return flat format matching frontend ValidateTokenResponse type
     return jsonResponse(req, {
       valid: true,
-      link: {
-        id: link.id,
-        org_id: link.org_id,
-        deal_id: link.deal_id,
-        intake_schema_version_id: link.intake_schema_version_id,
-        recipient_name: link.recipient_name,
-        status: link.status === "SENT" ? "IN_PROGRESS" : link.status,
-        expires_at: link.expires_at,
-        created_at: link.created_at,
-      },
+      link_id: link.id,
+      recipient_name: link.recipient_name,
+      expires_at: link.expires_at,
       schema: {
         version: schemaVersion.semantic_version,
         title: schemaVersion.display_name,
         description: schemaVersion.description,
         ...schemaVersion.schema_public_json,
       },
-      existing_submission: existingSubmission
-        ? {
-            id: existingSubmission.id,
-            status: existingSubmission.status,
-            payload_json: existingSubmission.payload_json,
-            updated_at: existingSubmission.updated_at,
-          }
-        : null,
+      existing_payload: existingSubmission?.payload_json ?? null,
       deal_context: dealContext,
     });
   } catch (err: unknown) {
