@@ -53,10 +53,22 @@ export function IntakeForm({
 
   const hasEvidenceUploads = evidenceUploads.length > 0;
 
-  const sections = schema.sections;
+  // Defensive: ensure sections is always an array
+  const sections = schema.sections ?? [];
   const currentSection = sections[currentSectionIndex];
   const isFirstSection = currentSectionIndex === 0;
   const isLastSection = currentSectionIndex === sections.length - 1;
+
+  // If no sections or currentSection is invalid, show error
+  if (sections.length === 0 || !currentSection) {
+    return (
+      <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-6">
+        <p className="text-sm text-red-300">
+          Unable to load form sections. Please try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   // Auto-save hook
   const { status: autoSaveStatus, scheduleAutoSave } = useIntakeAutoSave({
@@ -92,7 +104,9 @@ export function IntakeForm({
     const newErrors: Record<string, string> = {};
     let isValid = true;
 
-    for (const field of currentSection.fields) {
+    // Defensive: ensure fields is an array
+    const fields = currentSection?.fields ?? [];
+    for (const field of fields) {
       if (field.required) {
         const value = values[field.key];
         if (value === undefined || value === null || value === "") {

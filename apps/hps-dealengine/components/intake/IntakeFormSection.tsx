@@ -33,7 +33,7 @@ export function IntakeFormSection({
 
       {/* Fields */}
       <div className="space-y-4">
-        {section.fields.map((field) => (
+        {(section.fields ?? []).map((field) => (
           <IntakeFormField
             key={field.key}
             field={field}
