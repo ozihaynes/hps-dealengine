@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use, useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { IntakeForm } from "@/components/intake/IntakeForm";
 import { validateIntakeToken, type IntakeSchemaApi } from "@/lib/intakePublic";
 
@@ -24,12 +24,12 @@ type ValidTokenData = {
 };
 
 type PageProps = {
-  params: Promise<{ token: string }>;
+  params: { token: string };
 };
 
 export default function IntakeFormPage({ params }: PageProps) {
-  // Unwrap params using React.use() for Next.js 15 async params
-  const { token: tokenValue } = use(params);
+  // Next.js 14 - params is a direct object, not a Promise
+  const tokenValue = params.token;
 
   const [tokenState, setTokenState] = useState<TokenState>({ status: "loading" });
   const [submitted, setSubmitted] = useState(false);
