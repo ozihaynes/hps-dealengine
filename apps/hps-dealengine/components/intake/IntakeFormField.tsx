@@ -10,6 +10,43 @@ type IntakeFormFieldProps = {
   error?: string;
 };
 
+/**
+ * Safely extract a displayable string from a value that might be:
+ * - A string
+ * - A number
+ * - An object with {label, value} or {value} shape
+ * - null/undefined
+ */
+function safeStringValue(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "number") return String(val);
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    if (typeof obj.value === "string") return obj.value;
+    if (typeof obj.label === "string") return obj.label;
+  }
+  return "";
+}
+
+/**
+ * Extract option value and label from an option that might be:
+ * - A string (use as both value and label)
+ * - An object with {label, value}
+ */
+function extractOption(opt: unknown): { value: string; label: string } {
+  if (typeof opt === "string") {
+    return { value: opt, label: opt };
+  }
+  if (typeof opt === "object" && opt !== null) {
+    const obj = opt as Record<string, unknown>;
+    const value = typeof obj.value === "string" ? obj.value : String(obj.value ?? "");
+    const label = typeof obj.label === "string" ? obj.label : value;
+    return { value, label };
+  }
+  return { value: "", label: "" };
+}
+
 export function IntakeFormField({
   field,
   value,
@@ -37,7 +74,7 @@ export function IntakeFormField({
         return (
           <input
             type={field.type === "phone" ? "tel" : field.type}
-            value={(value as string) ?? ""}
+            value={safeStringValue(value)}
             onChange={(e) => handleChange(e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
@@ -85,7 +122,7 @@ export function IntakeFormField({
         return (
           <input
             type="date"
-            value={(value as string) ?? ""}
+            value={safeStringValue(value)}
             onChange={(e) => handleChange(e.target.value)}
             className={baseInputClass}
           />
@@ -94,18 +131,21 @@ export function IntakeFormField({
       case "select":
         return (
           <select
-            value={(value as string) ?? ""}
+            value={safeStringValue(value)}
             onChange={(e) => handleChange(e.target.value)}
             className={baseInputClass}
           >
             <option value="">
               {field.placeholder ?? "Select an option..."}
             </option>
-            {field.options?.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
+            {field.options?.map((option, idx) => {
+              const { value: optValue, label: optLabel } = extractOption(option);
+              return (
+                <option key={optValue || idx} value={optValue}>
+                  {optLabel}
+                </option>
+              );
+            })}
           </select>
         );
 
@@ -142,7 +182,7 @@ export function IntakeFormField({
       case "textarea":
         return (
           <textarea
-            value={(value as string) ?? ""}
+            value={safeStringValue(value)}
             onChange={(e) => handleChange(e.target.value)}
             placeholder={field.placeholder}
             rows={4}
@@ -154,7 +194,7 @@ export function IntakeFormField({
         return (
           <input
             type="text"
-            value={(value as string) ?? ""}
+            value={safeStringValue(value)}
             onChange={(e) => handleChange(e.target.value)}
             placeholder={field.placeholder}
             className={baseInputClass}
