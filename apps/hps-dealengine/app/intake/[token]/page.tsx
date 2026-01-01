@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { use, useEffect, useState, useCallback } from "react";
 import { IntakeForm } from "@/components/intake/IntakeForm";
 import { validateIntakeToken, type IntakeSchemaApi } from "@/lib/intakePublic";
 
@@ -28,14 +28,11 @@ type PageProps = {
 };
 
 export default function IntakeFormPage({ params }: PageProps) {
+  // Unwrap params using React.use() for Next.js 15 async params
+  const { token: tokenValue } = use(params);
+
   const [tokenState, setTokenState] = useState<TokenState>({ status: "loading" });
   const [submitted, setSubmitted] = useState(false);
-  const [tokenValue, setTokenValue] = useState<string | null>(null);
-
-  // Unwrap params (Next.js 15 async params)
-  useEffect(() => {
-    params.then((p) => setTokenValue(p.token));
-  }, [params]);
 
   // Validate token on mount
   useEffect(() => {
@@ -83,7 +80,7 @@ export default function IntakeFormPage({ params }: PageProps) {
   }, []);
 
   // Loading state
-  if (tokenState.status === "loading" || !tokenValue) {
+  if (tokenState.status === "loading") {
     return (
       <div className="flex flex-col items-center justify-center py-16">
         <div className="mb-4 h-8 w-8 animate-spin rounded-full border-2 border-[color:var(--accent-blue)] border-t-transparent" />
