@@ -83,6 +83,20 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2026-01-01 — CLIENT-INTAKE-AUTOFILL-v1: Complete feature shipped
+
+Token-gated client intake form system is complete across all 7 slices:
+
+- **Slice 1**: Config-first foundation with `intake_schema_versions`, `intake_links`, `intake_submissions`, `intake_submission_files`, `intake_population_events` tables; immutability triggers; RLS policies for org-scoped staff access and token-gated anon access.
+- **Slice 2**: Token-gated public API via Edge Functions (`v1-intake-schema`, `v1-intake-submission`) with x-intake-token header auth; SHA-256 hashing; expiration enforcement.
+- **Slice 3**: Multi-section wizard form (`IntakeForm`) with auto-save via `useIntakeAutoSave` hook; 30s debounced save; section validation; progress bar navigation.
+- **Slice 4**: Staff inbox (`/intake-inbox`) with filters, status badges, submission detail view; `SendIntakeLinkModal` on deal page with copy-to-clipboard URL.
+- **Slice 5**: Population engine (`lib/populationEngine.ts`) with deterministic + idempotent field mapping; `v1-intake-populate` Edge Function; `PopulateSubmissionModal` for preview + confirm.
+- **Slice 6**: File upload flow with storage bucket (`intake`), quarantine model, signed URLs, stub virus scanning via `v1-intake-upload-start` and `v1-intake-upload-complete`; `FileUploadZone` and `FileListDisplay` components.
+- **Slice 7**: E2E test (`intake-flow.spec.ts`), dev schema seed (`bootstrap/intake_schema_seed.sql`), feature documentation (`docs/features/client-intake-autofill.md`), inbox empty state polish.
+
+Key files: `supabase/migrations/20260101180000_intake_schema_foundation.sql`, `supabase/migrations/20260101190000_intake_storage_bucket.sql`, `supabase/functions/v1-intake-*`, `apps/hps-dealengine/components/intake/*`, `apps/hps-dealengine/app/intake/*`, `apps/hps-dealengine/app/(app)/intake-inbox/*`.
+
 ### 2025-12-31 — Environment hygiene: valuation doctor offline + CI gate
 
 - Doctor now passes offline by default; deep mode gated on env vars (no secrets required).

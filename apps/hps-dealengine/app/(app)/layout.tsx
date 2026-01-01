@@ -22,6 +22,7 @@ import { Icons } from "../../lib/ui-v2-constants";
 import DualAgentLauncher from "@/components/ai/DualAgentLauncher";
 import { AiWindowsProvider } from "@/lib/ai/aiWindowsContext";
 import OfferChecklistPanel from "@/components/offerChecklist/OfferChecklistPanel";
+import { IntakeNavItem } from "@/components/intake/IntakeNavItem";
 
 const NAV_ITEMS = [
   { href: "/overview", label: "Dashboard", icon: Icons.barChart, requireDeal: true, cluster: "left" as const },
@@ -169,6 +170,7 @@ function AppTabNav({ onOpenOffer }: { onOpenOffer?: () => void }) {
               <span>{item.label}</span>
             </Link>
           ))}
+          <IntakeNavItem />
         {dbDeal?.id ? (
           <button
             type="button"

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx supabase:*)",
+      "Bash(pnpm --filter \"@hps-internal/contracts\" build:*)",
+      "Bash(pnpm -w typecheck:*)",
+      "Bash(pnpm -w build:*)",
+      "Bash(pnpm supabase functions deploy:*)",
+      "Bash(pnpm supabase db push:*)",
+      "Bash(pnpm:*)",
+      "Bash(cd:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

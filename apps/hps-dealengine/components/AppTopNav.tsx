@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 
 /**
  * Top application header:
- * - Left: Haynes / DealEngineT brand lockup
+ * - Left: single brand logo image
  * - Right: sandbox + settings entrypoints + "Analyze with AI" CTA
  *
  * Still dispatches the global "hps:analyze-now" CustomEvent so
@@ -24,30 +24,17 @@ export default function AppTopNav() {
 
   return (
     <div className="flex w-full items-center justify-between gap-4 text-[color:var(--text-primary)]">
-      {/* Brand lockup */}
-      <div className="flex items-center gap-3">
+      {/* Brand logo */}
+      <div className="flex items-center">
         <Image
-          src="/hps_flat_logo.png"
+          src="/Picsart_25-12-19_19-44-12-204.png"
           alt="HPS DealEngine logo"
-          width={1024}
-          height={364}
+          width={3464}
+          height={667}
           className="h-[3.25rem] w-auto"
           priority
         />
-        <div className="flex flex-col leading-tight">
-          <span className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--text-secondary)]">
-            Haynes Property Solutions
-          </span>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-semibold text-[color:var(--text-primary)]">
-              DealEngine<span className="align-super text-[10px]">TM</span>
-            </span>
-            <span className="rounded-full border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--text-secondary)]">
-              v1
-            </span>
-          </div>
-        </div>
-        </div>
+      </div>
 
       {/* Right-side controls */}
       <div className="flex items-center gap-3">

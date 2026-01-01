@@ -17,7 +17,7 @@ export type TopDealKpisProps = {
   speedBand?: string | null;
   riskOverall?: string | null;
   confidenceGrade?: string | null;
-  workflowState?: string | null;
+  workflowState?: unknown; // May be string or object from engine outputs
 };
 
 const Tile = ({
@@ -44,8 +44,8 @@ const Tile = ({
 const formatPct = (n: number | null | undefined) =>
   n == null || !Number.isFinite(n) ? "-" : `${(n * 100).toFixed(1)}%`;
 
-const workflowBadgeColor = (state?: string | null) => {
-  if (!state) return "blue" as const;
+const workflowBadgeColor = (state?: unknown) => {
+  if (!state || typeof state !== "string") return "blue" as const;
   const s = state.toLowerCase();
   if (s.includes("ready")) return "green" as const;
   if (s.includes("review")) return "orange" as const;
@@ -54,6 +54,9 @@ const workflowBadgeColor = (state?: string | null) => {
 };
 
 export function TopDealKpis(props: TopDealKpisProps) {
+  // Safely extract workflow state as string (handles object outputs from engine)
+  const workflowStateStr = typeof props.workflowState === "string" ? props.workflowState : null;
+
   const discountPctLabel = formatPct(props.discountToArvPct);
   const discountDollarLabel =
     props.discountToArvDollars != null && Number.isFinite(props.discountToArvDollars)
@@ -79,9 +82,9 @@ export function TopDealKpis(props: TopDealKpisProps) {
           {props.confidenceGrade && (
             <Badge color="blue">Conf {props.confidenceGrade}</Badge>
           )}
-          {props.workflowState && (
-            <Badge color={workflowBadgeColor(props.workflowState)}>
-              {props.workflowState}
+          {workflowStateStr && (
+            <Badge color={workflowBadgeColor(workflowStateStr)}>
+              {workflowStateStr}
             </Badge>
           )}
           {props.riskOverall && (

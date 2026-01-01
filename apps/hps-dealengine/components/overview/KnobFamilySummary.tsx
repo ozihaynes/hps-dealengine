@@ -2,6 +2,26 @@ import React from "react";
 import { GlassCard, Badge } from "@/components/ui";
 import { fmt$ } from "@/utils/helpers";
 
+/**
+ * Safely extract a displayable string from engine output values.
+ * Engine outputs may be strings, objects with status/note fields, or null.
+ */
+function safeDisplayValue(val: unknown): string | null {
+  if (val == null) return null;
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    // Prefer status field for workflow-like objects
+    if (typeof obj.status === "string") return obj.status;
+    // Fall back to note if present
+    if (typeof obj.note === "string") return obj.note;
+    // Last resort: stringify
+    return null;
+  }
+  return null;
+}
+
 type Props = {
   runOutput: any;
   title?: string;
@@ -58,10 +78,10 @@ export default function KnobFamilySummary({ runOutput, title = "Quick Glance" }:
   const timeline = outputs?.timeline_summary ?? {};
   const risk = outputs?.risk_summary ?? {};
   const evidence = outputs?.evidence_summary ?? {};
-  const workflowState = outputs?.workflow_state ?? null;
+  const workflowState = safeDisplayValue(outputs?.workflow_state);
   const workflowReasons: string[] = outputs?.workflow_reasons ?? [];
-  const confidenceGrade = outputs?.confidence_grade ?? null;
-  const cashGateStatus = outputs?.cash_gate_status ?? null;
+  const confidenceGrade = safeDisplayValue(outputs?.confidence_grade);
+  const cashGateStatus = safeDisplayValue(outputs?.cash_gate_status);
   const borderlineFlag = outputs?.borderline_flag ?? null;
 
   const valuationTrace = findTrace("VALUATION_BOUNDS") as any;

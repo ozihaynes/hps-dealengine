@@ -352,3 +352,39 @@ verify_jwt = true
 [functions.v1-analyze]
 verify_jwt = true
 
+[functions.v1-intake-send-link]
+verify_jwt = true
+
+# Public intake form endpoints (token-gated, no JWT required)
+[functions.v1-intake-validate-token]
+verify_jwt = false
+
+[functions.v1-intake-save-draft]
+verify_jwt = false
+
+[functions.v1-intake-submit]
+verify_jwt = false
+
+# Staff intake management endpoints (JWT required)
+[functions.v1-intake-inbox]
+verify_jwt = true
+
+[functions.v1-intake-submission-detail]
+verify_jwt = true
+
+[functions.v1-intake-request-revision]
+verify_jwt = true
+
+[functions.v1-intake-reject]
+verify_jwt = true
+
+[functions.v1-intake-populate]
+verify_jwt = true
+
+# Public file upload endpoints (token-gated, no JWT required)
+[functions.v1-intake-upload-start]
+verify_jwt = false
+
+[functions.v1-intake-upload-complete]
+verify_jwt = false
+

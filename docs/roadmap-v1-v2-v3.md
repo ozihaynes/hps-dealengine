@@ -343,7 +343,17 @@ V1 is complete; new slices should come from v1.1 hardening or v2/v3 themes below
 
 ## 2 V1.1 / Hardening (Near-Term)
 
-Recently shipped (Dec 2025):
+Recently shipped (Dec 2025 - Jan 2026):
+
+- ✅ **CLIENT-INTAKE-AUTOFILL-v1** (Jan 2026): Token-gated client intake form system with 7 slices complete:
+  - Slice 1: Config-first foundation (intake_schema_versions, intake_links, intake_submissions, intake_submission_files, intake_population_events tables + RLS + immutability triggers).
+  - Slice 2: Token-gated public API (v1-intake-schema, v1-intake-submission Edge Functions with x-intake-token header auth).
+  - Slice 3: Multi-section wizard form (IntakeForm component with auto-save via useIntakeAutoSave hook, 30s debounce, section validation).
+  - Slice 4: Staff inbox (/intake-inbox with filters, status badges, SendIntakeLinkModal on deal page with copy URL).
+  - Slice 5: Population engine (lib/populationEngine.ts with deterministic+idempotent field mapping, v1-intake-populate Edge Function, PopulateSubmissionModal).
+  - Slice 6: File upload flow (intake storage bucket, quarantine model, v1-intake-upload-start/complete Edge Functions, FileUploadZone/FileListDisplay components).
+  - Slice 7: E2E test + polish (intake-flow.spec.ts, bootstrap/intake_schema_seed.sql, docs/features/client-intake-autofill.md, inbox empty state).
+  - Key files: `supabase/migrations/20260101180000_intake_schema_foundation.sql`, `supabase/migrations/20260101190000_intake_storage_bucket.sql`, `supabase/functions/v1-intake-*`, `apps/hps-dealengine/components/intake/*`, `apps/hps-dealengine/app/intake/*`, `apps/hps-dealengine/app/(app)/intake-inbox/*`.
 
 - ✅ AI agent chat UX polish (Slices A/B): always-visible composers with placeholders, taller chat windows with prompt chips, hamburger menu with Tone + "Your Chats," auto-titles from first user message, no auto-summary bubbles (Negotiator keeps first-playbook flow).
 - ✅ /startup routing (Slice C): "Run New Deal" -> `/underwrite?dealId=...`; existing deal rows -> `/overview?dealId=...` with session preserved.

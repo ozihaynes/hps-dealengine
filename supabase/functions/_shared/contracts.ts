@@ -1,5 +1,23 @@
 import { z } from "https://deno.land/x/zod@v3.23.8/mod.ts";
 
+// ============================================================================
+// INTAKE API SCHEMAS
+// ============================================================================
+
+export const SendIntakeLinkRequestSchema = z.object({
+  deal_id: z.string().uuid(),
+  recipient_email: z.string().email(),
+  recipient_name: z.string().optional(),
+  schema_version_id: z.string().uuid().optional(),
+  expires_in_days: z.number().int().min(1).max(90).default(30),
+  custom_message: z.string().max(1000).optional(),
+});
+export type SendIntakeLinkRequest = z.infer<typeof SendIntakeLinkRequestSchema>;
+
+// ============================================================================
+// ENGINE/RUN SCHEMAS
+// ============================================================================
+
 export const RunTraceFrameSchema = z.object({
   key: z.string(),
   label: z.string(),
