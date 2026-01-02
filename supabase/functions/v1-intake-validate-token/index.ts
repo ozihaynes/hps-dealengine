@@ -110,13 +110,8 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    if (link.status === "SUBMITTED" || link.consumed_at) {
-      return jsonResponse(
-        req,
-        { valid: false, error: "TOKEN_CONSUMED", message: "This form has already been submitted" },
-        403,
-      );
-    }
+    // Note: We now allow access for SUBMITTED links to enable resume/edit functionality
+    // The submission status will determine if editing is allowed
 
     // Check expiry
     const expiresAt = new Date(link.expires_at);
@@ -154,7 +149,7 @@ serve(async (req: Request): Promise<Response> => {
     // Get existing submission (if any)
     const { data: existingSubmission, error: submissionError } = await supabase
       .from("intake_submissions")
-      .select("id, status, payload_json, updated_at")
+      .select("id, status, payload_json, updated_at, last_section_index")
       .eq("intake_link_id", link.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -213,6 +208,14 @@ serve(async (req: Request): Promise<Response> => {
         .eq("id", link.id);
     }
 
+    // Determine if client can edit based on submission status
+    // Allow editing for: no submission yet, DRAFT, SUBMITTED (before review), REVISION_REQUESTED
+    const submissionStatus = existingSubmission?.status ?? null;
+    const canEdit = !submissionStatus ||
+      submissionStatus === "DRAFT" ||
+      submissionStatus === "SUBMITTED" ||
+      submissionStatus === "REVISION_REQUESTED";
+
     // Return flat format matching frontend ValidateTokenResponse type
     return jsonResponse(req, {
       valid: true,
@@ -226,6 +229,9 @@ serve(async (req: Request): Promise<Response> => {
         ...schemaVersion.schema_public_json,
       },
       existing_payload: existingSubmission?.payload_json ?? null,
+      submission_status: submissionStatus,
+      last_section_index: existingSubmission?.last_section_index ?? 0,
+      can_edit: canEdit,
       deal_context: dealContext,
       prefill: prefillData,
     });

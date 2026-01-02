@@ -181,13 +181,8 @@ serve(async (req: Request): Promise<Response> => {
       );
     }
 
-    if (link.status === "SUBMITTED" || link.consumed_at) {
-      return jsonResponse(
-        req,
-        { ok: false, error: "LINK_CONSUMED", message: "This form has already been submitted" },
-        403,
-      );
-    }
+    // Note: We allow re-submission for edit-in-place functionality
+    // Links can be submitted multiple times until staff begins review
 
     const expiresAt = new Date(link.expires_at);
     if (expiresAt < new Date()) {
@@ -234,12 +229,13 @@ serve(async (req: Request): Promise<Response> => {
     const now = new Date().toISOString();
     const payloadHash = await hashPayload(payload.payload_json);
 
-    // Check for existing draft to update, or create new submission
+    // Check for existing submission to update (DRAFT, SUBMITTED, or REVISION_REQUESTED)
+    // These are the editable states before staff begins review
     const { data: existingSubmission, error: existingError } = await supabase
       .from("intake_submissions")
-      .select("id")
+      .select("id, status, revision_cycle")
       .eq("intake_link_id", link.id)
-      .eq("status", "DRAFT")
+      .in("status", ["DRAFT", "SUBMITTED", "REVISION_REQUESTED"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -248,10 +244,42 @@ serve(async (req: Request): Promise<Response> => {
       console.error("[v1-intake-submit] existing submission lookup failed", existingError);
     }
 
+    // Check if there's a submission in a non-editable state
+    if (!existingSubmission) {
+      const { data: lockedSubmission } = await supabase
+        .from("intake_submissions")
+        .select("id, status")
+        .eq("intake_link_id", link.id)
+        .in("status", ["PENDING_REVIEW", "COMPLETED", "REJECTED"])
+        .limit(1)
+        .maybeSingle();
+
+      if (lockedSubmission) {
+        return jsonResponse(
+          req,
+          {
+            ok: false,
+            error: "SUBMISSION_LOCKED",
+            message: `This submission is ${lockedSubmission.status.toLowerCase().replace("_", " ")} and cannot be modified`,
+          },
+          403,
+        );
+      }
+    }
+
     let submissionId: string;
 
+    // Track if this is a re-submission
+    let isResubmission = false;
+
     if (existingSubmission) {
-      // Update existing draft to submitted
+      // Update existing submission
+      // Increment revision_cycle only if this is a re-submission (was previously SUBMITTED)
+      isResubmission = existingSubmission.status === "SUBMITTED" || existingSubmission.status === "REVISION_REQUESTED";
+      const newRevisionCycle = isResubmission
+        ? (existingSubmission.revision_cycle ?? 1) + 1
+        : existingSubmission.revision_cycle ?? 1;
+
       const { data: updated, error: updateError } = await supabase
         .from("intake_submissions")
         .update({
@@ -260,6 +288,7 @@ serve(async (req: Request): Promise<Response> => {
           status: "SUBMITTED",
           submitted_at: now,
           updated_at: now,
+          revision_cycle: newRevisionCycle,
         })
         .eq("id", existingSubmission.id)
         .select("id")
@@ -306,13 +335,16 @@ serve(async (req: Request): Promise<Response> => {
       submissionId = created.id;
     }
 
-    // Mark link as consumed
+    // Update link status
+    // Only set consumed_at on first submission, not on re-submissions
+    const linkUpdateData: Record<string, unknown> = { status: "SUBMITTED" };
+    if (!link.consumed_at) {
+      linkUpdateData.consumed_at = now;
+    }
+
     const { error: linkUpdateError } = await supabase
       .from("intake_links")
-      .update({
-        status: "SUBMITTED",
-        consumed_at: now,
-      })
+      .update(linkUpdateData)
       .eq("id", link.id);
 
     if (linkUpdateError) {
@@ -356,7 +388,10 @@ serve(async (req: Request): Promise<Response> => {
       submission_id: submissionId,
       status: "SUBMITTED",
       submitted_at: now,
-      message: "Thank you! Your information has been submitted.",
+      is_resubmission: isResubmission,
+      message: isResubmission
+        ? "Thank you! Your updated information has been resubmitted."
+        : "Thank you! Your information has been submitted.",
       confirmation_email_sent: emailSent,
       confirmation_email_error: emailError,
     });

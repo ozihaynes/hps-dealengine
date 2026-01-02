@@ -46,6 +46,12 @@ type IntakeFormProps = {
   initialPayload: Record<string, unknown> | null;
   /** Pre-fill data for form fields (contact info, address, etc.) */
   prefillData?: Record<string, string> | null;
+  /** Initial section index for resume functionality */
+  initialSectionIndex?: number;
+  /** Whether the client can still edit the form */
+  canEdit?: boolean;
+  /** Current submission status */
+  submissionStatus?: string | null;
   onSubmitSuccess: () => void;
 };
 
@@ -55,9 +61,18 @@ export function IntakeForm({
   schema,
   initialPayload,
   prefillData,
+  initialSectionIndex = 0,
+  canEdit = true,
+  submissionStatus,
   onSubmitSuccess,
 }: IntakeFormProps) {
-  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  // Initialize section index from saved position (resume functionality)
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(() => {
+    // Clamp to valid range
+    const sections = schema.sections ?? [];
+    const maxIndex = Math.max(0, sections.length - 1);
+    return Math.min(Math.max(0, initialSectionIndex), maxIndex);
+  });
 
   // Initialize form values: existing payload > prefill data > empty
   const [values, setValues] = useState<Record<string, unknown>>(() => {
@@ -128,8 +143,8 @@ export function IntakeForm({
     (key: string, value: unknown) => {
       setValues((prev) => {
         const newValues = { ...prev, [key]: value };
-        // Schedule auto-save
-        scheduleAutoSave(newValues);
+        // Schedule auto-save with current section index
+        scheduleAutoSave(newValues, currentSectionIndex);
         return newValues;
       });
       // Clear error for this field
@@ -141,7 +156,7 @@ export function IntakeForm({
         return prev;
       });
     },
-    [scheduleAutoSave],
+    [scheduleAutoSave, currentSectionIndex],
   );
 
   // Handle address selection - auto-populate city/state/zip fields
@@ -159,12 +174,12 @@ export function IntakeForm({
         if (selection.postalCode) {
           newValues["zip"] = selection.postalCode;
         }
-        // Schedule auto-save with the updated values
-        scheduleAutoSave(newValues);
+        // Schedule auto-save with the updated values and section index
+        scheduleAutoSave(newValues, currentSectionIndex);
         return newValues;
       });
     },
-    [scheduleAutoSave],
+    [scheduleAutoSave, currentSectionIndex],
   );
 
   // Validate current section
@@ -379,8 +394,64 @@ export function IntakeForm({
     );
   }
 
+  // Show read-only message if editing is not allowed
+  if (!canEdit) {
+    return (
+      <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-6">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400/20">
+            <svg
+              className="h-5 w-5 text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 15v2m0 0v2m0-2h2m-2 0H9m3-10V7a4 4 0 00-8 0v4h16V7a4 4 0 00-8 0v4z"
+              />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-amber-200">
+              Form Under Review
+            </h2>
+            <p className="mt-1 text-sm text-amber-200/80">
+              Your submission is currently being reviewed and cannot be edited.
+              If you need to make changes, please contact the person who sent you this link.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Resume banner - show when editing a previously submitted form */}
+      {submissionStatus === "SUBMITTED" && (
+        <div className="rounded-lg border border-blue-400/30 bg-blue-400/10 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-blue-200">
+            <svg
+              className="h-4 w-4 shrink-0"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            You&apos;re editing a previously submitted form. Make your changes and click Submit to resubmit.
+          </p>
+        </div>
+      )}
+
       {/* Progress bar */}
       <IntakeProgressBar
         sections={sections.map((s) => ({ id: s.id, title: s.title }))}
@@ -492,8 +563,10 @@ export function IntakeForm({
               {isSubmitting ? (
                 <span className="flex items-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Submitting...
+                  {submissionStatus === "SUBMITTED" ? "Resubmitting..." : "Submitting..."}
                 </span>
+              ) : submissionStatus === "SUBMITTED" ? (
+                "Resubmit"
               ) : (
                 "Submit"
               )}

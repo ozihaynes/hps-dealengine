@@ -22,6 +22,12 @@ type ValidTokenData = {
     zip: string | null;
   } | null;
   prefill: Record<string, string> | null;
+  /** Last section index for resume functionality */
+  lastSectionIndex: number;
+  /** Whether the client can still edit the form */
+  canEdit: boolean;
+  /** Current submission status */
+  submissionStatus: string | null;
 };
 
 type PageProps = {
@@ -72,6 +78,9 @@ export default function IntakeFormPage({ params }: PageProps) {
             expiresAt: result.expires_at!,
             dealContext: result.deal_context ?? null,
             prefill: Object.keys(prefillData).length > 0 ? prefillData : null,
+            lastSectionIndex: result.last_section_index ?? 0,
+            canEdit: result.can_edit ?? true,
+            submissionStatus: result.submission_status ?? null,
           },
         });
       } catch (err) {
@@ -252,6 +261,9 @@ export default function IntakeFormPage({ params }: PageProps) {
         schema={data.schema}
         initialPayload={data.existingPayload}
         prefillData={data.prefill}
+        initialSectionIndex={data.lastSectionIndex}
+        canEdit={data.canEdit}
+        submissionStatus={data.submissionStatus}
         onSubmitSuccess={handleSubmitSuccess}
       />
     </div>

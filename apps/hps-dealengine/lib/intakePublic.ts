@@ -74,6 +74,12 @@ type ValidateTokenResponse = {
     property_state?: string;
     property_zip?: string;
   } | null;
+  /** Submission status if there's an existing submission */
+  submission_status?: string | null;
+  /** Last section index for resume functionality */
+  last_section_index?: number;
+  /** Whether the client can still edit the form */
+  can_edit?: boolean;
   error?: string;
   message?: string;
 };
@@ -150,7 +156,18 @@ export async function saveIntakeDraft(
   token: string,
   linkId: string,
   payload: Record<string, unknown>,
+  lastSectionIndex?: number,
 ): Promise<SaveDraftResponse> {
+  const body: Record<string, unknown> = {
+    intake_link_id: linkId,
+    payload_json: payload,
+  };
+
+  // Include last_section_index for resume functionality
+  if (typeof lastSectionIndex === "number") {
+    body.last_section_index = lastSectionIndex;
+  }
+
   const response = await fetch(
     `${SUPABASE_URL}/functions/v1/v1-intake-save-draft`,
     {
@@ -159,10 +176,7 @@ export async function saveIntakeDraft(
         "Content-Type": "application/json",
         "x-intake-token": token,
       },
-      body: JSON.stringify({
-        intake_link_id: linkId,
-        payload_json: payload,
-      }),
+      body: JSON.stringify(body),
     },
   );
 
