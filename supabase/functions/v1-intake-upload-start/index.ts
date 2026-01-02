@@ -303,6 +303,7 @@ serve(async (req: Request): Promise<Response> => {
         size_bytes: payload.size_bytes,
         storage_state: "QUARANTINE",
         scan_status: "PENDING",
+        upload_key: payload.upload_key ?? null,  // Store the upload category for evidence mapping
       })
       .select("id, object_key, created_at")
       .maybeSingle();

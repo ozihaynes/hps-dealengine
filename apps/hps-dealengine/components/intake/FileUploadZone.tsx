@@ -393,7 +393,12 @@ function FileRow({
       </div>
 
       {/* Status icon / remove button */}
-      <div className="shrink-0">
+      <div className="shrink-0 flex items-center gap-2">
+        {/* Spinner during upload/scanning */}
+        {(file.status === "uploading" || file.status === "scanning") && (
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color:var(--accent-blue)] border-t-transparent" />
+        )}
+        {/* Success checkmark for clean files */}
         {file.status === "complete" && file.scanStatus === "CLEAN" && (
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20">
             <svg
@@ -406,22 +411,19 @@ function FileRow({
             </svg>
           </div>
         )}
-        {(file.status === "pending" ||
-          file.status === "error" ||
-          (file.status === "complete" && file.scanStatus !== "CLEAN")) && (
+        {/* Remove/cancel button - visible for all states except completed+clean */}
+        {!(file.status === "complete" && file.scanStatus === "CLEAN") && (
           <button
             type="button"
             onClick={onRemove}
             disabled={disabled}
+            title={file.status === "uploading" || file.status === "scanning" ? "Cancel upload" : "Remove file"}
             className="flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--text-secondary)] hover:bg-white/10 hover:text-red-400 transition-colors disabled:opacity-50"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        )}
-        {(file.status === "uploading" || file.status === "scanning") && (
-          <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color:var(--accent-blue)] border-t-transparent" />
         )}
       </div>
     </div>

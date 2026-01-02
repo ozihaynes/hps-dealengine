@@ -168,7 +168,7 @@ serve(async (req: Request): Promise<Response> => {
     // Check for pending or infected files
     const { data: files, error: filesError } = await supabase
       .from("intake_submission_files")
-      .select("id, original_filename, scan_status, storage_state")
+      .select("id, original_filename, scan_status, storage_state, object_key, mime_type, size_bytes, upload_key")
       .eq("intake_submission_id", submission.id);
 
     if (filesError) {
@@ -330,7 +330,10 @@ serve(async (req: Request): Promise<Response> => {
       (f: { scan_status: string }) => f.scan_status === "CLEAN"
     );
 
-    if (cleanFiles.length > 0 && mappingPrivate.evidence_mappings) {
+    if (cleanFiles.length > 0) {
+      // Get evidence mappings from schema (if available)
+      const evidenceMappings = mappingPrivate.evidence_mappings ?? [];
+
       for (const file of cleanFiles) {
         const fileRecord = file as {
           id: string;
@@ -339,11 +342,20 @@ serve(async (req: Request): Promise<Response> => {
           mime_type: string;
           size_bytes: number;
           storage_state: string;
+          upload_key?: string;
         };
 
-        // For now, use a default evidence kind
-        // In a full implementation, we'd match upload_key to evidence_mappings
-        const evidenceKind = "intake_document";
+        // Find the evidence kind from mappings based on upload_key
+        // Falls back to "intake_document" if no mapping found or no upload_key
+        let evidenceKind = "intake_document";
+        if (fileRecord.upload_key && evidenceMappings.length > 0) {
+          const mapping = evidenceMappings.find(
+            (m) => m.source_upload_key === fileRecord.upload_key
+          );
+          if (mapping?.target_evidence_kind) {
+            evidenceKind = mapping.target_evidence_kind;
+          }
+        }
 
         // Compute SHA-256 of file reference (placeholder - actual file hash would require reading file)
         const fileHash = await sha256(fileRecord.object_key);

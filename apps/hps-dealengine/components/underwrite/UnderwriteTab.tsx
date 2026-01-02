@@ -2,6 +2,7 @@ import React from "react";
 import type { Deal, EngineCalculations, SandboxConfig } from "../../types";
 import { GlassCard, Button, InputField, SelectField, ToggleSwitch, Icon, Modal, Badge } from "../ui";
 import { Tooltip } from "../ui/tooltip";
+import AddressAutocomplete, { type AddressSelection } from "../ui/AddressAutocomplete";
 import ScenarioModeler from "./ScenarioModeler";
 import DoubleCloseCalculator from "./DoubleCloseCalculator";
 import { num, fmt$ } from "../../utils/helpers";
@@ -832,6 +833,41 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
       {/* Property & Risk */}
       <UnderwritingSection title="Property & Risk" icon={Icons.shield}>
+        {/* Address Autocomplete - full width above the grid */}
+        <div className="mb-4">
+          <AddressAutocomplete
+            value={property.address ?? ""}
+            label="Property Address"
+            placeholder="Start typing to search..."
+            onValueChange={(val) => {
+              setDealValue("property.address", val);
+            }}
+            onSelect={(selection: AddressSelection) => {
+              // Populate address components from Google Places
+              setDealValue("property.address", selection.street);
+              if (selection.city) {
+                setDealValue("property.city", selection.city);
+              }
+              if (selection.state) {
+                setDealValue("property.state", selection.state);
+              }
+              if (selection.postalCode) {
+                setDealValue("property.zip", selection.postalCode);
+              }
+              // Auto-save after address selection
+              setTimeout(() => {
+                void saveWorkingStateNow();
+              }, 0);
+            }}
+          />
+          {/* Display current city/state/zip if populated */}
+          {(property.city || property.state || property.zip) && (
+            <div className="mt-2 text-xs text-text-secondary">
+              {[property.city, property.state, property.zip].filter(Boolean).join(", ")}
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-3">
             <SelectField

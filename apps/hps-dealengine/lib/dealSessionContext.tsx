@@ -126,6 +126,7 @@ type DealSessionValue = {
   setNegotiatorTone: (tone: NegotiatorTone) => void;
   isHydratingActiveDeal: boolean;
   hydratedDealId: string | null;
+  refreshDeal: () => Promise<void>;
 };
 
 const DealSessionContext = createContext<DealSessionValue | null>(null);
@@ -398,6 +399,50 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   },
     [supabase],
   );
+
+  /**
+   * Refresh the current deal from the database.
+   * Call this after external modifications (e.g., intake population).
+   */
+  const refreshDeal = useCallback(async () => {
+    if (!dbDeal?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("deals")
+        .select(
+          "id, org_id, created_by, created_at, updated_at, address, city, state, zip, client_name, client_phone, client_email, payload, organization:organizations(name)"
+        )
+        .eq("id", dbDeal.id)
+        .maybeSingle();
+
+      if (error || !data) {
+        console.error("[DealSession] refreshDeal failed", error);
+        return;
+      }
+
+      const organization =
+        (data as any)?.organization ?? (data as any)?.organizations ?? null;
+      const normalized = {
+        ...(data as any),
+        orgId: (data as any)?.org_id ?? (data as any)?.orgId ?? "",
+        orgName: organization?.name ?? null,
+        organization,
+      } as DbDeal;
+
+      // Update dbDeal which will trigger payload sync via useEffect
+      setDbDeal(normalized);
+
+      // Also immediately update in-memory deal from new payload
+      if (normalized.payload) {
+        setDeal(normalizeDealShape(normalized.payload));
+      }
+
+      console.log("[DealSession] refreshDeal complete", { dealId: dbDeal.id });
+    } catch (err) {
+      console.error("[DealSession] refreshDeal error", err);
+    }
+  }, [dbDeal?.id, supabase]);
 
   // Persist selected deal id locally so reloads keep context
   useEffect(() => {
@@ -1000,6 +1045,7 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       membershipRole,
       isHydratingActiveDeal,
       hydratedDealId,
+      refreshDeal,
     }),
     [
       deal,
@@ -1031,6 +1077,7 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       membershipRole,
       isHydratingActiveDeal,
       hydratedDealId,
+      refreshDeal,
     ]
   );
 

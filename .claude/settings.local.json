@@ -15,7 +15,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nfix\\(intake\\): align v1-intake-validate-token response with frontend\n\nFrontend expects flat response format:\n- link_id \\(not link.id nested\\)\n- recipient_name \\(not link.recipient_name nested\\)\n- expires_at \\(not link.expires_at nested\\)\n- existing_payload \\(not existing_submission.payload_json\\)\n\nAlso fixes deal context lookup to use top-level address fields\ninstead of payload.address.\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git commit:*)",
       "Bash(cat:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(PGPASSWORD=postgres psql:*)",
+      "Bash(npx:*)"
     ]
   }
 }

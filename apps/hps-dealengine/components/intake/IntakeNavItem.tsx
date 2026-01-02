@@ -6,6 +6,12 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { Icons } from "@/lib/ui-v2-constants";
 import { fetchPendingReviewCount } from "@/lib/intakeStaff";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import {
+  getActiveOrgMembershipRole,
+  isBossRole,
+  type OrgMembershipRole,
+} from "@/lib/orgMembership";
 
 const POLL_INTERVAL_MS = 60000; // Poll every 60 seconds
 
@@ -16,11 +22,43 @@ type IntakeNavItemProps = {
 export function IntakeNavItem({ className = "" }: IntakeNavItemProps) {
   const pathname = usePathname();
   const [pendingCount, setPendingCount] = useState<number>(0);
+  const [role, setRole] = useState<OrgMembershipRole | null>(null);
+  const [roleLoaded, setRoleLoaded] = useState(false);
 
   const isActive =
     pathname === "/intake-inbox" || pathname?.startsWith("/intake-inbox/");
 
+  // Check user's role on mount
   useEffect(() => {
+    let mounted = true;
+
+    const loadRole = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const userRole = await getActiveOrgMembershipRole(supabase);
+        if (mounted) {
+          setRole(userRole);
+          setRoleLoaded(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch role:", err);
+        if (mounted) {
+          setRoleLoaded(true);
+        }
+      }
+    };
+
+    loadRole();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Only fetch pending count if user has boss role
+  useEffect(() => {
+    if (!roleLoaded || !isBossRole(role)) return;
+
     let mounted = true;
 
     const loadCount = async () => {
@@ -44,7 +82,11 @@ export function IntakeNavItem({ className = "" }: IntakeNavItemProps) {
       mounted = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [roleLoaded, role]);
+
+  // Don't render until role is loaded, and only render for boss roles
+  if (!roleLoaded) return null;
+  if (!isBossRole(role)) return null;
 
   return (
     <Link

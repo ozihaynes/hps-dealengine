@@ -3,6 +3,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 export type OrgMembershipRole = "analyst" | "manager" | "owner" | "vp";
 
 /**
+ * Boss roles have elevated permissions (owner, manager, vp).
+ * Analysts do not have boss-level access.
+ */
+export const BOSS_ROLES: OrgMembershipRole[] = ["owner", "manager", "vp"];
+
+/**
+ * Check if the given role has boss-level permissions.
+ */
+export function isBossRole(role: OrgMembershipRole | null | undefined): boolean {
+  if (!role) return false;
+  return BOSS_ROLES.includes(role);
+}
+
+/**
  * Fetch the caller's role for the given org. If orgId is omitted, fall back to
  * the first membership row visible via RLS for the caller (useful when no deal
  * is selected yet). Returns null on error or if no membership is found.

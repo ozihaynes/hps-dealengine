@@ -2,6 +2,16 @@ import type { Evidence } from "./evidence";
 
 export type EvidenceKind =
   | "payoff_letter"
+  | "mortgage_statement"
+  | "hoa_estoppel"
+  | "foreclosure_docs"
+  | "lease_agreement"
+  | "insurance_docs"
+  | "inspection_report"
+  | "property_photos"
+  | "title_docs"
+  | "other_docs"
+  | "intake_document"
   | "title_quote"
   | "insurance_quote"
   | "repair_bid"
@@ -14,6 +24,16 @@ export type EvidenceStatus =
 
 const DEFAULT_WINDOWS_DAYS: Record<string, number> = {
   payoff_letter: 30,
+  mortgage_statement: 30,
+  hoa_estoppel: 30,
+  foreclosure_docs: 14,
+  lease_agreement: 90,
+  insurance_docs: 30,
+  inspection_report: 60,
+  property_photos: 30,
+  title_docs: 60,
+  other_docs: 30,
+  intake_document: 30,
   title_quote: 30,
   insurance_quote: 30,
   repair_bid: 60,
@@ -57,6 +77,16 @@ export function buildEvidenceStatus(
 export function evidenceLabel(kind: EvidenceKind): string {
   const map: Record<string, string> = {
     payoff_letter: "Payoff letter",
+    mortgage_statement: "Mortgage statement",
+    hoa_estoppel: "HOA estoppel",
+    foreclosure_docs: "Foreclosure documents",
+    lease_agreement: "Lease agreement",
+    insurance_docs: "Insurance documents",
+    inspection_report: "Inspection report",
+    property_photos: "Property photos",
+    title_docs: "Title documents",
+    other_docs: "Other documents",
+    intake_document: "Intake document",
     title_quote: "Title quote",
     insurance_quote: "Insurance quote",
     repair_bid: "Repair bid",

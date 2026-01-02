@@ -5,6 +5,7 @@ import {
   populateSubmission,
   type PopulateSubmissionResponse,
 } from "@/lib/intakeStaff";
+import { useDealSession } from "@/lib/dealSessionContext";
 
 type PopulateSubmissionModalProps = {
   submissionId: string;
@@ -21,6 +22,7 @@ export function PopulateSubmissionModal({
   onClose,
   onSuccess,
 }: PopulateSubmissionModalProps) {
+  const { refreshDeal } = useDealSession();
   const [overwriteMode, setOverwriteMode] = useState<"skip" | "overwrite">("skip");
   const [overwriteReason, setOverwriteReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +55,9 @@ export function PopulateSubmissionModal({
       );
 
       setResult(response);
+
+      // Refresh the deal in context to pick up populated data
+      await refreshDeal();
 
       // Call onSuccess after a short delay to show the result
       setTimeout(() => {
