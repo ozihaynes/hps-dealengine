@@ -321,7 +321,7 @@ VALUES (
               {"value": "bindable", "label": "No issues - easily insurable"},
               {"value": "conditional", "label": "Some conditions required"},
               {"value": "unbindable", "label": "Unable to get insurance"},
-              {"value": "unknown", "label": "I don't know"}
+              {"value": "unknown", "label": "I don''t know"}
             ],
             "helpText": "Insurance issues may include roof age, claims history, or property condition"
           },
