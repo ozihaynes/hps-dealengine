@@ -61,10 +61,6 @@ export function IntakeForm({
 
   // Initialize form values: existing payload > prefill data > empty
   const [values, setValues] = useState<Record<string, unknown>>(() => {
-    console.log("[IntakeForm DEBUG] Initializing state:");
-    console.log("[IntakeForm DEBUG] prefillData received:", prefillData);
-    console.log("[IntakeForm DEBUG] initialPayload received:", initialPayload);
-
     const initial: Record<string, unknown> = {};
 
     // Apply prefill data first (lowest priority)
@@ -85,7 +81,6 @@ export function IntakeForm({
       });
     }
 
-    console.log("[IntakeForm DEBUG] Final initial state:", initial);
     return initial;
   });
 

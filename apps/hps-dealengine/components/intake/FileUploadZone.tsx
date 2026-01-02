@@ -75,6 +75,10 @@ export function FileUploadZone({
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Use ref to track current files to avoid stale closure in async callbacks
+  const filesRef = useRef(files);
+  filesRef.current = files;
+
   const allowedTypes = accept ?? ALLOWED_MIME_TYPES;
 
   const validateFile = useCallback(
@@ -94,9 +98,9 @@ export function FileUploadZone({
   const startUpload = useCallback(
     async (fileToUpload: UploadFile) => {
       try {
-        // Update status to uploading
+        // Update status to uploading - use filesRef.current to get current files
         onFilesChange(
-          files.map((f) =>
+          filesRef.current.map((f) =>
             f.id === fileToUpload.id ? { ...f, status: "uploading" as const, progress: 0 } : f,
           ),
         );
@@ -106,7 +110,7 @@ export function FileUploadZone({
 
         // Update with real file ID
         onFilesChange(
-          files.map((f) =>
+          filesRef.current.map((f) =>
             f.id === fileToUpload.id ? { ...f, id: fileId, progress: 10 } : f,
           ),
         );
@@ -127,7 +131,7 @@ export function FileUploadZone({
 
         // Update progress
         onFilesChange(
-          files.map((f) =>
+          filesRef.current.map((f) =>
             f.id === fileId || f.id === fileToUpload.id
               ? { ...f, id: fileId, status: "scanning" as const, progress: 80 }
               : f,
@@ -139,7 +143,7 @@ export function FileUploadZone({
 
         // Update with final status
         onFilesChange(
-          files.map((f) =>
+          filesRef.current.map((f) =>
             f.id === fileId || f.id === fileToUpload.id
               ? {
                   ...f,
@@ -161,7 +165,7 @@ export function FileUploadZone({
         console.error("Upload error:", err);
         const message = err instanceof Error ? err.message : "Upload failed";
         onFilesChange(
-          files.map((f) =>
+          filesRef.current.map((f) =>
             f.id === fileToUpload.id ? { ...f, status: "error" as const, error: message } : f,
           ),
         );
@@ -173,15 +177,16 @@ export function FileUploadZone({
         });
       }
     },
-    [files, onFilesChange, onUploadStart, onUploadComplete],
+    [onFilesChange, onUploadStart, onUploadComplete],
   );
 
   const handleFiles = useCallback(
     async (fileList: FileList) => {
       if (disabled) return;
 
+      const currentFiles = filesRef.current;
       const newFiles: UploadFile[] = [];
-      const remainingSlots = maxFiles - files.length;
+      const remainingSlots = maxFiles - currentFiles.length;
 
       for (let i = 0; i < Math.min(fileList.length, remainingSlots); i++) {
         const file = fileList[i];
@@ -202,7 +207,7 @@ export function FileUploadZone({
       }
 
       if (newFiles.length > 0) {
-        const updatedFiles = [...files, ...newFiles];
+        const updatedFiles = [...currentFiles, ...newFiles];
         onFilesChange(updatedFiles);
 
         // Start uploading valid files
@@ -221,7 +226,7 @@ export function FileUploadZone({
         console.warn(`Only ${remainingSlots} files added. Maximum ${maxFiles} files allowed.`);
       }
     },
-    [disabled, files, maxFiles, onFilesChange, validateFile, startUpload],
+    [disabled, maxFiles, onFilesChange, validateFile, startUpload],
   );
 
   const handleDrop = useCallback(
@@ -268,9 +273,9 @@ export function FileUploadZone({
 
   const handleRemove = useCallback(
     (fileId: string) => {
-      onFilesChange(files.filter((f) => f.id !== fileId));
+      onFilesChange(filesRef.current.filter((f) => f.id !== fileId));
     },
-    [files, onFilesChange],
+    [onFilesChange],
   );
 
   const canAddMore = files.length < maxFiles;

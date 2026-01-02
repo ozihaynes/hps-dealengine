@@ -54,7 +54,6 @@ export default function IntakeFormPage({ params }: PageProps) {
 
         // Build prefill as Record<string, string> for the form
         const prefillData: Record<string, string> = {};
-        console.log("[Intake DEBUG] API result.prefill:", result.prefill);
         if (result.prefill) {
           Object.entries(result.prefill).forEach(([key, value]) => {
             if (value && typeof value === "string" && value.trim()) {
@@ -62,7 +61,6 @@ export default function IntakeFormPage({ params }: PageProps) {
             }
           });
         }
-        console.log("[Intake DEBUG] Built prefillData:", prefillData);
 
         setTokenState({
           status: "valid",
