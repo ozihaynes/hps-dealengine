@@ -11,17 +11,29 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
  * API response types for intake form schema.
  * Note: Field types are strings from the API, not strict enums.
  */
+export type IntakeFieldCondition = {
+  field: string;
+  equals: unknown;
+};
+
+export type IntakeFieldOption = {
+  value: string;
+  label: string;
+} | string;
+
 export type IntakeFieldApi = {
   key: string;
   label: string;
   type: string;
   required: boolean;
-  options?: string[];
+  options?: IntakeFieldOption[];
   placeholder?: string;
   helpText?: string;
   min?: number;
   max?: number;
   pattern?: string;
+  condition?: IntakeFieldCondition;
+  description?: string;
 };
 
 export type IntakeSectionApi = {

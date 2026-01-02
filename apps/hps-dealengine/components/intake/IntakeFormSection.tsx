@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import type { IntakeSectionApi } from "@/lib/intakePublic";
+import React, { useMemo } from "react";
+import type { IntakeSectionApi, IntakeFieldApi } from "@/lib/intakePublic";
 import { IntakeFormField } from "./IntakeFormField";
 
 type IntakeFormSectionProps = {
@@ -11,12 +11,39 @@ type IntakeFormSectionProps = {
   onChange: (key: string, value: unknown) => void;
 };
 
+/**
+ * Check if a field's condition is satisfied based on current form values.
+ * Returns true if the field should be shown.
+ */
+function isFieldVisible(field: IntakeFieldApi, values: Record<string, unknown>): boolean {
+  // If no condition, always visible
+  if (!field.condition) {
+    return true;
+  }
+
+  const { field: conditionField, equals: conditionValue } = field.condition;
+  const currentValue = values[conditionField];
+
+  // Handle boolean comparison
+  if (typeof conditionValue === "boolean") {
+    return currentValue === conditionValue;
+  }
+
+  // Handle string/value comparison
+  return currentValue === conditionValue;
+}
+
 export function IntakeFormSection({
   section,
   values,
   errors,
   onChange,
 }: IntakeFormSectionProps) {
+  // Filter fields based on their conditions
+  const visibleFields = useMemo(() => {
+    return (section.fields ?? []).filter((field) => isFieldVisible(field, values));
+  }, [section.fields, values]);
+
   return (
     <div className="space-y-6">
       {/* Section header */}
@@ -31,9 +58,9 @@ export function IntakeFormSection({
         )}
       </div>
 
-      {/* Fields */}
+      {/* Fields - only show visible fields based on conditions */}
       <div className="space-y-4">
-        {(section.fields ?? []).map((field) => (
+        {visibleFields.map((field) => (
           <IntakeFormField
             key={field.key}
             field={field}

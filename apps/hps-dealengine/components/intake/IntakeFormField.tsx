@@ -149,6 +149,50 @@ export function IntakeFormField({
           </select>
         );
 
+      case "multiselect": {
+        // Value should be an array of selected option values
+        const selectedValues = Array.isArray(value) ? value : [];
+
+        const handleMultiSelectChange = (optValue: string, checked: boolean) => {
+          if (checked) {
+            // Add to selection (if not "none", remove "none")
+            if (optValue === "none") {
+              handleChange(["none"]);
+            } else {
+              handleChange([...selectedValues.filter(v => v !== "none"), optValue]);
+            }
+          } else {
+            // Remove from selection
+            handleChange(selectedValues.filter(v => v !== optValue));
+          }
+        };
+
+        return (
+          <div className="space-y-2 rounded-lg border border-white/10 bg-[color:var(--glass-bg)] p-3">
+            {field.options?.map((option, idx) => {
+              const { value: optValue, label: optLabel } = extractOption(option);
+              const isChecked = selectedValues.includes(optValue);
+              return (
+                <label
+                  key={optValue || idx}
+                  className="flex cursor-pointer items-center gap-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={(e) => handleMultiSelectChange(optValue, e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 accent-[color:var(--accent-blue)]"
+                  />
+                  <span className="text-sm text-[color:var(--text-primary)]">
+                    {optLabel}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        );
+      }
+
       case "boolean":
         return (
           <div className="flex items-center gap-4">

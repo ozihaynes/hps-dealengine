@@ -10,11 +10,29 @@ import {
   startIntakeUpload,
   completeIntakeUpload,
   type IntakeSchemaApi,
+  type IntakeFieldApi,
 } from "@/lib/intakePublic";
+
+/**
+ * Check if a field's condition is satisfied based on current form values.
+ * Returns true if the field should be shown/validated.
+ */
+function isFieldVisible(field: IntakeFieldApi, values: Record<string, unknown>): boolean {
+  if (!field.condition) {
+    return true;
+  }
+  const { field: conditionField, equals: conditionValue } = field.condition;
+  const currentValue = values[conditionField];
+  if (typeof conditionValue === "boolean") {
+    return currentValue === conditionValue;
+  }
+  return currentValue === conditionValue;
+}
 
 type EvidenceUploadConfig = {
   key: string;
   label: string;
+  description?: string;
   accept?: string[];
   max_files?: number;
   required?: boolean;
@@ -96,9 +114,21 @@ export function IntakeForm({
     // Defensive: ensure fields is an array
     const fields = currentSection?.fields ?? [];
     for (const field of fields) {
+      // Skip validation for hidden conditional fields
+      if (!isFieldVisible(field, values)) {
+        continue;
+      }
+
       if (field.required) {
         const value = values[field.key];
-        if (value === undefined || value === null || value === "") {
+        // Check for empty values, including empty arrays for multiselect
+        const isEmpty =
+          value === undefined ||
+          value === null ||
+          value === "" ||
+          (Array.isArray(value) && value.length === 0);
+
+        if (isEmpty) {
           newErrors[field.key] = "This field is required";
           isValid = false;
         }
@@ -319,20 +349,26 @@ export function IntakeForm({
           </p>
           <div className="space-y-6">
             {evidenceUploads.map((config) => (
-              <FileUploadZone
-                key={config.key}
-                token={token}
-                linkId={linkId}
-                uploadKey={config.key}
-                label={config.label}
-                accept={config.accept}
-                maxFiles={config.max_files ?? 5}
-                files={uploadFiles[config.key] ?? []}
-                onFilesChange={(files) => handleFilesChange(config.key, files)}
-                onUploadStart={(file) => handleUploadStart(file, config.key)}
-                onUploadComplete={handleUploadComplete}
-                disabled={isSubmitting}
-              />
+              <div key={config.key} className="space-y-1">
+                <FileUploadZone
+                  token={token}
+                  linkId={linkId}
+                  uploadKey={config.key}
+                  label={config.label}
+                  accept={config.accept}
+                  maxFiles={config.max_files ?? 5}
+                  files={uploadFiles[config.key] ?? []}
+                  onFilesChange={(files) => handleFilesChange(config.key, files)}
+                  onUploadStart={(file) => handleUploadStart(file, config.key)}
+                  onUploadComplete={handleUploadComplete}
+                  disabled={isSubmitting}
+                />
+                {config.description && (
+                  <p className="text-xs text-[color:var(--text-secondary)] pl-1">
+                    {config.description}
+                  </p>
+                )}
+              </div>
             ))}
           </div>
         </div>
