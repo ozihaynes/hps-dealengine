@@ -59,18 +59,7 @@ export function IntakeForm({
   const isFirstSection = currentSectionIndex === 0;
   const isLastSection = currentSectionIndex === sections.length - 1;
 
-  // If no sections or currentSection is invalid, show error
-  if (sections.length === 0 || !currentSection) {
-    return (
-      <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-6">
-        <p className="text-sm text-red-300">
-          Unable to load form sections. Please try refreshing the page.
-        </p>
-      </div>
-    );
-  }
-
-  // Auto-save hook
+  // Auto-save hook - must be called unconditionally (Rules of Hooks)
   const { status: autoSaveStatus, scheduleAutoSave } = useIntakeAutoSave({
     token,
     linkId,
@@ -142,7 +131,7 @@ export function IntakeForm({
 
     setErrors(newErrors);
     return isValid;
-  }, [currentSection.fields, values]);
+  }, [currentSection?.fields, values]);
 
   // Handle file upload start
   const handleUploadStart = useCallback(
@@ -287,6 +276,17 @@ export function IntakeForm({
         return null;
     }
   }, [autoSaveStatus]);
+
+  // Safety check AFTER all hooks (Rules of Hooks compliance)
+  if (sections.length === 0 || !currentSection) {
+    return (
+      <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-6">
+        <p className="text-sm text-red-300">
+          Unable to load form sections. Please try refreshing the page.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
