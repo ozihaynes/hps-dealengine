@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { IntakeProgressBar } from "./IntakeProgressBar";
 import { IntakeFormSection } from "./IntakeFormSection";
 import { FileUploadZone, type UploadFile } from "./FileUploadZone";
+import { SaveIndicator } from "./SaveIndicator";
 import { useIntakeAutoSave } from "@/hooks/useIntakeAutoSave";
 import {
   submitIntake,
@@ -131,10 +133,14 @@ export function IntakeForm({
   const isLastSection = currentSectionIndex === sections.length - 1;
 
   // Auto-save hook - must be called unconditionally (Rules of Hooks)
-  const { status: autoSaveStatus, scheduleAutoSave } = useIntakeAutoSave({
+  const {
+    status: autoSaveStatus,
+    lastSavedAt,
+    scheduleAutoSave,
+    saveNow,
+  } = useIntakeAutoSave({
     token,
     linkId,
-    debounceMs: 30000,
     enabled: true,
   });
 
@@ -330,58 +336,22 @@ export function IntakeForm({
     }
   }, [token, linkId, values, validateCurrentSection, onSubmitSuccess]);
 
-  // Auto-save status indicator
-  const autoSaveIndicator = useMemo(() => {
-    switch (autoSaveStatus) {
-      case "saving":
-        return (
-          <span className="flex items-center gap-1.5 text-xs text-[color:var(--text-secondary)]">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[color:var(--accent-blue)]" />
-            Saving...
-          </span>
-        );
-      case "saved":
-        return (
-          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <svg
-              className="h-3 w-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-            Saved
-          </span>
-        );
-      case "error":
-        return (
-          <span className="flex items-center gap-1.5 text-xs text-red-400">
-            <svg
-              className="h-3 w-3"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v2m0 4h.01"
-              />
-            </svg>
-            Save failed
-          </span>
-        );
-      default:
-        return null;
+  // Handle "Save & Continue Later" button click
+  const handleSaveAndContinueLater = useCallback(async () => {
+    try {
+      // First ensure current values are scheduled for save
+      scheduleAutoSave(values, currentSectionIndex);
+      // Then immediately save any pending changes
+      await saveNow();
+      toast.success("Progress saved!", {
+        description: "You can close this tab and return anytime using the same link.",
+        duration: 5000,
+      });
+    } catch (error) {
+      console.error("Save error:", error);
+      toast.error("Failed to save progress. Please try again.");
     }
-  }, [autoSaveStatus]);
+  }, [scheduleAutoSave, saveNow, values, currentSectionIndex]);
 
   // Safety check AFTER all hooks (Rules of Hooks compliance)
   if (sections.length === 0 || !currentSection) {
@@ -534,61 +504,88 @@ export function IntakeForm({
         </div>
       )}
 
-      {/* Navigation buttons */}
-      <div className="flex items-center justify-between">
-        <div>
-          {!isFirstSection && (
-            <button
-              type="button"
-              onClick={handleBack}
-              disabled={isSubmitting}
-              className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-white/10 disabled:opacity-50"
-            >
-              Back
-            </button>
-          )}
-        </div>
+      {/* Navigation footer */}
+      <div className="space-y-4 border-t border-zinc-800 pt-4">
+        {/* Save indicator and navigation buttons */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Left side: Back button and Save indicator */}
+          <div className="flex items-center gap-4">
+            {!isFirstSection && (
+              <button
+                type="button"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-white/10 disabled:opacity-50"
+              >
+                Back
+              </button>
+            )}
+            <SaveIndicator status={autoSaveStatus} lastSavedAt={lastSavedAt} />
+          </div>
 
-        <div className="flex items-center gap-4">
-          {/* Auto-save indicator */}
-          {autoSaveIndicator}
+          {/* Right side: Save & Continue Later + Next/Submit */}
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleSaveAndContinueLater}
+              disabled={isSubmitting || autoSaveStatus === "saving"}
+              className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:bg-zinc-700 disabled:opacity-50"
+            >
+              <CloudIcon className="h-4 w-4" />
+              <span className="hidden sm:inline">Save & Continue Later</span>
+              <span className="sm:hidden">Save</span>
+            </button>
 
-          {isLastSection ? (
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90 disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  {submissionStatus === "SUBMITTED" ? "Resubmitting..." : "Submitting..."}
-                </span>
-              ) : submissionStatus === "SUBMITTED" ? (
-                "Resubmit"
-              ) : (
-                "Submit"
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90"
-            >
-              Next
-            </button>
-          )}
+            {isLastSection ? (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90 disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    {submissionStatus === "SUBMITTED" ? "Resubmitting..." : "Submitting..."}
+                  </span>
+                ) : submissionStatus === "SUBMITTED" ? (
+                  "Resubmit"
+                ) : (
+                  "Submit"
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90"
+              >
+                Next
+              </button>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Save & Continue Later hint */}
-      <p className="text-center text-xs text-[color:var(--text-secondary)]">
-        Your progress is automatically saved. You can close this page and return
-        later using the same link.
-      </p>
     </div>
+  );
+}
+
+// Inline cloud icon for "Save & Continue Later" button
+function CloudIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+      />
+    </svg>
   );
 }
 

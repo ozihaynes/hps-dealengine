@@ -17,12 +17,14 @@ type UseIntakeAutoSaveResult = {
   lastSavedAt: Date | null;
   save: (payload: Record<string, unknown>, sectionIndex?: number) => Promise<void>;
   scheduleAutoSave: (payload: Record<string, unknown>, sectionIndex?: number) => void;
+  /** Immediately save any pending changes */
+  saveNow: () => Promise<void>;
 };
 
 export function useIntakeAutoSave({
   token,
   linkId,
-  debounceMs = 30000, // 30 seconds default
+  debounceMs = 2000, // 2 seconds default for responsive auto-save
   enabled = true,
 }: UseIntakeAutoSaveOptions): UseIntakeAutoSaveResult {
   const [status, setStatus] = useState<AutoSaveStatus>("idle");
@@ -129,11 +131,28 @@ export function useIntakeAutoSave({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [linkId, enabled]);
 
+  // Immediately save any pending changes (for "Save & Continue Later" button)
+  const saveNow = useCallback(async () => {
+    // Clear any pending debounced save
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // Save if there's pending data
+    if (pendingPayloadRef.current) {
+      await save(pendingPayloadRef.current, pendingSectionIndexRef.current);
+      pendingPayloadRef.current = null;
+      pendingSectionIndexRef.current = undefined;
+    }
+  }, [save]);
+
   return {
     status,
     lastSavedAt,
     save,
     scheduleAutoSave,
+    saveNow,
   };
 }
 
