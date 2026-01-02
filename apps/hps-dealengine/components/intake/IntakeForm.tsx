@@ -12,6 +12,7 @@ import {
   type IntakeSchemaApi,
   type IntakeFieldApi,
 } from "@/lib/intakePublic";
+import type { AddressSelection } from "@/components/ui/AddressAutocomplete";
 
 /**
  * Check if a field's condition is satisfied based on current form values.
@@ -43,6 +44,8 @@ type IntakeFormProps = {
   linkId: string;
   schema: IntakeSchemaApi;
   initialPayload: Record<string, unknown> | null;
+  /** Pre-fill data for form fields (contact info, address, etc.) */
+  prefillData?: Record<string, string> | null;
   onSubmitSuccess: () => void;
 };
 
@@ -51,12 +54,52 @@ export function IntakeForm({
   linkId,
   schema,
   initialPayload,
+  prefillData,
   onSubmitSuccess,
 }: IntakeFormProps) {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
-  const [values, setValues] = useState<Record<string, unknown>>(
-    initialPayload ?? {},
-  );
+
+  // Initialize form values: existing payload > prefill data > empty
+  const [values, setValues] = useState<Record<string, unknown>>(() => {
+    console.log("[IntakeForm DEBUG] Initializing state:");
+    console.log("[IntakeForm DEBUG] prefillData received:", prefillData);
+    console.log("[IntakeForm DEBUG] initialPayload received:", initialPayload);
+
+    const initial: Record<string, unknown> = {};
+
+    // Apply prefill data first (lowest priority)
+    if (prefillData) {
+      Object.entries(prefillData).forEach(([key, value]) => {
+        if (value && typeof value === "string" && value.trim()) {
+          initial[key] = value;
+        }
+      });
+    }
+
+    // Apply initial payload on top (higher priority - user's saved data)
+    if (initialPayload) {
+      Object.entries(initialPayload).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          initial[key] = value;
+        }
+      });
+    }
+
+    console.log("[IntakeForm DEBUG] Final initial state:", initial);
+    return initial;
+  });
+
+  // Track if contact info was pre-filled
+  const hasPrefilledContact = useMemo(() => {
+    if (!prefillData) return false;
+    // Check if any contact field was prefilled AND not overwritten by initialPayload
+    const contactFields = ["contact_name", "contact_email", "contact_phone"];
+    return contactFields.some((key) => {
+      const prefillValue = prefillData[key];
+      const currentValue = values[key];
+      return prefillValue && currentValue === prefillValue;
+    });
+  }, [prefillData, values]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -101,6 +144,29 @@ export function IntakeForm({
           return rest;
         }
         return prev;
+      });
+    },
+    [scheduleAutoSave],
+  );
+
+  // Handle address selection - auto-populate city/state/zip fields
+  const handleAddressSelect = useCallback(
+    (selection: AddressSelection) => {
+      setValues((prev) => {
+        const newValues = { ...prev };
+        // Auto-populate city, state, zip if the selection has them
+        if (selection.city) {
+          newValues["city"] = selection.city;
+        }
+        if (selection.state) {
+          newValues["state"] = selection.state;
+        }
+        if (selection.postalCode) {
+          newValues["zip"] = selection.postalCode;
+        }
+        // Schedule auto-save with the updated values
+        scheduleAutoSave(newValues);
+        return newValues;
       });
     },
     [scheduleAutoSave],
@@ -334,7 +400,28 @@ export function IntakeForm({
           values={values}
           errors={errors}
           onChange={handleFieldChange}
+          onAddressSelect={handleAddressSelect}
         />
+
+        {/* Pre-filled contact confirmation banner */}
+        {hasPrefilledContact && currentSectionIndex === 0 && (
+          <div className="mt-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3">
+            <p className="flex items-center gap-2 text-sm text-emerald-300">
+              <svg
+                className="h-4 w-4 shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Please confirm your contact information above is correct before continuing.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* File uploads - shown on last section */}

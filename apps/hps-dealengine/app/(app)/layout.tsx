@@ -23,6 +23,7 @@ import DualAgentLauncher from "@/components/ai/DualAgentLauncher";
 import { AiWindowsProvider } from "@/lib/ai/aiWindowsContext";
 import OfferChecklistPanel from "@/components/offerChecklist/OfferChecklistPanel";
 import { IntakeNavItem } from "@/components/intake/IntakeNavItem";
+import { DealContextBar } from "@/components/shared/DealContextBar";
 
 const NAV_ITEMS = [
   { href: "/overview", label: "Dashboard", icon: Icons.barChart, requireDeal: true, cluster: "left" as const },
@@ -227,6 +228,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 <div className="hidden md:flex items-center justify-between gap-4">
                   <AppTabNav onOpenOffer={() => setShowOffer(true)} />
                 </div>
+
+                {/* Persistent Deal Context Bar - shows property and client info below tabs */}
+                <DealContextBar />
 
                 {/* Wrap route children in Suspense so any useSearchParams usage is safe for prerender */}
                 <Suspense

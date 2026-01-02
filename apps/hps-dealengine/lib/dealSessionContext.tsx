@@ -407,6 +407,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const refreshDeal = useCallback(async () => {
     if (!dbDeal?.id) return;
 
+    console.log("[DealSession DEBUG] refreshDeal: Starting for deal", dbDeal.id);
+
     try {
       const { data, error } = await supabase
         .from("deals")
@@ -430,19 +432,51 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         organization,
       } as DbDeal;
 
-      // Update dbDeal which will trigger payload sync via useEffect
+      // DEBUG: Log what we got from DB
+      console.log("[DealSession DEBUG] refreshDeal: DB payload keys", {
+        dealId: normalized.id,
+        payloadKeys: normalized.payload ? Object.keys(normalized.payload as object) : [],
+        debt: (normalized.payload as any)?.debt,
+        property: (normalized.payload as any)?.property,
+      });
+
+      // CRITICAL: Mark working state as already hydrated to prevent
+      // the hydration useEffect from overwriting with stale data
+      workingHydratedRef.current = true;
+
+      // Update dbDeal (but hydration useEffect won't overwrite now)
       setDbDeal(normalized);
 
-      // Also immediately update in-memory deal from new payload
+      // Immediately update in-memory deal from new payload
       if (normalized.payload) {
-        setDeal(normalizeDealShape(normalized.payload));
+        const hydratedDeal = normalizeDealShape(normalized.payload);
+        console.log("[DealSession DEBUG] refreshDeal: Hydrated deal", {
+          debtSeniorPrincipal: (hydratedDeal as any).debt?.senior_principal,
+          propertyEvidenceRoofAge: (hydratedDeal as any).property?.evidence?.roof_age,
+        });
+        setDeal(hydratedDeal);
+
+        // Update the saved hash to match current state so autosave doesn't
+        // immediately overwrite with stale working state
+        const hash = hashWorkingState({
+          dealId: normalized.id,
+          posture: posture ?? "base",
+          payload: {
+            deal: hydratedDeal,
+            sandbox,
+            repairProfile: repairRates ?? null,
+            activeRepairProfileId,
+          },
+        });
+        lastSavedHashRef.current = hash;
+        lastSavedDealRef.current = normalized.id;
       }
 
       console.log("[DealSession] refreshDeal complete", { dealId: dbDeal.id });
     } catch (err) {
       console.error("[DealSession] refreshDeal error", err);
     }
-  }, [dbDeal?.id, supabase]);
+  }, [dbDeal?.id, supabase, posture, sandbox, repairRates, activeRepairProfileId]);
 
   // Persist selected deal id locally so reloads keep context
   useEffect(() => {

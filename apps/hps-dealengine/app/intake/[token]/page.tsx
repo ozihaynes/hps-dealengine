@@ -21,6 +21,7 @@ type ValidTokenData = {
     state: string | null;
     zip: string | null;
   } | null;
+  prefill: Record<string, string> | null;
 };
 
 type PageProps = {
@@ -51,6 +52,18 @@ export default function IntakeFormPage({ params }: PageProps) {
           return;
         }
 
+        // Build prefill as Record<string, string> for the form
+        const prefillData: Record<string, string> = {};
+        console.log("[Intake DEBUG] API result.prefill:", result.prefill);
+        if (result.prefill) {
+          Object.entries(result.prefill).forEach(([key, value]) => {
+            if (value && typeof value === "string" && value.trim()) {
+              prefillData[key] = value;
+            }
+          });
+        }
+        console.log("[Intake DEBUG] Built prefillData:", prefillData);
+
         setTokenState({
           status: "valid",
           data: {
@@ -60,6 +73,7 @@ export default function IntakeFormPage({ params }: PageProps) {
             recipientName: result.recipient_name ?? null,
             expiresAt: result.expires_at!,
             dealContext: result.deal_context ?? null,
+            prefill: Object.keys(prefillData).length > 0 ? prefillData : null,
           },
         });
       } catch (err) {
@@ -239,6 +253,7 @@ export default function IntakeFormPage({ params }: PageProps) {
         linkId={data.linkId}
         schema={data.schema}
         initialPayload={data.existingPayload}
+        prefillData={data.prefill}
         onSubmitSuccess={handleSubmitSuccess}
       />
     </div>

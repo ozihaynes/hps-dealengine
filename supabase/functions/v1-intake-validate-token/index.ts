@@ -165,21 +165,44 @@ serve(async (req: Request): Promise<Response> => {
       // Non-fatal - continue without existing submission
     }
 
-    // Get deal context (address info) - deals have top-level address fields
+    // Get deal context (address info AND contact info for pre-population)
     const { data: deal, error: dealError } = await supabase
       .from("deals")
-      .select("address, city, state, zip")
+      .select("address, city, state, zip, client_name, client_email, client_phone, payload")
       .eq("id", link.deal_id)
       .maybeSingle();
 
     let dealContext = null;
+    let prefillData = null;
     if (!dealError && deal) {
+      // Extract contact info from payload if available
+      const payload = (deal.payload ?? {}) as Record<string, unknown>;
+      const payloadContact = (payload.contact ?? payload.client ?? {}) as Record<string, unknown>;
+
+      console.log("[v1-intake-validate-token DEBUG] deal.payload:", JSON.stringify(payload));
+      console.log("[v1-intake-validate-token DEBUG] payloadContact:", JSON.stringify(payloadContact));
+      console.log("[v1-intake-validate-token DEBUG] deal.client_name:", deal.client_name);
+      console.log("[v1-intake-validate-token DEBUG] link.recipient_name:", link.recipient_name);
+
       dealContext = {
         address: deal.address ?? null,
         city: deal.city ?? null,
         state: deal.state ?? null,
         zip: deal.zip ?? null,
       };
+
+      // Build prefill data for the intake form
+      prefillData = {
+        contact_name: (payloadContact.name as string) ?? deal.client_name ?? link.recipient_name ?? "",
+        contact_email: (payloadContact.email as string) ?? deal.client_email ?? link.recipient_email ?? "",
+        contact_phone: (payloadContact.phone as string) ?? deal.client_phone ?? "",
+        property_address: deal.address ?? "",
+        property_city: deal.city ?? "",
+        property_state: deal.state ?? "",
+        property_zip: deal.zip ?? "",
+      };
+
+      console.log("[v1-intake-validate-token DEBUG] Built prefillData:", JSON.stringify(prefillData));
     }
 
     // Update link status to IN_PROGRESS if currently SENT
@@ -204,6 +227,7 @@ serve(async (req: Request): Promise<Response> => {
       },
       existing_payload: existingSubmission?.payload_json ?? null,
       deal_context: dealContext,
+      prefill: prefillData,
     });
   } catch (err: unknown) {
     console.error("[v1-intake-validate-token] error", err);

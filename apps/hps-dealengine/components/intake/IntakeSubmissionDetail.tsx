@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import type { IntakeSubmissionDetail as DetailType } from "@/lib/intakeStaff";
 import { IntakeStatusBadge } from "./IntakeStatusBadge";
+import { getEvidenceTypeLabel } from "@/lib/constants/evidenceTypes";
 
 type IntakeSubmissionDetailProps = {
   detail: DetailType;
@@ -214,10 +215,15 @@ function EvidenceTab({ files }: { files: DetailType["files"] }) {
               <p className="text-sm font-medium text-white">
                 {file.original_filename}
               </p>
-              <p className="text-xs text-gray-400">
-                {formatBytes(file.size_bytes)} &middot;{" "}
-                {formatDate(file.created_at)}
-              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="text-amber-400/80">
+                  {getEvidenceTypeLabel(file.upload_key)}
+                </span>
+                <span>&middot;</span>
+                <span>{formatBytes(file.size_bytes)}</span>
+                <span>&middot;</span>
+                <span>{formatDate(file.created_at)}</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

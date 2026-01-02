@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { Toaster } from "sonner";
 
 export const dynamic = "force-dynamic";
 
@@ -59,6 +60,19 @@ export default function IntakeLayout({ children }: { children: ReactNode }) {
           </p>
         </div>
       </footer>
+
+      {/* Toast notifications */}
+      <Toaster
+        position="top-right"
+        richColors
+        toastOptions={{
+          style: {
+            background: "#1e293b",
+            border: "1px solid #334155",
+            color: "#f1f5f9",
+          },
+        }}
+      />
     </div>
   );
 }

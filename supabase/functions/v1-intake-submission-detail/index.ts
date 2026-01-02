@@ -136,10 +136,10 @@ serve(async (req: Request): Promise<Response> => {
         .eq("id", submission.intake_schema_version_id)
         .maybeSingle(),
 
-      // Files
+      // Files (include upload_key for evidence type labeling)
       supabase
         .from("intake_submission_files")
-        .select("id, original_filename, mime_type, size_bytes, storage_state, scan_status, scanned_at, created_at")
+        .select("id, original_filename, mime_type, size_bytes, storage_state, scan_status, scanned_at, created_at, upload_key")
         .eq("intake_submission_id", submission.id)
         .order("created_at", { ascending: false }),
 

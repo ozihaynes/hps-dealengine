@@ -64,6 +64,16 @@ type ValidateTokenResponse = {
     state: string | null;
     zip: string | null;
   };
+  /** Pre-fill data for form fields (contact info, address, etc.) */
+  prefill?: {
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
+    property_address?: string;
+    property_city?: string;
+    property_state?: string;
+    property_zip?: string;
+  } | null;
   error?: string;
   message?: string;
 };

@@ -3,12 +3,14 @@
 import React, { useMemo } from "react";
 import type { IntakeSectionApi, IntakeFieldApi } from "@/lib/intakePublic";
 import { IntakeFormField } from "./IntakeFormField";
+import type { AddressSelection } from "@/components/ui/AddressAutocomplete";
 
 type IntakeFormSectionProps = {
   section: IntakeSectionApi;
   values: Record<string, unknown>;
   errors: Record<string, string>;
   onChange: (key: string, value: unknown) => void;
+  onAddressSelect?: (selection: AddressSelection) => void;
 };
 
 /**
@@ -38,6 +40,7 @@ export function IntakeFormSection({
   values,
   errors,
   onChange,
+  onAddressSelect,
 }: IntakeFormSectionProps) {
   // Filter fields based on their conditions
   const visibleFields = useMemo(() => {
@@ -66,6 +69,7 @@ export function IntakeFormSection({
             field={field}
             value={values[field.key]}
             onChange={onChange}
+            onAddressSelect={field.type === "address" ? onAddressSelect : undefined}
             error={errors[field.key]}
           />
         ))}

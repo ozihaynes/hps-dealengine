@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useRef, useState } from "react";
+import { toast } from "sonner";
 
 export type UploadFile = {
   id: string;
@@ -150,6 +151,12 @@ export function FileUploadZone({
               : f,
           ),
         );
+
+        // Show success toast
+        toast.success(`Uploaded: ${fileToUpload.filename}`, {
+          description: "Document ready for submission",
+          duration: 4000,
+        });
       } catch (err) {
         console.error("Upload error:", err);
         const message = err instanceof Error ? err.message : "Upload failed";
@@ -158,6 +165,12 @@ export function FileUploadZone({
             f.id === fileToUpload.id ? { ...f, status: "error" as const, error: message } : f,
           ),
         );
+
+        // Show error toast
+        toast.error(`Upload failed: ${fileToUpload.filename}`, {
+          description: message,
+          duration: 5000,
+        });
       }
     },
     [files, onFilesChange, onUploadStart, onUploadComplete],
@@ -329,6 +342,11 @@ export function FileUploadZone({
               key={file.id}
               file={file}
               onRemove={() => handleRemove(file.id)}
+              onReplace={() => {
+                handleRemove(file.id);
+                // Small delay to allow state to update before opening picker
+                setTimeout(() => fileInputRef.current?.click(), 100);
+              }}
               disabled={disabled}
             />
           ))}
@@ -341,12 +359,17 @@ export function FileUploadZone({
 function FileRow({
   file,
   onRemove,
+  onReplace,
   disabled,
 }: {
   file: UploadFile;
   onRemove: () => void;
+  onReplace: () => void;
   disabled: boolean;
 }) {
+  const isUploading = file.status === "uploading" || file.status === "scanning";
+  const isComplete = file.status === "complete" && file.scanStatus === "CLEAN";
+
   return (
     <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 p-3">
       {/* File icon */}
@@ -382,7 +405,7 @@ function FileRow({
           )}
         </div>
         {/* Progress bar */}
-        {(file.status === "uploading" || file.status === "scanning") && (
+        {isUploading && (
           <div className="mt-1 h-1 overflow-hidden rounded-full bg-white/10">
             <div
               className="h-full bg-[color:var(--accent-blue)] transition-all duration-300"
@@ -392,14 +415,14 @@ function FileRow({
         )}
       </div>
 
-      {/* Status icon / remove button */}
+      {/* Status icon and action buttons */}
       <div className="shrink-0 flex items-center gap-2">
         {/* Spinner during upload/scanning */}
-        {(file.status === "uploading" || file.status === "scanning") && (
+        {isUploading && (
           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[color:var(--accent-blue)] border-t-transparent" />
         )}
         {/* Success checkmark for clean files */}
-        {file.status === "complete" && file.scanStatus === "CLEAN" && (
+        {isComplete && (
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20">
             <svg
               className="h-4 w-4 text-emerald-400"
@@ -411,13 +434,40 @@ function FileRow({
             </svg>
           </div>
         )}
-        {/* Remove/cancel button - visible for all states except completed+clean */}
-        {!(file.status === "complete" && file.scanStatus === "CLEAN") && (
+
+        {/* Action buttons - Replace and Remove */}
+        {!isUploading && (
+          <div className="flex items-center gap-1">
+            {/* Replace button */}
+            <button
+              type="button"
+              onClick={onReplace}
+              disabled={disabled}
+              title="Replace file"
+              className="px-2 py-1 text-xs font-medium text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded transition-colors disabled:opacity-50"
+            >
+              Replace
+            </button>
+            {/* Remove button */}
+            <button
+              type="button"
+              onClick={onRemove}
+              disabled={disabled}
+              title="Remove file"
+              className="px-2 py-1 text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition-colors disabled:opacity-50"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+
+        {/* Cancel button during upload */}
+        {isUploading && (
           <button
             type="button"
             onClick={onRemove}
             disabled={disabled}
-            title={file.status === "uploading" || file.status === "scanning" ? "Cancel upload" : "Remove file"}
+            title="Cancel upload"
             className="flex h-6 w-6 items-center justify-center rounded-full text-[color:var(--text-secondary)] hover:bg-white/10 hover:text-red-400 transition-colors disabled:opacity-50"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

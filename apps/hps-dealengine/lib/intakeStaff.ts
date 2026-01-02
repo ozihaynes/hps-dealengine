@@ -88,6 +88,8 @@ export type IntakeSubmissionDetail = {
     scan_status: string;
     scanned_at: string | null;
     created_at: string;
+    /** Upload category key (e.g., "payoff_letter", "lease_agreement") for evidence type display */
+    upload_key: string | null;
   }>;
   revision_requests: Array<{
     id: string;
