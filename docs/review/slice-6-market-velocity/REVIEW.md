@@ -4,12 +4,28 @@
 
 Implements `computeMarketVelocity()` function for the V2.5 Wholesaler Dashboard. This slice calculates local market speed indicators (DOM, MOI, Absorption Rate, Sale-to-List ratio) and produces a velocity band classification and liquidity score that drive carry assumptions and urgency signals in the UI.
 
+---
+
+## File Manifest
+
+> **Note:** All source files are included in this review folder for byte-for-byte verification.
+> Verify integrity using: `sha256sum -c CHECKSUMS.txt`
+
+| File | Size (bytes) | SHA-256 Checksum |
+|------|-------------|------------------|
+| `marketVelocity.ts` | 26,289 | `7e46873193327895c75a611c4475fb8e91f95038439ed83eb27185d95d34ac13` |
+| `marketVelocity.spec.ts` | 40,020 | `e1ace401c55852dcb9791e1cf41c0cce2eb9d2120ac34825e727eca7f023455a` |
+
+**Source Location:** `packages/engine/src/slices/` and `packages/engine/src/__tests__/`
+
+---
+
 ## Files Changed
 
 | File | Change |
 |------|--------|
 | `packages/engine/src/slices/marketVelocity.ts` | Created — 657 lines |
-| `packages/engine/src/__tests__/marketVelocity.spec.ts` | Created — 77 tests |
+| `packages/engine/src/__tests__/marketVelocity.spec.ts` | Created — 83 tests |
 | `packages/engine/src/index.ts` | Updated exports |
 
 ## Implementation Details
@@ -69,11 +85,12 @@ Based on sale-to-list ratio:
 
 ### Helper Functions Exported
 
-1. `validateMarketVelocityInput()` — Returns array of validation errors
-2. `estimateDaysToSell(band, baselineDays)` — Estimates expected days to sell
-3. `shouldFavorQuickExit(result)` — True for hot/warm markets with liquidity ≥ 60
-4. `suggestCarryMonths(band, baselineMonths)` — Suggested carry months
-5. `recommendDispositionStrategy(result)` — Returns assignment | double_close | hold_for_appreciation
+1. `validateMarketVelocityInput()` — Returns array of validation errors for inputs
+2. `validateMarketVelocityPolicy()` — Returns array of validation warnings for policy (weights sum, ordering)
+3. `estimateDaysToSell(band, baselineDays)` — Estimates expected days to sell
+4. `shouldFavorQuickExit(result)` — True for hot/warm markets with liquidity ≥ 60
+5. `suggestCarryMonths(band, baselineMonths)` — Suggested carry months
+6. `recommendDispositionStrategy(result)` — Returns assignment | double_close | hold_for_appreciation
 
 ## Policy Tokens (DEFAULT_MARKET_VELOCITY_POLICY)
 
@@ -107,7 +124,7 @@ Based on sale-to-list ratio:
 
 ## Test Coverage
 
-**77 tests** covering:
+**83 tests** covering:
 
 1. **Velocity Band Classification** (10 tests)
    - Hot, warm, balanced, cool, cold markets
@@ -135,22 +152,30 @@ Based on sale-to-list ratio:
    - Negative value detection
    - Range validation
 
-7. **Helper Functions** (18 tests)
+7. **Policy Validation** (5 tests)
+   - Valid default policy
+   - Liquidity weights sum to 1.0
+   - Negative weight detection
+   - DOM threshold ordering
+   - MOI threshold ordering
+
+8. **Helper Functions** (19 tests)
    - estimateDaysToSell()
    - shouldFavorQuickExit()
    - suggestCarryMonths()
    - recommendDispositionStrategy()
+   - Liquidity override behavior
 
-8. **Trace Entry** (4 tests)
+9. **Trace Entry** (4 tests)
    - Rule name verification
    - Used fields verification
    - Details structure
 
-9. **Edge Cases** (8 tests)
-   - Very large values (capped at cold/0)
-   - Very small values (floored at hot/100)
-   - All null optional fields
-   - Custom policy overrides
+10. **Edge Cases** (8 tests)
+    - Very large values (capped at cold/0)
+    - Very small values (floored at hot/100)
+    - All null optional fields
+    - Custom policy overrides
 
 ## Example Usage
 
@@ -185,3 +210,72 @@ const quickExit = shouldFavorQuickExit(result); // true (warm + liquidity 72)
 - Returns pure computation result with trace entry
 - No side effects or external dependencies
 - All thresholds configurable via policy tokens
+
+---
+
+## P2 Enhancement: Policy Validation + Disposition Strategy Clarification (Commit 8139c34)
+
+### Issue 1: Policy Weight Validation
+
+Custom policy liquidity weights weren't validated to sum to 1.0. If weights sum to >1.0, liquidity score could exceed 100 (caught by clamp, but misleading). If weights sum to <1.0, score is artificially depressed.
+
+### Solution
+
+Added `validateMarketVelocityPolicy()` function that checks:
+- Liquidity weights sum to 1.0 (within 0.001 tolerance)
+- No negative weight values
+- DOM thresholds in ascending order (hot < warm < balanced < cool)
+- MOI thresholds in ascending order (hot < warm < balanced < cool)
+
+```typescript
+export function validateMarketVelocityPolicy(
+  policy: MarketVelocityPolicy
+): string[] {
+  const warnings: string[] = [];
+
+  // Check that liquidity weights sum to 1.0
+  const weightSum =
+    policy.liquidityDomWeight +
+    policy.liquidityMoiWeight +
+    policy.liquidityCashBuyerWeight;
+
+  if (Math.abs(weightSum - 1.0) > 0.001) {
+    warnings.push(
+      `Liquidity weights should sum to 1.0, but sum to ${weightSum.toFixed(3)}. ` +
+        `This will produce skewed liquidity scores.`
+    );
+  }
+  // ... additional checks
+}
+```
+
+### Issue 2: Disposition Strategy OR Condition
+
+`recommendDispositionStrategy()` has an `OR liquidity_score >= 50` that can override band-based logic. This needed clarification.
+
+### Solution
+
+Added detailed doc comment explaining the decision logic:
+
+```typescript
+/**
+ * Determines recommended disposition strategy based on velocity.
+ *
+ * Decision Logic:
+ * 1. Hot market + high liquidity (≥70) → assignment (fastest exit)
+ * 2. Warm/balanced market OR moderate liquidity (≥50) → double_close
+ *    Note: Moderate liquidity alone can trigger double_close even in cool markets,
+ *    since liquidity indicates buyer demand exists despite slower overall market.
+ * 3. Cold/cool market + low liquidity (<50) → hold_for_appreciation
+ */
+```
+
+### Tests Added
+
+6 new tests covering:
+- Valid default policy returns no warnings
+- Liquidity weights not summing to 1.0
+- Negative weight detection
+- Out-of-order DOM thresholds
+- Out-of-order MOI thresholds
+- Cool market with high liquidity recommends double_close (documents intentional override behavior)
