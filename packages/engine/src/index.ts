@@ -51,6 +51,21 @@ export {
   type CompForScoring,
 } from './slices/compQuality';
 
+// V2.5 Wholesaler Dashboard - Market Velocity Metrics Slice
+export {
+  computeMarketVelocity,
+  validateMarketVelocityInput,
+  estimateDaysToSell,
+  shouldFavorQuickExit,
+  suggestCarryMonths,
+  recommendDispositionStrategy,
+  DEFAULT_MARKET_VELOCITY_POLICY,
+  type MarketVelocityPolicy,
+  type MarketVelocityInput,
+  type MarketVelocityResult,
+  type MarketCondition,
+} from './slices/marketVelocity';
+
 // Command Center V2.1 - L2 Snapshot Computations
 export {
   computeCloseabilityIndex,
