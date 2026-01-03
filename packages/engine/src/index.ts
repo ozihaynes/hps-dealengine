@@ -82,6 +82,25 @@ export {
   type EvidenceInput,
 } from './slices/evidenceHealth';
 
+// V2.5 Wholesaler Dashboard - Risk Gates Slice
+export {
+  computeRiskGates,
+  validateRiskGatesInput,
+  validateRiskGatesPolicy,
+  createAllPassInput,
+  createAllUnknownInput,
+  getGatesRequiringAttention,
+  isGateBlocking,
+  countGatesAtSeverity,
+  hasAnyCritical,
+  allGatesPass,
+  isAtLeastAsSevere,
+  SEVERITY_RANK,
+  DEFAULT_RISK_GATES_POLICY,
+  type RiskGatesPolicy,
+  type RiskGatesComputationResult,
+} from './slices/riskGates';
+
 // Command Center V2.1 - L2 Snapshot Computations
 export {
   computeCloseabilityIndex,

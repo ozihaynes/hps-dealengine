@@ -20,6 +20,7 @@ export * from "./dealContracts";
 export * from "./intake";
 export * from "./bulkImport";
 export * from "./snapshot";
+export * from "./riskGates";
 
 // V2.5 Wholesaler Dashboard schemas
 export * from "./compQuality";
