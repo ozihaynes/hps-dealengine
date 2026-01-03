@@ -1,0 +1,2 @@
+a54d1b6ccf0ff5e8e0807d8aed707a389114a00bcafef269a027548ca32c2a72  compQuality.ts
+91053bc3a0f0db6c89a8dcd83474cf118816336e78cfcfa4d779cd22146a26e2  compQuality.spec.ts
