@@ -161,6 +161,11 @@ function roundCurrency(value: number): number {
 
 /**
  * Determines the recommended exit strategy based on net profit comparison.
+ *
+ * Logic:
+ * 1. Find strategy with highest net profit
+ * 2. BUT if DC would win and its advantage over assignment < threshold, prefer assignment
+ *    (simpler execution wins when margins are similar)
  */
 function determineRecommendation(
   assignment: ClearanceBreakdown,
@@ -187,22 +192,44 @@ function determineRecommendation(
 
   const best = strategies[0];
   const secondBest = strategies[1];
-  const netAdvantage = best.net - (secondBest?.net ?? 0);
 
-  // Determine reason
+  // ═══════════════════════════════════════════════════════════════
+  // DC PREFERENCE OVERRIDE CHECK
+  // If DC would win but advantage over assignment is small,
+  // prefer assignment for simpler execution.
+  // ═══════════════════════════════════════════════════════════════
+
+  const dcAdvantageOverAssignment = doubleClose.net - assignment.net;
+
+  if (
+    best.exit === "double_close" &&
+    dcAdvantageOverAssignment > 0 &&
+    dcAdvantageOverAssignment < policy.dcPreferenceMarginThreshold &&
+    assignment.net > 0
+  ) {
+    // Override: prefer assignment for simpler execution
+    // Calculate net advantage of assignment over the next-best non-DC strategy
+    const nonDcStrategies = strategies.filter((s) => s.exit !== "double_close");
+    const nextBestAfterAssignment = nonDcStrategies[1];
+    const overrideAdvantage =
+      assignment.net - (nextBestAfterAssignment?.net ?? 0);
+
+    return {
+      recommendedExit: "assignment",
+      recommendationReason: `Assignment preferred: DC advantage ($${dcAdvantageOverAssignment.toLocaleString()}) below $${policy.dcPreferenceMarginThreshold.toLocaleString()} threshold, simpler execution`,
+      netAdvantage: roundCurrency(overrideAdvantage),
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // STANDARD RECOMMENDATION (highest net wins)
+  // ═══════════════════════════════════════════════════════════════
+
+  const netAdvantage = best.net - (secondBest?.net ?? 0);
   let reason: string;
 
   if (best.exit === "assignment") {
-    if (
-      doubleClose.net > 0 &&
-      doubleClose.net - assignment.net < policy.dcPreferenceMarginThreshold &&
-      doubleClose.net > assignment.net
-    ) {
-      reason =
-        "Assignment preferred: DC advantage below threshold, simpler execution";
-    } else {
-      reason = `Highest net profit: $${best.net.toLocaleString()}`;
-    }
+    reason = `Highest net profit: $${best.net.toLocaleString()}`;
   } else if (best.exit === "double_close") {
     reason = `DC nets $${netAdvantage.toLocaleString()} more than assignment`;
   } else {
@@ -277,8 +304,9 @@ export function computeNetClearance(
   // ═══════════════════════════════════════════════════════════════
 
   const assignmentGross = (maoWholesale ?? 0) - purchasePrice;
+  // Use max(0, gross) for percentage-based fee to avoid negative fees on negative spreads
   const assignmentFee = policy.assignmentUsePct
-    ? assignmentGross * policy.assignmentFeePct
+    ? Math.max(0, assignmentGross) * policy.assignmentFeePct
     : policy.assignmentFeeFlat;
   const assignmentCosts = assignmentFee;
   const assignmentNet = Math.max(0, assignmentGross - assignmentCosts);

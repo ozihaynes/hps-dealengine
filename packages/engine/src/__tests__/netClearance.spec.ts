@@ -103,6 +103,25 @@ describe("computeNetClearance", () => {
 
       expect(netClearance.assignment.cost_breakdown?.title_fees).toBe(500);
     });
+
+    it("does not produce negative fee on negative gross with percentage mode", () => {
+      const pctPolicy: NetClearancePolicy = {
+        ...policy,
+        assignmentUsePct: true,
+        assignmentFeePct: 0.1,
+      };
+
+      const input = makeInput({
+        purchasePrice: 180000,
+        maoWholesale: 160000, // Negative gross = -20000
+      });
+      const { netClearance } = computeNetClearance(input, pctPolicy);
+
+      // Fee should be 0, not -2000
+      expect(netClearance.assignment.costs).toBe(0);
+      expect(netClearance.assignment.gross).toBe(-20000);
+      expect(netClearance.assignment.net).toBe(0);
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════
@@ -332,6 +351,51 @@ describe("computeNetClearance", () => {
       // DC gross = 12000, costs = ~7700, net = ~4300
       // Assignment should be recommended
       expect(netClearance.recommended_exit).toBe("assignment");
+    });
+
+    it("overrides DC to assignment when DC advantage is below threshold", () => {
+      // Scenario: DC would win, but its advantage is < $5000
+      const input = makeInput({
+        purchasePrice: 150000,
+        maoWholesale: 178000, // Assignment gross = 28000, net = 27500
+        maoFlip: 189000, // DC gross = 39000, costs ~7700, net ~31300
+      });
+      const { netClearance } = computeNetClearance(input, policy);
+
+      // DC advantage = 31300 - 27500 = 3800 (< $5000 threshold)
+      // Should override to assignment
+      expect(netClearance.recommended_exit).toBe("assignment");
+      expect(netClearance.recommendation_reason).toContain("Assignment preferred");
+      expect(netClearance.recommendation_reason).toContain("threshold");
+    });
+
+    it("keeps DC recommendation when advantage exceeds threshold", () => {
+      // Scenario: DC wins by more than $5000
+      const input = makeInput({
+        purchasePrice: 150000,
+        maoWholesale: 165000, // Assignment gross = 15000, net = 14500
+        maoFlip: 195000, // DC gross = 45000, costs ~7700, net ~37300
+      });
+      const { netClearance } = computeNetClearance(input, policy);
+
+      // DC advantage = 37300 - 14500 = 22800 (> $5000 threshold)
+      // Should NOT override - DC wins
+      expect(netClearance.recommended_exit).toBe("double_close");
+      expect(netClearance.recommendation_reason).toContain("DC nets");
+    });
+
+    it("does not override when assignment net is zero or negative", () => {
+      // DC wins, advantage is small, but assignment is not viable
+      const input = makeInput({
+        purchasePrice: 150000,
+        maoWholesale: 150300, // Assignment gross = 300, net clamped to 0 after fee
+        maoFlip: 165000, // DC gross = 15000, net ~7300
+      });
+      const { netClearance } = computeNetClearance(input, policy);
+
+      // Even though DC advantage is small, assignment is not viable
+      // Should NOT override to assignment
+      expect(netClearance.recommended_exit).toBe("double_close");
     });
   });
 
