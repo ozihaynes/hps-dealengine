@@ -791,6 +791,25 @@ describe("Policy Validation", () => {
     const warnings = validateRiskGatesPolicy(badPolicy);
     expect(warnings).toContain("penaltyPerCritical should be >= penaltyPerMajor");
   });
+
+  it("should warn when unknownBlocks is missing a gate", () => {
+    const incompletePolicy: RiskGatesPolicy = {
+      ...policy,
+      unknownBlocks: {
+        insurability: true,
+        title: true,
+        flood: false,
+        bankruptcy: true,
+        liens: true,
+        condition: false,
+        // Missing: market, compliance
+      } as Record<RiskGateKey, boolean>,
+    };
+
+    const warnings = validateRiskGatesPolicy(incompletePolicy);
+    expect(warnings.some((w) => w.includes("market"))).toBe(true);
+    expect(warnings.some((w) => w.includes("compliance"))).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
