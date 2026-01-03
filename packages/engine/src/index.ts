@@ -15,6 +15,18 @@ export {
   type PriceGeometryResult,
 } from './slices/priceGeometry';
 
+// V2.5 Wholesaler Dashboard - Deal Verdict Slice
+export {
+  deriveDealVerdict,
+  validateDealVerdictInput,
+  DEFAULT_DEAL_VERDICT_POLICY,
+  type DealVerdictPolicy,
+  type DealVerdictInput,
+  type DealVerdictResult,
+  type RiskSummaryInput,
+  type EvidenceSummaryInput,
+} from './slices/verdict';
+
 // Command Center V2.1 - L2 Snapshot Computations
 export {
   computeCloseabilityIndex,
