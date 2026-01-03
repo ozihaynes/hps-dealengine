@@ -383,7 +383,13 @@ export function computeCompQuality(
   const finalScore = clamp(rawScore + compCountAdjustment, 0, 100);
   const qualityBand = determineQualityBand(finalScore, policy);
 
-  // Calculate component scores for breakdown
+  // ═══════════════════════════════════════════════════════════════
+  // CALCULATE SCORE BREAKDOWN
+  // Each component is scored 0-100 independently.
+  // NOTE: These are NOT additive fractions of the total score.
+  // Total score = 100 - (avg_distance_penalty + avg_age_penalty + avg_sqft_penalty)
+  // Each breakdown score = 100 - avg_penalty_for_that_dimension
+  // ═══════════════════════════════════════════════════════════════
   const proximityScore = round2(
     100 - average(compScoreDetails.map((c) => c.distance_penalty))
   );
@@ -644,16 +650,25 @@ export function calculateIdealCompCharacteristics(
  * Determines if comps are sufficient for high-confidence valuation.
  *
  * @param compQuality - Computed comp quality result
- * @param minScore - Minimum required score (default 70)
+ * @param minScore - Minimum required score (default 70, ignored if usePrecomputed=true)
  * @param minCount - Minimum required comp count (default 3)
+ * @param usePrecomputed - If true, uses meets_confidence_threshold from compQuality instead of minScore
  * @returns Whether comps meet sufficiency criteria
  */
 export function areCompsSufficient(
   compQuality: CompQuality,
   minScore: number = 70,
-  minCount: number = 3
+  minCount: number = 3,
+  usePrecomputed: boolean = false
 ): boolean {
-  return (
-    compQuality.comp_count >= minCount && compQuality.quality_score >= minScore
-  );
+  const countOk = compQuality.comp_count >= minCount;
+
+  if (usePrecomputed) {
+    // Use the pre-computed threshold from the scoring run
+    // (based on policy.confidenceAThreshold at computation time)
+    return countOk && (compQuality.meets_confidence_threshold ?? false);
+  }
+
+  // Use custom minScore parameter
+  return countOk && compQuality.quality_score >= minScore;
 }

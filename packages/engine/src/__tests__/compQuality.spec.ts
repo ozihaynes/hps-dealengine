@@ -723,6 +723,48 @@ describe("computeCompQuality", () => {
       // Average penalty: 20, so similarity score = 100 - 20 = 80
       expect(compQuality.score_breakdown?.similarity_score).toBe(80);
     });
+
+    it("should have score breakdown values as independent 0-100 scores, not additive fractions", () => {
+      const input: CompQualityInput = {
+        comps: [
+          // Each comp has mixed penalties
+          { distance_miles: 1.5, age_days: 150, sqft: 2160 }, // 20% variance
+          { distance_miles: 1.0, age_days: 120, sqft: 1980 }, // 10% variance
+          { distance_miles: 0.5, age_days: 90, sqft: 1800 }, // ideal
+        ],
+        subjectSqft: 1800,
+      };
+
+      const { compQuality } = computeCompQuality(input, policy);
+
+      // Each breakdown score should be 0-100 independently
+      expect(compQuality.score_breakdown?.proximity_score).toBeGreaterThanOrEqual(
+        0
+      );
+      expect(compQuality.score_breakdown?.proximity_score).toBeLessThanOrEqual(
+        100
+      );
+      expect(compQuality.score_breakdown?.recency_score).toBeGreaterThanOrEqual(
+        0
+      );
+      expect(compQuality.score_breakdown?.recency_score).toBeLessThanOrEqual(100);
+      expect(
+        compQuality.score_breakdown?.similarity_score
+      ).toBeGreaterThanOrEqual(0);
+      expect(compQuality.score_breakdown?.similarity_score).toBeLessThanOrEqual(
+        100
+      );
+
+      // The sum of breakdown scores is NOT expected to equal the total score
+      // This documents the intentional design: each sub-score is a per-dimension quality grade
+      const breakdownSum =
+        (compQuality.score_breakdown?.proximity_score ?? 0) +
+        (compQuality.score_breakdown?.recency_score ?? 0) +
+        (compQuality.score_breakdown?.similarity_score ?? 0);
+
+      // Breakdown sum will be ~200+ while quality_score is ~60-90
+      expect(breakdownSum).toBeGreaterThan(compQuality.quality_score);
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1143,5 +1185,63 @@ describe("areCompsSufficient", () => {
 
     // Custom: needs 5 comps and 90 score
     expect(areCompsSufficient(compQuality, 90, 5)).toBe(false);
+  });
+
+  it("should use precomputed meets_confidence_threshold when usePrecomputed=true", () => {
+    // Score is 65 (below default 70 threshold) but meets_confidence_threshold is true
+    const compQuality = {
+      comp_count: 5,
+      avg_distance_miles: 1.5,
+      avg_age_days: 150,
+      sqft_variance_pct: 20,
+      quality_score: 65,
+      quality_band: "good" as const,
+      scoring_method: "fannie_mae" as const,
+      meets_confidence_threshold: true,
+    };
+
+    // Without usePrecomputed: fails because score < 70
+    expect(areCompsSufficient(compQuality, 70, 3, false)).toBe(false);
+
+    // With usePrecomputed: passes because meets_confidence_threshold is true
+    expect(areCompsSufficient(compQuality, 70, 3, true)).toBe(true);
+  });
+
+  it("should return false when usePrecomputed=true but meets_confidence_threshold is undefined", () => {
+    const compQuality = {
+      comp_count: 5,
+      avg_distance_miles: 0.3,
+      avg_age_days: 45,
+      sqft_variance_pct: 5,
+      quality_score: 95,
+      quality_band: "excellent" as const,
+      scoring_method: "fannie_mae" as const,
+      // meets_confidence_threshold is undefined
+    };
+
+    // Without usePrecomputed: passes because score >= 70
+    expect(areCompsSufficient(compQuality, 70, 3, false)).toBe(true);
+
+    // With usePrecomputed: fails because meets_confidence_threshold is undefined (treated as false)
+    expect(areCompsSufficient(compQuality, 70, 3, true)).toBe(false);
+  });
+
+  it("should return false when usePrecomputed=true and meets_confidence_threshold is false", () => {
+    const compQuality = {
+      comp_count: 5,
+      avg_distance_miles: 0.3,
+      avg_age_days: 45,
+      sqft_variance_pct: 5,
+      quality_score: 95,
+      quality_band: "excellent" as const,
+      scoring_method: "fannie_mae" as const,
+      meets_confidence_threshold: false,
+    };
+
+    // Without usePrecomputed: passes because score >= 70
+    expect(areCompsSufficient(compQuality, 70, 3, false)).toBe(true);
+
+    // With usePrecomputed: fails because meets_confidence_threshold is false
+    expect(areCompsSufficient(compQuality, 70, 3, true)).toBe(false);
   });
 });
