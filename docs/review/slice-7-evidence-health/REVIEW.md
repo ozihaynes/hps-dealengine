@@ -13,8 +13,8 @@ Implements `computeEvidenceHealth()` function for the V2.5 Wholesaler Dashboard.
 
 | File | Lines | SHA-256 Checksum |
 |------|-------|------------------|
-| `evidenceHealth.ts` | 738 | `513eb28be531e8bce695f5e7dc51030b0ee13b235c57ffd3cbe3269b9a2bc898` |
-| `evidenceHealth.spec.ts` | 1,016 | `b2e4706f1fc1c75dee346dcf8c0d1b00f7fe82b45ed30c4f4c0877abc89207f8` |
+| `evidenceHealth.ts` | 745 | `3ee1935a7f5194236094ac55aa884b226127a9d30d867d7732543bed409ab648` |
+| `evidenceHealth.spec.ts` | 1,035 | `428f4ef7e558dab4d3dc07d5c14327e01e1bc6cbb68206bb8823f72a26b0eea0` |
 
 **Source Location:** `packages/engine/src/slices/` and `packages/engine/src/__tests__/`
 
@@ -25,8 +25,8 @@ Implements `computeEvidenceHealth()` function for the V2.5 Wholesaler Dashboard.
 | File | Change |
 |------|--------|
 | `packages/contracts/src/evidenceHealth.ts` | Created — 97 lines |
-| `packages/engine/src/slices/evidenceHealth.ts` | Created — 738 lines |
-| `packages/engine/src/__tests__/evidenceHealth.spec.ts` | Created — 62 tests |
+| `packages/engine/src/slices/evidenceHealth.ts` | Created — 745 lines |
+| `packages/engine/src/__tests__/evidenceHealth.spec.ts` | Created — 63 tests |
 | `packages/contracts/src/index.ts` | Updated exports |
 | `packages/engine/src/index.ts` | Updated exports |
 
@@ -251,3 +251,36 @@ Created `packages/contracts/src/evidenceHealth.ts` with:
 - `EvidenceTypeSchema` — Enum of 5 evidence types
 - `EvidenceItemHealthSchema` — Per-item evaluation result
 - `EvidenceHealthSchema` — Aggregate health with counts, score, band, and recommendations
+
+---
+
+## P2 Enhancement: Criticality Flags in Trace (Commit 1edbaf7)
+
+### Issue
+
+The trace entry's policy section did not include the criticality flags, making it harder to debug why certain evidence items were classified as critical.
+
+### Solution
+
+Added `criticality_flags` object to the trace policy section:
+
+```typescript
+policy: {
+  payoff_letter_freshness_days: policy.payoffLetterFreshnessDays,
+  // ... other freshness thresholds ...
+  criticality_flags: {
+    payoff_letter: policy.payoffLetterCritical,
+    title_commitment: policy.titleCommitmentCritical,
+    insurance_quote: policy.insuranceQuoteCritical,
+    four_point_inspection: policy.fourPointInspectionCritical,
+    repair_estimate: policy.repairEstimateCritical,
+  },
+  points_per_fresh_item: policy.pointsPerFreshItem,
+  // ... other scoring weights ...
+}
+```
+
+### Tests Added
+
+1 new test covering:
+- Trace entry includes criticality_flags with correct default values (first 3 true, last 2 false)

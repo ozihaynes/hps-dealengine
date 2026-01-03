@@ -525,6 +525,25 @@ describe("computeEvidenceHealth", () => {
       expect(scoreCalc.penalty_from_stale).toBeDefined();
       expect(scoreCalc.final_score).toBeDefined();
     });
+
+    it("should include criticality flags in policy trace", () => {
+      const input = allFreshInput();
+      const { traceEntry } = computeEvidenceHealth(input, policy);
+
+      const details = traceEntry.details as Record<string, unknown>;
+      const tracePolicy = details.policy as Record<string, unknown>;
+      const criticalityFlags = tracePolicy.criticality_flags as Record<
+        string,
+        boolean
+      >;
+
+      expect(criticalityFlags).toBeDefined();
+      expect(criticalityFlags.payoff_letter).toBe(true);
+      expect(criticalityFlags.title_commitment).toBe(true);
+      expect(criticalityFlags.insurance_quote).toBe(true);
+      expect(criticalityFlags.four_point_inspection).toBe(false);
+      expect(criticalityFlags.repair_estimate).toBe(false);
+    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════════
