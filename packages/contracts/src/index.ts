@@ -24,6 +24,7 @@ export * from "./snapshot";
 // V2.5 Wholesaler Dashboard schemas
 export * from "./compQuality";
 export * from "./compsEvidence";
+export * from "./evidenceHealth";
 export * from "./marketVelocity";
 export * from "./netClearance";
 export * from "./priceGeometry";

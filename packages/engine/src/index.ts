@@ -55,6 +55,7 @@ export {
 export {
   computeMarketVelocity,
   validateMarketVelocityInput,
+  validateMarketVelocityPolicy,
   estimateDaysToSell,
   shouldFavorQuickExit,
   suggestCarryMonths,
@@ -65,6 +66,21 @@ export {
   type MarketVelocityResult,
   type MarketCondition,
 } from './slices/marketVelocity';
+
+// V2.5 Wholesaler Dashboard - Evidence Health Slice
+export {
+  computeEvidenceHealth,
+  validateEvidenceHealthInput,
+  validateEvidenceHealthPolicy,
+  isEvidenceSufficient,
+  getEvidenceNeedingAttention,
+  getDaysUntilSoonestExpiration,
+  DEFAULT_EVIDENCE_HEALTH_POLICY,
+  type EvidenceHealthPolicy,
+  type EvidenceHealthInput,
+  type EvidenceHealthResult,
+  type EvidenceInput,
+} from './slices/evidenceHealth';
 
 // Command Center V2.1 - L2 Snapshot Computations
 export {
