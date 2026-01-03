@@ -18,3 +18,14 @@ export * from "./publicRecordsSubject";
 export * from "./marketIndex";
 export * from "./dealContracts";
 export * from "./intake";
+export * from "./bulkImport";
+export * from "./snapshot";
+
+// V2.5 Wholesaler Dashboard schemas
+export * from "./compQuality";
+export * from "./compsEvidence";
+export * from "./marketVelocity";
+export * from "./netClearance";
+export * from "./priceGeometry";
+export * from "./riskGatesEnhanced";
+export * from "./verdict";

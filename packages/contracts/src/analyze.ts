@@ -2,6 +2,15 @@ import { z } from "zod";
 import { Postures } from "./posture";
 import { RepairRatesSchema } from "./repairs";
 
+// V2.5 Wholesaler Dashboard imports
+import { DealVerdictSchema } from "./verdict";
+import { PriceGeometrySchema } from "./priceGeometry";
+import { NetClearanceSchema } from "./netClearance";
+import { CompQualitySchema } from "./compQuality";
+import { MarketVelocitySchema } from "./marketVelocity";
+import { CompsPackSchema } from "./compsEvidence";
+import { EnhancedRiskSummarySchema } from "./riskGatesEnhanced";
+
 export const GateStatusSchema = z.enum([
   "pass",
   "watch",
@@ -490,6 +499,31 @@ const AnalyzeOutputsSchema = z
         missing_required_kinds: z.array(z.string()).optional(),
       })
       .optional(),
+
+    // ═══════════════════════════════════════════════════════════════
+    // V2.5 WHOLESALER DASHBOARD OUTPUTS
+    // ═══════════════════════════════════════════════════════════════
+
+    /** V2.5: Deal verdict (pursue/needs_evidence/pass) with rationale */
+    verdict: DealVerdictSchema.nullable().optional(),
+
+    /** V2.5: Price geometry (ZOPA, entry point, floors/ceilings) */
+    price_geometry: PriceGeometrySchema.nullable().optional(),
+
+    /** V2.5: Net clearance per exit strategy (assignment/DC/wholetail) */
+    net_clearance: NetClearanceSchema.nullable().optional(),
+
+    /** V2.5: Comp quality assessment (Fannie Mae scoring) */
+    comp_quality: CompQualitySchema.nullable().optional(),
+
+    /** V2.5: Market velocity metrics (DOM/MOI/velocity band) */
+    market_velocity: MarketVelocitySchema.nullable().optional(),
+
+    /** V2.5: Comparable sales evidence pack */
+    comps_pack: CompsPackSchema.nullable().optional(),
+
+    /** V2.5: Enhanced risk summary with 8-gate taxonomy */
+    risk_gates_enhanced: EnhancedRiskSummarySchema.nullable().optional(),
   })
   .strict();
 
