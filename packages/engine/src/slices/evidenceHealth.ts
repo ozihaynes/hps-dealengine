@@ -537,6 +537,13 @@ export function computeEvidenceHealth(
         four_point_inspection_freshness_days:
           policy.fourPointInspectionFreshnessDays,
         repair_estimate_freshness_days: policy.repairEstimateFreshnessDays,
+        criticality_flags: {
+          payoff_letter: policy.payoffLetterCritical,
+          title_commitment: policy.titleCommitmentCritical,
+          insurance_quote: policy.insuranceQuoteCritical,
+          four_point_inspection: policy.fourPointInspectionCritical,
+          repair_estimate: policy.repairEstimateCritical,
+        },
         points_per_fresh_item: policy.pointsPerFreshItem,
         penalty_per_stale_item: policy.penaltyPerStaleItem,
         penalty_per_missing_item: policy.penaltyPerMissingItem,
