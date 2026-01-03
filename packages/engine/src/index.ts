@@ -27,6 +27,17 @@ export {
   type EvidenceSummaryInput,
 } from './slices/verdict';
 
+// V2.5 Wholesaler Dashboard - Net Clearance Calculator Slice
+export {
+  computeNetClearance,
+  validateNetClearanceInput,
+  calculateBreakEvenPrices,
+  DEFAULT_NET_CLEARANCE_POLICY,
+  type NetClearancePolicy,
+  type NetClearanceInput,
+  type NetClearanceResult,
+} from './slices/netClearance';
+
 // Command Center V2.1 - L2 Snapshot Computations
 export {
   computeCloseabilityIndex,
