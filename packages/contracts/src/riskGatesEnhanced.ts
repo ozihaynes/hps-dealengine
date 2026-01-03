@@ -7,7 +7,8 @@
  * Trace Frame: RISK_GATES_POLICY (enhanced)
  */
 import { z } from "zod";
-import { GateStatusSchema } from "./analyze";
+// Import from pure schema module to avoid circular dependency with analyze.ts
+import { GateStatusSchema } from "./schemas/gates";
 
 /** Standard 8-gate taxonomy keys */
 export const RiskGateKeySchema = z.enum([

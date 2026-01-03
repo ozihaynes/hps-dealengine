@@ -2,6 +2,12 @@ import { z } from "zod";
 import { Postures } from "./posture";
 import { RepairRatesSchema } from "./repairs";
 
+// Import GateStatusSchema from pure schema module to break circular dependency
+import { GateStatusSchema, type GateStatus } from "./schemas/gates";
+
+// Re-export for backwards compatibility
+export { GateStatusSchema, type GateStatus };
+
 // V2.5 Wholesaler Dashboard imports
 import { DealVerdictSchema } from "./verdict";
 import { PriceGeometrySchema } from "./priceGeometry";
@@ -10,14 +16,6 @@ import { CompQualitySchema } from "./compQuality";
 import { MarketVelocitySchema } from "./marketVelocity";
 import { CompsPackSchema } from "./compsEvidence";
 import { EnhancedRiskSummarySchema } from "./riskGatesEnhanced";
-
-export const GateStatusSchema = z.enum([
-  "pass",
-  "watch",
-  "fail",
-  "info_needed",
-]);
-export type GateStatus = z.infer<typeof GateStatusSchema>;
 
 const ValuationOptionsSchema = z.object({
   aivSafetyCapPercentage: z.number().optional(),
