@@ -216,7 +216,7 @@ describe("deriveDealVerdict", () => {
       const { verdict } = deriveDealVerdict(input);
 
       expect(verdict.recommendation).toBe("needs_evidence");
-      expect(verdict.rationale).toContain("Confidence grade is C");
+      expect(verdict.rationale).toContain("Confidence grade C is at or below threshold");
     });
 
     it("returns needs_evidence when missing critical evidence", () => {
@@ -555,19 +555,75 @@ describe("deriveDealVerdict", () => {
       expect(verdict.recommendation).toBe("pass");
     });
 
-    it("respects custom lowConfidenceGrade", () => {
+    it("respects custom lowConfidenceGrade (exact match)", () => {
       const customPolicy: DealVerdictPolicy = {
         ...DEFAULT_DEAL_VERDICT_POLICY,
-        lowConfidenceGrade: "B", // Treat B as low confidence
+        lowConfidenceGrade: "B", // Threshold is B
       };
 
       const input = makeInput({
-        confidenceGrade: "B",
+        confidenceGrade: "B", // Exactly at threshold
       });
 
       const { verdict } = deriveDealVerdict(input, customPolicy);
 
       expect(verdict.recommendation).toBe("needs_evidence");
+      expect(verdict.rationale).toContain("at or below threshold");
+    });
+
+    it("triggers needs_evidence for Grade C when threshold is B", () => {
+      const customPolicy: DealVerdictPolicy = {
+        ...DEFAULT_DEAL_VERDICT_POLICY,
+        lowConfidenceGrade: "B", // Threshold is B
+      };
+
+      const input = makeInput({
+        confidenceGrade: "C", // Worse than B
+      });
+
+      const { verdict } = deriveDealVerdict(input, customPolicy);
+
+      // Grade C should trigger needs_evidence when threshold is B
+      expect(verdict.recommendation).toBe("needs_evidence");
+      expect(verdict.rationale).toContain("Confidence grade C");
+    });
+
+    it("does not trigger needs_evidence for Grade A when threshold is B", () => {
+      const customPolicy: DealVerdictPolicy = {
+        ...DEFAULT_DEAL_VERDICT_POLICY,
+        lowConfidenceGrade: "B", // Threshold is B
+      };
+
+      const input = makeInput({
+        confidenceGrade: "A", // Better than B
+      });
+
+      const { verdict } = deriveDealVerdict(input, customPolicy);
+
+      // Grade A should NOT trigger needs_evidence
+      expect(verdict.recommendation).toBe("pursue");
+    });
+
+    it("triggers needs_evidence for all grades when threshold is A", () => {
+      const customPolicy: DealVerdictPolicy = {
+        ...DEFAULT_DEAL_VERDICT_POLICY,
+        lowConfidenceGrade: "A", // Strictest threshold
+      };
+
+      // Grade A
+      const inputA = makeInput({ confidenceGrade: "A" });
+      const { verdict: verdictA } = deriveDealVerdict(inputA, customPolicy);
+      expect(verdictA.recommendation).toBe("needs_evidence");
+
+      // Grade B
+      const inputB = makeInput({ confidenceGrade: "B" });
+      const { verdict: verdictB } = deriveDealVerdict(inputB, customPolicy);
+      expect(verdictB.recommendation).toBe("needs_evidence");
+
+      // Grade C
+      const inputC = makeInput({ confidenceGrade: "C" });
+      const { verdict: verdictC } = deriveDealVerdict(inputC, customPolicy);
+      expect(verdictC.recommendation).toBe("needs_evidence");
     });
   });
 

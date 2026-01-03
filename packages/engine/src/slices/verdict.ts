@@ -127,6 +127,33 @@ export interface DealVerdictResult {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
+ * Grade ranking for threshold comparisons.
+ * Higher rank = worse confidence.
+ */
+const GRADE_RANK: Record<"A" | "B" | "C", number> = {
+  A: 1,
+  B: 2,
+  C: 3,
+};
+
+/**
+ * Checks if confidence grade meets or exceeds (is at or below) the threshold.
+ * Grade C is worse than B, which is worse than A.
+ *
+ * @example
+ * isGradeAtOrBelowThreshold("C", "B") // true - C is worse than B
+ * isGradeAtOrBelowThreshold("A", "B") // false - A is better than B
+ * isGradeAtOrBelowThreshold("B", "B") // true - exact match
+ */
+function isGradeAtOrBelowThreshold(
+  grade: "A" | "B" | "C" | null,
+  threshold: "A" | "B" | "C"
+): boolean {
+  if (grade === null) return false;
+  return GRADE_RANK[grade] >= GRADE_RANK[threshold];
+}
+
+/**
  * Calculates confidence percentage for needs_evidence verdict.
  */
 function calculateEvidenceConfidence(
@@ -317,9 +344,13 @@ export function deriveDealVerdict(
     needsEvidenceReasons.push("Workflow state is NeedsInfo");
   }
 
-  // 2b. Low confidence grade
-  if (confidenceGrade === policy.lowConfidenceGrade) {
-    needsEvidenceReasons.push(`Confidence grade is ${confidenceGrade}`);
+  // 2b. Low confidence grade (at or below threshold)
+  // Grade C is worse than B, which is worse than A.
+  // If threshold is "B", both B and C trigger needs_evidence.
+  if (isGradeAtOrBelowThreshold(confidenceGrade, policy.lowConfidenceGrade)) {
+    needsEvidenceReasons.push(
+      `Confidence grade ${confidenceGrade} is at or below threshold ${policy.lowConfidenceGrade}`
+    );
   }
 
   // 2c. Missing critical evidence
