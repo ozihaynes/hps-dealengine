@@ -38,6 +38,19 @@ export {
   type NetClearanceResult,
 } from './slices/netClearance';
 
+// V2.5 Wholesaler Dashboard - Comp Quality Scorer Slice
+export {
+  computeCompQuality,
+  validateCompQualityInput,
+  calculateIdealCompCharacteristics,
+  areCompsSufficient,
+  DEFAULT_COMP_QUALITY_POLICY,
+  type CompQualityPolicy,
+  type CompQualityInput,
+  type CompQualityResult,
+  type CompForScoring,
+} from './slices/compQuality';
+
 // Command Center V2.1 - L2 Snapshot Computations
 export {
   computeCloseabilityIndex,
