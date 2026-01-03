@@ -227,6 +227,22 @@ describe("computePriceGeometry", () => {
       expect(priceGeometry.entry_posture).toBe("aggressive");
     });
 
+    it("calculates entry point from respect floor even when seller strike is higher", () => {
+      const input = makeInput({
+        respectFloor: 150000,
+        buyerCeiling: 200000,
+        sellerStrike: 175000, // Higher than floor
+        posture: "base",
+      });
+      const { priceGeometry } = computePriceGeometry(input);
+
+      // Entry point = floor + 50% of ZOPA = 150k + (25k * 0.5) = 162.5k
+      // Note: This is below seller's strike (175k) - intentional for opening offer
+      expect(priceGeometry.entry_point).toBe(162500);
+      expect(priceGeometry.zopa).toBe(25000);
+      expect(priceGeometry.seller_strike).toBe(175000);
+    });
+
     it("falls back to floor when no ZOPA exists", () => {
       const input = makeInput({
         respectFloor: 200000,

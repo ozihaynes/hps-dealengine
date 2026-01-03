@@ -201,6 +201,10 @@ export function computePriceGeometry(
 
   // Calculate entry point within ZOPA
   // Entry point = floor + (ZOPA * posture percentage)
+  // NOTE: Entry point may be BELOW seller's strike price. This is intentional.
+  // It represents the OPENING OFFER for negotiations, not the expected
+  // agreement point. Starting below the seller's minimum is a standard
+  // negotiation tactic to maximize buyer leverage.
   const entryPoint =
     zopaExists && zopa !== null
       ? respectFloor + zopa * entryPointPct
