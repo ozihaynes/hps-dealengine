@@ -576,6 +576,66 @@ export function validateMarketVelocityInput(
   return errors;
 }
 
+/**
+ * Validates market velocity policy for correctness.
+ * Returns array of validation warnings (empty if valid).
+ *
+ * @param policy - Market velocity policy to validate
+ * @returns Array of validation warnings
+ */
+export function validateMarketVelocityPolicy(
+  policy: MarketVelocityPolicy
+): string[] {
+  const warnings: string[] = [];
+
+  // Check that liquidity weights sum to 1.0
+  const weightSum =
+    policy.liquidityDomWeight +
+    policy.liquidityMoiWeight +
+    policy.liquidityCashBuyerWeight;
+
+  if (Math.abs(weightSum - 1.0) > 0.001) {
+    warnings.push(
+      `Liquidity weights should sum to 1.0, but sum to ${weightSum.toFixed(3)}. ` +
+        `This will produce skewed liquidity scores.`
+    );
+  }
+
+  // Check for negative weights
+  if (policy.liquidityDomWeight < 0) {
+    warnings.push("liquidityDomWeight cannot be negative");
+  }
+  if (policy.liquidityMoiWeight < 0) {
+    warnings.push("liquidityMoiWeight cannot be negative");
+  }
+  if (policy.liquidityCashBuyerWeight < 0) {
+    warnings.push("liquidityCashBuyerWeight cannot be negative");
+  }
+
+  // Check threshold ordering
+  if (
+    policy.hotMaxDom >= policy.warmMaxDom ||
+    policy.warmMaxDom >= policy.balancedMaxDom ||
+    policy.balancedMaxDom >= policy.coolMaxDom
+  ) {
+    warnings.push(
+      "DOM thresholds must be in ascending order: hotMaxDom < warmMaxDom < balancedMaxDom < coolMaxDom"
+    );
+  }
+
+  if (
+    policy.hotMaxMoi >= policy.warmMaxMoi ||
+    policy.warmMaxMoi >= policy.balancedMaxMoi ||
+    policy.balancedMaxMoi >= policy.coolMaxMoi
+  ) {
+    warnings.push(
+      "MOI thresholds must be in ascending order: hotMaxMoi < warmMaxMoi < balancedMaxMoi < coolMaxMoi"
+    );
+  }
+
+  return warnings;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -628,6 +688,13 @@ export function suggestCarryMonths(
 
 /**
  * Determines recommended disposition strategy based on velocity.
+ *
+ * Decision Logic:
+ * 1. Hot market + high liquidity (≥70) → assignment (fastest exit)
+ * 2. Warm/balanced market OR moderate liquidity (≥50) → double_close
+ *    Note: Moderate liquidity alone can trigger double_close even in cool markets,
+ *    since liquidity indicates buyer demand exists despite slower overall market.
+ * 3. Cold/cool market + low liquidity (<50) → hold_for_appreciation
  *
  * @param result - Market velocity result
  * @returns Recommended disposition strategy

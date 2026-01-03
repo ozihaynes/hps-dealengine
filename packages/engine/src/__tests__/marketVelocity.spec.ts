@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   computeMarketVelocity,
   validateMarketVelocityInput,
+  validateMarketVelocityPolicy,
   estimateDaysToSell,
   shouldFavorQuickExit,
   suggestCarryMonths,
@@ -927,6 +928,57 @@ describe("validateMarketVelocityInput", () => {
   });
 });
 
+describe("validateMarketVelocityPolicy", () => {
+  it("should return empty array for valid default policy", () => {
+    const warnings = validateMarketVelocityPolicy(DEFAULT_MARKET_VELOCITY_POLICY);
+    expect(warnings).toHaveLength(0);
+  });
+
+  it("should warn when liquidity weights do not sum to 1.0", () => {
+    const badPolicy: MarketVelocityPolicy = {
+      ...DEFAULT_MARKET_VELOCITY_POLICY,
+      liquidityDomWeight: 0.5,
+      liquidityMoiWeight: 0.5,
+      liquidityCashBuyerWeight: 0.5, // Sum = 1.5
+    };
+
+    const warnings = validateMarketVelocityPolicy(badPolicy);
+    expect(warnings.some((w) => w.includes("sum to 1.0"))).toBe(true);
+  });
+
+  it("should warn for negative weights", () => {
+    const badPolicy: MarketVelocityPolicy = {
+      ...DEFAULT_MARKET_VELOCITY_POLICY,
+      liquidityDomWeight: -0.1,
+    };
+
+    const warnings = validateMarketVelocityPolicy(badPolicy);
+    expect(warnings.some((w) => w.includes("negative"))).toBe(true);
+  });
+
+  it("should warn for out-of-order DOM thresholds", () => {
+    const badPolicy: MarketVelocityPolicy = {
+      ...DEFAULT_MARKET_VELOCITY_POLICY,
+      hotMaxDom: 30,
+      warmMaxDom: 14, // Out of order
+    };
+
+    const warnings = validateMarketVelocityPolicy(badPolicy);
+    expect(warnings.some((w) => w.includes("ascending order"))).toBe(true);
+  });
+
+  it("should warn for out-of-order MOI thresholds", () => {
+    const badPolicy: MarketVelocityPolicy = {
+      ...DEFAULT_MARKET_VELOCITY_POLICY,
+      hotMaxMoi: 4,
+      warmMaxMoi: 2, // Out of order
+    };
+
+    const warnings = validateMarketVelocityPolicy(badPolicy);
+    expect(warnings.some((w) => w.includes("ascending order"))).toBe(true);
+  });
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER FUNCTION TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1107,5 +1159,36 @@ describe("recommendDispositionStrategy", () => {
     const result = computeMarketVelocity(input, policy);
 
     expect(recommendDispositionStrategy(result)).toBe("hold_for_appreciation");
+  });
+
+  it("should recommend double_close for cool market with high liquidity (>=50)", () => {
+    // This tests the intentional behavior: even in slower markets,
+    // high liquidity signals buyer demand exists, so double_close is viable.
+    // We use a custom policy that weights cash buyer share more heavily to
+    // demonstrate this edge case where liquidity overrides band-based logic.
+    const customPolicy: MarketVelocityPolicy = {
+      ...DEFAULT_MARKET_VELOCITY_POLICY,
+      liquidityDomWeight: 0.1,
+      liquidityMoiWeight: 0.1,
+      liquidityCashBuyerWeight: 0.8, // Cash buyer dominates liquidity score
+    };
+
+    const input: MarketVelocityInput = {
+      domZipDays: 70, // Cool range (>60, <=90)
+      moiZipMonths: 7, // Cool range (>6, <=9)
+      absorptionRate: null,
+      saleToListPct: null,
+      cashBuyerSharePct: 70, // High cash buyer share to boost liquidity
+    };
+
+    const result = computeMarketVelocity(input, customPolicy);
+
+    // Verify we're in cool band with liquidity >= 50
+    expect(result.marketVelocity.velocity_band).toBe("cool");
+    expect(result.marketVelocity.liquidity_score).toBeGreaterThanOrEqual(50);
+
+    // Due to the OR condition (liquidity >= 50), double_close is recommended
+    // This documents intentional behavior: liquidity indicates buyers exist
+    expect(recommendDispositionStrategy(result)).toBe("double_close");
   });
 });
