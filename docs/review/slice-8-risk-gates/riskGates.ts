@@ -669,6 +669,23 @@ export function validateRiskGatesInput(input: RiskGatesInput): string[] {
 export function validateRiskGatesPolicy(policy: RiskGatesPolicy): string[] {
   const warnings: string[] = [];
 
+  // Check all 8 gates have unknownBlocks entries
+  const expectedGates: RiskGateKey[] = [
+    "insurability",
+    "title",
+    "flood",
+    "bankruptcy",
+    "liens",
+    "condition",
+    "market",
+    "compliance",
+  ];
+  for (const gate of expectedGates) {
+    if (policy.unknownBlocks[gate] === undefined) {
+      warnings.push(`unknownBlocks missing entry for: ${gate}`);
+    }
+  }
+
   // Check score weights are non-negative
   if (policy.penaltyPerCritical < 0) {
     warnings.push("penaltyPerCritical cannot be negative");

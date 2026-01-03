@@ -13,8 +13,8 @@ Implements `computeRiskGates()` function for the V2.5 Wholesaler Dashboard. This
 
 | File | Lines | SHA-256 Checksum |
 |------|-------|------------------|
-| `riskGates.ts` | 818 | `01a4153e8c43fd6d8af3740b902b3e3f0fa0ef11b0dd571c3d9f704d97a37d20` |
-| `riskGates.spec.ts` | 1,114 | `d4eac241da185a80c52f65416fdd04cc5c590cfe485daa726fc7e4cfa93fda80` |
+| `riskGates.ts` | 835 | `eefa8857418a82cfaedcb91cbfdbd26f4b8ba83314d3d844c9df24f2f7b3959d` |
+| `riskGates.spec.ts` | 1,133 | `89e9c08cca467954eca7a762864426d6df3004810db64053b2feeff6b45f8f8e` |
 | `riskGatesContract.ts` | 149 | `fa89044ce9ae63571f3aefc74a845100eb4e1fe793fd3929a42391c809cfa8d3` |
 
 **Source Location:** `packages/engine/src/slices/` and `packages/engine/src/__tests__/`
@@ -27,7 +27,7 @@ Implements `computeRiskGates()` function for the V2.5 Wholesaler Dashboard. This
 |------|--------|
 | `packages/contracts/src/riskGates.ts` | Created — 149 lines |
 | `packages/engine/src/slices/riskGates.ts` | Created — 818 lines |
-| `packages/engine/src/__tests__/riskGates.spec.ts` | Created — 112 tests |
+| `packages/engine/src/__tests__/riskGates.spec.ts` | Created — 113 tests |
 | `packages/contracts/src/index.ts` | Updated exports |
 | `packages/engine/src/index.ts` | Updated exports |
 
@@ -164,7 +164,7 @@ Starting from base score (100):
 
 ## Test Coverage
 
-**112 tests** covering:
+**113 tests** covering:
 
 1. **SEVERITY_RANK Constant** (4 tests)
    - Rank ordering verification
@@ -294,3 +294,38 @@ Created `packages/contracts/src/riskGates.ts` with:
 3. **Three explicit blocking branches** — Traced for debugging
 4. **Defensive handling of null severity** — Treats as critical when blocking
 5. **Input/policy validation** — Returns actionable error messages
+
+---
+
+## P2 Enhancement: Policy Validation for All 8 Gates (Commit a7af3d9)
+
+### Issue
+
+The `validateRiskGatesPolicy()` function did not check that all 8 gates had entries in the `unknownBlocks` configuration, which could lead to silent runtime failures if a gate key was missing.
+
+### Solution
+
+Added validation check that iterates through all 8 expected gates and warns if any are missing from `unknownBlocks`:
+
+```typescript
+const expectedGates: RiskGateKey[] = [
+  "insurability",
+  "title",
+  "flood",
+  "bankruptcy",
+  "liens",
+  "condition",
+  "market",
+  "compliance",
+];
+for (const gate of expectedGates) {
+  if (policy.unknownBlocks[gate] === undefined) {
+    warnings.push(`unknownBlocks missing entry for: ${gate}`);
+  }
+}
+```
+
+### Tests Added
+
+1 new test covering:
+- Policy with missing gate keys in unknownBlocks returns warnings for each missing gate
