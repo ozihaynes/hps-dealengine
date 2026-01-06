@@ -1,0 +1,4 @@
+street,city,state,zip,client_name,client_phone,client_email,seller_name,notes
+123 Main St,Orlando,FL,32801,John Smith,4075551234,john@example.com,Jane Doe,Test import row 1
+456 Oak Ave,Orlando,FL,32802,Alice Johnson,4075555678,alice@example.com,Bob Wilson,Test import row 2
+789 Pine Rd,Orlando,FL,32803,Charlie Brown,4075559012,charlie@example.com,,Row without seller

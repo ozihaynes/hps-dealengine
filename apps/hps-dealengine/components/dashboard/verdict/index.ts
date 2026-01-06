@@ -4,4 +4,4 @@
  */
 
 export { VerdictChip, type VerdictChipProps } from "./VerdictChip";
-// Future: export { VerdictCard, type VerdictCardProps } from './VerdictCard';
+export { VerdictCard, type VerdictCardProps } from "./VerdictCard";

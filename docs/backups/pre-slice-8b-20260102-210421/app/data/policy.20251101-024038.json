@@ -1,0 +1,6 @@
+{ "policy": {
+  "aiv":   { "hardCapPct": null, "softMaxAgeDays": null, "overrideRole": "", "overrideNeedsBindableInsurance": false },
+  "arv":   { "minComps": null, "softMaxAgeDays": null },
+  "carry": { "domToMonthsRule": "", "monthsHardCap": null },
+  "gates": { "greenLightSpreadOverPayoff": null, "borderlineBand": null }
+} }

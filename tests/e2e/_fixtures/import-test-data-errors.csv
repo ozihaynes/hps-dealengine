@@ -1,0 +1,4 @@
+street,city,state,zip,client_name,client_phone,client_email
+,Orlando,FL,32801,John Smith,4075551234,john@example.com
+456 Oak Ave,,FL,32802,Alice Johnson,4075555678,alice@example.com
+789 Pine Rd,Orlando,XX,32803,Charlie Brown,invalid-phone,not-an-email

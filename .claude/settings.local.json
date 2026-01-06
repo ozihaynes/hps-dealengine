@@ -18,7 +18,8 @@
       "Bash(grep:*)",
       "Bash(PGPASSWORD=postgres psql:*)",
       "Bash(npx:*)",
-      "Bash(timeout 15 pnpm dev:*)"
+      "Bash(timeout 15 pnpm dev:*)",
+      "Bash(mkdir:*)"
     ]
   }
 }

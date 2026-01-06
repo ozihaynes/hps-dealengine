@@ -388,3 +388,27 @@ verify_jwt = false
 [functions.v1-intake-upload-complete]
 verify_jwt = false
 
+# Bulk import endpoints (JWT required)
+[functions.v1-import-job-create]
+verify_jwt = true
+
+[functions.v1-import-job-update]
+verify_jwt = true
+
+[functions.v1-import-items-upsert]
+verify_jwt = true
+
+[functions.v1-import-item-update]
+verify_jwt = true
+
+[functions.v1-import-promote]
+verify_jwt = true
+
+[functions.v1-import-jobs-list]
+verify_jwt = true
+
+[functions.v1-import-items-list]
+verify_jwt = true
+
+[functions.v1-import-job-archive]
+verify_jwt = true

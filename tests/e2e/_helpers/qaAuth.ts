@@ -2,6 +2,18 @@ import type { Page, Response, ConsoleMessage } from "@playwright/test";
 
 type QaCreds = { email: string; password: string };
 
+/**
+ * Check if QA environment is configured
+ * Returns true if both email and password are set
+ */
+export function isQaEnvConfigured(): boolean {
+  const email =
+    process.env.DEALENGINE_QA_USER_EMAIL ?? process.env.DEALENGINE_TEST_USER_EMAIL;
+  const password =
+    process.env.DEALENGINE_QA_USER_PASSWORD ?? process.env.DEALENGINE_TEST_USER_PASSWORD;
+  return !!(email && password);
+}
+
 type QaDealIds = {
   readyDealId: string;
   timelineDealId?: string;
@@ -186,3 +198,8 @@ export async function loginAsQa(page: Page): Promise<void> {
     page.off("pageerror", onPageError);
   }
 }
+
+/**
+ * Alias for loginAsQa for convenience
+ */
+export const qaLogin = loginAsQa;

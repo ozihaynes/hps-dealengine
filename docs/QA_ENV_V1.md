@@ -70,3 +70,46 @@ pnpm -w test:e2e     # Full e2e suite; will also use loaded env
 - No secrets are printed to stdout; only variable names and seeded IDs are echoed.
 - If you change seeded values, re-run steps 2-4 to refresh both DB and `.env.qa`.
 - Valuation-specific rails (offer package + under contract + market provenance trace) run against `DEALENGINE_QA_READY_DEAL_ID` and require a saved run; the seed script already creates runs for READY.
+
+## Bulk Import Tests
+
+### Required Test Files
+The bulk import E2E tests use fixture files located in `tests/e2e/_fixtures/`:
+- `import-test-data.csv` - Valid 3-row test file
+- `import-test-data-errors.csv` - File with validation errors
+- `import-test-data-duplicates.csv` - File with duplicate addresses
+
+### Test Coverage
+The bulk import tests cover:
+1. **Wizard Flow**
+   - File upload and parsing
+   - Import type confirmation
+   - Column mapping
+   - Validation display
+   - Job creation
+
+2. **Import Center**
+   - Jobs list display
+   - Navigation to wizard
+   - Items panel when job selected
+
+3. **Item Editing**
+   - Edit button visibility in items table
+
+4. **Promotion**
+   - Promote button visibility for ready jobs
+   - Promotion modal opening
+
+5. **Export**
+   - Export button visibility
+
+### Running Import Tests Only
+```powershell
+pnpm -w test:e2e -- --grep "Bulk Import"
+```
+
+### Notes
+- Tests skip automatically if QA environment is not configured
+- Promotion tests that create real deals are skipped by default
+- Enable full promotion tests manually for integration testing
+- Tests use the `isQaEnvConfigured()` helper for environment gating

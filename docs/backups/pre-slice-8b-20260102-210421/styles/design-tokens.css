@@ -1,0 +1,321 @@
+/**
+ * Command Center V2.1 - CSS Design Tokens
+ *
+ * CSS custom properties derived from the TypeScript token system.
+ * These enable runtime theming and CSS-native token usage.
+ *
+ * Import this file in your root layout or globals.css
+ */
+
+@layer base {
+  :root {
+    /* ═══════════════════════════════════════════════════════════════════════════
+       VERDICT COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-verdict-go: #10B981;
+    --color-verdict-go-soft: #D1FAE5;
+    --color-verdict-go-glow: rgba(16, 185, 129, 0.20);
+    --color-verdict-go-text: #065F46;
+    --color-verdict-go-border: #6EE7B7;
+
+    --color-verdict-caution: #F59E0B;
+    --color-verdict-caution-soft: #FEF3C7;
+    --color-verdict-caution-glow: rgba(245, 158, 11, 0.20);
+    --color-verdict-caution-text: #92400E;
+    --color-verdict-caution-border: #FCD34D;
+
+    --color-verdict-hold: #6366F1;
+    --color-verdict-hold-soft: #E0E7FF;
+    --color-verdict-hold-glow: rgba(99, 102, 241, 0.20);
+    --color-verdict-hold-text: #3730A3;
+    --color-verdict-hold-border: #A5B4FC;
+
+    --color-verdict-pass: #64748B;
+    --color-verdict-pass-soft: #F1F5F9;
+    --color-verdict-pass-glow: rgba(100, 116, 139, 0.15);
+    --color-verdict-pass-text: #334155;
+    --color-verdict-pass-border: #CBD5E1;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       URGENCY COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-urgency-emergency: #DC2626;
+    --color-urgency-emergency-soft: #FEE2E2;
+    --color-urgency-emergency-pulse: #FECACA;
+    --color-urgency-emergency-text: #991B1B;
+    --color-urgency-emergency-border: #F87171;
+
+    --color-urgency-critical: #EA580C;
+    --color-urgency-critical-soft: #FFEDD5;
+    --color-urgency-critical-pulse: #FED7AA;
+    --color-urgency-critical-text: #9A3412;
+    --color-urgency-critical-border: #FB923C;
+
+    --color-urgency-active: #0EA5E9;
+    --color-urgency-active-soft: #E0F2FE;
+    --color-urgency-active-pulse: #BAE6FD;
+    --color-urgency-active-text: #075985;
+    --color-urgency-active-border: #38BDF8;
+
+    --color-urgency-steady: #22C55E;
+    --color-urgency-steady-soft: #DCFCE7;
+    --color-urgency-steady-pulse: #BBF7D0;
+    --color-urgency-steady-text: #166534;
+    --color-urgency-steady-border: #4ADE80;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       SIGNAL COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-signal-critical-bg: #FEF2F2;
+    --color-signal-critical-border: #FECACA;
+    --color-signal-critical-icon: #DC2626;
+    --color-signal-critical-text: #991B1B;
+    --color-signal-critical-hover: #FEE2E2;
+
+    --color-signal-warning-bg: #FFFBEB;
+    --color-signal-warning-border: #FDE68A;
+    --color-signal-warning-icon: #D97706;
+    --color-signal-warning-text: #92400E;
+    --color-signal-warning-hover: #FEF3C7;
+
+    --color-signal-info-bg: #EFF6FF;
+    --color-signal-info-border: #BFDBFE;
+    --color-signal-info-icon: #2563EB;
+    --color-signal-info-text: #1E40AF;
+    --color-signal-info-hover: #DBEAFE;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       SURFACE COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-surface-base: #FFFFFF;
+    --color-surface-raised: #F8FAFC;
+    --color-surface-overlay: #F1F5F9;
+    --color-surface-sunken: #E2E8F0;
+    --color-surface-inverse: #0F172A;
+    --color-surface-backdrop: rgba(15, 23, 42, 0.50);
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       TEXT COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-text-primary: #0F172A;
+    --color-text-secondary: #475569;
+    --color-text-tertiary: #94A3B8;
+    --color-text-muted: #CBD5E1;
+    --color-text-inverse: #F8FAFC;
+    --color-text-accent: #3B82F6;
+    --color-text-link: #2563EB;
+    --color-text-link-hover: #1D4ED8;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       BORDER COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-border-subtle: #E2E8F0;
+    --color-border-default: #CBD5E1;
+    --color-border-strong: #94A3B8;
+    --color-border-focus: #3B82F6;
+    --color-border-focus-ring: rgba(59, 130, 246, 0.50);
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       BRAND COLORS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --color-brand-primary: #3B82F6;
+    --color-brand-primary-hover: #2563EB;
+    --color-brand-primary-active: #1D4ED8;
+    --color-brand-primary-soft: #DBEAFE;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       SHADOWS
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    --shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+    --shadow-focus: 0 0 0 3px rgba(59, 130, 246, 0.5);
+
+    /* Glow shadows */
+    --shadow-glow-go: 0 0 20px rgba(16, 185, 129, 0.35), 0 0 40px rgba(16, 185, 129, 0.15);
+    --shadow-glow-caution: 0 0 20px rgba(245, 158, 11, 0.35), 0 0 40px rgba(245, 158, 11, 0.15);
+    --shadow-glow-hold: 0 0 20px rgba(99, 102, 241, 0.35), 0 0 40px rgba(99, 102, 241, 0.15);
+    --shadow-glow-pass: 0 0 15px rgba(100, 116, 139, 0.20);
+    --shadow-glow-emergency: 0 0 20px rgba(220, 38, 38, 0.35), 0 0 40px rgba(220, 38, 38, 0.15);
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       MOTION
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --duration-instant: 0ms;
+    --duration-fast: 100ms;
+    --duration-normal: 200ms;
+    --duration-slow: 300ms;
+    --duration-slower: 400ms;
+    --duration-slowest: 500ms;
+    --duration-count-up: 800ms;
+
+    --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-out: cubic-bezier(0, 0, 0.2, 1);
+    --ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       TYPOGRAPHY
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --font-display: "DM Sans", system-ui, sans-serif;
+    --font-body: "Inter", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", Menlo, monospace;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       TYPOGRAPHY SCALE (referenced by Tailwind)
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    /* Font Sizes */
+    --text-2xs: 0.625rem;
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+    --text-4xl: 2.25rem;
+    --text-5xl: 3rem;
+    --text-6xl: 3.75rem;
+
+    /* Line Heights */
+    --leading-none: 1;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.625;
+    --leading-loose: 2;
+
+    /* Letter Spacing */
+    --tracking-tighter: -0.05em;
+    --tracking-tight: -0.025em;
+    --tracking-normal: 0;
+    --tracking-wide: 0.025em;
+    --tracking-wider: 0.05em;
+    --tracking-widest: 0.1em;
+
+    /* ═══════════════════════════════════════════════════════════════════════════
+       Z-INDEX
+       ═══════════════════════════════════════════════════════════════════════════ */
+
+    --z-base: 0;
+    --z-raised: 10;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-drawer: 300;
+    --z-modal: 400;
+    --z-popover: 500;
+    --z-toast: 600;
+    --z-tooltip: 700;
+  }
+
+  /* Reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    :root {
+      --duration-instant: 0ms;
+      --duration-fast: 0ms;
+      --duration-normal: 0ms;
+      --duration-slow: 0ms;
+      --duration-slower: 0ms;
+      --duration-slowest: 0ms;
+      --duration-count-up: 0ms;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes scaleOut {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes bounceSoft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulse ring animation for urgency indicators */
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgba(220, 38, 38, 0.4));
+  }
+  70% {
+    box-shadow: 0 0 0 10px var(--pulse-color, rgba(220, 38, 38, 0));
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--pulse-color, rgba(220, 38, 38, 0));
+  }
+}

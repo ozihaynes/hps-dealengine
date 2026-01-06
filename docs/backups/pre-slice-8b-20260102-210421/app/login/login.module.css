@@ -1,0 +1,170 @@
+.loginPage {
+  position: relative;
+  min-height: 100vh;
+  background: var(--bg-main, #020617);
+  color: var(--text-primary, #f2f6ff);
+  overflow: hidden;
+}
+
+.bgShapes {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.shape {
+  position: absolute;
+  opacity: 0.1;
+  animation: float 22s ease-in-out infinite;
+}
+
+.shape1 {
+  width: 420px;
+  height: 420px;
+  background: linear-gradient(135deg, var(--accent-blue, #0096ff) 0%, transparent 100%);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  top: -140px;
+  right: -160px;
+  animation-delay: 0s;
+}
+
+.shape2 {
+  width: 320px;
+  height: 320px;
+  background: linear-gradient(225deg, var(--accent-blue, #0096ff) 0%, transparent 100%);
+  border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%;
+  bottom: -100px;
+  left: -120px;
+  animation-delay: 5s;
+}
+
+.shape3 {
+  width: 240px;
+  height: 240px;
+  border: 2px solid rgba(0, 150, 255, 0.35);
+  border-radius: 50%;
+  top: 52%;
+  left: 8%;
+  opacity: 0.3;
+  animation-delay: 10s;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(28px, -24px) rotate(120deg);
+  }
+  66% {
+    transform: translate(-18px, 22px) rotate(240deg);
+  }
+}
+
+.gridOverlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 150, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 150, 255, 0.04) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.loginCard {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(0, 150, 255, 0.18);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(26px) saturate(150%);
+  -webkit-backdrop-filter: blur(26px) saturate(150%);
+}
+
+.loginCard::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent-blue, #0096ff), transparent);
+  opacity: 0;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.logoIcon {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent-blue, #0096ff), #00d4ff);
+  font-weight: 700;
+  font-size: 26px;
+  color: #0a1020;
+  box-shadow: 0 10px 30px rgba(0, 150, 255, 0.35);
+  overflow: hidden;
+}
+
+.logoIcon::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transform: translateX(-100%);
+  animation: logoShine 3s ease-in-out infinite;
+}
+
+@keyframes logoShine {
+  0%,
+  100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .shape1 {
+    width: 300px;
+    height: 300px;
+    top: -140px;
+    right: -180px;
+  }
+
+  .shape2 {
+    width: 240px;
+    height: 240px;
+    bottom: -140px;
+    left: -160px;
+  }
+
+  .shape3 {
+    width: 180px;
+    height: 180px;
+    left: 4%;
+    top: 56%;
+  }
+
+  .gridOverlay {
+    background-size: 48px 48px;
+  }
+}

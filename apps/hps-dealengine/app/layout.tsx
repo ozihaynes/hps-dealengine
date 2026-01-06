@@ -1,25 +1,42 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Inter, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { DealSessionProvider } from "@/lib/dealSessionContext";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 
 export const dynamic = "force-dynamic";
 
-const displayFont = Plus_Jakarta_Sans({
+// ═══════════════════════════════════════════════════════════════════════════
+// TYPOGRAPHY - Command Center V2.1 Design System
+// ═══════════════════════════════════════════════════════════════════════════
+
+const displayFont = DM_Sans({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
 });
 
 const bodyFont = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-body",
+  weight: ["400", "500", "600"],
 });
 
-// We changed 'export const metadata' to a function so Sentry can inject data dynamically
+const monoFont = JetBrains_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+  weight: ["400", "500", "600"],
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// METADATA
+// ═══════════════════════════════════════════════════════════════════════════
+
 export function generateMetadata(): Metadata {
   return {
     title: "HPS DealEngine",
@@ -27,6 +44,11 @@ export function generateMetadata(): Metadata {
       "Deterministic underwriting OS for distressed SFR/townhomes in Central Florida. Production-ready v1 with runs, evidence, and governance.",
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// THEME INITIALIZATION
+// Applies theme before first paint to prevent flash
+// ═══════════════════════════════════════════════════════════════════════════
 
 const THEME_BOOT_SCRIPT = `
 (function() {
@@ -65,13 +87,17 @@ const THEME_BOOT_SCRIPT = `
   }
 })();`;
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ROOT LAYOUT
+// ═══════════════════════════════════════════════════════════════════════════
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
       suppressHydrationWarning
       data-theme="navy"
-      className={`${displayFont.variable} ${bodyFont.variable}`}
+      className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <head>
         <script
@@ -80,12 +106,14 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           }}
         />
       </head>
-      <body className="min-h-screen bg-[color:var(--bg-primary)] text-[color:var(--text-primary)] antialiased">
-        <ThemeProvider>
-          <DealSessionProvider>
-            {children}
-          </DealSessionProvider>
-        </ThemeProvider>
+      <body className="min-h-screen bg-[color:var(--bg-primary)] text-[color:var(--text-primary)] antialiased font-body">
+        <QueryProvider>
+          <ThemeProvider>
+            <DealSessionProvider>
+              {children}
+            </DealSessionProvider>
+          </ThemeProvider>
+        </QueryProvider>
       </body>
     </html>
   );

@@ -1,0 +1,22 @@
+{
+  "policy": {
+    "aiv": {
+      "hardCapPct": 82,
+      "softMaxAgeDays": 120,
+      "overrideRole": "VP",
+      "overrideNeedsBindableInsurance": true
+    },
+    "arv": {
+      "minComps": 3,
+      "softMaxAgeDays": 180
+    },
+    "carry": {
+      "domToMonthsRule": "dom/30",
+      "monthsHardCap": 5
+    },
+    "gates": {
+      "greenLightSpreadOverPayoff": 10000,
+      "borderlineBand": 5000
+    }
+  }
+}

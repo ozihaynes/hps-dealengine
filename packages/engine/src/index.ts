@@ -132,3 +132,12 @@ export {
   getTopSignals,
   groupSignalsByCategory,
 } from "./signal_generator";
+
+// ============================================================================
+// V2.5 Wholesaler Dashboard - Comps Evidence Pack Builder
+// ============================================================================
+
+export {
+  buildCompsEvidencePack,
+  type BuildCompsEvidencePackInput,
+} from "./comps/buildCompsEvidencePack";

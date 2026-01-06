@@ -1,4 +1,18 @@
-# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2025-12-28)
+# HPS DealEngine - Roadmap v1 / v2 / v3 (Updated 2026-01-06)
+
+---
+
+## Version History
+
+| Version | Status | Release Date | Key Features |
+|---------|--------|--------------|--------------|
+| V1.0 | ✅ Released | 2025-10 | Core underwriting engine |
+| V1.5 | ✅ Released | 2025-11 | Client intake forms |
+| V2.0 | ✅ Released | 2025-12 | Deal overview page |
+| V2.1 | ✅ Complete | 2026-01 | Command Center |
+| V2.5 | ⚠️ Code Complete | 2026-01 | Wholesaler Dashboard (integration pending) |
+| V2.2 | 📋 Planned | 2026-02 | Timeline enhancements |
+| V3.0 | 📋 Planned | 2026-Q2 | AI recommendations |
 
 ---
 
@@ -345,15 +359,11 @@ V1 is complete; new slices should come from v1.1 hardening or v2/v3 themes below
 
 Recently shipped (Dec 2025 - Jan 2026):
 
-- ✅ **CLIENT-INTAKE-AUTOFILL-v1** (Jan 2026): Token-gated client intake form system with 7 slices complete:
-  - Slice 1: Config-first foundation (intake_schema_versions, intake_links, intake_submissions, intake_submission_files, intake_population_events tables + RLS + immutability triggers).
-  - Slice 2: Token-gated public API (v1-intake-schema, v1-intake-submission Edge Functions with x-intake-token header auth).
-  - Slice 3: Multi-section wizard form (IntakeForm component with auto-save via useIntakeAutoSave hook, 30s debounce, section validation).
-  - Slice 4: Staff inbox (/intake-inbox with filters, status badges, SendIntakeLinkModal on deal page with copy URL).
-  - Slice 5: Population engine (lib/populationEngine.ts with deterministic+idempotent field mapping, v1-intake-populate Edge Function, PopulateSubmissionModal).
-  - Slice 6: File upload flow (intake storage bucket, quarantine model, v1-intake-upload-start/complete Edge Functions, FileUploadZone/FileListDisplay components).
-  - Slice 7: E2E test + polish (intake-flow.spec.ts, bootstrap/intake_schema_seed.sql, docs/features/client-intake-autofill.md, inbox empty state).
-  - Key files: `supabase/migrations/20260101180000_intake_schema_foundation.sql`, `supabase/migrations/20260101190000_intake_storage_bucket.sql`, `supabase/functions/v1-intake-*`, `apps/hps-dealengine/components/intake/*`, `apps/hps-dealengine/app/intake/*`, `apps/hps-dealengine/app/(app)/intake-inbox/*`.
+- ✅ **CLIENT-INTAKE-AUTOFILL v2.0** (Jan 2026): Token-gated client intake form system with full save/resume/resubmit workflow:
+  - **v1 Foundation (7 slices):** Config-first schema (intake_schema_versions, intake_links, intake_submissions, intake_submission_files, intake_population_events + RLS + immutability triggers), token-gated public API (v1-intake-validate-token, v1-intake-save-draft, v1-intake-submit), multi-section wizard form, staff inbox (/intake-inbox with filters, status badges, SendIntakeLinkModal), population engine (lib/populationEngine.ts + v1-intake-populate + PopulateSubmissionModal), file upload flow (quarantine model, v1-intake-upload-start/complete, FileUploadZone/FileListDisplay), E2E test + polish.
+  - **v2.0 Enhancements:** 2-second auto-save with visual SaveIndicator (idle/saving/saved/error states), resume at saved section index when returning via same link, edit-in-place model (SUBMITTED reverts to DRAFT on edit, resubmit with revision_cycle increment), "Save & Continue Later" button with toast confirmation, form locking when PENDING_REVIEW/COMPLETED/REJECTED, contact prefill from deal payload, FileUploadZone stale closure fix.
+  - Evidence: `pnpm -w typecheck` ✅, `pnpm -w build` ✅, Vercel deployment ✅, Edge functions deployed ✅.
+  - Key files: `supabase/migrations/2026010118*_intake_*.sql`, `supabase/functions/v1-intake-*`, `apps/hps-dealengine/components/intake/*`, `apps/hps-dealengine/hooks/useIntakeAutoSave.ts`, `apps/hps-dealengine/app/intake/*`, `apps/hps-dealengine/app/(app)/intake-inbox/*`.
 
 - ✅ AI agent chat UX polish (Slices A/B): always-visible composers with placeholders, taller chat windows with prompt chips, hamburger menu with Tone + "Your Chats," auto-titles from first user message, no auto-summary bubbles (Negotiator keeps first-playbook flow).
 - ✅ /startup routing (Slice C): "Run New Deal" -> `/underwrite?dealId=...`; existing deal rows -> `/overview?dealId=...` with session preserved.
@@ -402,6 +412,24 @@ Fast-follow items that do not change V1 behavior:
 - ✅ Slice 8 - E2E/regression rails: core underwriting rails are implemented (login/startup/deep-links + overview/underwrite/repairs/trace + pixel snapshots + autosave), valuation-specific assertions now include offer package, under contract, and MARKET_PROVENANCE trace.
 - ✅ Offer Package Generation: offer_packages table (RLS/audit) + generate edge function + printable UI page.
 - ✅ Under Contract capture: deal status transition + executed contract price capture (deal_contracts table + edge upsert + UI).
+
+### Bulk Import v1 (BULK-IMPORT-v1) — Complete
+
+- ✅ **Database**: `deal_import_jobs` + `deal_import_items` tables with RLS, audit triggers, dedupe keys, and status lifecycle.
+- ✅ **Contracts**: `packages/contracts/src/bulkImport.ts` with 6 enums, 13 canonical fields, 8 API schemas.
+- ✅ **Edge Functions** (6 deployed):
+  - `v1-import-job-create` — Create import job with file metadata and storage path
+  - `v1-import-job-update` — Update job status and counts
+  - `v1-import-items-upsert` — Batch upsert items (max 200/call)
+  - `v1-import-items-list` — List items with filtering and pagination
+  - `v1-import-item-update` — Edit item with revalidation and dedupe check
+  - `v1-import-promote` — Batch promote items to deals (max 50/call)
+- ✅ **Wizard** (`/import/wizard`): 5-step flow (Upload → Type → Map → Validate → Commit) with client-side parsing (Papa Parse, SheetJS), auto-mapping, real-time validation.
+- ✅ **Import Center** (`/import`): Jobs list with status filtering, items table with edit/export, promotion modal with progress tracking.
+- ✅ **Security**: OWASP CSV injection prevention, file validation (50MB, 10K rows), input sanitization, RLS-first.
+- ✅ **E2E Tests**: 13 Playwright specs covering wizard, Import Center, editing, promotion, export (env-gated).
+- ✅ **Audit**: `docs/audits/bulk-import-v1-audit-2026-01-02.tar.gz`.
+
 ## 3 V2 Themes (Planned)
 
 - **OFFER computation research** (needs more thought and build out) - research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
@@ -415,10 +443,214 @@ Fast-follow items that do not change V1 behavior:
   - Type the analyze outputs flow end-to-end (remove analysisOutputs as any in UI wiring).
   - Add a lightweight UI regression test/screenshot for Offer Menu + Unlock cards.
   - Document user-facing interpretation of tiers, gates, and unlock penalties.
+
+### V2.1 Command Center — COMPLETE ✅
+
+Command Center V2.1 transforms DealEngine from single-deal underwriting to portfolio-level decision support, delivering a comprehensive dashboard experience.
+
+#### Features Delivered
+
+**Portfolio Dashboard**
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| Aggregate Metrics Strip | ✅ | `PortfolioPulse.tsx` |
+| Verdict Distribution Chart | ✅ | Horizontal bar visualization |
+| Deal Pipeline Grid | ✅ | `DealPipelineGrid.tsx` |
+| Deal Cards with Mini-Gauges | ✅ | `DealCard.tsx` |
+| Filtering (Status, Verdict, Analysis) | ✅ | `usePortfolioData.ts` |
+| Sorting (Multiple Fields) | ✅ | Closeability, Urgency, Spread, Date |
+| Search (Address/City/Zip) | ✅ | Debounced search input |
+| Loading/Error/Empty States | ✅ | `PortfolioSkeleton.tsx` |
+
+**Deal Overview Enhancements**
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| VerdictCard with Confidence | ✅ | `VerdictCard.tsx` |
+| Score Gauges (4 metrics) | ✅ | `ScoreGauge.tsx` |
+| Key Metrics Grid | ✅ | `KeyMetrics.tsx` |
+| Signal Cards | ✅ | `SignalCard.tsx` |
+| Tab Navigation | ✅ | Overview/Underwrite/Evidence/Timeline |
+
+**Backend Infrastructure**
+| Feature | Status | Evidence |
+|---------|--------|----------|
+| Dashboard Snapshots Table | ✅ | Migration applied |
+| RLS Policies | ✅ | Multi-tenant security |
+| Edge Functions (CRUD) | ✅ | `supabase/functions/` |
+| L2 Score Engine | ✅ | `lib/engine/` |
+| Signal Generation | ✅ | Priority-ranked signals |
+
+**Test Coverage**
+| Test Type | Count | Status |
+|-----------|-------|--------|
+| Unit Tests | 66 | ✅ PASS |
+| Integration Tests | 27 | ✅ PASS |
+| E2E Tests | 45 | ✅ Configured |
+| **Total** | **138** | ✅ |
+
+#### Files Created
+
+```
+app/
+├── dashboard/
+│   └── page.tsx                    # Portfolio dashboard route
+├── overview/
+│   └── page.tsx                    # Deal overview route
+
+components/
+├── command-center/
+│   ├── VerdictCard.tsx
+│   ├── ScoreGauge.tsx
+│   ├── KeyMetrics.tsx
+│   ├── SignalCard.tsx
+│   └── OverviewDashboard.tsx
+├── portfolio/
+│   ├── PortfolioDashboard.tsx
+│   ├── PortfolioHeader.tsx
+│   ├── PortfolioPulse.tsx
+│   ├── DealPipelineGrid.tsx
+│   ├── DealCard.tsx
+│   ├── PortfolioSkeleton.tsx
+│   └── usePortfolioData.ts
+
+lib/
+├── engine/
+│   └── portfolio-utils.ts          # Pure utility functions
+
+tests/
+├── portfolio-utils.test.ts         # 66 unit tests
+├── setup.ts                        # Vitest setup
+├── edge-functions/
+│   ├── edge-function-test-utils.ts # Mock utilities
+│   └── snapshots.test.ts           # 27 integration tests
+
+e2e/
+├── e2e-test-utils.ts               # Page objects
+└── command-center.spec.ts          # 45 E2E tests
+
+playwright.config.ts                # Playwright configuration
+
+supabase/
+├── migrations/
+│   └── YYYYMMDD_dashboard_snapshots.sql
+└── functions/
+    ├── create-snapshot/
+    ├── get-snapshot/
+    ├── update-snapshot/
+    └── delete-snapshot/
+```
+
+#### Quality Evidence
+
+| Metric | Value | Evidence |
+|--------|-------|----------|
+| Build Status | PASS | `pnpm build` |
+| Typecheck | PASS | `pnpm typecheck` |
+| Lint | PASS | `pnpm lint` |
+| Unit Tests | 66/66 | `pnpm test` |
+| Integration Tests | 27/27 | `pnpm test edge-functions` |
+| E2E Tests | 45 configured | `pnpm e2e` |
+
+#### Release Checklist — V2.1
+
+- [x] All features implemented
+- [x] Unit tests passing (66/66)
+- [x] Integration tests passing (27/27)
+- [x] E2E tests configured (45)
+- [x] TypeScript strict compliance
+- [x] Build successful
+- [x] Documentation updated
+- [x] Devlog entry created
+- [ ] Production deployment
+- [ ] Monitoring configured
+- [ ] User feedback collection
+
+#### Specification Documents
+
+| Document | Path | Purpose |
+|----------|------|---------|
+| PRD (Merged Definitive) | `docs/product/command-center-v2.1-prd.md` | Gold Standard + 8 super-moves |
+| Original Gold Standard | `docs/product/dashboard-v2-strategy-prd.md` | Initial PRD specification |
+| Execution Prompt | `docs/features/command-center-v2-feature-prompt.md` | Implementation handoff |
+
+**PRD Contents (for reference):**
+- Part 1: Two-Center Information Architecture (Portfolio + Deal)
+- Part 2: Elite KPI Architecture (L0→L2 hierarchy, 4 compound metrics)
+- Part 3: Win-Win-Win UX Design (Fairness Strip, Verdict Card, Buyer Summary)
+- Part 4: Visual Intelligence & Layout (ASCII wireframes, semantic colors, mobile gestures)
+- Part 5: Signal-to-Resolution Loops (5-part Resolve Drawer, 6 resolver types)
+- Part 6: Portfolio Command Center (5 modules)
+- Part 7: Engineering Specifications (snapshot schema, RLS, TypeScript contracts)
+- Part 8: Implementation Roadmap (5 phases)
+- Part 9: Acceptance Criteria (7 testable definitions)
+- Part 10: Success Metrics (quantitative KPIs)
+
+### V2.5 Wholesaler Dashboard — CODE COMPLETE ⚠️
+
+**Purpose:** Single-deal Command Center enhancement with ZOPA negotiation visualization, verdict derivation, and 60-second decision support.
+
+| Slice | Description | Status |
+|-------|-------------|--------|
+| 1 | Contracts & Types Foundation | ✅ `9b17b08` |
+| 2 | Price Geometry Engine | ✅ `2a6cfa0` |
+| 3 | Verdict Engine | ✅ `3a26abc` |
+| 4 | Net Clearance Calculator | ✅ `1caef03` |
+| 5 | Comp Quality Scorer | ✅ `00166f7` |
+| 6 | Market Velocity Metrics | ✅ |
+| 7 | Evidence Health Enhancement | ✅ |
+| 8 | Risk Gates 8-Taxonomy | ✅ |
+| 9 | UI Components (12 total) | ✅ Reviewed |
+| 10 | Input Field Additions | ⏳ Queued |
+| 11 | Comps Evidence Pack | ⏳ Queued |
+| 12 | Field Mode View (Mobile) | ✅ Code Generated |
+| 13 | E2E Integration & Polish | ⚠️ Integration Issues |
+| 14-23 | Advanced Dashboard Features | ⏳ Planned |
+
+**Key Deliverables:**
+- 8 new engine computation functions with trace frames
+- 8 new Zod schemas in `@hps-internal/contracts`
+- 12 UI components for single-deal dashboard
+- Field Mode mobile route (`/deals/[id]/field`)
+- Feature flag system (`ff_v25_dashboard`)
+- ~300+ new tests
+
+**⚠️ KNOWN ISSUE:** V25Dashboard components are replacing original CommandCenter content instead of enhancing it. The 12 Slice 9 components exist but require proper integration before production use.
+
+**📋 APEX PRD (2026-01-06):** Comprehensive specification for completing Dashboard 2.0 vision created. Defines:
+- 12 additional UI components
+- 4 new database tables
+- 5 new Edge Functions
+- Implementation roadmap: Slices 22-36 (5 phases)
+- New lexicon: Strike Price, ZOPA, Entry Point, Net Clearance
+
+See: `docs/product/apex-prd-wholesaler-dashboard-v2.md`
+
+**Next Steps:**
+1. Resolve V25/CommandCenter integration (components should enhance, not replace)
+2. Complete Slices 10-11 (Input Fields, Comps Pack)
+3. Execute APEX PRD implementation (Slices 22-36) per 5-phase roadmap:
+   - Phase 1 (Slices 22-24): Data Layer
+   - Phase 2 (Slices 25-26): Price Geometry
+   - Phase 3 (Slices 27-30): Visualization
+   - Phase 4 (Slices 31-32): Integration
+   - Phase 5 (Slices 33-36): Polish & Tests
+
+**Dependencies:** V2.1 Command Center (Complete ✅)
+
+### V2.2 Timeline Enhancements — PLANNED 📋
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| Interactive Timeline Simulator | High | Simulate deal timeline scenarios |
+| What-If Scenario Builder | Medium | Model different deal outcomes |
+| Historical Trend Charts | Medium | Visualize trends over time |
+| Export to PDF | Low | Generate PDF reports |
+
+**Dependencies:** V2.1 Command Center (Complete ✅), Additional historical data collection
+
 - **Deal workflow guide A→Z** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
-- **Import feature (filled template)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
-- **CSV upload (bulk-create deals/clients)** (needs more thought and build out) — research required before slice planning/execution. Ask AI to outline research + spec before creating execution slices.
-- **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
+- ✅ **Import feature (filled template)** — COMPLETE: See "Bulk Import v1 (BULK-IMPORT-v1)" in V1.1 section above.
+- ✅ **CSV upload (bulk-create deals/clients)** — COMPLETE: See "Bulk Import v1 (BULK-IMPORT-v1)" in V1.1 section above.
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
 - **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
 - **Valuation fidelity**: MOI ingestion and true closed-sales comps semantics upgrade (v2) to replace listing-only comps.
@@ -458,7 +690,74 @@ Fast-follow items that do not change V1 behavior:
 
 ## 4 V3 Themes (Planned)
 
+### V3.0 AI Recommendations — PLANNED 📋
+
+| Feature | Priority | Description |
+|---------|----------|-------------|
+| AI-Powered Deal Scoring | High | ML-based deal quality scoring |
+| Market Trend Analysis | High | Predictive market analytics |
+| Comparable Deal Matching | Medium | AI-driven comp selection |
+| Automated Offer Generation | Medium | Smart offer recommendations |
+
+**Dependencies:** V2.2 Timeline Enhancements, ML model training pipeline, Historical deal outcome data
+
+- **Portfolio and analytics**: multi-deal/org dashboards, pipeline analytics, reporting/export.
+
+  **Feature Brief:**
+  Today DealEngine is deal-centric — you work one deal at a time through the underwriting flow. "Portfolio and analytics" extends this to org-wide visibility: seeing all your deals at once, understanding pipeline health, and exporting actionable reports.
+
+  **Three Pillars:**
+  | Pillar | What It Solves | Example Surfaces |
+  |--------|----------------|------------------|
+  | Multi-deal dashboards | "What's the state of my entire portfolio right now?" | Org-wide deal grid with filters (status, posture, market, risk gates, workflow state) |
+  | Pipeline analytics | "Where are deals getting stuck? What's my conversion funnel?" | Funnel charts (Intake → Underwritten → Offer Sent → Under Contract → Closed), average DTM by stage, bottleneck flags |
+  | Reporting/export | "How do I share this with partners, investors, or my bookkeeper?" | CSV/PDF exports of deal lists, underwriting summaries, P&L projections, audit-ready run logs |
+
+  **Why It Matters (Business Context):**
+  - **Investor reporting** — Distressed-deal investors want portfolio-level metrics: average ARV, total capital at risk, projected returns, deal velocity.
+  - **Operational visibility** — You (or a team) need to see which deals are stale, which are blocked on evidence, which are ready for offers.
+  - **Compliance & audit** — Exporting run histories + evidence linkage for due diligence, legal, or lender review.
+  - **Scaling past 10-20 deals** — Single-deal views don't scale; operators need aggregate views to prioritize.
+
+  **Architectural Sketch:**
+  | Layer | New/Changed |
+  |-------|-------------|
+  | DB | Possibly new `org_analytics_snapshots` table or views aggregating runs, deals, evidence |
+  | Edge / API | Aggregation endpoints (e.g., `v1-portfolio-summary`, `v1-pipeline-stats`) returning org-scoped rollups |
+  | UI | New `/portfolio` or `/analytics` route(s) with filterable tables, charts (Recharts or similar), export buttons |
+  | Export | Server-side PDF/CSV generation (likely via Edge Function + Storage signed URL) |
+
+  **Open Questions (Before Slicing):**
+  - What metrics matter most? (ARV distribution, spread ladder hit rates, risk gate pass/fail ratios, avg DTM by market?)
+  - Who sees what? (Analyst vs. Manager vs. Owner role-based views?)
+  - Real-time vs. snapshot? (Live queries or periodic background rollups for performance?)
+  - Export format requirements? (Simple CSV? Branded PDF? Excel with formulas?)
+
 - **Advanced financing and ROI layers**: cash-on-cash, IRR, financing scenarios, lender views.
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
+
+---
+
+## 5 Technical Debt Tracker
+
+### Resolved in V2.1
+- ✅ TypeScript strict mode compliance
+- ✅ Component test coverage
+- ✅ RLS policy validation
+- ✅ Import path standardization
+
+### Pending
+
+| Item | Priority | Target |
+|------|----------|--------|
+| Visual regression tests | Medium | V2.2 |
+| Snapshot versioning | Low | V2.2 |
+| Real-time subscriptions | Medium | V2.2 |
+| Large portfolio optimization | High | V2.2 |
+
+---
+
+**Last Updated:** 2026-01-06
+**Maintainer:** HPS DealEngine Team

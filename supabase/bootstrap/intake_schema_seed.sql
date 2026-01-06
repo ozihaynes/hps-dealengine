@@ -44,7 +44,17 @@ BEGIN
             {"key": "seller_name", "label": "Full Name", "type": "text", "required": true},
             {"key": "seller_email", "label": "Email Address", "type": "email", "required": true},
             {"key": "seller_phone", "label": "Phone Number", "type": "phone", "required": true},
-            {"key": "seller_address", "label": "Current Address", "type": "text", "required": false}
+            {"key": "seller_address", "label": "Current Address", "type": "text", "required": false},
+            {"key": "seller_strike_price", "label": "Minimum Acceptable Price", "type": "currency", "required": false, "helpText": "The lowest price you would consider accepting", "min": 0}
+          ]
+        },
+        {
+          "id": "market_conditions",
+          "title": "Market Conditions (Optional)",
+          "description": "If you have market data available, please provide it below.",
+          "fields": [
+            {"key": "absorption_rate", "label": "Absorption Rate (months)", "type": "number", "required": false, "helpText": "Average months of inventory on the market", "min": 0, "max": 36},
+            {"key": "cash_buyer_share_pct", "label": "Cash Buyer Share (%)", "type": "number", "required": false, "helpText": "Percentage of buyers paying cash in this market", "min": 0, "max": 100}
           ]
         },
         {
@@ -106,6 +116,9 @@ BEGIN
         {"source_field_key": "seller_name", "target_deal_path": "payload.client.name", "transform": null, "overwrite_policy": "skip"},
         {"source_field_key": "seller_email", "target_deal_path": "payload.client.email", "transform": null, "overwrite_policy": "skip"},
         {"source_field_key": "seller_phone", "target_deal_path": "payload.client.phone", "transform": null, "overwrite_policy": "skip"},
+        {"source_field_key": "seller_strike_price", "target_deal_path": "payload.seller.strike_price", "transform": "parseCurrency", "overwrite_policy": "skip"},
+        {"source_field_key": "absorption_rate", "target_deal_path": "payload.market_conditions.absorption_rate", "transform": "parseFloat", "overwrite_policy": "skip"},
+        {"source_field_key": "cash_buyer_share_pct", "target_deal_path": "payload.market_conditions.cash_buyer_share_pct", "transform": "parseFloat", "overwrite_policy": "skip"},
         {"source_field_key": "property_address", "target_deal_path": "address", "transform": null, "overwrite_policy": "skip"},
         {"source_field_key": "property_city", "target_deal_path": "city", "transform": null, "overwrite_policy": "skip"},
         {"source_field_key": "property_state", "target_deal_path": "state", "transform": null, "overwrite_policy": "skip"},

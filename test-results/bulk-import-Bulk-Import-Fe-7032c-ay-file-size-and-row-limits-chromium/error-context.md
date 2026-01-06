@@ -1,0 +1,41 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - alert [ref=e2]: HPS DealEngine
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e9]
+        - heading "Welcome Back" [level=1] [ref=e11]
+        - paragraph [ref=e12]: System Online. Market Data Synced.
+      - button "Run New Deal" [ref=e14]:
+        - img [ref=e15]
+        - text: Run New Deal
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - heading "Deals" [level=3] [ref=e20]:
+          - img [ref=e21]
+          - text: Deals
+        - generic [ref=e23]:
+          - generic [ref=e24]:
+            - textbox "Search..." [ref=e25]
+            - generic:
+              - img
+          - textbox [ref=e27] [cursor=pointer]
+          - combobox [ref=e29] [cursor=pointer]:
+            - 'option "Sort: Newest" [selected]'
+            - 'option "Sort: Oldest"'
+            - 'option "Sort: Address (A-Z)"'
+          - button "View all deals" [ref=e30]
+      - table [ref=e33]:
+        - rowgroup [ref=e34]:
+          - row "Client Name Property Address Created" [ref=e35]:
+            - columnheader "Client Name" [ref=e36]
+            - columnheader "Property Address" [ref=e37]
+            - columnheader "Created" [ref=e38]
+        - rowgroup [ref=e39]:
+          - row "Loading deals." [ref=e40]:
+            - cell "Loading deals." [ref=e41]
+      - generic [ref=e42]: Showing 0 records
+```

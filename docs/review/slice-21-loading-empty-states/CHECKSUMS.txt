@@ -1,0 +1,24 @@
+# SLICE 21 — Loading & Empty States — File Checksums
+# Generated: 2026-01-05
+# Algorithm: MD5
+
+## Loading Components
+C1523C6ECBBC5F54D10B612A6E6F7293  components/loading/ShimmerEffect.tsx
+689CAA4FB44DA8F0F08D759BB9D10034  components/loading/CardSkeleton.tsx
+95607BDB1DD6E4EE7B248223B81D1C1A  components/loading/ListSkeleton.tsx
+579E224475B6B3113931CD9A837E08AF  components/loading/DashboardSkeleton.tsx
+0ABE63EFCB966AA19295172C6E2F98C5  components/loading/index.ts
+
+## Empty State Components
+DA7871AACEC733849EA7D5E7656CE4A5  components/empty/EmptyState.tsx
+8213F7BC25F6CB02850A03B3A49B3409  components/empty/EmptyAnalysis.tsx
+E17B1BBEB2C7F67118F57198EDAFA9C2  components/empty/EmptyComps.tsx
+6CAEE0815E693AC34909184A142C254C  components/empty/ErrorState.tsx
+A099E0566CD2C1623B5654C59AFBB9EE  components/empty/index.ts
+
+## Test Files
+1B5CC6B2252B3F7BE4B1140B99F777A1  tests/loadingStates.test.ts
+
+## Verification Commands
+# PowerShell: Get-FileHash -Algorithm MD5 <file> | Format-Table Hash
+# certutil: certutil -hashfile <file> MD5

@@ -1,3 +1,16 @@
+## ⚠️ MANDATORY: Skills Library (READ FIRST)
+
+Before starting ANY task, you MUST:
+1. Read and digest `.claude/rules/SKILLS-LIBRARY.md`
+2. Identify which skills are relevant to the current task
+3. Apply the relevant skill workflows and best practices
+
+This is non-negotiable. The Skills Library defines HOW you work on this codebase.
+
+Reference: @.claude/rules/SKILLS-LIBRARY.md
+
+---
+
 # AGENTS.md — HPS DealEngine Agent Operating Manual
 
 This document defines how **any AI agent or assistant** (ChatGPT, local Codex, scripts, etc.) must behave when working on the `hps-dealengine` repository.

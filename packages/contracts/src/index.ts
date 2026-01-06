@@ -25,6 +25,7 @@ export * from "./riskGates";
 // V2.5 Wholesaler Dashboard schemas
 export * from "./compQuality";
 export * from "./compsEvidence";
+export * from "./compsEvidencePack";
 export * from "./evidenceHealth";
 export * from "./marketVelocity";
 export * from "./netClearance";
