@@ -88,6 +88,8 @@ export function buildUnderwritingPolicyFromOptions(
     if (v.arvMinComps !== undefined) val.arv_min_comps = v.arvMinComps;
     if (v.arvSoftMaxCompsAgeDays !== undefined) val.arv_soft_max_comps_age_days = v.arvSoftMaxCompsAgeDays;
     if (v.arvCompsSetSizeForMedian !== undefined) val.arv_comps_set_size_for_median = v.arvCompsSetSizeForMedian;
+    if (v.arvCompsMaxRadiusMiles !== undefined) val.arv_comps_max_radius_miles = v.arvCompsMaxRadiusMiles;
+    if (v.arvCompsSqftVariancePercent !== undefined) val.arv_comps_sqft_variance_percent = v.arvCompsSqftVariancePercent;
     if (v.buyerCeilingFormulaDefinition) val.buyer_ceiling_formula_definition = v.buyerCeilingFormulaDefinition;
     if (v.aivCapOverrideApprovalRole) val.aiv_cap_override_min_role = v.aivCapOverrideApprovalRole;
     if (v.aivCapOverrideConditionBindableInsuranceRequired !== undefined) {
@@ -326,9 +328,6 @@ export function buildUnderwritingPolicyFromOptions(
         sandboxOptions.workflow_and_guardrails.cashPresentationGateMinimumSpreadOverPayoff ?? null,
       allow_placeholders_when_evidence_missing:
         sandboxOptions.workflow_and_guardrails.assumptionsProtocolPlaceholdersWhenEvidenceMissing ?? null,
-      allow_advisor_override_workflow_state:
-        sandboxOptions.workflow_and_guardrails.allowAdvisorOverrideWorkflowState ?? null,
-      confidence_grade_rubric: sandboxOptions.workflow_and_guardrails.abcConfidenceGradeRubric ?? null,
     };
   }
 
@@ -339,6 +338,27 @@ export function buildUnderwritingPolicyFromOptions(
         sandboxOptions.ux_policy.buyerCostsAllocationDualScenarioRenderingWhenUnknown ?? null,
       buyer_costs_line_item_modeling_method: sandboxOptions.ux_policy.buyerCostsLineItemModelingMethod ?? null,
     };
+  }
+
+  // Speed band thresholds for market velocity classification (Slice D fix)
+  // These are read by compute_underwriting.ts at the root policy level (camelCase keys)
+  if (sandboxOptions.speedBands) {
+    const sb = sandboxOptions.speedBands;
+    if (sb.speedBandsFastMaxDom !== undefined) {
+      (policy as Record<string, unknown>).speedBandsFastMaxDom = sb.speedBandsFastMaxDom;
+    }
+    if (sb.speedBandsFastMaxMoi !== undefined) {
+      (policy as Record<string, unknown>).speedBandsFastMaxMoi = sb.speedBandsFastMaxMoi;
+    }
+    if (sb.speedBandsBalancedMaxDom !== undefined) {
+      (policy as Record<string, unknown>).speedBandsBalancedMaxDom = sb.speedBandsBalancedMaxDom;
+    }
+    if (sb.speedBandsBalancedMaxMoi !== undefined) {
+      (policy as Record<string, unknown>).speedBandsBalancedMaxMoi = sb.speedBandsBalancedMaxMoi;
+    }
+    if (sb.zipSpeedBandDerivationMethod !== undefined) {
+      (policy as Record<string, unknown>).zipSpeedBandDerivationMethod = sb.zipSpeedBandDerivationMethod;
+    }
   }
 
   return policy;

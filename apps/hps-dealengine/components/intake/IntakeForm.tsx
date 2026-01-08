@@ -402,8 +402,8 @@ export function IntakeForm({
     <div className="space-y-6">
       {/* Resume banner - show when editing a previously submitted form */}
       {submissionStatus === "SUBMITTED" && (
-        <div className="rounded-lg border border-blue-400/30 bg-blue-400/10 px-4 py-3">
-          <p className="flex items-center gap-2 text-sm text-blue-200">
+        <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm text-sky-200">
             <svg
               className="h-4 w-4 shrink-0"
               fill="none"
@@ -430,7 +430,7 @@ export function IntakeForm({
       />
 
       {/* Form content */}
-      <div className="rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] p-4 sm:p-6">
+      <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 p-4 sm:p-6">
         <IntakeFormSection
           section={currentSection}
           values={values}
@@ -462,11 +462,11 @@ export function IntakeForm({
 
       {/* File uploads - shown on last section */}
       {isLastSection && hasEvidenceUploads && (
-        <div className="rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] p-4 sm:p-6">
-          <h3 className="mb-4 text-lg font-semibold text-[color:var(--text-primary)]">
+        <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 p-4 sm:p-6">
+          <h3 className="mb-4 text-lg font-semibold text-white">
             Supporting Documents
           </h3>
-          <p className="mb-6 text-sm text-[color:var(--text-secondary)]">
+          <p className="mb-6 text-sm text-slate-400">
             Upload any relevant documents to support your submission. Files are
             securely scanned before processing.
           </p>
@@ -487,7 +487,7 @@ export function IntakeForm({
                   disabled={isSubmitting}
                 />
                 {config.description && (
-                  <p className="text-xs text-[color:var(--text-secondary)] pl-1">
+                  <p className="text-xs text-slate-400 pl-1">
                     {config.description}
                   </p>
                 )}
@@ -515,7 +515,7 @@ export function IntakeForm({
                 type="button"
                 onClick={handleBack}
                 disabled={isSubmitting}
-                className="rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-[color:var(--text-primary)] transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-lg border border-slate-600/40 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700/50 hover:text-white disabled:opacity-50"
               >
                 Back
               </button>
@@ -529,7 +529,7 @@ export function IntakeForm({
               type="button"
               onClick={handleSaveAndContinueLater}
               disabled={isSubmitting || autoSaveStatus === "saving"}
-              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700 disabled:opacity-50"
+              className="flex items-center gap-2 rounded-lg border border-slate-600/40 bg-slate-800/60 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-slate-700/50 hover:text-white disabled:opacity-50"
             >
               <CloudIcon className="h-4 w-4" />
               <span className="hidden sm:inline">Save & Continue Later</span>
@@ -541,7 +541,7 @@ export function IntakeForm({
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90 disabled:opacity-50"
+                className="rounded-lg bg-sky-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-500 disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
@@ -558,7 +558,7 @@ export function IntakeForm({
               <button
                 type="button"
                 onClick={handleNext}
-                className="rounded-lg bg-[color:var(--accent-blue)] px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-[color:var(--accent-blue)]/20 transition hover:bg-[color:var(--accent-blue)]/90"
+                className="rounded-lg bg-sky-600 px-6 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-500"
               >
                 Next
               </button>

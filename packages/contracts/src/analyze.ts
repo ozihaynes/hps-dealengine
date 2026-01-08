@@ -28,6 +28,8 @@ const ValuationOptionsSchema = z.object({
   arvMinComps: z.number().optional(),
   arvSoftMaxCompsAgeDays: z.number().optional(),
   arvCompsSetSizeForMedian: z.number().optional(),
+  arvCompsMaxRadiusMiles: z.number().optional(),
+  arvCompsSqftVariancePercent: z.number().optional(),
   buyerCeilingFormulaDefinition: z.string().optional(),
   aivCapOverrideApprovalRole: z.string().optional(),
   aivCapOverrideConditionBindableInsuranceRequired: z.boolean().optional(),
@@ -200,8 +202,6 @@ const WorkflowAndGuardrailsSchema = z.object({
     .nullable()
     .optional(),
   buyerCostsLineItemModelingMethod: z.string().nullable().optional(),
-  abcConfidenceGradeRubric: z.string().nullable().optional(),
-  allowAdvisorOverrideWorkflowState: z.boolean().nullable().optional(),
 });
 
 const UxPolicySchema = z.object({
@@ -211,6 +211,25 @@ const UxPolicySchema = z.object({
     .nullable()
     .optional(),
   buyerCostsLineItemModelingMethod: z.string().nullable().optional(),
+});
+
+/**
+ * Speed band thresholds for market velocity classification.
+ * These knobs control how DOM/MOI are mapped to fast/balanced/slow bands.
+ *
+ * Sandbox knobs:
+ * - speedBandsFastMaxDom: Fast market max days on market (default 30)
+ * - speedBandsFastMaxMoi: Fast market max months of inventory (default 1.5)
+ * - speedBandsBalancedMaxDom: Balanced market max DOM (default 60)
+ * - speedBandsBalancedMaxMoi: Balanced market max MOI (default 3)
+ * - zipSpeedBandDerivationMethod: Method to combine DOM/MOI (conservative/aggressive/average)
+ */
+const SpeedBandsOptionsSchema = z.object({
+  speedBandsFastMaxDom: z.number().optional(),
+  speedBandsFastMaxMoi: z.number().optional(),
+  speedBandsBalancedMaxDom: z.number().optional(),
+  speedBandsBalancedMaxMoi: z.number().optional(),
+  zipSpeedBandDerivationMethod: z.string().optional(),
 });
 
 /** Profit / fees bundle driven by sandbox knobs. */
@@ -255,6 +274,7 @@ const AnalyzeSandboxOptionsSchema = z
     workflowUi: WorkflowUiSchema.optional(),
     workflow_and_guardrails: WorkflowAndGuardrailsSchema.optional(),
     ux_policy: UxPolicySchema.optional(),
+    speedBands: SpeedBandsOptionsSchema.optional(),
     raw: z.record(z.string(), z.unknown()).optional(),
   })
   .partial();

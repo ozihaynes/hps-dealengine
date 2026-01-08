@@ -377,31 +377,44 @@ export const Modal = ({
   const handleClose = onClose ?? (() => {});
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={handleClose} />
       <div
-        className={`relative z-10 w-full ${sizeClasses[size] ?? sizeClasses.md} rounded-xl border border-white/10 bg-surface-elevated/80 p-5 shadow-xl backdrop-blur ${className}`}
+        className={`
+          relative z-10 w-full ${sizeClasses[size] ?? sizeClasses.md}
+          rounded-xl
+          bg-slate-900/95
+          backdrop-blur-xl
+          border border-slate-700/30
+          shadow-2xl
+          overflow-hidden
+          ${className}
+        `}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
       >
-        <div className="flex items-start justify-between gap-3">
-          <h2 id={titleId} className="text-lg font-semibold text-text-primary">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-2 flex items-center justify-between">
+          <h2 id={titleId} className="text-xl font-semibold text-white">
             {safeTitle}
           </h2>
           <button
             onClick={handleClose}
-            className="rounded-md p-1 text-text-secondary hover:bg-white/10 hover:text-text-primary"
+            className="rounded-md p-1 text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors"
             aria-label="Close modal"
           >
-            ✕
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <div className="mt-4">{children}</div>
+        {/* Content */}
+        <div className="px-6 py-4">{children}</div>
 
         {actions ? (
-          <div className="mt-5 flex items-center justify-end gap-2">
+          <div className="px-6 py-4 bg-slate-800/40 border-t border-slate-700/20 flex items-center justify-end gap-3">
             {actions}
           </div>
         ) : null}

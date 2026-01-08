@@ -34,8 +34,6 @@ describe("sandboxToAnalyzeOptions", () => {
       bankersRoundingModeNumericSafety: "bankers",
       buyerCostsAllocationDualScenarioRenderingWhenUnknown: true,
       buyerCostsLineItemModelingMethod: "line_item",
-      abcConfidenceGradeRubric: "{\"A\":[0.8,1]}",
-      allowAdvisorOverrideWorkflowState: true,
     } as any);
     const opts = sandboxToAnalyzeOptions({ sandbox: cfg as any, posture: "base" });
     expect(opts.valuation?.aivSafetyCapPercentage).toBe(85);
@@ -75,11 +73,5 @@ describe("sandboxToAnalyzeOptions", () => {
     expect(
       opts.workflow_and_guardrails?.buyerCostsLineItemModelingMethod,
     ).toBe("line_item");
-    expect(opts.workflow_and_guardrails?.abcConfidenceGradeRubric).toBe(
-      "{\"A\":[0.8,1]}",
-    );
-    expect(
-      opts.workflow_and_guardrails?.allowAdvisorOverrideWorkflowState,
-    ).toBe(true);
   });
 });

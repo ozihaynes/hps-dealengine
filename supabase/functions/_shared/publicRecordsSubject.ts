@@ -1,3 +1,5 @@
+import { isAttomEnabled } from "./valuationFeatureFlags.ts";
+
 type NormalizedPublicRecordSubject = {
   beds: number | null;
   baths: number | null;
@@ -117,6 +119,20 @@ export async function fetchPublicRecordsSubject(params: {
   const provider = params.provider ?? "attom";
   const asOf = new Date().toISOString();
   const requestSummary = { address: params.address, provider };
+
+  // PAUSED_V2: ATTOM normalizer paused for free data architecture pivot
+  // Re-enable by setting FEATURE_ATTOM_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
+  if (!isAttomEnabled()) {
+    return {
+      ok: false,
+      provider: "attom",
+      normalized: null,
+      raw: { request: requestSummary, response: { paused: true, reason: "feature_paused_v2", message: "ATTOM normalizer paused" } },
+      as_of: asOf,
+      error: "feature_paused_v2",
+    };
+  }
 
   if (provider !== "attom") {
     return {

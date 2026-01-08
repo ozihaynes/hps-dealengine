@@ -18,15 +18,15 @@ export function generateMetadata(): Metadata {
  */
 export default function IntakeLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen bg-[color:var(--bg-primary)]">
+    <div className="min-h-screen bg-slate-950">
       {/* Minimal header */}
-      <header className="border-b border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] backdrop-blur">
+      <header className="border-b border-slate-700/40 bg-slate-800/30 backdrop-blur">
         <div className="mx-auto max-w-2xl px-4 py-4 sm:px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[color:var(--accent-blue)]/20">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-500/20">
                 <svg
-                  className="h-5 w-5 text-[color:var(--accent-blue)]"
+                  className="h-5 w-5 text-sky-400"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -39,7 +39,7 @@ export default function IntakeLayout({ children }: { children: ReactNode }) {
                   />
                 </svg>
               </div>
-              <span className="text-lg font-semibold text-[color:var(--text-primary)]">
+              <span className="text-lg font-semibold text-white">
                 Property Intake Form
               </span>
             </div>
@@ -53,9 +53,9 @@ export default function IntakeLayout({ children }: { children: ReactNode }) {
       </main>
 
       {/* Minimal footer */}
-      <footer className="border-t border-[color:var(--glass-border)] py-4">
+      <footer className="border-t border-slate-700/40 py-4">
         <div className="mx-auto max-w-2xl px-4 sm:px-6">
-          <p className="text-center text-xs text-[color:var(--text-secondary)]">
+          <p className="text-center text-xs text-slate-500">
             Powered by HPS DealEngine
           </p>
         </div>

@@ -294,8 +294,6 @@ export function buildUnderwritingPolicyFromOptions(basePolicy, sandboxOptions) {
             analyst_review_borderline_threshold: sandboxOptions.workflow_and_guardrails.analystReviewTriggerBorderlineBandThreshold ?? null,
             cash_presentation_min_spread_over_payoff: sandboxOptions.workflow_and_guardrails.cashPresentationGateMinimumSpreadOverPayoff ?? null,
             allow_placeholders_when_evidence_missing: sandboxOptions.workflow_and_guardrails.assumptionsProtocolPlaceholdersWhenEvidenceMissing ?? null,
-            allow_advisor_override_workflow_state: sandboxOptions.workflow_and_guardrails.allowAdvisorOverrideWorkflowState ?? null,
-            confidence_grade_rubric: sandboxOptions.workflow_and_guardrails.abcConfidenceGradeRubric ?? null,
         };
     }
     if (sandboxOptions.ux_policy) {

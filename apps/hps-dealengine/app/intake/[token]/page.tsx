@@ -223,8 +223,8 @@ export default function IntakeFormPage({ params }: PageProps) {
   return (
     <div className="space-y-6">
       {/* Welcome message */}
-      <div className="rounded-xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] p-4">
-        <p className="text-sm text-[color:var(--text-primary)]">
+      <div className="rounded-xl border border-slate-700/40 bg-slate-800/30 p-4">
+        <p className="text-sm text-white">
           {data.recipientName ? (
             <>
               Hi <span className="font-semibold">{data.recipientName}</span>,
@@ -235,7 +235,7 @@ export default function IntakeFormPage({ params }: PageProps) {
           please complete the following information about your property.
         </p>
         {data.dealContext?.address && (
-          <p className="mt-1 text-xs text-[color:var(--text-secondary)]">
+          <p className="mt-1 text-xs text-slate-400">
             Property: {data.dealContext.address}
             {data.dealContext.city && `, ${data.dealContext.city}`}
             {data.dealContext.state && `, ${data.dealContext.state}`}
@@ -246,7 +246,7 @@ export default function IntakeFormPage({ params }: PageProps) {
 
       {/* Expiration warning */}
       {daysUntilExpiry <= 3 && daysUntilExpiry > 0 && (
-        <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2">
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2">
           <p className="text-xs text-amber-200">
             This link expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? "s" : ""}.
             Please complete the form soon.

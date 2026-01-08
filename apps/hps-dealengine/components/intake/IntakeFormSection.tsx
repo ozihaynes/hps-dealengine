@@ -51,11 +51,11 @@ export function IntakeFormSection({
     <div className="space-y-6">
       {/* Section header */}
       <div>
-        <h2 className="text-lg font-semibold text-[color:var(--text-primary)]">
+        <h2 className="text-lg font-semibold text-white">
           {section.title}
         </h2>
         {section.description && (
-          <p className="mt-1 text-sm text-[color:var(--text-secondary)]">
+          <p className="mt-1 text-sm text-slate-400">
             {section.description}
           </p>
         )}

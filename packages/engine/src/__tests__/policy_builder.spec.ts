@@ -54,7 +54,6 @@ describe("buildUnderwritingPolicyFromOptions", () => {
         analystReviewTriggerBorderlineBandThreshold: 6000,
         cashPresentationGateMinimumSpreadOverPayoff: 15000,
         assumptionsProtocolPlaceholdersWhenEvidenceMissing: true,
-        abcConfidenceGradeRubric: '{"A":[0.8,1]}',
       },
       ux_policy: {
         bankersRoundingModeNumericSafety: "bankers",
@@ -80,7 +79,6 @@ describe("buildUnderwritingPolicyFromOptions", () => {
     expect(result.compliance_policy?.bankruptcy_stay_gate_enabled).toBe(true);
     expect(result.workflow_policy?.analyst_review_borderline_threshold).toBe(6000);
     expect(result.workflow_policy?.cash_presentation_min_spread_over_payoff).toBe(15000);
-    expect(result.workflow_policy?.confidence_grade_rubric).toBe('{"A":[0.8,1]}');
     expect(result.ux_policy?.bankers_rounding_mode).toBe("bankers");
     expect(result.ux_policy?.buyer_costs_line_item_modeling_method).toBe("line_item");
   });

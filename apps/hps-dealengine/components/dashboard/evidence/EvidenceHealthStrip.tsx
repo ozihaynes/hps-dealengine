@@ -420,6 +420,8 @@ export const EvidenceHealthStrip = memo(function EvidenceHealthStrip({
       className={cn(
         "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
+        // min-h ensures alignment with RiskGatesStrip when side-by-side
+        "min-h-[200px]",
         compact ? "p-3" : "p-4",
         className
       )}

@@ -21,6 +21,8 @@ export type SandboxAnalyzeOptions = {
     arvMinComps?: number;
     arvSoftMaxCompsAgeDays?: number;
     arvCompsSetSizeForMedian?: number;
+    arvCompsMaxRadiusMiles?: number;
+    arvCompsSqftVariancePercent?: number;
     buyerCeilingFormulaDefinition?: string;
   };
   floors?: {
@@ -159,13 +161,19 @@ export type SandboxAnalyzeOptions = {
     bankersRoundingModeNumericSafety?: string | null;
     buyerCostsAllocationDualScenarioRenderingWhenUnknown?: boolean | null;
     buyerCostsLineItemModelingMethod?: string | null;
-    abcConfidenceGradeRubric?: string | null;
-    allowAdvisorOverrideWorkflowState?: boolean | null;
   };
   ux_policy?: {
     bankersRoundingModeNumericSafety?: string | null;
     buyerCostsAllocationDualScenarioRenderingWhenUnknown?: boolean | null;
     buyerCostsLineItemModelingMethod?: string | null;
+  };
+  /** Speed band thresholds for market velocity classification (Slice D fix) */
+  speedBands?: {
+    speedBandsFastMaxDom?: number;
+    speedBandsFastMaxMoi?: number;
+    speedBandsBalancedMaxDom?: number;
+    speedBandsBalancedMaxMoi?: number;
+    zipSpeedBandDerivationMethod?: string;
   };
   raw?: Record<string, unknown>;
 };
@@ -256,6 +264,8 @@ export function sandboxToAnalyzeOptions(params: {
       arvMinComps: toNumber(s.arvMinComps),
       arvSoftMaxCompsAgeDays: toNumber(s.arvSoftMaxCompsAgeDays),
       arvCompsSetSizeForMedian: toNumber(s.arvCompsSetSizeForMedian),
+      arvCompsMaxRadiusMiles: toNumber(s.arvCompsMaxRadiusMiles),
+      arvCompsSqftVariancePercent: toNumber(s.arvCompsSqftVariancePercent),
       buyerCeilingFormulaDefinition: toString(s.buyerCeilingFormulaDefinition),
     },
     floors: {
@@ -440,8 +450,6 @@ export function sandboxToAnalyzeOptions(params: {
         s.buyerCostsAllocationDualScenarioRenderingWhenUnknown,
       ),
       buyerCostsLineItemModelingMethod: toString(s.buyerCostsLineItemModelingMethod),
-      abcConfidenceGradeRubric: toString(s.abcConfidenceGradeRubric),
-      allowAdvisorOverrideWorkflowState: Boolean(s.allowAdvisorOverrideWorkflowState),
     },
     ux_policy: {
       bankersRoundingModeNumericSafety: toString(s.bankersRoundingModeNumericSafety),
@@ -505,6 +513,14 @@ export function sandboxToAnalyzeOptions(params: {
       warrantabilityReviewRequirementCondoEligibilityScreens: Boolean(
         s.warrantabilityReviewRequirementCondoEligibilityScreens,
       ),
+    },
+    // Speed band thresholds for market velocity classification (Slice D fix)
+    speedBands: {
+      speedBandsFastMaxDom: toNumber(s.speedBandsFastMaxDom),
+      speedBandsFastMaxMoi: toNumber(s.speedBandsFastMaxMoi),
+      speedBandsBalancedMaxDom: toNumber(s.speedBandsBalancedMaxDom),
+      speedBandsBalancedMaxMoi: toNumber(s.speedBandsBalancedMaxMoi),
+      zipSpeedBandDerivationMethod: toString(s.zipSpeedBandDerivationMethod),
     },
     raw,
   };

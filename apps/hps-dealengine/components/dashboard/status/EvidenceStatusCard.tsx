@@ -217,9 +217,9 @@ export const EvidenceStatusCard = memo(function EvidenceStatusCard({
       onClick={handleClick}
       disabled={!evidenceHealth}
       className={cn(
-        // Layout
+        // Layout — min-h ensures alignment with RiskStatusCard
         "flex flex-col gap-3 p-4",
-        "w-full",
+        "w-full min-h-[140px]",
         // Styling
         "rounded-xl border",
         "bg-blue-500/10 backdrop-blur-xl",
@@ -253,26 +253,28 @@ export const EvidenceStatusCard = memo(function EvidenceStatusCard({
         </span>
       </div>
 
-      {/* Progress Bar */}
-      <div className="relative w-full">
-        {/* Track */}
-        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-          {/* Fill */}
-          <motion.div
-            className={cn("h-full rounded-full", progressColor)}
-            initial={{ width: 0 }}
-            animate={{ width: `${stats.pct}%` }}
-            transition={{
-              duration: prefersReducedMotion ? 0 : 0.8,
-              ease: EASING.decelerate,
-            }}
-          />
+      {/* Progress Bar — fixed height for alignment with RiskStatusCard */}
+      <div className="relative w-full min-h-[32px] flex items-center">
+        <div className="w-full">
+          {/* Track */}
+          <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+            {/* Fill */}
+            <motion.div
+              className={cn("h-full rounded-full", progressColor)}
+              initial={{ width: 0 }}
+              animate={{ width: `${stats.pct}%` }}
+              transition={{
+                duration: prefersReducedMotion ? 0 : 0.8,
+                ease: EASING.decelerate,
+              }}
+            />
+          </div>
         </div>
 
         {/* 100% checkmark */}
         {stats.pct >= 100 && (
           <motion.span
-            className="absolute -right-1 -top-1 text-emerald-400 text-sm"
+            className="absolute -right-1 top-1/2 -translate-y-1/2 text-emerald-400 text-sm"
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.3, type: "spring" }}
@@ -282,8 +284,8 @@ export const EvidenceStatusCard = memo(function EvidenceStatusCard({
         )}
       </div>
 
-      {/* Status Summary */}
-      <div className="flex items-center justify-between text-xs">
+      {/* Status Summary — mt-auto ensures footer alignment with RiskStatusCard */}
+      <div className="flex items-center justify-between text-xs mt-auto">
         <span className="text-slate-400">
           {stats.collected}/{stats.total} collected
         </span>

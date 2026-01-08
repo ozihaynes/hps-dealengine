@@ -158,7 +158,7 @@ export function DealContextBar() {
                 title="View client details"
                 aria-haspopup="dialog"
                 aria-expanded={isClientProfileOpen}
-                className="group relative inline-flex h-[28px] min-h-[28px] items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-[var(--accent-blue,#0096ff)] to-[#00b8ff] px-4 text-sm font-semibold leading-tight text-white shadow-[0_4px_12px_rgba(0,150,255,0.18)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_rgba(0,150,255,0.22)] focus:outline-none focus:ring-2 focus:ring-accent-blue/40 focus:ring-offset-2 focus:ring-offset-black/30 md:px-5"
+                className="group relative inline-flex h-[28px] min-h-[28px] items-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-[var(--accent-blue,#0096ff)] to-[#00b8ff] px-4 text-sm font-semibold leading-tight text-white shadow-[0_4px_12px_rgba(0,150,255,0.18)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_rgba(0,150,255,0.22)] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 md:px-5"
                 onClick={() => setIsClientProfileOpen(true)}
               >
                 <span className="absolute inset-0 translate-x-[-120%] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 transition duration-700 ease-out group-hover:translate-x-[120%] group-hover:opacity-100" />
@@ -173,7 +173,7 @@ export function DealContextBar() {
                 title="Send intake form to client"
                 aria-haspopup="dialog"
                 aria-expanded={isIntakeLinkModalOpen}
-                className="group relative inline-flex h-[28px] min-h-[28px] items-center gap-2 overflow-hidden rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold leading-tight text-text-primary shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-white/20 focus:ring-offset-2 focus:ring-offset-black/30 md:px-5"
+                className="group relative inline-flex h-[28px] min-h-[28px] items-center gap-2 overflow-hidden rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold leading-tight text-text-primary shadow-sm transition duration-300 hover:-translate-y-0.5 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:px-5"
                 onClick={() => setIsIntakeLinkModalOpen(true)}
               >
                 <Icon d={Icons.mail} size={16} className="text-text-secondary" />

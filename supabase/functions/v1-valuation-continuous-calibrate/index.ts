@@ -13,6 +13,7 @@ import {
   updateCalibrationBucketRowV1,
   type CalibrationBucketRowV1,
 } from "../_shared/continuousCalibration.ts";
+import { isCalibrationEnabled } from "../_shared/valuationFeatureFlags.ts";
 
 type RequestBody = {
   org_id?: string;
@@ -80,6 +81,22 @@ serve(async (req: Request) => {
 
     if (req.method !== "POST") {
       return jsonResponse(req, { ok: false, error: "method_not_allowed" }, 405);
+    }
+
+    // PAUSED_V2: Calibration loop paused for free data architecture pivot
+    // Re-enable by setting FEATURE_CALIBRATION_ENABLED=true
+    // See docs/archive/valuation-providers-v2-pause.md
+    if (!isCalibrationEnabled()) {
+      return jsonResponse(
+        req,
+        {
+          ok: true,
+          published: false,
+          reason: "calibration_feature_paused_v2",
+          message: "Continuous calibration loop paused. Re-enable by setting FEATURE_CALIBRATION_ENABLED=true in environment.",
+        },
+        200,
+      );
     }
 
     const supabase = createSupabaseClient(req);

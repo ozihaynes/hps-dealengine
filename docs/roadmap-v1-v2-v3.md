@@ -173,10 +173,16 @@ The following tables are **live with RLS and real data** and must be treated as 
 - ✅ `v1-valuation-continuous-calibrate`
 
   - ✅ Publishes bucketed calibration weights and respects freeze + blending guardrails.
+  - ⚠️ **PAUSED_V2**: Feature-flagged OFF via `FEATURE_CALIBRATION_ENABLED`. Returns `{ ok: true, reason: "calibration_feature_paused_v2" }`. Re-enable by setting env var to `true`.
 
 - ✅ `v1-valuation-run`
 
   - ✅ Applies published weights when ensemble is enabled; emits output.calibration.* for traceability.
+  - ⚠️ **PAUSED_V2**: Ensemble/Uncertainty/Ceiling feature-flagged OFF via `FEATURE_ENSEMBLE_ENABLED`. Comp Overrides remain ACTIVE.
+
+- ✅ `v1-valuation-eval-run`
+
+  - ✅ Ground-truth evaluation harness; compares predictions to realized prices. **ACTIVE** (operates independently of paused providers).
 
 **Implemented in the repo (wired but still iterating / deploying as needed):**
 
@@ -653,6 +659,7 @@ See: `docs/product/apex-prd-wholesaler-dashboard-v2.md`
 - ✅ **CSV upload (bulk-create deals/clients)** — COMPLETE: See "Bulk Import v1 (BULK-IMPORT-v1)" in V1.1 section above.
 - **Connectors and data quality**: MLS/public records/FEMA/tax/insurance connectors; auto-populate evidence/risk inputs; automate comps/hazard signals.
 - **Connectors hardening**: Redfin ingestion for MOI/market metrics with deterministic snapshots; multi-provider adapters (RentCast/ATTOM/MLS) behind a unified interface; address verification/normalization upgrade (Smarty/USPS) to strengthen fingerprints.
+  - ⚠️ **PAUSED_V2**: RentCast (`FEATURE_RENTCAST_ENABLED`) and ATTOM (`FEATURE_ATTOM_ENABLED`) adapters feature-flagged OFF. Strategic pivot to free public data architecture. Re-enable via env vars when provider costs approved. See `docs/archive/valuation-providers-v2-pause.md`.
 - **Valuation fidelity**: MOI ingestion and true closed-sales comps semantics upgrade (v2) to replace listing-only comps.
 - **Valuation data fidelity**: clarify listing vs closed comps provenance in UI/contracts; extend confidence rubric tuning per policy.
 - **Closed-sales comps ingestion**: ingest true sold comps (e.g., MLS/ATTOM) with policy tokens (min_sold_comps_required or equivalent) and upgrade valuation semantics beyond sale listings.
@@ -737,6 +744,42 @@ See: `docs/product/apex-prd-wholesaler-dashboard-v2.md`
 - **Deep SRE/ops**: replay tooling, expanded OTel pipelines, advanced monitoring.
 - **Ecosystem integrations**: CRM, billing/plan limits, larger integrations beyond underwriting core.
 - **Risk connectors**: flood/climate risk provider integration with provenance-backed adjustments surfaced in valuation traces and UI.
+
+---
+
+## 4.5 Phase 7: Business Logic Sandbox Consolidation ✅ COMPLETE
+
+**Status:** ✅ Complete
+**Completion Date:** January 6, 2026
+**Effort:** 5 slices
+
+### Objectives Achieved
+- [x] Remove 112 DROP_BACKLOG knobs from sandboxKnobAudit.ts
+- [x] Add 2 new competitive-parity knobs (arvCompsMaxRadiusMiles, arvCompsSqftVariancePercent)
+- [x] Fix speedBands pipeline wiring (5 knobs)
+- [x] Clean up dead UX code (abcConfidenceGradeRubric, allowAdvisorOverrideWorkflowState)
+- [x] Complete documentation
+
+### Deliverables
+- 87 KEEP knobs (final schema)
+- Database migration for soft-delete (90-day rollback window)
+- Complete wiring map documentation (docs/engine/knobs-and-sandbox-mapping.md)
+- Devlog with decision rationale
+
+### Key Decisions
+1. **Soft-delete (not hard-delete) DROP_BACKLOG** — Preserve 90-day rollback capability
+2. **Add comp filtering knobs** — PropStream/DealMachine competitive parity
+3. **Remove unused UX knobs** — abcConfidenceGradeRubric and allowAdvisorOverrideWorkflowState were defined but never consumed
+
+### Slice Summary
+
+| Slice | Action | Impact |
+|-------|--------|--------|
+| A | Removed 112 DROP_BACKLOG knobs | -112 unused knobs from audit |
+| B | Removed 2 dead UX knobs | -2 never-consumed knobs |
+| C | Added 2 new competitive knobs | +2 PropStream/DealMachine parity |
+| D | Fixed speedBands wiring | 5 knobs now flow UI→engine |
+| E | Documentation & sealing | Full closeout |
 
 ---
 

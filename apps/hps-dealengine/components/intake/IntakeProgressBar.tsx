@@ -18,16 +18,16 @@ export function IntakeProgressBar({
       {/* Mobile: Simple progress bar */}
       <div className="block sm:hidden">
         <div className="mb-2 flex items-center justify-between">
-          <span className="text-sm font-medium text-[color:var(--text-primary)]">
+          <span className="text-sm font-medium text-white">
             Step {currentSectionIndex + 1} of {sections.length}
           </span>
-          <span className="text-xs text-[color:var(--text-secondary)]">
+          <span className="text-xs text-slate-400">
             {sections[currentSectionIndex]?.title}
           </span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-700/40">
           <div
-            className="h-full bg-[color:var(--accent-blue)] transition-all duration-300"
+            className="h-full bg-sky-500 transition-all duration-300"
             style={{
               width: `${((currentSectionIndex + 1) / sections.length) * 100}%`,
             }}
@@ -64,8 +64,8 @@ export function IntakeProgressBar({
                         isCompleted
                           ? "bg-emerald-500/20 text-emerald-400"
                           : isCurrent
-                            ? "bg-[color:var(--accent-blue)]/20 text-[color:var(--accent-blue)] ring-2 ring-[color:var(--accent-blue)]/50"
-                            : "bg-white/10 text-[color:var(--text-secondary)]"
+                            ? "bg-sky-500/20 text-sky-400 ring-2 ring-sky-500/50"
+                            : "bg-slate-700/40 text-slate-500"
                       }
                     `}
                   >
@@ -92,8 +92,8 @@ export function IntakeProgressBar({
                       max-w-[80px] truncate text-center text-xs
                       ${
                         isCurrent
-                          ? "font-medium text-[color:var(--text-primary)]"
-                          : "text-[color:var(--text-secondary)]"
+                          ? "font-medium text-white"
+                          : "text-slate-500"
                       }
                     `}
                     title={section.title}
@@ -107,7 +107,7 @@ export function IntakeProgressBar({
                   <div
                     className={`
                       mx-2 h-0.5 flex-1
-                      ${index < currentSectionIndex ? "bg-emerald-500/30" : "bg-white/10"}
+                      ${index < currentSectionIndex ? "bg-emerald-500/30" : "bg-slate-700/40"}
                     `}
                   />
                 )}

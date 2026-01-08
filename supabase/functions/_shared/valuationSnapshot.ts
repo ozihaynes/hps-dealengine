@@ -3,6 +3,7 @@ import type { ValuationPolicyShape } from "./valuation.ts";
 import { sortCompsDeterministic, type BasicComp } from "./valuationComps.ts";
 import { buildRentcastClosedSalesRequest, formatRentcastAddress } from "./rentcastAddress.ts";
 import { fetchPublicRecordsSubject } from "./publicRecordsSubject.ts";
+import { isRentcastEnabled, isAttomEnabled } from "./valuationFeatureFlags.ts";
 
 export type SnapshotRow = {
   id: string;
@@ -228,6 +229,18 @@ async function fetchRentcastSubject(address: DealRow, asOf: string, apiKey: stri
   }
   const request = params.toString() || null;
 
+  // PAUSED_V2: RentCast adapter paused for free data architecture pivot
+  // Re-enable by setting FEATURE_RENTCAST_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
+  if (!isRentcastEnabled()) {
+    return {
+      stub: true,
+      raw: { request, response: { paused: true, reason: "feature_paused_v2", message: "RentCast subject lookup paused" } },
+      subject: null,
+      request,
+    };
+  }
+
   if (!apiKey) {
     return { stub: true, raw: { request, response: { error: "missing_api_key" } }, subject: null, request };
   }
@@ -296,6 +309,24 @@ async function fetchRentcastAvm(address: DealRow, asOf: string, apiKey: string |
   if (address.state) params.set("state", address.state);
   if (address.zip) params.set("zipCode", address.zip);
   const request = params.toString() || null;
+
+  // PAUSED_V2: RentCast adapter paused for free data architecture pivot
+  // Re-enable by setting FEATURE_RENTCAST_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
+  if (!isRentcastEnabled()) {
+    return {
+      stub: true,
+      provider: "paused-v2",
+      asOf,
+      comps: [],
+      estimate: null,
+      rangeLow: null,
+      rangeHigh: null,
+      market: null,
+      raw: { request, response: { paused: true, reason: "feature_paused_v2", message: "RentCast AVM paused" } },
+      request,
+    };
+  }
 
   if (!apiKey) {
     return {
@@ -389,6 +420,17 @@ async function fetchRentcastMarket(zip: string | null | undefined, asOf: string,
   if (zip) params.set("zipCode", zip);
   const request = params.toString() || null;
 
+  // PAUSED_V2: RentCast adapter paused for free data architecture pivot
+  // Re-enable by setting FEATURE_RENTCAST_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
+  if (!isRentcastEnabled()) {
+    return {
+      summary: null,
+      raw: { request, response: { paused: true, reason: "feature_paused_v2", message: "RentCast market paused" } },
+      stub: true,
+    };
+  }
+
   if (!apiKey) {
     return { summary: null, raw: { request, response: { error: "missing_api_key" } }, stub: true };
   }
@@ -452,6 +494,19 @@ export async function fetchRentcastClosedSales(opts: {
     saleDateRangeDays,
     propertyType: rentcastPropertyTypeSafe(subjectProperty?.propertyTypeRaw, subjectProperty?.propertyType ?? null),
   });
+
+  // PAUSED_V2: RentCast adapter paused for free data architecture pivot
+  // Re-enable by setting FEATURE_RENTCAST_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
+  if (!isRentcastEnabled()) {
+    return {
+      comps: [] as BasicComp[],
+      stub: true,
+      raw: { request, response: { paused: true, reason: "feature_paused_v2", message: "RentCast closed sales paused" } },
+      fetchFailed: false,
+      request,
+    };
+  }
 
   if (!apiKey) {
     return {
@@ -775,6 +830,9 @@ export async function ensureSnapshotForDeal(opts: {
     : null;
 
   // Public records subject enrichment (ATTOM-only)
+  // PAUSED_V2: ATTOM normalizer paused for free data architecture pivot
+  // Re-enable by setting FEATURE_ATTOM_ENABLED=true
+  // See docs/archive/valuation-providers-v2-pause.md
   const publicRecordsCfg = (opts.policyValuation as any)?.public_records_subject ?? {};
   let publicRecordsRaw: any = null;
   const preferPublic = publicRecordsCfg?.prefer_over_rentcast_subject === true;
@@ -784,7 +842,9 @@ export async function ensureSnapshotForDeal(opts: {
       (v) => v === null || v === undefined,
     );
 
-  if (publicRecordsCfg?.enabled) {
+  // PAUSED_V2: Skip ATTOM enrichment when feature is disabled
+  const attomFeatureEnabled = isAttomEnabled();
+  if (publicRecordsCfg?.enabled && attomFeatureEnabled) {
     const address = formatRentcastAddress(opts.deal);
     const shouldAttempt = preferPublic || hasMissingSubjectFields;
     publicRecordsRaw = {
@@ -835,6 +895,18 @@ export async function ensureSnapshotForDeal(opts: {
         }
       }
     }
+  } else if (publicRecordsCfg?.enabled && !attomFeatureEnabled) {
+    // PAUSED_V2: Record that ATTOM was skipped due to feature flag
+    publicRecordsRaw = {
+      provider: "attom",
+      attempted: false,
+      skipped_reason: "feature_paused_v2",
+      request: null,
+      response: { paused: true, reason: "feature_paused_v2", message: "ATTOM normalizer paused" },
+      normalized: null,
+      as_of: asOf,
+      error: null,
+    };
   }
 
   const closedLadder = await fetchClosedSalesLadder({

@@ -33,6 +33,37 @@ export const FEATURE_FLAGS = {
 
   /** Field mode mobile view */
   v25_field_mode: true,
+
+  // ============================================================
+  // PAUSED_V2: Valuation Provider Flags
+  // These mirror server-side env vars for UI display purposes.
+  // All default to false (paused) per free data architecture pivot.
+  // See docs/archive/valuation-providers-v2-pause.md
+  // ============================================================
+
+  /**
+   * PAUSED_V2: RentCast provider integration
+   * Re-enable by setting to true when provider costs are approved.
+   */
+  valuation_rentcast: false,
+
+  /**
+   * PAUSED_V2: ATTOM public records integration
+   * Re-enable by setting to true when provider costs are approved.
+   */
+  valuation_attom: false,
+
+  /**
+   * PAUSED_V2: Ensemble + Uncertainty + Ceiling features
+   * Depends on AVM provider being active.
+   */
+  valuation_ensemble: false,
+
+  /**
+   * PAUSED_V2: Continuous calibration loop
+   * Depends on ensemble being active.
+   */
+  valuation_calibration: false,
 } as const;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

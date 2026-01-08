@@ -1,12 +1,54 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import Link from "next/link";
-import { Postures, type UserSettings } from "@hps-internal/contracts";
+import { useRouter } from "next/navigation";
+import {
+  Postures,
+  type UserSettings,
+  type TeamMember,
+  type InvitationDisplay,
+  type InviteRole,
+  INVITE_ROLE_OPTIONS,
+  getTeamRoleDisplay,
+} from "@hps-internal/contracts";
+import {
+  fetchProfile,
+  updateProfile,
+  saveProfileDraft,
+  getProfileDraft,
+  clearProfileDraft,
+  ProfileError,
+} from "@/lib/profileSettings";
+import {
+  sendInvite,
+  listInvites,
+  revokeInvite,
+  InviteError,
+} from "@/lib/teamInvites";
+import { listMembers, removeMember, TeamError } from "@/lib/teamMembers";
+import {
+  getOrganization,
+  updateOrganization,
+  uploadOrganizationLogo,
+  removeOrganizationLogo,
+  OrgError,
+} from "@/lib/orgSettings";
+import {
+  MAX_LOGO_SIZE,
+  ALLOWED_LOGO_TYPES,
+  isAllowedLogoType,
+  isValidLogoSize,
+  formatFileSize,
+} from "@hps-internal/contracts";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 import { Button, GlassCard, Icon, SelectField } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Icons } from "@/constants";
+import { useToast } from "@/hooks/useToast";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { fetchUserSettings, upsertUserSettings } from "@/lib/userSettings";
 import { ThemeSwitcher } from "@/components/settings/ThemeSwitcher";
 import type { ThemeSetting } from "@/components/theme/ThemeProvider";
@@ -23,17 +65,11 @@ type LocalProfile = {
   email: string;
 };
 
-type LocalBusiness = {
+type OrgBusiness = {
   name: string;
-  logoDataUrl: string | null;
+  logoUrl: string | null;
 };
 
-type LocalTeamMember = {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-};
 
 const DEFAULTS: FormState = {
   defaultPosture: "base",
@@ -81,35 +117,74 @@ export default function UserSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Local-only placeholders for future slices
-  const [profile, setProfile] = useState<LocalProfile>({
-    name: "Jane Doe",
-    email: "jane@example.com",
-  });
+  // Profile state with real API integration
+  const router = useRouter();
+  const [profile, setProfile] = useState<LocalProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileFieldError, setProfileFieldError] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
 
-  const [business, setBusiness] = useState<LocalBusiness>({
-    name: "HPS Investments LLC",
-    logoDataUrl: null,
-  });
+  // ============================================================================
+  // ORGANIZATION STATE (Real API integration - Slice 3)
+  // ============================================================================
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  const [business, setBusiness] = useState<OrgBusiness | null>(null);
+  const [businessLoading, setBusinessLoading] = useState(true);
+  const [businessError, setBusinessError] = useState<string | null>(null);
+  const [businessFieldError, setBusinessFieldError] = useState<string | null>(null);
+  const [businessSaving, setBusinessSaving] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [canEditBusiness, setCanEditBusiness] = useState(false); // VP-only
 
-  const [team, setTeam] = useState<LocalTeamMember[]>([
-    {
-      id: 1,
-      name: "Alex Analyst",
-      email: "alex@hpsinvest.com",
-      role: "Underwriter",
-    },
-    {
-      id: 2,
-      name: "Casey Manager",
-      email: "casey@hpsinvest.com",
-      role: "Manager",
-    },
-  ]);
+  // ============================================================================
+  // TEAM STATE (Real API integration - Slice 2)
+  // ============================================================================
 
+  // Team members from API
+  const [members, setMembers] = useState<TeamMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
+  const [membersError, setMembersError] = useState<string | null>(null);
+
+  // Pending invites from API
+  const [pendingInvites, setPendingInvites] = useState<InvitationDisplay[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(true);
+
+  // Permission check
+  const [canManageTeam, setCanManageTeam] = useState(false);
+
+  // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("Viewer");
+  const [inviteRole, setInviteRole] = useState<InviteRole>("analyst");
+  const [inviteSending, setInviteSending] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteFieldError, setInviteFieldError] = useState<string | null>(null);
+
+  // Action states
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
+
   const [localMessage, setLocalMessage] = useState<string | null>(null);
+
+  // Slice 4: Toast notifications
+  const { toast } = useToast();
+
+  // Track unsaved changes across all form sections
+  const hasUnsavedChanges = useMemo(() => {
+    if (!initial) return false;
+    return (
+      form.defaultPosture !== initial.defaultPosture ||
+      form.defaultMarket !== initial.defaultMarket ||
+      form.theme !== initial.theme
+    );
+  }, [form, initial]);
+
+  // Slice 4: Unsaved changes warning
+  const { showDialog, confirmDiscard, cancelDiscard, dialogMessage } = useUnsavedChanges({
+    hasChanges: hasUnsavedChanges,
+    message: "You have unsaved settings changes. Are you sure you want to leave?",
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -150,6 +225,147 @@ export default function UserSettingsPage() {
     };
   }, []);
 
+  // Load profile from API
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProfile() {
+      try {
+        setProfileLoading(true);
+        setProfileError(null);
+
+        const response = await fetchProfile();
+
+        if (isMounted) {
+          const draft = getProfileDraft();
+          if (draft?.display_name && response.is_new) {
+            setProfile({
+              name: draft.display_name,
+              email: response.email,
+            });
+          } else {
+            setProfile({
+              name: response.profile.display_name || "",
+              email: response.email,
+            });
+            clearProfileDraft();
+          }
+        }
+      } catch (err) {
+        if (isMounted) {
+          if (err instanceof ProfileError && err.status === 401) {
+            router.push("/login?returnTo=/settings/user");
+            return;
+          }
+          setProfileError(
+            err instanceof Error ? err.message : "Failed to load profile",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setProfileLoading(false);
+        }
+      }
+    }
+
+    loadProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
+
+  // Load current org, team data, and organization settings from API (Slice 2 + 3)
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadOrgAndTeamData() {
+      // Get current user's org from their membership
+      const supabase = getSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      // Get user's first org membership
+      const { data: membership } = await supabase
+        .from("memberships")
+        .select("org_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .single();
+
+      if (!membership?.org_id) {
+        if (isMounted) {
+          setMembersLoading(false);
+          setInvitesLoading(false);
+          setBusinessLoading(false);
+        }
+        return;
+      }
+
+      if (isMounted) {
+        setCurrentOrgId(membership.org_id);
+      }
+
+      // Fetch organization settings (Slice 3)
+      try {
+        const orgResponse = await getOrganization(membership.org_id);
+        if (isMounted) {
+          setBusiness({
+            name: orgResponse.organization.name,
+            logoUrl: orgResponse.organization.logo_url || null,
+          });
+          setCanEditBusiness(orgResponse.caller_role === "vp");
+          setBusinessLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setBusinessError(
+            err instanceof OrgError ? err.message : "Failed to load organization",
+          );
+          setBusinessLoading(false);
+        }
+      }
+
+      // Fetch team members (Slice 2)
+      try {
+        const teamResponse = await listMembers(membership.org_id);
+        if (isMounted) {
+          setMembers(teamResponse.members);
+          setCanManageTeam(teamResponse.can_manage);
+          setMembersLoading(false);
+
+          // Fetch pending invites (only if can manage)
+          if (teamResponse.can_manage) {
+            try {
+              const invitesResponse = await listInvites(membership.org_id);
+              setPendingInvites(invitesResponse.invitations);
+            } catch (err) {
+              console.error("[settings] Failed to load invites:", err);
+            }
+          }
+          setInvitesLoading(false);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setMembersError(
+            err instanceof Error ? err.message : "Failed to load team",
+          );
+          setMembersLoading(false);
+          setInvitesLoading(false);
+        }
+      }
+    }
+
+    loadOrgAndTeamData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const hasChanges = useMemo(() => {
     if (!initial) return false;
     return (
@@ -184,73 +400,264 @@ export default function UserSettingsPage() {
       setForm(next);
       setInitial(next);
       setSuccess("Settings saved.");
+      toast.success("Settings saved", "Your preferences have been updated.");
     } catch (err) {
       console.error("[settings/user] failed to save settings", err);
       setError("Could not save settings. Try again.");
+      toast.error("Save failed", "Could not save settings. Try again.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  // TODO: Wire profile save to real user profile endpoint when available.
-  const onSaveProfile = () => {
-    setLocalMessage(
-      "Profile saved locally. (TODO: connect real profile API.)",
-    );
-  };
-
-  // TODO: Wire business save to org/business settings endpoint when available.
-  const onSaveBusiness = () => {
-    setLocalMessage(
-      "Business settings saved locally. (TODO: connect real business API.)",
-    );
-  };
-
-  // TODO: Wire team invite/removal to memberships management when available.
-  const onInvite = () => {
-    if (!inviteEmail.trim()) {
-      setLocalMessage("Enter an email before sending an invite.");
+  // Save profile to API
+  const onSaveProfile = useCallback(async () => {
+    if (!profile?.name?.trim()) {
+      setProfileFieldError("Display name is required");
       return;
     }
 
-    const newMember: LocalTeamMember = {
-      id: Date.now(),
-      name: "Pending Invite",
-      email: inviteEmail.trim(),
-      role: inviteRole,
-    };
+    try {
+      setProfileSaving(true);
+      setProfileError(null);
+      setProfileFieldError(null);
 
-    setTeam((prev) => [...prev, newMember]);
-    setInviteEmail("");
-    setInviteRole("Viewer");
-    setLocalMessage(
-      "Invite staged locally. (TODO: send real invite via backend.)",
-    );
-  };
+      saveProfileDraft({ display_name: profile.name });
 
-  const onRemoveMember = (id: number) => {
-    setTeam((prev) => prev.filter((m) => m.id !== id));
-    setLocalMessage(
-      "Member removed locally. (TODO: remove via backend.)",
-    );
-  };
+      await updateProfile({ display_name: profile.name.trim() });
 
-  const onLogoChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+      clearProfileDraft();
+      setLocalMessage("Profile saved successfully.");
+      toast.success("Profile saved", "Your profile has been updated.");
+    } catch (err) {
+      if (err instanceof ProfileError) {
+        if (err.field === "display_name") {
+          setProfileFieldError(err.message);
+        } else {
+          setProfileError(err.message);
+          toast.error("Save failed", err.message);
+        }
+      } else {
+        setProfileError("An unexpected error occurred. Please try again.");
+        toast.error("Save failed", "An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setProfileSaving(false);
+    }
+  }, [profile, toast]);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setBusiness((prev) => ({
-        ...prev,
-        logoDataUrl: reader.result as string,
-      }));
-      setLocalMessage(
-        "Logo staged locally. (TODO: persist in backend.)",
+  // Save business settings to API (Slice 3)
+  const onSaveBusiness = useCallback(async () => {
+    if (!business?.name?.trim() || !currentOrgId) {
+      setBusinessFieldError("Business name is required");
+      return;
+    }
+
+    try {
+      setBusinessSaving(true);
+      setBusinessError(null);
+      setBusinessFieldError(null);
+
+      await updateOrganization({
+        org_id: currentOrgId,
+        name: business.name.trim(),
+      });
+
+      setLocalMessage("Business settings saved successfully.");
+      toast.success("Business saved", "Organization settings updated.");
+    } catch (err) {
+      if (err instanceof OrgError) {
+        if (err.field === "name") {
+          setBusinessFieldError(err.message);
+        } else {
+          setBusinessError(err.message);
+          toast.error("Save failed", err.message);
+        }
+      } else {
+        setBusinessError("An unexpected error occurred. Please try again.");
+        toast.error("Save failed", "An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setBusinessSaving(false);
+    }
+  }, [business, currentOrgId, toast]);
+
+  // Handle sending team invite (Slice 2)
+  const handleSendInvite = useCallback(async () => {
+    if (!inviteEmail.trim() || !currentOrgId) {
+      setInviteFieldError("Email is required");
+      return;
+    }
+
+    try {
+      setInviteSending(true);
+      setInviteError(null);
+      setInviteFieldError(null);
+
+      const result = await sendInvite({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        org_id: currentOrgId,
+      });
+
+      // Success - clear form and refresh invites
+      setInviteEmail("");
+      setLocalMessage(result.message);
+      toast.success("Invitation sent", result.message);
+
+      // Refresh invite list
+      if (canManageTeam) {
+        const invitesResponse = await listInvites(currentOrgId);
+        setPendingInvites(invitesResponse.invitations);
+      }
+    } catch (err) {
+      if (err instanceof InviteError) {
+        if (err.field === "email") {
+          setInviteFieldError(err.message);
+        } else {
+          setInviteError(err.message);
+          toast.error("Invitation failed", err.message);
+        }
+      } else {
+        setInviteError("Failed to send invitation");
+        toast.error("Invitation failed", "Could not send the invitation.");
+      }
+    } finally {
+      setInviteSending(false);
+    }
+  }, [inviteEmail, inviteRole, currentOrgId, canManageTeam, toast]);
+
+  // Handle revoking invite (Slice 2)
+  const handleRevokeInvite = useCallback(
+    async (invitationId: string) => {
+      if (!currentOrgId) return;
+
+      try {
+        setRevokingInviteId(invitationId);
+
+        await revokeInvite({ invitation_id: invitationId });
+
+        // Remove from list
+        setPendingInvites((prev) =>
+          prev.filter((inv) => inv.id !== invitationId),
+        );
+        setLocalMessage("Invitation revoked");
+        toast.success("Invitation revoked");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to revoke invitation";
+        setError(message);
+        toast.error("Revoke failed", message);
+      } finally {
+        setRevokingInviteId(null);
+      }
+    },
+    [currentOrgId, toast],
+  );
+
+  // Handle removing member (Slice 2)
+  const handleRemoveMember = useCallback(
+    async (userId: string) => {
+      if (!currentOrgId) return;
+
+      try {
+        setRemovingMemberId(userId);
+        setConfirmRemoveId(null);
+
+        await removeMember({ user_id: userId, org_id: currentOrgId });
+
+        // Remove from list
+        setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+        setLocalMessage("Member removed");
+        toast.success("Member removed", "Team member has been removed.");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to remove member";
+        setError(message);
+        toast.error("Remove failed", message);
+      } finally {
+        setRemovingMemberId(null);
+      }
+    },
+    [currentOrgId, toast],
+  );
+
+  // Handle logo file selection and upload (Slice 3)
+  const onLogoChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file || !currentOrgId) return;
+
+      // Validate file type
+      if (!isAllowedLogoType(file.type)) {
+        setBusinessFieldError(
+          `Invalid file type. Allowed: ${ALLOWED_LOGO_TYPES.join(", ")}`,
+        );
+        return;
+      }
+
+      // Validate file size
+      if (!isValidLogoSize(file.size)) {
+        setBusinessFieldError(
+          `File too large. Maximum size is ${formatFileSize(MAX_LOGO_SIZE)}.`,
+        );
+        return;
+      }
+
+      try {
+        setLogoUploading(true);
+        setBusinessError(null);
+        setBusinessFieldError(null);
+
+        const publicUrl = await uploadOrganizationLogo(currentOrgId, file);
+
+        setBusiness((prev) =>
+          prev ? { ...prev, logoUrl: publicUrl } : null,
+        );
+        setLocalMessage("Logo uploaded successfully.");
+        toast.success("Logo uploaded", "Your organization logo has been updated.");
+      } catch (err) {
+        if (err instanceof OrgError) {
+          setBusinessError(err.message);
+          toast.error("Upload failed", err.message);
+        } else {
+          setBusinessError("Failed to upload logo. Please try again.");
+          toast.error("Upload failed", "Failed to upload logo. Please try again.");
+        }
+      } finally {
+        setLogoUploading(false);
+        // Clear the file input
+        event.target.value = "";
+      }
+    },
+    [currentOrgId, toast],
+  );
+
+  // Handle logo removal (Slice 3)
+  const onRemoveLogo = useCallback(async () => {
+    if (!currentOrgId) return;
+
+    try {
+      setLogoUploading(true);
+      setBusinessError(null);
+
+      await removeOrganizationLogo(currentOrgId);
+
+      setBusiness((prev) =>
+        prev ? { ...prev, logoUrl: null } : null,
       );
-    };
-    reader.readAsDataURL(file);
-  };
+      setLocalMessage("Logo removed.");
+      toast.success("Logo removed", "Organization logo has been removed.");
+    } catch (err) {
+      if (err instanceof OrgError) {
+        setBusinessError(err.message);
+        toast.error("Remove failed", err.message);
+      } else {
+        setBusinessError("Failed to remove logo. Please try again.");
+        toast.error("Remove failed", "Failed to remove logo. Please try again.");
+      }
+    } finally {
+      setLogoUploading(false);
+    }
+  }, [currentOrgId, toast]);
 
   const currentPostureLabel = capitalize(form.defaultPosture);
   const currentMarketLabel =
@@ -258,7 +665,7 @@ export default function UserSettingsPage() {
     form.defaultMarket;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="settings-page">
       {/* Hero card */}
       <div className="rounded-2xl border border-white/5 bg-gradient-to-r from-surface-elevated/70 via-surface-elevated/50 to-surface-elevated/70 p-5 md:p-6 shadow-lg shadow-black/20">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -408,7 +815,7 @@ export default function UserSettingsPage() {
       {/* Profile / Business / Team */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Profile */}
-        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
+        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70" data-testid="settings-card-profile">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -416,35 +823,88 @@ export default function UserSettingsPage() {
                 Profile settings
               </h2>
               <p className="text-sm text-text-secondary">
-                Local-only for now. Future slice will sync with your Supabase
-                profile.
+                Manage your display name and account details.
               </p>
             </div>
-            <Button size="sm" variant="neutral" onClick={onSaveProfile}>
-              Save Profile
-            </Button>
+            {!profileLoading && !profileError && (
+              <Button
+                size="sm"
+                variant="neutral"
+                onClick={onSaveProfile}
+                disabled={profileSaving || !profile?.name?.trim()}
+                data-testid="save-profile-button"
+              >
+                {profileSaving ? "Saving..." : "Save Profile"}
+              </Button>
+            )}
           </div>
-          <div className="grid gap-3">
-            <LabeledInput
-              label="Your name"
-              value={profile.name}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, name: e.target.value }))
-              }
-            />
-            <LabeledInput
-              label="Email address"
-              type="email"
-              value={profile.email}
-              onChange={(e) =>
-                setProfile((prev) => ({ ...prev, email: e.target.value }))
-              }
-            />
-          </div>
+
+          {profileLoading ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-[68px] bg-white/5 rounded-lg" />
+              <div className="h-[68px] bg-white/5 rounded-lg" />
+            </div>
+          ) : profileError ? (
+            <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+              <p className="text-accent-red text-sm">{profileError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              <div className="space-y-1">
+                <label htmlFor="profile-name" className="text-sm font-semibold text-text-primary">
+                  Your name
+                </label>
+                <input
+                  id="profile-name"
+                  type="text"
+                  value={profile?.name || ""}
+                  onChange={(e) => {
+                    setProfile((prev) =>
+                      prev ? { ...prev, name: e.target.value } : null,
+                    );
+                    setProfileFieldError(null);
+                  }}
+                  className={`input-base min-h-[44px] ${
+                    profileFieldError
+                      ? "border-accent-red/50 focus:ring-accent-red/50"
+                      : ""
+                  }`}
+                  placeholder="Your display name"
+                  maxLength={100}
+                  disabled={profileSaving}
+                  data-testid="profile-name-input"
+                />
+                {profileFieldError && (
+                  <p className="text-sm text-accent-red">{profileFieldError}</p>
+                )}
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="profile-email" className="text-sm font-semibold text-text-primary">
+                  Email address
+                </label>
+                <input
+                  id="profile-email"
+                  type="email"
+                  value={profile?.email || ""}
+                  readOnly
+                  className="input-base min-h-[44px] bg-white/5 text-text-secondary cursor-not-allowed"
+                />
+                <p className="text-xs text-text-secondary">
+                  Email cannot be changed here
+                </p>
+              </div>
+            </div>
+          )}
         </GlassCard>
 
         {/* Business */}
-        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
+        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70" data-testid="settings-card-business">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -452,47 +912,115 @@ export default function UserSettingsPage() {
                 Business settings
               </h2>
               <p className="text-sm text-text-secondary">
-                Local-only for now. Future slice will persist org brand details.
+                {canEditBusiness
+                  ? "Manage your organization's name and logo."
+                  : "View your organization's details. Only VP can edit."}
               </p>
             </div>
-            <Button size="sm" variant="neutral" onClick={onSaveBusiness}>
-              Save Business
-            </Button>
+            {!businessLoading && !businessError && canEditBusiness && (
+              <Button
+                size="sm"
+                variant="neutral"
+                onClick={onSaveBusiness}
+                disabled={businessSaving || !business?.name?.trim()}
+              >
+                {businessSaving ? "Saving..." : "Save Business"}
+              </Button>
+            )}
           </div>
-          <div className="space-y-3">
-            <LabeledInput
-              label="Business name"
-              value={business.name}
-              onChange={(e) =>
-                setBusiness((prev) => ({ ...prev, name: e.target.value }))
-              }
-            />
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-text-primary">
-                Business logo
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={onLogoChange}
-                className="input-base"
-              />
-              {business.logoDataUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element -- local preview uses user-selected data URL */
-                <img
-                  src={business.logoDataUrl}
-                  alt="Business logo preview"
-                  className="h-12 w-12 rounded-full object-cover border border-white/10"
-                />
-              ) : (
-                <p className="text-xs text-text-secondary">No logo uploaded.</p>
-              )}
+
+          {businessLoading ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-[68px] bg-white/5 rounded-lg" />
+              <div className="h-20 bg-white/5 rounded-lg" />
             </div>
-          </div>
+          ) : businessError ? (
+            <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+              <p className="text-accent-red text-sm">{businessError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <label htmlFor="business-name" className="text-sm font-semibold text-text-primary">
+                  Business name
+                </label>
+                <input
+                  id="business-name"
+                  type="text"
+                  value={business?.name || ""}
+                  onChange={(e) => {
+                    setBusiness((prev) =>
+                      prev ? { ...prev, name: e.target.value } : null,
+                    );
+                    setBusinessFieldError(null);
+                  }}
+                  className={`input-base min-h-[44px] ${
+                    businessFieldError
+                      ? "border-accent-red/50 focus:ring-accent-red/50"
+                      : ""
+                  } ${!canEditBusiness ? "bg-white/5 text-text-secondary cursor-not-allowed" : ""}`}
+                  placeholder="Your organization name"
+                  maxLength={100}
+                  disabled={businessSaving || !canEditBusiness}
+                />
+                {businessFieldError && (
+                  <p className="text-sm text-accent-red">{businessFieldError}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-text-primary">
+                  Business logo
+                </label>
+                {canEditBusiness && (
+                  <input
+                    type="file"
+                    accept={ALLOWED_LOGO_TYPES.join(",")}
+                    onChange={onLogoChange}
+                    className="input-base"
+                    disabled={logoUploading}
+                  />
+                )}
+                {logoUploading && (
+                  <p className="text-xs text-accent-blue animate-pulse">Uploading...</p>
+                )}
+                {business?.logoUrl ? (
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- org logo from storage */}
+                    <img
+                      src={business.logoUrl}
+                      alt="Business logo"
+                      className="h-12 w-auto max-w-[150px] object-contain rounded border border-white/10"
+                    />
+                    {canEditBusiness && (
+                      <button
+                        onClick={onRemoveLogo}
+                        disabled={logoUploading}
+                        className="text-xs text-accent-orange hover:text-accent-red disabled:opacity-50"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-text-secondary">
+                    {canEditBusiness
+                      ? `No logo uploaded. Max ${formatFileSize(MAX_LOGO_SIZE)}.`
+                      : "No logo uploaded."}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </GlassCard>
 
         {/* Team */}
-        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70">
+        <GlassCard className="p-5 space-y-4 border border-white/5 bg-surface-elevated/70" data-testid="settings-card-team">
           <div className="flex items-start justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -500,81 +1028,195 @@ export default function UserSettingsPage() {
                 Team access
               </h2>
               <p className="text-sm text-text-secondary">
-                Local-only invite list to mirror the prototype. RLS remains
-                enforced in live paths.
+                {canManageTeam
+                  ? "Manage team members and send invitations."
+                  : "View your team members."}
               </p>
             </div>
           </div>
-          <div className="space-y-3">
-            <div className="grid gap-3">
-              <LabeledInput
-                label="Invite by email"
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-              <SelectField
-                label="Set role"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-              >
-                <option value="Viewer">Viewer (read-only)</option>
-                <option value="Underwriter">
-                  Underwriter (can edit deals)
-                </option>
-                <option value="Manager">Manager (approvals)</option>
-              </SelectField>
-              <Button onClick={onInvite} variant="primary">
-                Send Invite (UI-only)
-              </Button>
-            </div>
 
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
-                Current team (local)
-              </p>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-text-secondary">
-                    <tr>
-                      <th className="px-2 py-1">Name</th>
-                      <th className="px-2 py-1">Email</th>
-                      <th className="px-2 py-1">Role</th>
-                      <th className="px-2 py-1 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {team.map((member) => (
-                      <tr
-                        key={member.id}
-                        className="border-t border-white/5"
+          {/* Loading State */}
+          {membersLoading ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-10 bg-white/5 rounded-lg" />
+              <div className="h-10 bg-white/5 rounded-lg" />
+              <div className="h-10 bg-white/5 rounded-lg" />
+            </div>
+          ) : membersError ? (
+            <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+              <p className="text-accent-red text-sm">{membersError}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Invite Form (only for managers) */}
+              {canManageTeam && (
+                <div className="p-4 bg-white/5 rounded-lg space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    Send invitation
+                  </p>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="invite-email"
+                      className="text-sm font-semibold text-text-primary"
+                    >
+                      Email address
+                    </label>
+                    <input
+                      id="invite-email"
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => {
+                        setInviteEmail(e.target.value);
+                        setInviteFieldError(null);
+                      }}
+                      placeholder="colleague@company.com"
+                      className={`input-base min-h-[44px] ${
+                        inviteFieldError
+                          ? "border-accent-red/50 focus:ring-accent-red/50"
+                          : ""
+                      }`}
+                      disabled={inviteSending}
+                    />
+                    {inviteFieldError && (
+                      <p className="text-sm text-accent-red">{inviteFieldError}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="invite-role"
+                      className="text-sm font-semibold text-text-primary"
+                    >
+                      Role
+                    </label>
+                    <select
+                      id="invite-role"
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as InviteRole)}
+                      className="input-base min-h-[44px]"
+                      disabled={inviteSending}
+                    >
+                      {INVITE_ROLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {inviteError && (
+                    <p className="text-sm text-accent-red">{inviteError}</p>
+                  )}
+                  <Button
+                    onClick={handleSendInvite}
+                    variant="primary"
+                    disabled={inviteSending || !inviteEmail.trim()}
+                    className="w-full min-h-[44px]"
+                  >
+                    {inviteSending ? "Sending..." : "Send Invite"}
+                  </Button>
+                </div>
+              )}
+
+              {/* Pending Invites (only for managers) */}
+              {canManageTeam && pendingInvites.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                    Pending invitations ({pendingInvites.length})
+                  </p>
+                  <div className="space-y-2">
+                    {pendingInvites.map((invite) => (
+                      <div
+                        key={invite.id}
+                        className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
                       >
-                        <td className="px-2 py-1 text-text-primary">
-                          {member.name}
-                        </td>
-                        <td className="px-2 py-1 text-text-secondary">
-                          {member.email}
-                        </td>
-                        <td className="px-2 py-1">
-                          <span className="rounded-full bg-white/5 px-2 py-0.5 text-xs font-semibold text-text-primary">
-                            {member.role}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-right">
-                          <button
-                            onClick={() => onRemoveMember(member.id)}
-                            className="text-xs font-semibold text-accent-orange hover:text-accent-red"
-                          >
-                            Remove (UI-only)
-                          </button>
-                        </td>
-                      </tr>
+                        <div>
+                          <p className="text-sm text-text-primary">{invite.email}</p>
+                          <p className="text-xs text-text-secondary">
+                            {getTeamRoleDisplay(invite.role)} &bull; Expires{" "}
+                            {new Date(invite.expires_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleRevokeInvite(invite.id)}
+                          disabled={revokingInviteId === invite.id}
+                          className="min-h-[44px] px-3 text-xs font-semibold text-accent-orange hover:text-accent-red disabled:opacity-50"
+                        >
+                          {revokingInviteId === invite.id ? "..." : "Revoke"}
+                        </button>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Current Team Members */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+                  Team members ({members.length})
+                </p>
+                <div className="space-y-2">
+                  {members.map((member) => (
+                    <div
+                      key={member.user_id}
+                      className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-accent-blue/20 flex items-center justify-center text-accent-blue text-sm font-semibold">
+                          {member.display_name?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <p className="text-sm text-text-primary">
+                            {member.display_name}
+                            {member.is_self && (
+                              <span className="ml-2 text-xs text-text-secondary">(you)</span>
+                            )}
+                          </p>
+                          <p className="text-xs text-text-secondary">
+                            {getTeamRoleDisplay(member.role)}
+                          </p>
+                        </div>
+                      </div>
+                      {canManageTeam && !member.is_self && member.role !== "vp" && (
+                        <>
+                          {confirmRemoveId === member.user_id ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleRemoveMember(member.user_id)}
+                                disabled={removingMemberId === member.user_id}
+                                className="min-h-[44px] px-3 text-xs font-semibold text-accent-red hover:text-accent-red/80 disabled:opacity-50"
+                              >
+                                {removingMemberId === member.user_id
+                                  ? "..."
+                                  : "Confirm"}
+                              </button>
+                              <button
+                                onClick={() => setConfirmRemoveId(null)}
+                                className="min-h-[44px] px-3 text-xs font-semibold text-text-secondary hover:text-text-primary"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmRemoveId(member.user_id)}
+                              className="min-h-[44px] px-3 text-xs font-semibold text-accent-orange hover:text-accent-red"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </GlassCard>
       </div>
 
@@ -644,6 +1286,18 @@ export default function UserSettingsPage() {
           </Link>
         </div>
       </GlassCard>
+
+      {/* Slice 4: Unsaved changes confirmation */}
+      <ConfirmDialog
+        isOpen={showDialog}
+        onClose={cancelDiscard}
+        onConfirm={confirmDiscard}
+        title="Unsaved Changes"
+        message={dialogMessage}
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        variant="warning"
+      />
     </div>
   );
 }

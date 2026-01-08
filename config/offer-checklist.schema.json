@@ -235,7 +235,7 @@
     "importance_tag": "MUST_HAVE_FOR_READY",
     "scenario_applicability": { "flip": "required", "wholetail": "required", "as_is": "required" },
     "fields": ["confidence_grade", "valuation_confidence"],
-    "policy_knobs": ["minConfidenceGradePolicy", "abcConfidenceGradeRubric"],
+    "policy_knobs": ["minConfidenceGradePolicy"],
     "placeholder_behavior": "N/A – computed from evidence completeness; placeholders or stale data usually drop grade.",
     "why_it_matters": "The overall confidence in the analysis must be high enough (e.g. B or better by default) to proceed. This grade synthesizes evidence gaps and uncertainty – a low grade signals the deal isn’t ready."
   },

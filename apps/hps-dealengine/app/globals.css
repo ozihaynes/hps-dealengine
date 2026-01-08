@@ -839,3 +839,132 @@ html {
   --card-bg-solid: rgba(18, 6, 16, 0.95);
   --card-bg-overlay: rgba(18, 6, 16, 0.90);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   APP BACKGROUND SYSTEM
+   Shared background with gradient shapes for visual consistency
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.app-bg-container {
+  position: relative;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.app-bg-shapes {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-bg-shape {
+  position: absolute;
+  opacity: var(--shape-opacity, 0.1);
+  animation: app-bg-float 22s ease-in-out infinite;
+}
+
+/* Top-right shape - large organic blob */
+.app-bg-shape-1 {
+  width: 420px;
+  height: 420px;
+  background: linear-gradient(135deg, var(--accent-color, #0096ff) 0%, transparent 100%);
+  border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
+  top: -140px;
+  right: -160px;
+  animation-delay: 0s;
+}
+
+/* Bottom-left shape - medium organic blob */
+.app-bg-shape-2 {
+  width: 320px;
+  height: 320px;
+  background: linear-gradient(225deg, var(--accent-color, #0096ff) 0%, transparent 100%);
+  border-radius: 70% 30% 30% 70% / 70% 70% 30% 30%;
+  bottom: -100px;
+  left: -120px;
+  animation-delay: 5s;
+}
+
+/* Center-left shape - ring/circle */
+.app-bg-shape-3 {
+  width: 240px;
+  height: 240px;
+  border: 2px solid color-mix(in srgb, var(--accent-color, #0096ff) 35%, transparent);
+  border-radius: 50%;
+  top: 52%;
+  left: 8%;
+  opacity: 0.3;
+  background: transparent;
+  animation-delay: 10s;
+}
+
+/* Floating animation for organic shapes */
+@keyframes app-bg-float {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  33% {
+    transform: translate(28px, -24px) rotate(120deg);
+  }
+  66% {
+    transform: translate(-18px, 22px) rotate(240deg);
+  }
+}
+
+/* Subtle grid overlay */
+.app-bg-grid {
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--accent-color, #0096ff) 4%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--accent-color, #0096ff) 4%, transparent) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Content layer above background */
+.app-bg-content {
+  position: relative;
+  z-index: 10;
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .app-bg-shape-1 {
+    width: 300px;
+    height: 300px;
+    top: -140px;
+    right: -180px;
+  }
+
+  .app-bg-shape-2 {
+    width: 240px;
+    height: 240px;
+    bottom: -140px;
+    left: -160px;
+  }
+
+  .app-bg-shape-3 {
+    width: 180px;
+    height: 180px;
+    left: 4%;
+    top: 56%;
+  }
+
+  .app-bg-grid {
+    background-size: 48px 48px;
+  }
+}
+
+/* Reduced motion - disable floating animation */
+@media (prefers-reduced-motion: reduce) {
+  .app-bg-shape {
+    animation: none;
+  }
+}

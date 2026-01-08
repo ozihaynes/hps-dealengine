@@ -75,6 +75,11 @@ When something significant ships, changes direction, or gets blocked, add a date
 - **Calibration loop (Slice 7)**: proof output captured in `scripts/valuation/prove-eval-run-inrange.ps1` (ranges_present=11, in_range_rate_overall~0.3636); ensemble sweep best at `avm_weight=0` (`MAE~85091.95`, `MAPE~0.1422`) so ensemble stays OFF by default.
 - Continuous calibration flywheel shipped end-to-end (Slices A-D): auto-trigger on ground truth, calibrated weights applied during valuation runs (ensemble-enabled only), trace UI visibility, and guardrails (freeze + parent fallback/blending) with ops UI.
 
+- **Valuation Providers (PAUSED_V2)**: Strategic pivot to free public data architecture.
+  - PAUSED: RentCast (AVM/comps), ATTOM (public records), Ensemble/Uncertainty/Ceiling, Calibration Loop
+  - ACTIVE: Comp Overrides (data-agnostic), Ground-Truth/Eval Harness (independent)
+  - Re-enable via `FEATURE_*_ENABLED=true` env vars. See `docs/archive/valuation-providers-v2-pause.md`.
+
 ---
 
 ## 0.2 Near-Term Focus (Next Sprints)
@@ -97,6 +102,72 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 ---
 
 ## 1. Dated Entries
+
+### 2026-01-06 — PAUSED_V2: Valuation Providers Strategic Pivot
+
+**Context:** Strategic pivot to build free public data architecture before re-enabling paid provider features. All paused features use feature flags (NOT deleted code) and can be re-enabled by setting environment variables.
+
+**What's PAUSED (feature-flagged OFF):**
+- **RentCast Adapter** (`FEATURE_RENTCAST_ENABLED=false`) - AVM, comps, market data, subject property enrichment
+- **ATTOM Normalizer** (`FEATURE_ATTOM_ENABLED=false`) - Public records subject enrichment
+- **Ensemble + Uncertainty + Ceiling** (`FEATURE_ENSEMBLE_ENABLED=false`) - AVM/comp blending, range estimation, guardrails
+- **Calibration Loop MVP** (`FEATURE_CALIBRATION_ENABLED=false`) - Auto-calibration of ensemble weights
+
+**What STAYS ACTIVE:**
+- **Comp Overrides** - Works with any comp data source (including free scraped data)
+- **Ground-Truth/Eval Harness** - `v1-valuation-eval-run` operates independently
+
+**Implementation:**
+- Server-side feature flags: `supabase/functions/_shared/valuationFeatureFlags.ts`
+- Client-side feature flags: `apps/hps-dealengine/lib/featureFlags.ts` (valuation_* toggles)
+- All paused functions return `{ ok: true, reason: "feature_paused_v2" }` responses
+- UI handles paused states gracefully via existing CalibrationChip component
+- No database tables deleted - all data preserved for v3 re-enablement
+
+**Re-enablement path (v3):**
+1. Set env vars: `FEATURE_RENTCAST_ENABLED=true`, `FEATURE_ATTOM_ENABLED=true`, etc.
+2. Verify API keys configured and active
+3. Re-run valuation on test deals to confirm data flow
+4. Remove `PAUSED_V2` comments when permanently re-enabled
+
+**Key files:** `docs/archive/valuation-providers-v2-pause.md`, `supabase/functions/_shared/valuationFeatureFlags.ts`, `supabase/functions/_shared/valuationSnapshot.ts`, `supabase/functions/_shared/publicRecordsSubject.ts`, `supabase/functions/v1-valuation-run/index.ts`, `supabase/functions/v1-valuation-continuous-calibrate/index.ts`.
+
+**Quality gates:** `pnpm -w typecheck` ✅, `pnpm -w build` ✅
+
+### 2026-01-06 — Fix: Start Deal Button + Auto-Valuation Disabled + Modal Redesign
+
+**Issues Fixed:**
+1. **"Start Deal" button not working** - Button didn't submit form
+2. **Auto-valuation triggering on deal creation** - Disabled for PAUSED_V2
+3. **Modal design lackluster and hard to read** - Redesigned with professional styling
+
+**Root cause (Start Deal):** The `Button` component in `ui.tsx` defaults to `type="button"` instead of `type="submit"`. The submit button in `NewDealForm` didn't explicitly pass `type="submit"`, so clicking it didn't trigger form submission.
+
+**Changes:**
+- Fixed Start Deal submission by adding `type="submit"` to the button
+- Disabled auto-valuation on deal creation (PAUSED_V2 comment pattern)
+- Removed unused `invokeValuationRun` import from StartupPage
+- Redesigned NewDealForm modal with:
+  - Two-section layout (Client Information / Property Information)
+  - Section headers with icons and divider lines
+  - Improved input contrast (`bg-slate-800/80`, `border-slate-600`)
+  - Visible placeholder text (`placeholder:text-slate-400`)
+  - Clear focus states (cyan ring)
+  - Professional button styling with glow effect
+  - Required field indicators (red asterisks)
+  - Loading spinner animation on submit
+- Updated Modal component with glassmorphic styling:
+  - `bg-slate-900/95` with `backdrop-blur-xl`
+  - Rounded corners (`rounded-2xl`)
+  - Improved close button with hover state
+  - Better shadow and border styling
+
+**Files modified:**
+- `apps/hps-dealengine/components/deals/NewDealForm.tsx` - Complete redesign
+- `apps/hps-dealengine/components/auth/StartupPage.tsx` - Auto-valuation disabled
+- `apps/hps-dealengine/components/ui.tsx` - Modal glassmorphic styling
+
+**Quality gates:** `pnpm -w typecheck` ✅, `pnpm next lint` ✅
 
 ### 2026-01-02 — BULK-IMPORT-v1 Feature Complete (12 slices)
 
@@ -1723,3 +1794,88 @@ pnpm -w typecheck  # ✅ Passed
 - 4 Confidence Indicator Bar cards are now equal height (120px) with vertically centered content
 - Glass morphism effect preserved across all cards
 - Hover lift animation preserved on interactive cards
+
+---
+
+### 2026-01-06 — Phase 7 Complete: Business Logic Sandbox Consolidation
+
+**Context:** Comprehensive cleanup and enhancement of the Business Logic Sandbox knob system to improve maintainability, add competitive features, and fix wiring issues.
+
+**Work Type:** Implementation — COMPLETE ✅
+
+---
+
+#### Summary
+
+Completed Phase 7 in 5 slices. Consolidated the Business Logic Sandbox schema from 196 knobs (82 KEEP + 114 DROP_BACKLOG) to 87 KEEP knobs with full pipeline wiring.
+
+#### What We Did
+
+| Slice | Action | Impact |
+|-------|--------|--------|
+| A | Removed 112 DROP_BACKLOG knobs | -112 unused knobs from audit |
+| A | Reclassified 2 knobs (DROP→KEEP) | +2 engine-consumed knobs preserved |
+| B | Removed 2 dead UX knobs | -2 never-consumed knobs |
+| C | Added 2 new competitive knobs | +2 PropStream/DealMachine parity |
+| D | Fixed speedBands wiring | 5 knobs now flow UI→engine |
+| E | Documentation & sealing | Full closeout |
+
+#### Key Decisions
+
+**Decision 1: Soft-delete DROP_BACKLOG (not hard-delete)**
+- Rationale: Preserve 90-day rollback capability
+- Implementation: Database migration archives values; code references removed from audit
+
+**Decision 2: Add comp filtering controls**
+- Rationale: PropStream and DealMachine both expose radius/sqft controls
+- Implementation: `arvCompsMaxRadiusMiles` (1.0mi default), `arvCompsSqftVariancePercent` (20% default)
+
+**Decision 3: Remove abcConfidenceGradeRubric**
+- Rationale: Defined in sandboxSettingsSource but never consumed by any UI or engine component
+- Risk: None — no code path uses this value
+
+**Decision 4: Fix speedBands upstream (not downstream)**
+- Rationale: `compute_underwriting.ts` was correct — bug was missing mapping in `sandboxToAnalyzeOptions.ts`
+- Implementation: Added speedBands mapping to options builder; policy builder processes it; engine reads from policy
+
+#### Technical Notes
+
+- speedBands now read from `policy.speedBands` object via standard pipeline
+- New knobs wired: UI → sandboxToAnalyzeOptions → contracts → policy_builder → engine
+- Existing `SPEED_BAND_POLICY` trace frame now shows user values (not hardcoded)
+- `arvComps*` knobs ready for engine consumption (filtering logic deferred to future slice)
+
+#### Files Changed (Summary)
+
+| Slice | Key Files |
+|-------|-----------|
+| A | sandboxKnobAudit.ts, migration |
+| B | sandboxSettingsSource.ts, 13 cleanup files |
+| C | 7 files (full vertical slice for new knobs) |
+| D | sandboxToAnalyzeOptions.ts, analyze.ts (contracts), policy_builder.ts |
+| E | docs/knobs-audit-v1.md, docs/roadmap-v1-v2-v3.md, docs/devlog-hps-dealengine.md, docs/engine/knobs-and-sandbox-mapping.md |
+
+#### Final State
+
+| Metric | Before Phase 7 | After Phase 7 | Change |
+|--------|----------------|---------------|--------|
+| KEEP knobs | 82 | 87 | +5 net |
+| DROP_BACKLOG in audit | 114 | 0 | -114 removed |
+| Wiring issues | 5 | 0 | All fixed |
+| Documentation files | N/A | +1 | knobs-and-sandbox-mapping.md updated |
+
+#### Quality Gate Results
+
+| Gate | Status |
+|------|--------|
+| TypeCheck | ✅ Pass |
+| Build | ✅ Next.js build successful |
+| KEEP count | ✅ 87 verified |
+
+#### Next Steps
+
+- [ ] Monitor runtime for 90 days (DROP_BACKLOG rollback window)
+- [ ] Implement actual comp filtering logic using new `arvComps*` knobs
+- [ ] Phase 8 planning
+
+**Status:** ✅ Complete — Phase 7 sealed

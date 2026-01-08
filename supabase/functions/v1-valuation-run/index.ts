@@ -18,6 +18,7 @@ import { computeEnsemble } from "../_shared/valuationEnsemble.ts";
 import { computeUncertainty } from "../_shared/valuationUncertainty.ts";
 import { buildMarketKeyCandidates, buildValuationBuckets } from "../_shared/valuationBuckets.ts";
 import { getLatestCalibrationWeightsForMarketCandidates } from "../_shared/valuationCalibrationWeights.ts";
+import { isEnsembleEnabled as isEnsembleFeatureEnabled, isCalibrationEnabled as isCalibrationFeatureEnabled } from "../_shared/valuationFeatureFlags.ts";
 
 type RequestBody = {
   deal_id: string;
@@ -261,6 +262,8 @@ serve(async (req: Request): Promise<Response> => {
     const sortedComps = sortCompsDeterministic(filteredRawComps as any[]);
     const subjectResolved = (snapshot.raw as any)?.subject_property_resolved ?? null;
 
+    // ACTIVE: Comp Overrides kept active - data-agnostic adjustment layer
+    // Works with any comp data source including free scraped data
     const concessionsConfig = (valuationPolicy as any)?.concessions ?? {};
     const conditionConfig = (valuationPolicy as any)?.condition ?? {};
     const ensembleConfig = (valuationPolicy as any)?.ensemble ?? {};
@@ -268,8 +271,13 @@ serve(async (req: Request): Promise<Response> => {
     const uncertaintyConfig = (valuationPolicy as any)?.uncertainty ?? {};
     const concessionsEnabled = concessionsConfig?.enabled === true;
     const conditionEnabled = conditionConfig?.enabled === true;
-    const ensembleEnabled = ensembleConfig?.enabled === true;
-    const uncertaintyEnabled = uncertaintyConfig?.enabled === true;
+
+    // PAUSED_V2: Ensemble + uncertainty + ceiling paused - no AVM provider
+    // Re-enable by setting FEATURE_ENSEMBLE_ENABLED=true
+    // See docs/archive/valuation-providers-v2-pause.md
+    const ensembleFeatureFlagEnabled = isEnsembleFeatureEnabled();
+    const ensembleEnabled = ensembleConfig?.enabled === true && ensembleFeatureFlagEnabled;
+    const uncertaintyEnabled = uncertaintyConfig?.enabled === true && ensembleFeatureFlagEnabled;
 
     const { data: overrideRows, error: overrideError } = await supabase
       .from("valuation_comp_overrides")
@@ -587,8 +595,16 @@ serve(async (req: Request): Promise<Response> => {
     let calibrationWeightsOverride: { comps: number; avm: number } | null = null;
     let calibrationFallbackMarketKey: string | null = null;
 
+    // PAUSED_V2: Calibration loop paused - depends on ensemble
+    // Re-enable by setting FEATURE_CALIBRATION_ENABLED=true
+    // See docs/archive/valuation-providers-v2-pause.md
+    const calibrationFeatureFlagEnabled = isCalibrationFeatureEnabled();
+
     if (!ensembleEnabled) {
       calibrationReason = "ensemble_disabled";
+    } else if (!calibrationFeatureFlagEnabled) {
+      // PAUSED_V2: Skip calibration weight lookup when feature is disabled
+      calibrationReason = "calibration_feature_paused_v2";
     } else {
       const missingEstimates = calibrationRequiredStrategies
         .filter((s) => !calibrationEstimates.has(s))

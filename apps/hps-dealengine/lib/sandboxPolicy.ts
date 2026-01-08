@@ -126,8 +126,6 @@ export type SandboxPolicyOptions = {
     analyst_review_borderline_threshold?: number | null;
     cash_presentation_min_spread_over_payoff?: number | null;
     allow_placeholders_when_evidence_missing?: boolean | null;
-    allow_advisor_override_workflow_state?: boolean | null;
-    confidence_grade_rubric?: string | null;
   };
   ux_policy?: {
     bankers_rounding_mode?: string | null;
@@ -391,16 +389,6 @@ export function buildSandboxPolicyOptions(
         posture,
         "assumptionsProtocolPlaceholdersWhenEvidenceMissing",
       ),
-    ),
-    allow_advisor_override_workflow_state: toBoolean(
-      pickPostureValue(
-        sandbox,
-        posture,
-        "allowAdvisorOverrideWorkflowState",
-      ),
-    ),
-    confidence_grade_rubric: toStringSafe(
-      pickPostureValue(sandbox, posture, "abcConfidenceGradeRubric"),
     ),
   };
 

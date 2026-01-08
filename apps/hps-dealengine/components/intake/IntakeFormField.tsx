@@ -61,12 +61,12 @@ export function IntakeFormField({
   };
 
   const baseInputClass = `
-    w-full rounded-lg border bg-[color:var(--glass-bg)] px-3 py-2
-    text-sm text-[color:var(--text-primary)]
-    placeholder:text-[color:var(--text-secondary)]/50
-    focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-blue)]/50
-    transition-all
-    ${error ? "border-red-400/50" : "border-white/10 focus:border-[color:var(--accent-blue)]/50"}
+    w-full rounded-lg border bg-slate-800/60 px-3 py-2.5
+    text-sm text-white
+    placeholder:text-slate-500
+    focus:outline-none focus:ring-1 focus:ring-sky-500/20 focus:border-sky-500/70
+    transition-all duration-150
+    ${error ? "border-red-400/50" : "border-slate-600/40 focus:bg-slate-800/80"}
   `;
 
   const renderField = () => {
@@ -103,7 +103,7 @@ export function IntakeFormField({
       case "currency":
         return (
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[color:var(--text-secondary)]">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">
               $
             </span>
             <input
@@ -171,7 +171,7 @@ export function IntakeFormField({
         };
 
         return (
-          <div className="space-y-2 rounded-lg border border-white/10 bg-[color:var(--glass-bg)] p-3">
+          <div className="space-y-2 rounded-lg border border-slate-600/40 bg-slate-800/60 p-3">
             {field.options?.map((option, idx) => {
               const { value: optValue, label: optLabel } = extractOption(option);
               const isChecked = selectedValues.includes(optValue);
@@ -184,9 +184,9 @@ export function IntakeFormField({
                     type="checkbox"
                     checked={isChecked}
                     onChange={(e) => handleMultiSelectChange(optValue, e.target.checked)}
-                    className="h-4 w-4 rounded border-white/20 accent-[color:var(--accent-blue)]"
+                    className="h-4 w-4 rounded border-slate-600 accent-sky-500"
                   />
-                  <span className="text-sm text-[color:var(--text-primary)]">
+                  <span className="text-sm text-white">
                     {optLabel}
                   </span>
                 </label>
@@ -205,9 +205,9 @@ export function IntakeFormField({
                 name={field.key}
                 checked={value === true}
                 onChange={() => handleChange(true)}
-                className="h-4 w-4 accent-[color:var(--accent-blue)]"
+                className="h-4 w-4 accent-sky-500"
               />
-              <span className="text-sm text-[color:var(--text-primary)]">
+              <span className="text-sm text-white">
                 Yes
               </span>
             </label>
@@ -217,9 +217,9 @@ export function IntakeFormField({
                 name={field.key}
                 checked={value === false}
                 onChange={() => handleChange(false)}
-                className="h-4 w-4 accent-[color:var(--accent-blue)]"
+                className="h-4 w-4 accent-sky-500"
               />
-              <span className="text-sm text-[color:var(--text-primary)]">
+              <span className="text-sm text-white">
                 No
               </span>
             </label>
@@ -252,11 +252,12 @@ export function IntakeFormField({
             }}
             className="w-full"
             inputClassName={`
-              w-full rounded-lg border bg-[color:var(--glass-bg)] px-3 py-2
-              text-sm text-[color:var(--text-primary)]
-              placeholder:text-[color:var(--text-secondary)]/50
-              focus:outline-none focus:ring-2 focus:ring-[color:var(--accent-blue)]/50
-              ${error ? "border-red-400/50" : "border-white/10 focus:border-[color:var(--accent-blue)]/50"}
+              w-full rounded-lg border bg-slate-800/60 px-3 py-2.5
+              text-sm text-white
+              placeholder:text-slate-500
+              focus:outline-none focus:ring-1 focus:ring-sky-500/20 focus:border-sky-500/70
+              transition-all duration-150
+              ${error ? "border-red-400/50" : "border-slate-600/40 focus:bg-slate-800/80"}
             `}
           />
         );
@@ -276,15 +277,15 @@ export function IntakeFormField({
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-[color:var(--text-primary)]">
+      <label className="block text-sm font-medium text-slate-300">
         {field.label}
         {field.required && (
-          <span className="ml-1 text-red-400">*</span>
+          <span className="ml-0.5 text-red-400">*</span>
         )}
       </label>
       {renderField()}
       {field.helpText && !error && (
-        <p className="text-xs text-[color:var(--text-secondary)]">
+        <p className="text-xs text-slate-500">
           {field.helpText}
         </p>
       )}

@@ -140,6 +140,8 @@ export type UnderwritingPolicy = {
     arv_min_comps?: number | null;
     arv_soft_max_comps_age_days?: number | null;
     arv_soft_max_vs_aiv_multiplier?: number | null;
+    arv_comps_max_radius_miles?: number | null;
+    arv_comps_sqft_variance_percent?: number | null;
     buyer_ceiling_formula_definition?: string | null;
   };
   floors?: {
@@ -233,8 +235,6 @@ export type UnderwritingPolicy = {
     analyst_review_borderline_threshold?: number | null;
     cash_presentation_min_spread_over_payoff?: number | null;
     allow_placeholders_when_evidence_missing?: boolean | null;
-    allow_advisor_override_workflow_state?: boolean | null;
-    confidence_grade_rubric?: string | null;
   };
   ux_policy?: {
     bankers_rounding_mode?: string | null;
@@ -433,6 +433,12 @@ function buildUnderwritingPolicy(input: any, infoNeeded: InfoNeeded[]): Underwri
       getNumber(policy, ['valuation', 'arv_soft_max_vs_aiv_multiplier'], null) ??
       getNumber(policy, ['valuation', 'arvSoftMaxVsAivMultiplier'], null) ??
       getNumber(policy, ['arvSoftMaxVsAivMultiplier'], null),
+    arv_comps_max_radius_miles:
+      getNumber(policy, ['valuation', 'arv_comps_max_radius_miles'], null) ??
+      getNumber(policy, ['arvCompsMaxRadiusMiles'], null),
+    arv_comps_sqft_variance_percent:
+      getNumber(policy, ['valuation', 'arv_comps_sqft_variance_percent'], null) ??
+      getNumber(policy, ['arvCompsSqftVariancePercent'], null),
     buyer_ceiling_formula_definition:
       getString(policy, ['valuation', 'buyer_ceiling_formula_definition'], null) ??
       getString(policy, ['buyerCeilingFormulaDefinition'], null),
@@ -1939,30 +1945,6 @@ function computeConfidenceGrade(params: {
   const placeholdersAllowed = evidenceSummary.allow_placeholders === true;
   const placeholdersUsed = evidenceSummary.placeholders_used === true;
 
-  const rubricRaw = policy.workflow_policy?.confidence_grade_rubric;
-  if (rubricRaw) {
-    try {
-      const parsed = JSON.parse(rubricRaw) as Record<string, [number, number]>;
-      const score =
-        getNumber(deal, ['analysis', 'confidence_score'], null) ??
-        getNumber(deal, ['confidence_score'], null);
-      if (score != null) {
-        const found = Object.entries(parsed).find(([_, range]) => {
-          const [min, max] = range;
-          return score >= min && score <= max;
-        });
-        if (found) {
-          const g = found[0].toUpperCase();
-          if (g === 'A' || g === 'B' || g === 'C') {
-            grade = g;
-            reasons.push('rubric_score');
-          }
-        }
-      }
-    } catch {
-      reasons.push('confidence_rubric_parse_failed');
-    }
-  }
 
   const compsAiv = getNumber(deal, ['market', 'comps_aiv_count'], null) ?? 0;
   const compsArv = getNumber(deal, ['market', 'comps_arv_count'], null) ?? 0;
@@ -3126,7 +3108,6 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
       allow_placeholders_when_evidence_missing: evidenceSummary.allow_placeholders,
       placeholders_used: evidenceSummary.placeholders_used,
       placeholder_kinds: evidenceSummary.placeholder_kinds,
-      rubric_raw: uwPolicy.workflow_policy?.confidence_grade_rubric ?? null,
     },
   });
 
@@ -3178,8 +3159,6 @@ export function computeUnderwriting(deal: Json, policy: Json): AnalyzeResult {
       workflow_state: workflowResult.workflow_state,
       reasons: workflowResult.reasons,
       workflow_policy: uwPolicy.workflow_policy ?? null,
-      allow_advisor_override_workflow_state:
-        uwPolicy.workflow_policy?.allow_advisor_override_workflow_state ?? null,
       allow_placeholders_when_evidence_missing: evidenceSummary.allow_placeholders,
       placeholders_used: evidenceSummary.placeholders_used,
       placeholder_kinds: evidenceSummary.placeholder_kinds,

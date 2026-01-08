@@ -197,6 +197,26 @@ const allSettingDefs: SandboxSettingDef[] = [
     defaultValue: 1.1,
   },
   {
+    key: 'arvCompsMaxRadiusMiles',
+    pageTitle: 'Core Valuation Models',
+    label: 'ARV (Max Comps Radius, Miles)',
+    description:
+      'Maximum distance from subject property to include comps. PropStream defaults 0.5mi, DealMachine 1.0mi.',
+    component: 'InputField',
+    props: { type: 'number', suffix: 'miles', min: 0.1, max: 5.0, step: 0.1 },
+    defaultValue: 1.0,
+  },
+  {
+    key: 'arvCompsSqftVariancePercent',
+    pageTitle: 'Core Valuation Models',
+    label: 'ARV (Comps Sqft Variance, %)',
+    description:
+      'Maximum sqft variance to include a comp (e.g., 20 = ±20%). PropStream defaults ±20%.',
+    component: 'InputField',
+    props: { type: 'number', suffix: '%', min: 5, max: 50, step: 5 },
+    defaultValue: 20,
+  },
+  {
     key: 'buyerCeilingFormulaDefinition',
     pageTitle: 'Core Valuation Models',
     label: 'Buyer Ceiling Formula — Definition',
@@ -1992,38 +2012,8 @@ const allSettingDefs: SandboxSettingDef[] = [
   },
 
   // Page 9: Workflow & UI Logic
-  {
-    key: 'abcConfidenceGradeRubric',
-    pageTitle: 'Workflow & UI Logic',
-    label: 'A/B/C Confidence Grade Rubric',
-    description:
-      'Define the *meaning* of each confidence grade. This rubric is used to auto-grade deals.',
-    component: 'DynamicBandEditor',
-    props: {
-      columns: [
-        { key: 'grade', label: 'Grade', type: 'select', options: ['A', 'B', 'C', 'D', 'F'] },
-        { key: 'minComps', label: 'Min Comps', type: 'number' },
-        { key: 'maxCompAge', label: 'Max Comp Age (Days)', type: 'number' },
-        { key: 'maxVariance', label: 'Max Variance (%)', type: 'number' },
-      ],
-      newRowDefaults: { grade: 'F', minComps: 0, maxCompAge: 365, maxVariance: 25 },
-    },
-    defaultValue: [
-      { id: 1, grade: 'A', minComps: 5, maxCompAge: 90, maxVariance: 5 },
-      { id: 2, grade: 'B', minComps: 4, maxCompAge: 120, maxVariance: 10 },
-      { id: 3, grade: 'C', minComps: 3, maxCompAge: 180, maxVariance: 15 },
-      { id: 4, grade: 'D', minComps: 2, maxCompAge: 270, maxVariance: 20 },
-    ],
-  },
-  {
-    key: 'allowAdvisorOverrideWorkflowState',
-    pageTitle: 'Workflow & UI Logic',
-    label: 'Allow Advisor Override (Workflow State)',
-    description:
-      "If ON, allows a user with the 'Advisor' role to manually override a deal's workflow state.",
-    component: 'ToggleSwitch',
-    defaultValue: false,
-  },
+  // Note: abcConfidenceGradeRubric and allowAdvisorOverrideWorkflowState removed in Phase 7 Slice B
+  // These knobs were defined but never consumed by any UI component.
   {
     key: 'analystReviewTriggerBorderlineBandThreshold',
     pageTitle: 'Workflow & UI Logic',

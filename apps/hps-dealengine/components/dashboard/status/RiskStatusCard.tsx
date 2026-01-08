@@ -264,9 +264,9 @@ export const RiskStatusCard = memo(function RiskStatusCard({
       type="button"
       onClick={handleClick}
       className={cn(
-        // Layout
+        // Layout — min-h ensures alignment with EvidenceStatusCard
         "flex flex-col gap-3 p-4",
-        "w-full",
+        "w-full min-h-[140px]",
         // Styling
         "rounded-xl border",
         "bg-blue-500/10 backdrop-blur-xl",
@@ -308,8 +308,8 @@ export const RiskStatusCard = memo(function RiskStatusCard({
         </span>
       </div>
 
-      {/* Gate Icons Row */}
-      <div className="flex items-center justify-between gap-1">
+      {/* Gate Icons Row — fixed height for alignment with EvidenceStatusCard */}
+      <div className="flex items-center justify-between gap-1 min-h-[32px]">
         {gates.map((gate) => (
           <GateIcon
             key={gate.id}
@@ -322,8 +322,8 @@ export const RiskStatusCard = memo(function RiskStatusCard({
         ))}
       </div>
 
-      {/* Status Summary */}
-      <div className="flex items-center gap-2 text-xs text-slate-400">
+      {/* Status Summary — flex-1 ensures footer alignment with EvidenceStatusCard */}
+      <div className="flex items-center justify-between gap-2 text-xs text-slate-400 mt-auto">
         {stats.blockingCount > 0 && (
           <span className="text-red-400 font-medium animate-pulse">
             {stats.blockingCount} blocking

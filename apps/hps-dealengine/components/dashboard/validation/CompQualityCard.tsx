@@ -284,6 +284,8 @@ export const CompQualityCard = memo(function CompQualityCard({
       className={cn(
         "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
+        // min-h ensures alignment in 3-column grid with ArvBandWidget and MarketVelocityPanel
+        "min-h-[280px]",
         compact ? "p-3" : "p-4",
         className
       )}

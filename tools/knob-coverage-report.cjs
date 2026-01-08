@@ -78,14 +78,12 @@ const keyAliases = {
   assumptionsProtocolPlaceholdersWhenEvidenceMissing: [
     "allow_placeholders_when_evidence_missing",
   ],
-  abcConfidenceGradeRubric: ["confidence_grade_rubric"],
   bankersRoundingModeNumericSafety: ["bankers_rounding_mode"],
   buyerCostsAllocationDualScenarioRenderingWhenUnknown: ["buyer_costs_dual_scenario_when_unknown"],
   buyerCostsLineItemModelingMethod: ["buyer_costs_line_item_modeling_method"],
 };
 
 const traceRuleAliases = {
-  allowAdvisorOverrideWorkflowState: ["WORKFLOW_STATE_POLICY"],
   carryMonthsMaximumCap: ["CARRY_MONTHS_POLICY"],
   offerValidityPeriodDaysPolicy: ["DTM_URGENCY_POLICY"],
   payoffAccrualBasisDayCountConvention: ["PAYOFF_POLICY"],

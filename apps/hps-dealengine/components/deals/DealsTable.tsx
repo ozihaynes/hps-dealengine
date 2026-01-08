@@ -2,9 +2,8 @@
 
 import React, { useMemo, useState, useCallback } from "react";
 import type { ReactNode } from "react";
+import { SearchIcon, CalendarIcon, ChevronDownIcon, LayoutListIcon, PrinterIcon } from "lucide-react";
 
-import { GlassCard, Button, Icon } from "@/components/ui";
-import { Icons } from "@/constants";
 import type { DbDeal } from "@/lib/dealSessionContext";
 import { extractContactFromPayload, formatAddressLine } from "@/lib/deals";
 
@@ -23,19 +22,24 @@ type DealsTableProps = {
 type DisplayDeal = {
   id: string;
   clientName: string;
+  clientNameIsPlaceholder: boolean;
   propertyAddress: string;
   created: string;
   raw: DbDeal;
 };
 
-function deriveClientName(deal: DbDeal): string {
+function deriveClientName(deal: DbDeal): { name: string; isPlaceholder: boolean } {
   const payloadContact = extractContactFromPayload(deal.payload ?? null);
-  return (
+  const name =
     deal.client_name ??
     (deal as any)?.clientName ??
     payloadContact?.name ??
-    "Client name not set"
-  );
+    null;
+
+  return {
+    name: name ?? "Client name not set",
+    isPlaceholder: !name,
+  };
 }
 
 function derivePropertyAddress(deal: DbDeal): string {
@@ -47,6 +51,21 @@ function derivePropertyAddress(deal: DbDeal): string {
   });
   return addressLine || "Property address not set";
 }
+
+// Shared input classes for consistency
+const inputClasses = `
+  h-9 px-3
+  bg-slate-800/60
+  border border-slate-600/40
+  rounded-lg
+  text-sm text-white
+  placeholder:text-slate-500
+  transition-all duration-150
+  focus:outline-none
+  focus:border-sky-500/50
+  focus:ring-1
+  focus:ring-sky-500/20
+`;
 
 export function DealsTable({
   deals,
@@ -64,15 +83,19 @@ export function DealsTable({
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "az">("newest");
 
   const displayDeals: DisplayDeal[] = useMemo(() => {
-    const mapped: DisplayDeal[] = deals.map((deal) => ({
-      id: deal.id,
-      clientName: deriveClientName(deal),
-      propertyAddress: derivePropertyAddress(deal),
-      created: deal.created_at
-        ? new Date(deal.created_at).toLocaleString()
-        : "Unknown date",
-      raw: deal,
-    }));
+    const mapped: DisplayDeal[] = deals.map((deal) => {
+      const { name, isPlaceholder } = deriveClientName(deal);
+      return {
+        id: deal.id,
+        clientName: name,
+        clientNameIsPlaceholder: isPlaceholder,
+        propertyAddress: derivePropertyAddress(deal),
+        created: deal.created_at
+          ? new Date(deal.created_at).toLocaleString()
+          : "Unknown date",
+        raw: deal,
+      };
+    });
 
     let data = [...mapped];
 
@@ -116,134 +139,192 @@ export function DealsTable({
   );
 
   return (
-    <GlassCard className="w-full card-padding-lg relative overflow-hidden border-t border-accent-green/30">
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-32 bg-accent-green/10 blur-[80px] rounded-full pointer-events-none" />
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 print-hidden">
-        <h3 className="text-xl font-bold text-text-primary flex items-center gap-2">
-          <Icon d={Icons.briefcase} size={20} className="text-text-secondary" />
+    <section className="bg-slate-900/60 backdrop-blur-sm border border-slate-700/30 rounded-xl overflow-hidden">
+      {/* Header Bar */}
+      <div className="px-5 py-4 border-b border-slate-700/30 flex flex-wrap items-center justify-between gap-4 print-hidden">
+        {/* Left: Title */}
+        <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+          <LayoutListIcon className="w-5 h-5 text-slate-400" />
           {title}
-        </h3>
+        </h2>
 
-        <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-          <div className="relative w-full md:w-64 group">
+        {/* Right: Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
             <input
               type="text"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input-base input-sm pl-10"
+              className={`${inputClasses} w-44 pl-9`}
             />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon
-                d={Icons.search}
-                size={16}
-                className="text-text-secondary group-focus-within:text-accent-blue transition-colors"
-              />
-            </div>
           </div>
-          <div className="w-full md:w-40">
+
+          {/* Date Filter */}
+          <div className="relative">
+            <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
             <input
               type="date"
-              className="input-base input-sm"
               value={dateFilter}
               onChange={(e) => setDateFilter(e.target.value)}
+              className={`${inputClasses} w-40 pl-9`}
             />
           </div>
-          <div className="w-full md:w-40">
+
+          {/* Sort Dropdown */}
+          <div className="relative">
             <select
               value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as any)}
-              className="input-base input-sm py-0 px-3"
+              onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+              className={`${inputClasses} w-36 pr-8 appearance-none cursor-pointer`}
             >
               <option value="newest">Sort: Newest</option>
               <option value="oldest">Sort: Oldest</option>
-              <option value="az">Sort: Address (A-Z)</option>
+              <option value="az">Sort: A-Z</option>
             </select>
+            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
           </div>
+
+          {/* Actions Slot */}
           {actionsSlot}
+
+          {/* Print Button */}
           {showPrintButton && (
-            <Button
+            <button
               type="button"
-              variant="neutral"
-              className="whitespace-nowrap print-hidden"
               onClick={() => window.print()}
+              className={`${inputClasses} flex items-center gap-2 hover:border-slate-500/50 hover:text-white`}
             >
-              <Icon d={Icons.print} size={16} className="mr-2" />
+              <PrinterIcon className="w-4 h-4" />
               Print
-            </Button>
+            </button>
           )}
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-white/10 bg-black/20">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead className="sticky top-0 bg-brand-navy/95 backdrop-blur-md z-10 text-xs uppercase tracking-wider text-text-secondary font-semibold">
+      {/* Table */}
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          {/* Table Head */}
+          <thead>
+            <tr className="border-b border-slate-700/30">
+              <th className="px-5 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Client Name
+              </th>
+              <th className="px-5 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Property Address
+              </th>
+              <th className="px-5 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
+                Created
+              </th>
+            </tr>
+          </thead>
+
+          {/* Table Body */}
+          <tbody className="divide-y divide-slate-700/20">
+            {/* Loading State */}
+            {loading && (
               <tr>
-                <th className="p-4 border-b border-white/10 whitespace-nowrap">
-                  Client Name
-                </th>
-                <th className="p-4 border-b border-white/10">Property Address</th>
-                <th className="p-4 border-b border-white/10 text-right">Created</th>
+                <td colSpan={3} className="px-5 py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-6 h-6 border-2 border-slate-600 border-t-sky-500 rounded-full animate-spin" />
+                    <span className="text-sm text-slate-400">Loading deals...</span>
+                  </div>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {loading && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-text-secondary">
-                    Loading deals.
-                  </td>
-                </tr>
-              )}
-              {error && !loading && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-accent-red">
-                    {error}
+            )}
+
+            {/* Error State */}
+            {error && !loading && (
+              <tr>
+                <td colSpan={3} className="px-5 py-16 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <span className="text-sm text-red-400">{error}</span>
                     {onRetry && (
-                      <div className="mt-3">
-                        <Button variant="neutral" size="sm" onClick={onRetry}>
-                          Retry
-                        </Button>
-                      </div>
+                      <button
+                        onClick={onRetry}
+                        className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-800/60 border border-slate-600/40 rounded-lg hover:border-slate-500/50 hover:text-white transition-all"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )}
+
+            {/* Data Rows */}
+            {!loading &&
+              !error &&
+              displayDeals.map((deal) => (
+                <tr
+                  key={deal.id}
+                  onClick={() => handleRowClick(deal)}
+                  className="group cursor-pointer hover:bg-slate-800/40 transition-all duration-150"
+                >
+                  {/* Client Name */}
+                  <td className="px-5 py-4">
+                    {deal.clientNameIsPlaceholder ? (
+                      <span className="text-sm text-slate-500 italic">
+                        {deal.clientName}
+                      </span>
+                    ) : (
+                      <span className="text-sm font-medium text-white group-hover:text-sky-400 transition-colors">
+                        {deal.clientName}
+                      </span>
                     )}
                   </td>
-                </tr>
-              )}
-              {!loading &&
-                !error &&
-                displayDeals.map((deal) => (
-                  <tr
-                    key={deal.id}
-                    onClick={() => handleRowClick(deal)}
-                    className="group cursor-pointer hover:bg-accent-blue/10 transition-colors duration-150"
-                  >
-                    <td className="p-4 text-text-primary font-medium group-hover:text-accent-blue transition-colors">
-                      {deal.clientName}
-                    </td>
-                    <td className="p-4 text-text-secondary">{deal.propertyAddress}</td>
-                    <td className="p-4 text-text-secondary text-right font-mono text-xs">
+
+                  {/* Property Address */}
+                  <td className="px-5 py-4">
+                    <span className="text-sm text-slate-300">
+                      {deal.propertyAddress}
+                    </span>
+                  </td>
+
+                  {/* Created Date */}
+                  <td className="px-5 py-4 text-right">
+                    <span className="text-sm text-slate-500 font-mono">
                       {deal.created}
-                    </td>
-                  </tr>
-                ))}
-              {!loading && !error && displayDeals.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-text-secondary">
-                    No deals found matching your filters.
-                    {emptyCta ? <div className="mt-3">{emptyCta}</div> : null}
+                    </span>
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))}
+
+            {/* Empty State */}
+            {!loading && !error && displayDeals.length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-5 py-16 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-800/60 border border-slate-700/30">
+                      <LayoutListIcon className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-medium text-white mb-1">No deals found</h3>
+                      <p className="text-sm text-slate-400">
+                        {searchTerm || dateFilter
+                          ? "Try adjusting your filters"
+                          : "Create your first deal to get started"}
+                      </p>
+                    </div>
+                    {emptyCta && <div className="mt-2">{emptyCta}</div>}
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      <div className="mt-2 text-right text-xs text-text-secondary/50">
-        Showing {displayDeals.length} records
+      {/* Footer */}
+      <div className="px-5 py-3 border-t border-slate-700/30 text-right">
+        <span className="text-xs text-slate-500">
+          Showing {displayDeals.length} {displayDeals.length === 1 ? "record" : "records"}
+        </span>
       </div>
-    </GlassCard>
+    </section>
   );
 }
 
