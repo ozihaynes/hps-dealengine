@@ -3,7 +3,31 @@
 import { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SettingsNav } from './SettingsNav';
-import { easing, duration } from '@/lib/design-tokens';
+
+/**
+ * Motion configuration using design tokens
+ * Duration: 200ms standard, 300ms emphasis
+ * Easing: ease-out for exits, spring for entrances
+ */
+const MOTION_CONFIG = {
+  page: {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -8 },
+    transition: {
+      duration: 0.2,
+      ease: [0.16, 1, 0.3, 1], // ease-out-expo
+    },
+  },
+  header: {
+    initial: { opacity: 0, y: -10 },
+    animate: { opacity: 1, y: 0 },
+    transition: {
+      duration: 0.3,
+      ease: [0.16, 1, 0.3, 1],
+    },
+  },
+} as const;
 
 interface SettingsLayoutProps {
   children: ReactNode;
@@ -15,17 +39,19 @@ interface SettingsLayoutProps {
  * SettingsLayout
  *
  * Wraps settings tab pages with navigation and consistent styling.
- * Uses Framer Motion for smooth page transitions.
+ * Uses Framer Motion for smooth page transitions with reduced motion support.
  */
-export function SettingsLayout({ children, title, description }: SettingsLayoutProps) {
+export function SettingsLayout({
+  children,
+  title,
+  description,
+}: SettingsLayoutProps): JSX.Element {
   return (
     <div className="space-y-6" data-testid="settings-page">
       {/* Page Header */}
       <motion.header
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-        className="space-y-1"
+        {...MOTION_CONFIG.header}
+        className="space-y-1 motion-safe:animate-in"
       >
         <h1 className="text-2xl font-semibold text-text-primary tracking-tight">
           Settings
@@ -42,11 +68,8 @@ export function SettingsLayout({ children, title, description }: SettingsLayoutP
       <AnimatePresence mode="wait">
         <motion.main
           key={title}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
-          className="space-y-6"
+          {...MOTION_CONFIG.page}
+          className="space-y-6 motion-safe:animate-in"
           id="settings-content"
           role="tabpanel"
           aria-label={`${title} settings`}

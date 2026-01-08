@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Shield, LogOut } from 'lucide-react';
 import { SettingsLayout } from '@/components/settings/SettingsLayout';
 import { SettingsCard } from '@/components/settings/SettingsCard';
@@ -11,8 +11,19 @@ import { Button } from '@/components/ui';
  *
  * Security settings and account actions (sign out).
  * Tab 3 of 3 in the Settings section.
+ *
+ * Accessibility:
+ * - Proper button semantics (not nested in Link)
+ * - aria-live for session status
+ * - Reduced motion support for pulse animation
  */
-export default function AccountSettingsPage() {
+export default function AccountSettingsPage(): JSX.Element {
+  const router = useRouter();
+
+  const handleSignOut = (): void => {
+    router.push('/logout');
+  };
+
   return (
     <SettingsLayout
       title="Account"
@@ -26,12 +37,15 @@ export default function AccountSettingsPage() {
         variant="danger"
         data-testid="settings-card-signout"
         footer={
-          <Link href="/logout">
-            <Button variant="danger" className="gap-2">
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </Button>
-          </Link>
+          <Button
+            type="button"
+            variant="danger"
+            onClick={handleSignOut}
+            className="gap-2"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            Sign out
+          </Button>
         }
       >
         <div className="space-y-3">
@@ -39,7 +53,10 @@ export default function AccountSettingsPage() {
             Signing out will end your current session. You will need to sign in
             again to access your account.
           </p>
-          <div className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+          <div
+            className="p-3 bg-accent-red/10 border border-accent-red/20 rounded-lg"
+            role="alert"
+          >
             <p className="text-xs text-accent-red/80">
               <strong>Note:</strong> Any unsaved changes will be lost when you
               sign out.
@@ -65,8 +82,15 @@ export default function AccountSettingsPage() {
                 This browser session is active
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent-green/10 text-accent-green text-xs font-medium">
-              <span className="h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse" />
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-accent-green/10 text-accent-green text-xs font-medium"
+              role="status"
+              aria-live="polite"
+            >
+              <span
+                className="h-1.5 w-1.5 rounded-full bg-accent-green animate-pulse motion-reduce:animate-none"
+                aria-hidden="true"
+              />
               Active
             </span>
           </div>

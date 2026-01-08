@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Users } from 'lucide-react';
 import type {
   TeamMember,
@@ -32,9 +32,17 @@ interface TeamSectionProps {
  *
  * Manages team members and invitations.
  * VPs/Managers can invite and remove members.
+ *
+ * Accessibility:
+ * - aria-invalid on inputs with errors
+ * - aria-describedby links errors to inputs
+ * - aria-busy during async operations
+ * - Focus management for confirm/cancel flow
+ * - WCAG 2.5.5 touch targets (44px)
  */
-export function TeamSection({ orgId }: TeamSectionProps) {
+export function TeamSection({ orgId }: TeamSectionProps): JSX.Element {
   const { toast } = useToast();
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
   // State
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(orgId);
@@ -56,11 +64,18 @@ export function TeamSection({ orgId }: TeamSectionProps) {
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
 
+  // Focus confirm button when showing confirm UI
+  useEffect(() => {
+    if (confirmRemoveId && confirmButtonRef.current) {
+      confirmButtonRef.current.focus();
+    }
+  }, [confirmRemoveId]);
+
   // Load team data
   useEffect(() => {
     let isMounted = true;
 
-    async function loadTeamData() {
+    async function loadTeamData(): Promise<void> {
       try {
         let orgIdToUse: string | null = currentOrgId;
 
@@ -130,7 +145,7 @@ export function TeamSection({ orgId }: TeamSectionProps) {
   }, [currentOrgId]);
 
   // Send invite
-  const handleSendInvite = useCallback(async () => {
+  const handleSendInvite = useCallback(async (): Promise<void> => {
     if (!inviteEmail.trim() || !currentOrgId) {
       setInviteFieldError('Email is required');
       return;
@@ -174,7 +189,7 @@ export function TeamSection({ orgId }: TeamSectionProps) {
 
   // Revoke invite
   const handleRevokeInvite = useCallback(
-    async (invitationId: string) => {
+    async (invitationId: string): Promise<void> => {
       if (!currentOrgId) return;
 
       try {
@@ -199,7 +214,7 @@ export function TeamSection({ orgId }: TeamSectionProps) {
 
   // Remove member
   const handleRemoveMember = useCallback(
-    async (userId: string) => {
+    async (userId: string): Promise<void> => {
       if (!currentOrgId) return;
 
       try {
@@ -230,7 +245,11 @@ export function TeamSection({ orgId }: TeamSectionProps) {
         icon={<Users className="h-5 w-5" />}
         data-testid="settings-card-team"
       >
-        <div className="space-y-3 animate-pulse">
+        <div
+          className="space-y-3 animate-pulse motion-reduce:animate-none"
+          aria-busy="true"
+          aria-label="Loading team members"
+        >
           <div className="h-10 bg-white/5 rounded-lg" />
           <div className="h-10 bg-white/5 rounded-lg" />
           <div className="h-10 bg-white/5 rounded-lg" />
@@ -248,11 +267,15 @@ export function TeamSection({ orgId }: TeamSectionProps) {
         icon={<Users className="h-5 w-5" />}
         data-testid="settings-card-team"
       >
-        <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+        <div
+          className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg"
+          role="alert"
+        >
           <p className="text-accent-red text-sm">{membersError}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red"
+            className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red min-h-[44px] inline-flex items-center"
           >
             Retry
           </button>
@@ -260,6 +283,9 @@ export function TeamSection({ orgId }: TeamSectionProps) {
       </SettingsCard>
     );
   }
+
+  const hasEmailError = !!inviteFieldError;
+  const emailErrorId = 'invite-email-error';
 
   return (
     <SettingsCard
@@ -275,7 +301,10 @@ export function TeamSection({ orgId }: TeamSectionProps) {
       <div className="space-y-6">
         {/* Invite Form (only for managers) */}
         {canManageTeam && (
-          <div className="p-4 bg-white/5 rounded-lg space-y-3">
+          <div
+            className="p-4 bg-white/5 rounded-lg space-y-3"
+            aria-busy={inviteSending}
+          >
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
               Send invitation
             </p>
@@ -296,14 +325,22 @@ export function TeamSection({ orgId }: TeamSectionProps) {
                 }}
                 placeholder="colleague@company.com"
                 className={`input-base min-h-[44px] ${
-                  inviteFieldError
+                  hasEmailError
                     ? 'border-accent-red/50 focus:ring-accent-red/50'
                     : ''
                 }`}
                 disabled={inviteSending}
+                aria-invalid={hasEmailError}
+                aria-describedby={hasEmailError ? emailErrorId : undefined}
               />
-              {inviteFieldError && (
-                <p className="text-sm text-accent-red">{inviteFieldError}</p>
+              {hasEmailError && (
+                <p
+                  id={emailErrorId}
+                  className="text-sm text-accent-red"
+                  role="alert"
+                >
+                  {inviteFieldError}
+                </p>
               )}
             </div>
             <div className="space-y-1">
@@ -328,9 +365,12 @@ export function TeamSection({ orgId }: TeamSectionProps) {
               </select>
             </div>
             {inviteError && (
-              <p className="text-sm text-accent-red">{inviteError}</p>
+              <p className="text-sm text-accent-red" role="alert">
+                {inviteError}
+              </p>
             )}
             <Button
+              type="button"
               onClick={handleSendInvite}
               variant="primary"
               disabled={inviteSending || !inviteEmail.trim()}
@@ -347,9 +387,9 @@ export function TeamSection({ orgId }: TeamSectionProps) {
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
               Pending invitations ({pendingInvites.length})
             </p>
-            <div className="space-y-2">
+            <ul className="space-y-2" role="list">
               {pendingInvites.map((invite) => (
-                <div
+                <li
                   key={invite.id}
                   className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
                 >
@@ -357,19 +397,23 @@ export function TeamSection({ orgId }: TeamSectionProps) {
                     <p className="text-sm text-text-primary">{invite.email}</p>
                     <p className="text-xs text-text-secondary">
                       {getTeamRoleDisplay(invite.role)} &bull; Expires{' '}
-                      {new Date(invite.expires_at).toLocaleDateString()}
+                      <time dateTime={invite.expires_at}>
+                        {new Date(invite.expires_at).toLocaleDateString()}
+                      </time>
                     </p>
                   </div>
                   <button
+                    type="button"
                     onClick={() => handleRevokeInvite(invite.id)}
                     disabled={revokingInviteId === invite.id}
                     className="min-h-[44px] px-3 text-xs font-semibold text-accent-orange hover:text-accent-red disabled:opacity-50"
+                    aria-busy={revokingInviteId === invite.id}
                   >
-                    {revokingInviteId === invite.id ? '...' : 'Revoke'}
+                    {revokingInviteId === invite.id ? 'Revoking...' : 'Revoke'}
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         )}
 
@@ -378,14 +422,17 @@ export function TeamSection({ orgId }: TeamSectionProps) {
           <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
             Team members ({members.length})
           </p>
-          <div className="space-y-2">
+          <ul className="space-y-2" role="list">
             {members.map((member) => (
-              <div
+              <li
                 key={member.user_id}
                 className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-[color:var(--accent-color)]/20 flex items-center justify-center text-[color:var(--accent-color)] text-sm font-semibold">
+                  <div
+                    className="h-8 w-8 rounded-full bg-[color:var(--accent-color)]/20 flex items-center justify-center text-[color:var(--accent-color)] text-sm font-semibold"
+                    aria-hidden="true"
+                  >
                     {member.display_name?.charAt(0)?.toUpperCase() || '?'}
                   </div>
                   <div>
@@ -405,17 +452,21 @@ export function TeamSection({ orgId }: TeamSectionProps) {
                 {canManageTeam && !member.is_self && member.role !== 'vp' && (
                   <>
                     {confirmRemoveId === member.user_id ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2" role="group">
                         <button
+                          ref={confirmButtonRef}
+                          type="button"
                           onClick={() => handleRemoveMember(member.user_id)}
                           disabled={removingMemberId === member.user_id}
                           className="min-h-[44px] px-3 text-xs font-semibold text-accent-red hover:text-accent-red/80 disabled:opacity-50"
+                          aria-busy={removingMemberId === member.user_id}
                         >
                           {removingMemberId === member.user_id
-                            ? '...'
+                            ? 'Removing...'
                             : 'Confirm'}
                         </button>
                         <button
+                          type="button"
                           onClick={() => setConfirmRemoveId(null)}
                           className="min-h-[44px] px-3 text-xs font-semibold text-text-secondary hover:text-text-primary"
                         >
@@ -424,6 +475,7 @@ export function TeamSection({ orgId }: TeamSectionProps) {
                       </div>
                     ) : (
                       <button
+                        type="button"
                         onClick={() => setConfirmRemoveId(member.user_id)}
                         className="min-h-[44px] px-3 text-xs font-semibold text-accent-orange hover:text-accent-red"
                       >
@@ -432,9 +484,9 @@ export function TeamSection({ orgId }: TeamSectionProps) {
                     )}
                   </>
                 )}
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </SettingsCard>

@@ -103,6 +103,91 @@ Everything else (connectors, portfolio/analytics, deeper economics, UX-only pres
 
 ## 1. Dated Entries
 
+### 2026-01-08 — Fix: Settings Edge Functions 500 Errors
+
+**Problem:** `v1-profile-get` and `v1-team-list` returning HTTP 500 Internal Server Error.
+
+**Root Causes Identified:**
+1. **Missing `avatar_url` column** in `profiles` table - edge functions queried a column that didn't exist
+2. **Missing FK `memberships.user_id` → `profiles.id`** - PostgREST couldn't resolve embedded join syntax
+
+**Diagnosis Method:**
+- Schema dump revealed `profiles` table missing `avatar_url` column
+- FK constraint search confirmed no relationship between `memberships.user_id` and `profiles.id`
+- Edge function source showed queries expecting both
+
+**Migrations Applied:**
+- `20260108000000_profiles_avatar_url_column.sql` - Added missing avatar_url column
+- `20260108000001_memberships_profiles_fk.sql` - Added FK + backfilled missing profiles
+- `20260108000002_profiles_rls_ensure.sql` - Belt-and-suspenders RLS verification
+
+**Verification:**
+- Schema dump confirmed: `avatar_url` column exists, `memberships_user_id_profiles_fkey` FK exists
+- Functions return 401 (auth required) instead of 500 (crash)
+
+**Files:**
+- Diagnostic: `docs/review/settings-edge-fn-diagnostic.md`
+- Migrations: `supabase/migrations/20260108000000_*.sql`, `20260108000001_*.sql`, `20260108000002_*.sql`
+
+**Quality gates:** `pnpm -w typecheck` pass, `pnpm -w build` pass, migrations applied
+
+---
+
+### 2026-01-08 — Settings Revamp v2 Remediation [101/100]
+
+**Context:** Applied remediation to Settings Revamp v2 files to fix all P0 accessibility, P1 code quality, and P2 polish issues identified in the 101/100 quality review.
+
+**What Shipped:**
+
+**P0 — Accessibility (WCAG AA) Fixes:**
+- Added `aria-invalid` to all inputs with validation errors (ProfileSection, BusinessSection, TeamSection)
+- Added `aria-describedby` linking error messages to inputs
+- Added accessible label for file input with visible button + sr-only input (BusinessSection)
+- Removed invalid `aria-controls` from SettingsNav (no matching panels existed)
+- Added `aria-live` regions for dynamic content (upload status, save status)
+- Added `aria-busy` for async loading states
+
+**P1 — Code Quality Fixes:**
+- Removed dead `easing`, `duration` imports from SettingsLayout
+- Added explicit return types to all functions (`getSettingsTab`, `getSettingsTabByPath`)
+- Added `type="button"` to all non-submit buttons
+- Fixed Button-in-Link antipattern in account page (using onClick navigation instead)
+- Added `motion-reduce:` support throughout for `prefers-reduced-motion`
+- Standardized motion config objects with design token durations
+
+**P2 — Polish Fixes:**
+- Standardized test IDs from `dataTestId` prop to `data-testid` attribute
+- Added focus management for confirm/cancel flow (TeamSection) with `useRef` + `focus()`
+- Added semantic `<time>` elements for dates
+- Added `motion-reduce:animate-none` to all animated elements
+
+**Files Changed (15 total):**
+- `lib/constants/settings-config.ts` — Added explicit return types
+- `components/settings/index.ts` — Clean barrel exports with ThemeSwitcher re-export
+- `components/settings/SettingsLayout.tsx` — Motion config, removed dead imports
+- `components/settings/SettingsNav.tsx` — Fixed aria-controls, spring animation config
+- `components/settings/SettingsCard.tsx` — Motion config, aria-labelledby
+- `components/settings/SaveStatus.tsx` — aria-live regions, motion-reduce support
+- `components/settings/ProfileSection.tsx` — aria-invalid, aria-describedby, data-testid
+- `components/settings/PreferencesSection.tsx` — aria-busy, motion-reduce
+- `components/settings/BusinessSection.tsx` — Accessible file input, aria-live upload status
+- `components/settings/TeamSection.tsx` — Focus management, aria-busy, semantic time
+- `app/(app)/settings/layout.tsx` — Skip link for keyboard users
+- `app/(app)/settings/page.tsx` — Clean redirect
+- `app/(app)/settings/user/page.tsx` — Clean component composition
+- `app/(app)/settings/organization/page.tsx` — orgId state lifting
+- `app/(app)/settings/account/page.tsx` — Fixed Button-in-Link, onClick navigation
+
+**Verification:**
+- `pnpm -w typecheck` — PASS (0 errors)
+- `pnpm -w build` — PASS (44 pages generated)
+- Review doc: `C:\Users\oziha\Downloads\settings-revamp-v2-review.md`
+- Backup branch: `backup/settings-revamp-v2-pre-remediation`
+
+**Quality gates:** `pnpm -w typecheck` ✅, `pnpm -w build` ✅
+
+---
+
 ### 2026-01-06 — PAUSED_V2: Valuation Providers Strategic Pivot
 
 **Context:** Strategic pivot to build free public data architecture before re-enabling paid provider features. All paused features use feature flags (NOT deleted code) and can be re-enabled by setting environment variables.

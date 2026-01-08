@@ -3,16 +3,36 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { SETTINGS_TABS, getSettingsTabByPath } from '@/lib/constants/settings-config';
+import {
+  SETTINGS_TABS,
+  getSettingsTabByPath,
+} from '@/lib/constants/settings-config';
 import { cn } from '@/components/ui';
+
+/**
+ * Spring animation config for tab indicator
+ * Tuned for snappy, responsive feel
+ */
+const TAB_SPRING = {
+  type: 'spring',
+  stiffness: 500,
+  damping: 35,
+} as const;
 
 /**
  * SettingsNav
  *
  * Horizontal tab navigation for Settings pages.
  * Uses Framer Motion layoutId for smooth tab indicator animation.
+ *
+ * Accessibility:
+ * - Proper role="tablist" on container
+ * - role="tab" on each link
+ * - aria-selected indicates current tab
+ * - Keyboard navigation via roving tabindex
+ * - 44px minimum touch targets (WCAG 2.5.5)
  */
-export function SettingsNav() {
+export function SettingsNav(): JSX.Element {
   const pathname = usePathname();
   const activeTab = getSettingsTabByPath(pathname)?.id ?? 'user';
 
@@ -32,12 +52,14 @@ export function SettingsNav() {
             href={tab.href}
             role="tab"
             aria-selected={isActive}
-            aria-controls={`${tab.id}-panel`}
             tabIndex={isActive ? 0 : -1}
             className={cn(
-              'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--accent-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated',
-              'min-h-[44px]', // WCAG touch target
+              'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg',
+              'transition-colors motion-safe:transition-all',
+              'focus-visible:outline-none focus-visible:ring-2',
+              'focus-visible:ring-[color:var(--accent-color)]',
+              'focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated',
+              'min-h-[44px]', // WCAG 2.5.5 touch target
               isActive
                 ? 'text-text-primary'
                 : 'text-text-secondary hover:text-text-primary hover:bg-white/5'
@@ -47,12 +69,8 @@ export function SettingsNav() {
             {isActive && (
               <motion.div
                 layoutId="settings-tab-indicator"
-                className="absolute inset-0 rounded-lg bg-white/10 border border-white/10"
-                transition={{
-                  type: 'spring',
-                  stiffness: 500,
-                  damping: 35,
-                }}
+                className="absolute inset-0 rounded-lg bg-white/10 border border-white/10 motion-reduce:transition-none"
+                transition={TAB_SPRING}
                 aria-hidden="true"
               />
             )}

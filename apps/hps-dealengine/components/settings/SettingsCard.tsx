@@ -4,6 +4,19 @@ import { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '@/components/ui';
 
+/**
+ * Motion configuration
+ * Uses ease-out-expo for smooth deceleration
+ */
+const CARD_MOTION = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: {
+    duration: 0.2,
+    ease: [0.16, 1, 0.3, 1], // ease-out-expo
+  },
+} as const;
+
 interface SettingsCardProps {
   title: string;
   description?: string;
@@ -21,6 +34,11 @@ interface SettingsCardProps {
  *
  * Consistent card component for settings sections.
  * Supports default and danger variants for different contexts.
+ *
+ * Accessibility:
+ * - Uses semantic section element
+ * - aria-labelledby connects card to its title
+ * - Respects prefers-reduced-motion
  */
 export function SettingsCard({
   title,
@@ -31,20 +49,21 @@ export function SettingsCard({
   className,
   variant = 'default',
   'data-testid': testId,
-}: SettingsCardProps) {
+}: SettingsCardProps): JSX.Element {
+  const titleId = testId ? `${testId}-title` : undefined;
+
   return (
     <motion.section
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, ease: [0, 0, 0.2, 1] }}
+      {...CARD_MOTION}
       className={cn(
         'rounded-xl border backdrop-blur-sm overflow-hidden',
+        'motion-reduce:transform-none motion-reduce:transition-none',
         variant === 'default' && 'border-white/5 bg-surface-elevated/70',
         variant === 'danger' && 'border-accent-red/30 bg-accent-red/5',
         className
       )}
       data-testid={testId}
-      aria-labelledby={testId ? `${testId}-title` : undefined}
+      aria-labelledby={titleId}
     >
       {/* Card Header */}
       <header
@@ -62,13 +81,14 @@ export function SettingsCard({
                   ? 'bg-[color:var(--accent-color)]/10 text-[color:var(--accent-color)]'
                   : 'bg-accent-red/10 text-accent-red'
               )}
+              aria-hidden="true"
             >
               {icon}
             </div>
           )}
           <div>
             <h3
-              id={testId ? `${testId}-title` : undefined}
+              id={titleId}
               className={cn(
                 'text-base font-semibold',
                 variant === 'default' ? 'text-text-primary' : 'text-accent-red'

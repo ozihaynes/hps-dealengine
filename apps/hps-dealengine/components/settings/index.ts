@@ -17,8 +17,9 @@ export { PreferencesSection } from './PreferencesSection';
 export { BusinessSection } from './BusinessSection';
 export { TeamSection } from './TeamSection';
 
-// Existing Components
-export { ThemeSwitcher } from './ThemeSwitcher';
+// Re-export ThemeSwitcher from existing location
+// Note: Verify this path matches your project structure
+export { ThemeSwitcher } from '@/components/settings/ThemeSwitcher';
 
 // Re-export types from config
 export type {

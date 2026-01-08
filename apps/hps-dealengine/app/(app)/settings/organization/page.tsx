@@ -10,8 +10,10 @@ import { TeamSection } from '@/components/settings/TeamSection';
  *
  * Business settings and team management.
  * Tab 2 of 3 in the Settings section.
+ *
+ * Note: Consider wrapping with ErrorBoundary for production
  */
-export default function OrganizationSettingsPage() {
+export default function OrganizationSettingsPage(): JSX.Element {
   const [orgId, setOrgId] = useState<string | null>(null);
 
   return (

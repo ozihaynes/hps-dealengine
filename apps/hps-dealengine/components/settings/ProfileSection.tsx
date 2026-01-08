@@ -26,8 +26,14 @@ interface ProfileData {
  *
  * Manages user profile settings (display name, email).
  * Includes API integration with draft persistence.
+ *
+ * Accessibility:
+ * - aria-invalid indicates validation state
+ * - aria-describedby links inputs to error messages
+ * - aria-busy indicates loading operations
+ * - WCAG 2.5.5 touch targets (44px)
  */
-export function ProfileSection() {
+export function ProfileSection(): JSX.Element {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -42,7 +48,7 @@ export function ProfileSection() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadProfile() {
+    async function loadProfile(): Promise<void> {
       try {
         setProfileLoading(true);
         setProfileError(null);
@@ -89,7 +95,7 @@ export function ProfileSection() {
   }, [router]);
 
   // Save profile to API
-  const onSaveProfile = useCallback(async () => {
+  const onSaveProfile = useCallback(async (): Promise<void> => {
     if (!profile?.name?.trim()) {
       setProfileFieldError('Display name is required');
       return;
@@ -136,7 +142,11 @@ export function ProfileSection() {
         icon={<User className="h-5 w-5" />}
         data-testid="settings-card-profile"
       >
-        <div className="space-y-3 animate-pulse">
+        <div
+          className="space-y-3 animate-pulse motion-reduce:animate-none"
+          aria-busy="true"
+          aria-label="Loading profile"
+        >
           <div className="h-[68px] bg-white/5 rounded-lg" />
           <div className="h-[68px] bg-white/5 rounded-lg" />
         </div>
@@ -153,11 +163,15 @@ export function ProfileSection() {
         icon={<User className="h-5 w-5" />}
         data-testid="settings-card-profile"
       >
-        <div className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg">
+        <div
+          className="p-4 bg-accent-red/10 border border-accent-red/20 rounded-lg"
+          role="alert"
+        >
           <p className="text-accent-red text-sm">{profileError}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red"
+            className="mt-2 text-sm text-accent-red/80 underline hover:text-accent-red min-h-[44px] inline-flex items-center"
           >
             Retry
           </button>
@@ -165,6 +179,9 @@ export function ProfileSection() {
       </SettingsCard>
     );
   }
+
+  const hasNameError = !!profileFieldError;
+  const nameErrorId = 'profile-name-error';
 
   return (
     <SettingsCard
@@ -180,7 +197,7 @@ export function ProfileSection() {
             variant="primary"
             onClick={onSaveProfile}
             disabled={saveStatus === 'saving' || !profile?.name?.trim()}
-            dataTestId="save-profile-button"
+            data-testid="save-profile-button"
           >
             {saveStatus === 'saving' ? 'Saving...' : 'Save Profile'}
           </Button>
@@ -207,17 +224,21 @@ export function ProfileSection() {
               setProfileFieldError(null);
             }}
             className={`input-base min-h-[44px] ${
-              profileFieldError
+              hasNameError
                 ? 'border-accent-red/50 focus:ring-accent-red/50'
                 : ''
             }`}
             placeholder="Your display name"
             maxLength={100}
             disabled={saveStatus === 'saving'}
+            aria-invalid={hasNameError}
+            aria-describedby={hasNameError ? nameErrorId : undefined}
             data-testid="profile-name-input"
           />
-          {profileFieldError && (
-            <p className="text-sm text-accent-red">{profileFieldError}</p>
+          {hasNameError && (
+            <p id={nameErrorId} className="text-sm text-accent-red" role="alert">
+              {profileFieldError}
+            </p>
           )}
         </div>
 
@@ -235,6 +256,7 @@ export function ProfileSection() {
             value={profile?.email || ''}
             readOnly
             className="input-base min-h-[44px] bg-white/5 text-text-secondary cursor-not-allowed"
+            aria-readonly="true"
           />
           <p className="text-xs text-text-secondary">
             Email cannot be changed here

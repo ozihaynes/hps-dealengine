@@ -46,20 +46,24 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   },
 ] as const;
 
-export type SettingsTabId = typeof SETTINGS_TABS[number]['id'];
+export type SettingsTabId = (typeof SETTINGS_TABS)[number]['id'];
 
 /**
  * Get tab by ID
+ * @param id - Tab identifier
+ * @returns SettingsTab if found, undefined otherwise
  */
 export function getSettingsTab(id: string): SettingsTab | undefined {
-  return SETTINGS_TABS.find(tab => tab.id === id);
+  return SETTINGS_TABS.find((tab) => tab.id === id);
 }
 
 /**
  * Get tab by pathname (matches if pathname starts with tab href)
+ * @param pathname - Current route pathname
+ * @returns SettingsTab if found, undefined otherwise
  */
 export function getSettingsTabByPath(pathname: string): SettingsTab | undefined {
-  return SETTINGS_TABS.find(tab => pathname.startsWith(tab.href));
+  return SETTINGS_TABS.find((tab) => pathname.startsWith(tab.href));
 }
 
 // ============================================================================

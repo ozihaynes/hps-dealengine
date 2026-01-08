@@ -9,8 +9,10 @@ import { PreferencesSection } from '@/components/settings/PreferencesSection';
  *
  * Personal preferences and profile management.
  * Tab 1 of 3 in the Settings section.
+ *
+ * Note: Consider wrapping with ErrorBoundary for production
  */
-export default function UserSettingsPage() {
+export default function UserSettingsPage(): JSX.Element {
   return (
     <SettingsLayout
       title="User Settings"

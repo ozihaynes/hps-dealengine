@@ -6,6 +6,6 @@ import { redirect } from 'next/navigation';
  * Redirects to the User Settings tab (first tab in the settings navigation).
  * The tab-based navigation provides access to all main settings sections.
  */
-export default function SettingsHubPage() {
+export default function SettingsHubPage(): never {
   redirect('/settings/user');
 }
