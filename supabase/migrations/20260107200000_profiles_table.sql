@@ -96,8 +96,8 @@ $$;
 -- Index for common queries
 CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON public.profiles(updated_at DESC);
 
--- Temporarily disable triggers for backfill (prevents any trigger issues)
-ALTER TABLE public.profiles DISABLE TRIGGER ALL;
+-- Temporarily disable user triggers for backfill (USER avoids system FK triggers)
+ALTER TABLE public.profiles DISABLE TRIGGER USER;
 
 -- Backfill existing users
 INSERT INTO public.profiles (id, display_name)
@@ -112,8 +112,8 @@ FROM auth.users u
 WHERE NOT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = u.id)
 ON CONFLICT (id) DO NOTHING;
 
--- Re-enable triggers
-ALTER TABLE public.profiles ENABLE TRIGGER ALL;
+-- Re-enable user triggers
+ALTER TABLE public.profiles ENABLE TRIGGER USER;
 
 -- Comments
 COMMENT ON TABLE public.profiles IS 'User profile data - extends auth.users with app-specific fields';
