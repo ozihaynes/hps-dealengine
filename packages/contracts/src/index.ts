@@ -42,3 +42,9 @@ export * from "./team";
 
 // Organization settings (Slice 3)
 export * from "./organization";
+
+// Estimate Request Types (Slice D - Repairs)
+export * from "./estimateRequest";
+
+// Underwrite Types (Slice 02 - Underwriting Page)
+export * from "./underwrite";
