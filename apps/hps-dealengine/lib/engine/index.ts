@@ -1,0 +1,45 @@
+/**
+ * Engine Functions Barrel Export
+ * @module lib/engine
+ *
+ * Pure, deterministic functions for underwriting calculations.
+ * These functions have no side effects and always return the same output for the same input.
+ */
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MOTIVATION SCORE ENGINE (Slice 07)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export {
+  computeMotivationScore,
+  REASON_SCORES,
+  TIMELINE_MULTIPLIERS,
+  DECISION_MAKER_FACTORS,
+  DEFAULT_BASE_SCORE,
+  DISTRESS_BONUS,
+  MAX_FORECLOSURE_BOOST,
+} from './computeMotivationScore';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PORTFOLIO UTILS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export {
+  deriveVerdict,
+  computeMetrics,
+  groupByVerdict,
+  formatCurrency,
+  formatPercent,
+  formatTimeAgo,
+  clampScore,
+  extractNumber,
+  DEFAULT_METRICS,
+} from './portfolio-utils';
+
+export type {
+  VerdictType,
+  DealStatus,
+  DealSummary,
+  VerdictGroup,
+  PortfolioMetrics,
+} from './portfolio-utils';
