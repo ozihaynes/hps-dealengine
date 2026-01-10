@@ -1,7 +1,26 @@
+# BEFORE STATE - Slice 18: Systems Status Integration
+Generated: 2026-01-10
+
+## Current sections folder:
+total 144
+drwxr-xr-x 1 oziha 197609     0 Jan 10 11:39 .
+drwxr-xr-x 1 oziha 197609     0 Jan 10 11:42 ..
+-rw-r--r-- 1 oziha 197609  9048 Jan 10 11:11 ForeclosureDetailsSection.tsx
+-rw-r--r-- 1 oziha 197609 15989 Jan 10 11:22 ForeclosureFields.tsx
+-rw-r--r-- 1 oziha 197609  3463 Jan 10 11:39 index.ts
+-rw-r--r-- 1 oziha 197609 16651 Jan 10 11:38 LienRiskFields.tsx
+-rw-r--r-- 1 oziha 197609 10076 Jan 10 11:30 LienRiskSection.tsx
+-rw-r--r-- 1 oziha 197609 11912 Jan 10 10:56 SellerSituationFields.tsx
+-rw-r--r-- 1 oziha 197609  6753 Jan 10 10:56 SellerSituationSection.tsx
+-rw-r--r-- 1 oziha 197609 17951 Jan 10 11:08 useForeclosureForm.ts
+-rw-r--r-- 1 oziha 197609 15958 Jan 10 11:29 useLienRiskForm.ts
+-rw-r--r-- 1 oziha 197609 13135 Jan 10 10:56 useSellerSituationForm.ts
+
+## Current sections exports:
 /**
  * Section Components Barrel Export
  * @module components/underwrite/sections
- * @slice 12-14, 18 of 22
+ * @slice 12-14 of 22
  *
  * This module exports form section components for the underwriting page.
  * Each section wraps a form with SectionAccordion and provides state management.
@@ -71,20 +90,13 @@ export type {
   UseLienRiskFormReturn,
 } from './useLienRiskForm';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// SYSTEMS STATUS (Slice 18)
-// ═══════════════════════════════════════════════════════════════════════════════
+## SystemsStatusCard already exists:
+- visualizations/SystemsStatusCard.tsx ✅
+- visualizations/SystemRULBar.tsx ✅
 
-export {
-  SystemsStatusSection,
-  SystemsStatusFields,
-  useSystemsStatusForm,
-} from './systems-status';
-
-export type {
-  SystemsStatusSectionProps,
-  SystemsStatusFieldsProps,
-  SystemsStatusFormData,
-  UseSystemsStatusFormOptions,
-  UseSystemsStatusFormReturn,
-} from './systems-status';
+## Types to use:
+- SystemsStatusInput from @hps-internal/contracts
+- PropertyCondition from @hps-internal/contracts
+- DeferredMaintenance from @hps-internal/contracts
+- PROPERTY_CONDITION_OPTIONS from @hps-internal/contracts
+- DEFERRED_MAINTENANCE_OPTIONS from @hps-internal/contracts
