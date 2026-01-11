@@ -30,11 +30,11 @@ BEGIN
   )
   VALUES (
     v_org_id,
-    '1.0.0',
-    'Standard Client Intake v1',
-    'Initial intake form for distressed SFR deals - collects seller info, property details, and financial situation.',
+    '1.1.0',
+    'Standard Client Intake v1.1',
+    'Intake form for distressed SFR deals with corrected namespace mappings (v1.1.0).',
     '{
-      "version": "1.0.0",
+      "version": "1.1.0",
       "title": "Property Information Form",
       "sections": [
         {
@@ -153,6 +153,6 @@ BEGIN
   )
   ON CONFLICT (org_id, semantic_version) DO NOTHING;
 
-  RAISE NOTICE 'intake_schema_seed: Created Standard Client Intake v1.0.0 for org %', v_org_id;
+  RAISE NOTICE 'intake_schema_seed: Created Standard Client Intake v1.1.0 for org %', v_org_id;
 END;
 $$ LANGUAGE plpgsql;
