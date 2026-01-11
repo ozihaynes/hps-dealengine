@@ -31,7 +31,6 @@ import { useAccordionState, SectionAccordion } from './accordion';
 import { SectionSkeleton, ErrorBoundary } from './states';
 import { Clock, Sliders, CreditCard, Shield, TrendingUp, Lightbulb, Calculator } from 'lucide-react';
 import { UnderwriteHero } from './hero/UnderwriteHero';
-import { MobileBottomNav, MobileOutputDrawer, useMobileLayout } from './mobile';
 
 const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number }) => {
   if (value == null || !Number.isFinite(Number(value))) return "-";
@@ -264,25 +263,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   // HYDRATION GUARD: Only render form sections after working_state has been hydrated
   // This prevents sections from firing onChange with null values before data loads
   const sectionsReady = Boolean(hydratedDealId && hydratedDealId === dbDeal?.id);
-
-  // Mobile layout hook - handles drawer state and viewport detection
-  const {
-    isDrawerOpen,
-    openDrawer,
-    closeDrawer,
-    currentSection,
-    setCurrentSection,
-  } = useMobileLayout();
-
-  // Scroll to section handler for mobile nav
-  const scrollToSection = React.useCallback((sectionId: string) => {
-    setCurrentSection(sectionId);
-    // Use the accordion section IDs which match the mobile nav items
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [setCurrentSection]);
 
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
@@ -1846,56 +1826,6 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         </div>
       </Modal>
 
-      {/* ═══════════════════════════════════════════════════════════════════════════════
-          MOBILE NAVIGATION (Slice 21)
-          Bottom nav and output drawer for mobile viewport
-      ═══════════════════════════════════════════════════════════════════════════════ */}
-      <MobileBottomNav
-        activeSection={currentSection}
-        onSectionChange={scrollToSection}
-        onOpenOutputs={openDrawer}
-        isOutputsOpen={isDrawerOpen}
-      />
-
-      <MobileOutputDrawer
-        isOpen={isDrawerOpen}
-        onClose={closeDrawer}
-        title="Analysis Outputs"
-      >
-        {/* Outputs summary content */}
-        <div className="space-y-4">
-          {lastAnalyzeResult ? (
-            <>
-              <div className="rounded-lg bg-slate-800/50 p-3">
-                <h3 className="text-sm font-medium text-slate-300 mb-2">Decision</h3>
-                <p className="text-lg font-semibold text-white">
-                  {(lastAnalyzeResult as any)?.outputs?.verdict ?? 'Pending'}
-                </p>
-              </div>
-              <div className="rounded-lg bg-slate-800/50 p-3">
-                <h3 className="text-sm font-medium text-slate-300 mb-2">Primary Offer</h3>
-                <p className="text-lg font-semibold text-emerald-400">
-                  {(lastAnalyzeResult as any)?.outputs?.primary_offer != null
-                    ? fmt$((lastAnalyzeResult as any).outputs.primary_offer, 0)
-                    : '—'}
-                </p>
-              </div>
-              <div className="rounded-lg bg-slate-800/50 p-3">
-                <h3 className="text-sm font-medium text-slate-300 mb-2">Spread</h3>
-                <p className="text-lg font-semibold text-white">
-                  {(lastAnalyzeResult as any)?.outputs?.spread != null
-                    ? fmt$((lastAnalyzeResult as any).outputs.spread, 0)
-                    : '—'}
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-8 text-slate-400">
-              <p>Run analysis to see outputs</p>
-            </div>
-          )}
-        </div>
-      </MobileOutputDrawer>
     </div>
   );
 };
