@@ -95,12 +95,6 @@ const transforms: Record<string, (value: unknown) => unknown> = {
     if (typeof v === "string") return v.toUpperCase();
     return v;
   },
-  ageToYear: (v) => {
-    const age = parseInt(String(v), 10);
-    if (isNaN(age) || age < 0 || age > 100) return null;
-    const currentYear = new Date().getFullYear();
-    return currentYear - age;
-  },
 };
 
 /**
