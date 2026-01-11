@@ -24,6 +24,6 @@ export { MagneticGlowCard } from "./MagneticGlowCard";
 export { SkeletonCard as SkeletonCardLegacy } from "./SkeletonCard"; // Pre-Slice 4 version
 export { AnimatedNumber } from "./AnimatedNumber";
 export { default as AddressAutocomplete } from "./AddressAutocomplete";
-export { Input } from "./input";
+export { Input } from "./Input";
 export { Button as ButtonUI } from "./Button";
 export { Tooltip } from "./tooltip";
