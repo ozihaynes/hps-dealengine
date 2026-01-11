@@ -27,8 +27,9 @@ import {
   type LienRiskFormData,
   type SystemsStatusFormData,
 } from './sections';
-import { useAccordionState } from './accordion';
+import { useAccordionState, SectionAccordion } from './accordion';
 import { SectionSkeleton, ErrorBoundary } from './states';
+import { Clock, Sliders, CreditCard, Shield, TrendingUp, Lightbulb, Calculator } from 'lucide-react';
 import { UnderwriteHero } from './hero/UnderwriteHero';
 import { MobileBottomNav, MobileOutputDrawer, useMobileLayout } from './mobile';
 
@@ -38,19 +39,156 @@ const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number
   return `${(Number(value) * 100).toFixed(decimals)}%`;
 };
 
-const UnderwritingSection: React.FC<{ title: string; children: React.ReactNode; icon: string }> = ({
-  title,
-  icon,
-  children,
-}) => (
-  <GlassCard className="p-5 md:p-6 space-y-4">
-    <h3 className="text-lg font-bold text-text-primary flex items-center gap-3">
-      <Icon d={icon} size={20} className="text-accent-blue" />
-      <span>{title}</span>
-    </h3>
-    {children}
-  </GlassCard>
-);
+// ═══════════════════════════════════════════════════════════════════════════════
+// FIELD COUNTING UTILITIES (Slice 2 - Accordion Progress)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Safe path accessor for nested objects (lodash.get alternative)
+ * @param obj - The object to query
+ * @param path - Dot-notation path (e.g., "property.evidence.roof_age")
+ * @returns The value at path or undefined
+ */
+function getPath<T = unknown>(obj: Record<string, unknown> | null | undefined, path: string): T | undefined {
+  if (!obj || !path) return undefined;
+  const keys = path.split('.');
+  let current: unknown = obj;
+  for (const key of keys) {
+    if (current == null || typeof current !== 'object') return undefined;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current as T | undefined;
+}
+
+/**
+ * Check if a value counts as "filled" for progress calculation
+ */
+function isFilled(value: unknown): boolean {
+  if (value == null) return false;
+  if (typeof value === 'string') return value.trim().length > 0;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value === 'boolean') return true; // Booleans always count as filled
+  if (Array.isArray(value)) return value.length > 0;
+  return true;
+}
+
+/**
+ * Count how many fields are filled from a list of paths
+ * @param obj - The object to check
+ * @param paths - Array of dot-notation paths
+ * @returns Count of filled fields
+ */
+function countFilledFields(obj: Record<string, unknown> | null | undefined, paths: string[]): number {
+  if (!obj || paths.length === 0) return 0;
+  return paths.filter(path => isFilled(getPath(obj, path))).length;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALL SECTION IDS (11 sections for accordion state)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ALL_SECTION_IDS = [
+  // New accordion sections (already have completion)
+  'seller-situation',
+  'foreclosure-details',
+  'lien-risk',
+  'property-systems',
+  // Old sections (to be converted)
+  'market-valuation',
+  'property-risk',
+  'debt-liens',
+  'policy-fees',
+  'timeline-legal',
+  'scenario-modeler',
+  'calculator',
+] as const;
+
+type SectionId = typeof ALL_SECTION_IDS[number];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION FIELD DEFINITIONS (for progress calculation)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const SECTION_FIELDS: Record<SectionId, string[]> = {
+  // New sections - paths from their form data
+  'seller-situation': [
+    'seller.reason_for_selling',
+    'seller.seller_timeline',
+    'seller.decision_maker_status',
+    'seller.lowest_acceptable_price',
+    'seller.mortgage_delinquent',
+    'seller.listed_with_agent',
+    'seller.seller_notes',
+  ],
+  'foreclosure-details': [
+    'foreclosure.foreclosure_status',
+    'foreclosure.days_delinquent',
+    'foreclosure.first_missed_payment_date',
+    'foreclosure.lis_pendens_date',
+    'foreclosure.judgment_date',
+    'foreclosure.auction_date',
+  ],
+  'lien-risk': [
+    'liens.hoa_status',
+    'liens.hoa_arrears_amount',
+    'liens.hoa_monthly_assessment',
+    'liens.cdd_status',
+    'liens.cdd_arrears_amount',
+    'liens.property_tax_status',
+    'liens.property_tax_arrears',
+    'liens.municipal_liens_present',
+    'liens.municipal_lien_amount',
+    'liens.title_search_completed',
+    'liens.title_issues_notes',
+  ],
+  'property-systems': [
+    'property.evidence.roof_age',
+    'property.evidence.hvac_year',
+    'property.evidence.water_heater_year',
+    'property.evidence.electrical_updated',
+    'property.evidence.plumbing_updated',
+    'property.evidence.pool_present',
+    'property.evidence.septic_present',
+    'property.evidence.well_water',
+  ],
+  // Old sections - paths from setDealValue calls
+  'market-valuation': [
+    'market.valuation_basis',
+    'market.arv',
+  ],
+  'property-risk': [
+    'property.occupancy',
+    'property.county',
+    'property.old_roof_flag',
+    'property.is_homestead',
+    'property.evidence.four_point.inspected',
+    'status.insurability',
+  ],
+  'debt-liens': [
+    'debt.senior_principal',
+    'debt.senior_per_diem',
+    'debt.good_thru_date',
+    'debt.payoff_is_confirmed',
+    'debt.protective_advances',
+    'debt.hoa_estoppel_fee',
+    'title.cure_cost',
+    'title.risk_pct',
+  ],
+  'policy-fees': [
+    'policy.assignment_fee_target',
+    'policy.min_spread',
+    'policy.costs_are_annual',
+    'policy.planned_close_days',
+  ],
+  'timeline-legal': [
+    'timeline.auction_date',
+    'legal.case_no',
+    'confidence.no_access_flag',
+  ],
+  // These sections don't have user-input fields (calculators)
+  'scenario-modeler': [],
+  'calculator': [],
+};
 
 const FieldGroup: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
   <div className="space-y-3 p-4 info-card rounded-lg">
@@ -209,21 +347,33 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const timeline = (baseDeal.timeline ?? {}) as any;
 
   // ═══════════════════════════════════════════════════════════════════════════════
-  // NEW SECTION STATE (Slices 12-14, 18)
+  // ACCORDION STATE (All 11 sections)
   // ═══════════════════════════════════════════════════════════════════════════════
 
   // Accordion state for collapsible sections (persisted to sessionStorage)
-  const SECTION_IDS = [
-    'seller-situation',
-    'foreclosure-details',
-    'lien-risk',
-    'property-systems',
-  ] as const;
-
   const accordion = useAccordionState(
-    SECTION_IDS as unknown as string[],
+    ALL_SECTION_IDS as unknown as string[],
     ['seller-situation'] // Default expanded
   );
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // SECTION COMPLETION CALCULATIONS
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  const sectionCompletion = React.useMemo(() => {
+    const dealObj = baseDeal as Record<string, unknown>;
+    const result: Record<SectionId, { filled: number; total: number }> = {} as any;
+
+    for (const sectionId of ALL_SECTION_IDS) {
+      const fields = SECTION_FIELDS[sectionId];
+      result[sectionId] = {
+        filled: countFilledFields(dealObj, fields),
+        total: fields.length,
+      };
+    }
+
+    return result;
+  }, [baseDeal]);
 
   // Extract initial data for new sections from deal object
   const sellerSituationData: Partial<SellerSituationFormData> = React.useMemo(() => ({
@@ -585,7 +735,15 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       <UnderwriteHero initialResult={lastAnalyzeResult} />
 
       {/* Market & Valuation */}
-      <UnderwritingSection title="Market & Valuation" icon={Icons.barChart}>
+      <SectionAccordion
+        id="market-valuation"
+        title="Market & Valuation"
+        icon={<TrendingUp className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('market-valuation')}
+        onToggle={() => accordion.toggle('market-valuation')}
+        completedFields={sectionCompletion['market-valuation'].filled}
+        totalFields={sectionCompletion['market-valuation'].total}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
             <span className="font-semibold text-text-primary">Valuation Confidence:</span>
@@ -954,7 +1112,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             )}
           </div>
         </div>
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {valuationSnapshot && Array.isArray(valuationSnapshot.comps) && (
         <CompsPanel
@@ -974,7 +1132,15 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       <ConfidenceUnlock hviUnlocks={hviUnlocks} />
 
       {/* Property & Risk */}
-      <UnderwritingSection title="Property & Risk" icon={Icons.shield}>
+      <SectionAccordion
+        id="property-risk"
+        title="Property & Risk"
+        icon={<Shield className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('property-risk')}
+        onToggle={() => accordion.toggle('property-risk')}
+        completedFields={sectionCompletion['property-risk'].filled}
+        totalFields={sectionCompletion['property-risk'].total}
+      >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-3">
             <SelectField
@@ -1025,49 +1191,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
               }}
             />
 
-            <div id="property.evidence.roof_age">
-              <InputField
-                label="Roof Age (years)"
-                type="number"
-                value={property?.evidence?.roof_age ?? ""}
-                disabled={!canEditPolicy}
-                onChange={(e: any) => {
-                  const raw = (e.target as HTMLInputElement).value ?? "";
-                  const trimmed = raw.trim();
-                  if (trimmed.length === 0) {
-                    setDealValue("property.evidence.roof_age", null);
-                    return;
-                  }
-                  const next = Number(trimmed);
-                  setDealValue(
-                    "property.evidence.roof_age",
-                    Number.isFinite(next) ? next : null,
-                  );
-                }}
-              />
-            </div>
-
-            <div id="property.evidence.hvac_year">
-              <InputField
-                label="HVAC Year"
-                type="number"
-                value={property?.evidence?.hvac_year ?? ""}
-                disabled={!canEditPolicy}
-                onChange={(e: any) => {
-                  const raw = (e.target as HTMLInputElement).value ?? "";
-                  const trimmed = raw.trim();
-                  if (trimmed.length === 0) {
-                    setDealValue("property.evidence.hvac_year", null);
-                    return;
-                  }
-                  const next = Number(trimmed);
-                  setDealValue(
-                    "property.evidence.hvac_year",
-                    Number.isFinite(next) ? next : null,
-                  );
-                }}
-              />
-            </div>
+            {/* Roof Age and HVAC Year moved to Property Systems section */}
 
             <div id="property.evidence.four_point">
               <SelectField
@@ -1149,7 +1273,7 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             />
           </div>
         </div>
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {/* ═══════════════════════════════════════════════════════════════════════════════
           NEW FORM SECTIONS (Slices 12-14, 18)
@@ -1215,7 +1339,15 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
       )}
 
       {/* Debt & Liens */}
-      <UnderwritingSection title="Debt & Liens" icon={Icons.briefcase}>
+      <SectionAccordion
+        id="debt-liens"
+        title="Debt & Liens"
+        icon={<CreditCard className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('debt-liens')}
+        onToggle={() => accordion.toggle('debt-liens')}
+        completedFields={sectionCompletion['debt-liens'].filled}
+        totalFields={sectionCompletion['debt-liens'].total}
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FieldGroup title="Senior Lien Payoff">
             <div className="grid grid-cols-2 gap-3 items-end">
@@ -1366,10 +1498,18 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             </div>
           )}
         </div>
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {/* Policy & Fees */}
-      <UnderwritingSection title="Policy & Fees" icon={Icons.sliders}>
+      <SectionAccordion
+        id="policy-fees"
+        title="Policy & Fees"
+        icon={<Sliders className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('policy-fees')}
+        onToggle={() => accordion.toggle('policy-fees')}
+        completedFields={sectionCompletion['policy-fees'].filled}
+        totalFields={sectionCompletion['policy-fees'].total}
+      >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <InputField
             label="Assignment Fee Target"
@@ -1547,10 +1687,18 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             }
           />
         </div>
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {/* Timeline & Legal */}
-      <UnderwritingSection title="Timeline & Legal" icon={Icons.alert}>
+      <SectionAccordion
+        id="timeline-legal"
+        title="Timeline & Legal"
+        icon={<Clock className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('timeline-legal')}
+        onToggle={() => accordion.toggle('timeline-legal')}
+        completedFields={sectionCompletion['timeline-legal'].filled}
+        totalFields={sectionCompletion['timeline-legal'].total}
+      >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
           <div className="pt-4 md:col-span-2">
             <ToggleSwitch
@@ -1620,17 +1768,29 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
             newValue={policy.manual_days_to_money ?? null}
           />
         </div>
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {/* Scenario Modeler */}
-      <UnderwritingSection title="Scenario Modeler" icon={Icons.lightbulb}>
+      <SectionAccordion
+        id="scenario-modeler"
+        title="Scenario Modeler"
+        icon={<Lightbulb className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('scenario-modeler')}
+        onToggle={() => accordion.toggle('scenario-modeler')}
+      >
         <ScenarioModeler deal={deal} setDealValue={setDealValue} sandbox={sandbox} calc={calc} />
-      </UnderwritingSection>
+      </SectionAccordion>
 
       {/* Double Close Calculator */}
-      <UnderwritingSection title="HPS Double Closing Cost Calculator" icon={Icons.calculator}>
+      <SectionAccordion
+        id="calculator"
+        title="HPS Double Closing Cost Calculator"
+        icon={<Calculator className="w-5 h-5" />}
+        isExpanded={accordion.isExpanded('calculator')}
+        onToggle={() => accordion.toggle('calculator')}
+      >
         <DoubleCloseCalculator deal={deal} calc={calc} setDealValue={setDealValue} />
-      </UnderwritingSection>
+      </SectionAccordion>
 
       <Modal
         open={overrideTarget !== null}
