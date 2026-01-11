@@ -1,0 +1,11 @@
+               migration                | would_migrate 
+----------------------------------------+---------------
+ motivation → seller                    |             0
+ strike_price → lowest_acceptable_price |             0
+ condition → systems                    |             0
+ roof_age → roof_year                   |             0
+ hvac_age → hvac_year                   |             0
+ financial → debt+foreclosure           |             0
+ asking_price → market                  |             0
+(7 rows)
+
