@@ -113,7 +113,7 @@ const VERDICT_THEME: Record<
     // #0096FF blue theme (no green glow)
     glowGradient: "from-[#0096FF]/15 via-[#0096FF]/5 to-transparent",
     borderColor: "border-[#0096FF]/40",
-    bgColor: "bg-blue-500/10",
+    bgColor: "",
     shadow: "shadow-[0_0_40px_-15px_rgba(0,150,255,0.3)]",
     pulseColor: "rgba(0, 150, 255, 0.3)",
     showPulse: false, // Disabled pulse for cleaner look
@@ -121,7 +121,7 @@ const VERDICT_THEME: Record<
   needs_evidence: {
     glowGradient: "from-amber-500/20 via-amber-500/5 to-transparent",
     borderColor: "border-amber-500/40",
-    bgColor: "bg-blue-500/10",
+    bgColor: "",
     shadow: "shadow-[0_0_40px_-15px_rgba(245,158,11,0.3)]",
     pulseColor: "rgba(245, 158, 11, 0.3)",
     showPulse: false,
@@ -316,6 +316,11 @@ export const DecisionHero = memo(function DecisionHero({
         compact ? "p-4" : "p-6 md:p-8",
         className
       )}
+      style={{
+        backgroundColor: safeVerdict === "pass"
+          ? "rgba(15, 23, 42, 0.9)"
+          : "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
       role="region"
       aria-label="Deal decision summary"
     >

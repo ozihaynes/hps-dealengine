@@ -102,10 +102,13 @@ export function VerdictCard({
         data-verdict="null"
         className={cn(
           // Matches Decision Hero Zone background
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-medium text-slate-300">{title}</h3>
@@ -144,10 +147,13 @@ export function VerdictCard({
       data-verdict={recommendation ?? "unknown"}
       className={cn(
         // Matches Decision Hero Zone background
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header: Title + Chip */}
       <div className="flex items-center justify-between mb-3">

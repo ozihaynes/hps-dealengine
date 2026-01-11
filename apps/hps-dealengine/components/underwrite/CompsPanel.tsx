@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronDown } from "lucide-react";
 import type { Comp, PropertySnapshot, SelectionDiagnostics } from "@hps-internal/contracts";
 import { GlassCard, Badge } from "../ui";
 
@@ -259,6 +260,7 @@ export function CompsPanel({
 
   const rerunDisabled = refreshing || !onRefresh || (cooldownUntil != null && cooldownUntil > Date.now());
   const [showSelectionDetails, setShowSelectionDetails] = React.useState(false);
+  const [isClosedSalesExpanded, setIsClosedSalesExpanded] = React.useState(false);
   const selectionVersionLabel = selectionVersion ?? selectionDiagnostics?.version ?? "selection_v1_1";
   const selectionOutliersFlagged = selectionDiagnostics?.outliers?.flagged?.length ?? null;
   const selectionOutliersRemoved = selectionDiagnostics?.outliers?.removed_ids?.length ?? null;
@@ -273,8 +275,21 @@ export function CompsPanel({
 
   return (
     <GlassCard className="p-4 space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      {/* Collapsible Header */}
+      <button
+        type="button"
+        onClick={() => setIsClosedSalesExpanded((prev) => !prev)}
+        className="w-full flex items-center justify-between gap-2 text-left hover:bg-white/5 -mx-2 px-2 py-1 rounded-lg transition-colors"
+        aria-expanded={isClosedSalesExpanded}
+        aria-controls="closed-sales-content"
+      >
         <div className="flex items-center gap-2">
+          <ChevronDown
+            className={`w-5 h-5 text-text-secondary transition-transform duration-200 ${
+              isClosedSalesExpanded ? "rotate-0" : "-rotate-90"
+            }`}
+            aria-hidden="true"
+          />
           <span className="text-lg font-semibold text-text-primary">
             Comparable closed sales (RentCast /properties)
           </span>
@@ -297,141 +312,150 @@ export function CompsPanel({
               Stub data
             </span>
           )}
-          <button
-            type="button"
-            className="rounded-md border border-white/15 px-2 py-1 text-xs text-text-primary hover:border-accent-blue/60"
-            onClick={handleRerun}
-            disabled={rerunDisabled}
-          >
-            {refreshing ? "Refreshing..." : "Re-run comps"}
-          </button>
         </div>
-      </div>
+      </button>
 
-      <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
-        <span>Active: {statusCounts.active}</span>
-        <span>Inactive: {statusCounts.inactive}</span>
-        <span>Other: {statusCounts.other}</span>
-        <span>Unknown: {statusCounts.unknown}</span>
-      </div>
+      {/* Collapsible Content */}
+      {isClosedSalesExpanded && (
+        <div id="closed-sales-content" className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex flex-wrap gap-3 text-xs text-text-secondary">
+              <span>Active: {statusCounts.active}</span>
+              <span>Inactive: {statusCounts.inactive}</span>
+              <span>Other: {statusCounts.other}</span>
+              <span>Unknown: {statusCounts.unknown}</span>
+            </div>
+            <button
+              type="button"
+              className="rounded-md border border-white/15 px-2 py-1 text-xs text-text-primary hover:border-accent-blue/60"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRerun();
+              }}
+              disabled={rerunDisabled}
+            >
+              {refreshing ? "Refreshing..." : "Re-run comps"}
+            </button>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
-        <Badge color={selectionBadgeColor}>
-          Selection: {selectionVersionLabel}
-        </Badge>
-        {selectionCompsSelected != null ? (
-          <span className="rounded border border-white/10 px-2 py-1">
-            Comps used: {selectionCompsSelected}
-          </span>
-        ) : null}
-        {selectionOutliersFlagged != null ? (
-          <span className="rounded border border-white/10 px-2 py-1">
-            Outliers flagged: {selectionOutliersFlagged}
-          </span>
-        ) : null}
-        {selectionOutliersRemoved != null ? (
-          <span className="rounded border border-white/10 px-2 py-1">
-            Outliers removed: {selectionOutliersRemoved}
-          </span>
-        ) : null}
-        {selectionDiagnostics ? (
-          <button
-            type="button"
-            className="rounded border border-white/15 px-2 py-1 text-text-primary hover:border-accent-blue/60"
-            onClick={() => setShowSelectionDetails((prev) => !prev)}
-          >
-            {showSelectionDetails ? "Hide selection details" : "Selection details"}
-          </button>
-        ) : null}
-      </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
+            <Badge color={selectionBadgeColor}>
+              Selection: {selectionVersionLabel}
+            </Badge>
+            {selectionCompsSelected != null ? (
+              <span className="rounded border border-white/10 px-2 py-1">
+                Comps used: {selectionCompsSelected}
+              </span>
+            ) : null}
+            {selectionOutliersFlagged != null ? (
+              <span className="rounded border border-white/10 px-2 py-1">
+                Outliers flagged: {selectionOutliersFlagged}
+              </span>
+            ) : null}
+            {selectionOutliersRemoved != null ? (
+              <span className="rounded border border-white/10 px-2 py-1">
+                Outliers removed: {selectionOutliersRemoved}
+              </span>
+            ) : null}
+            {selectionDiagnostics ? (
+              <button
+                type="button"
+                className="rounded border border-white/15 px-2 py-1 text-text-primary hover:border-accent-blue/60"
+                onClick={() => setShowSelectionDetails((prev) => !prev)}
+              >
+                {showSelectionDetails ? "Hide selection details" : "Selection details"}
+              </button>
+            ) : null}
+          </div>
 
-      {showSelectionDetails && selectionDiagnostics ? (
-        <div className="rounded-md border border-white/10 bg-white/5 p-3 text-xs text-text-secondary space-y-2">
-          <div className="flex flex-wrap gap-2">
-            <span className="rounded border border-white/10 px-2 py-1 text-text-primary">
-              Version {selectionDiagnostics.version}
+          {showSelectionDetails && selectionDiagnostics ? (
+            <div className="rounded-md border border-white/10 bg-white/5 p-3 text-xs text-text-secondary space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded border border-white/10 px-2 py-1 text-text-primary">
+                  Version {selectionDiagnostics.version}
+                </span>
+                <span className="rounded border border-white/10 px-2 py-1">
+                  Candidates: {selectionDiagnostics.counts.after_filters} → {selectionDiagnostics.counts.after_outlier_checks}
+                </span>
+                <span className="rounded border border-white/10 px-2 py-1">
+                  Selected: {selectionDiagnostics.counts.selected}
+                </span>
+              </div>
+              {selectionRelaxations.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectionRelaxations.map((r) => (
+                    <span key={r} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
+                      Relaxation: {r}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {selectionWarnings.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {selectionWarnings.map((w) => (
+                    <span key={w} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
+                      Warning: {w}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="rounded border border-white/10 bg-white/5 p-2 font-mono text-[11px] leading-5 text-text-secondary">
+                {JSON.stringify(
+                  {
+                    outliers_removed: selectionDiagnostics.outliers?.removed_ids ?? [],
+                    bounds: selectionDiagnostics.outliers?.bounds ?? null,
+                    reasons: selectionDiagnostics.filters?.reasons_count ?? {},
+                  },
+                  null,
+                  2,
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
+            <span className="rounded border border-white/10 px-2 py-1">
+              Date range:{" "}
+              {closedSummary.minDate && closedSummary.maxDate
+                ? `${closedSummary.minDate.toLocaleDateString()} - ${closedSummary.maxDate.toLocaleDateString()}`
+                : "-"}
             </span>
             <span className="rounded border border-white/10 px-2 py-1">
-              Candidates: {selectionDiagnostics.counts.after_filters} → {selectionDiagnostics.counts.after_outlier_checks}
+              Median distance: {closedSummary.medianDistance != null ? `${closedSummary.medianDistance} mi` : "-"}
             </span>
             <span className="rounded border border-white/10 px-2 py-1">
-              Selected: {selectionDiagnostics.counts.selected}
+              Price variance:{" "}
+              {closedSummary.priceVariance != null ? `${(closedSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
+            </span>
+            <span className="rounded border border-white/10 px-2 py-1" title="Not available from v1 provider; planned in v2.">
+              Concessions: -
             </span>
           </div>
-          {selectionRelaxations.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectionRelaxations.map((r) => (
-                <span key={r} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
-                  Relaxation: {r}
-                </span>
+
+          {gating && (
+            <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
+              Insufficient comparable closed sales. Valuation is informational only or will fall back to listings.
+            </div>
+          )}
+
+          {closedSales.length === 0 ? (
+            <div className="text-sm text-text-secondary">No closed-sale comps available yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {closedSales.map((comp) => (
+                <CompCard
+                  key={comp.id}
+                  comp={comp}
+                  detail={selectedCompsMap.get((comp.id ?? "").toString())}
+                  isListing={false}
+                  isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
+                />
               ))}
             </div>
           )}
-          {selectionWarnings.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectionWarnings.map((w) => (
-                <span key={w} className="rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-amber-100">
-                  Warning: {w}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="rounded border border-white/10 bg-white/5 p-2 font-mono text-[11px] leading-5 text-text-secondary">
-            {JSON.stringify(
-              {
-                outliers_removed: selectionDiagnostics.outliers?.removed_ids ?? [],
-                bounds: selectionDiagnostics.outliers?.bounds ?? null,
-                reasons: selectionDiagnostics.filters?.reasons_count ?? {},
-              },
-              null,
-              2,
-            )}
-          </div>
-        </div>
-      ) : null}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 text-xs text-text-secondary">
-        <span className="rounded border border-white/10 px-2 py-1">
-          Date range:{" "}
-          {closedSummary.minDate && closedSummary.maxDate
-            ? `${closedSummary.minDate.toLocaleDateString()} - ${closedSummary.maxDate.toLocaleDateString()}`
-            : "-"}
-        </span>
-        <span className="rounded border border-white/10 px-2 py-1">
-          Median distance: {closedSummary.medianDistance != null ? `${closedSummary.medianDistance} mi` : "-"}
-        </span>
-        <span className="rounded border border-white/10 px-2 py-1">
-          Price variance:{" "}
-          {closedSummary.priceVariance != null ? `${(closedSummary.priceVariance * 100).toFixed(1)}% (cv)` : "-"}
-        </span>
-        <span className="rounded border border-white/10 px-2 py-1" title="Not available from v1 provider; planned in v2.">
-          Concessions: -
-        </span>
-      </div>
-
-      {gating && (
-        <div className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-sm text-amber-100">
-          Insufficient comparable closed sales. Valuation is informational only or will fall back to listings.
-        </div>
-      )}
-
-      {closedSales.length === 0 ? (
-        <div className="text-sm text-text-secondary">No closed-sale comps available yet.</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {closedSales.map((comp) => (
-            <CompCard
-              key={comp.id}
-              comp={comp}
-              detail={selectedCompsMap.get((comp.id ?? "").toString())}
-              isListing={false}
-              isSelected={selectedCompIds?.includes((comp.id ?? "").toString())}
-            />
-          ))}
-        </div>
-      )}
-
-      <div className="mt-4 space-y-2">
+          {/* Listings section - also inside collapsible */}
+          <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-text-primary">
@@ -471,7 +495,9 @@ export function CompsPanel({
             ))}
           </div>
         )}
-      </div>
+          </div>
+        </div>
+      )}
     </GlassCard>
   );
 }

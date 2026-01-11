@@ -15,3 +15,9 @@ export { useIntakeAutoSave } from "./useIntakeAutoSave";
 export { useImportWizard } from "./useImportWizard";
 export { useImportJobs } from "./useImportJobs";
 export { useImportItems } from "./useImportItems";
+
+// Estimate request hooks
+export {
+  useEstimateRequests,
+  useEstimateRequestCounts,
+} from "./useEstimateRequests";

@@ -301,11 +301,14 @@ export const RiskGatesStrip = memo(function RiskGatesStrip({
         data-testid="risk-gates-strip"
         data-state="empty"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">Risk Gates</h3>
         <p className="text-sm text-slate-500 italic text-center py-4">
@@ -325,11 +328,14 @@ export const RiskGatesStrip = memo(function RiskGatesStrip({
         data-testid="risk-gates-strip"
         data-state="no-gates"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">Risk Gates</h3>
         <p className="text-sm text-slate-500 italic text-center py-4">
@@ -367,13 +373,16 @@ export const RiskGatesStrip = memo(function RiskGatesStrip({
       data-total={riskGates.gates.length}
       data-any-blocking={riskGates.any_blocking}
       className={cn(
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         // min-h ensures alignment with EvidenceHealthStrip when side-by-side
         "min-h-[200px]",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

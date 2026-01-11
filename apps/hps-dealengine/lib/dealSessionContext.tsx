@@ -407,8 +407,6 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
   const refreshDeal = useCallback(async () => {
     if (!dbDeal?.id) return;
 
-    console.log("[DealSession DEBUG] refreshDeal: Starting for deal", dbDeal.id);
-
     try {
       const { data, error } = await supabase
         .from("deals")
@@ -432,14 +430,6 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         organization,
       } as DbDeal;
 
-      // DEBUG: Log what we got from DB
-      console.log("[DealSession DEBUG] refreshDeal: DB payload keys", {
-        dealId: normalized.id,
-        payloadKeys: normalized.payload ? Object.keys(normalized.payload as object) : [],
-        debt: (normalized.payload as any)?.debt,
-        property: (normalized.payload as any)?.property,
-      });
-
       // CRITICAL: Mark working state as already hydrated to prevent
       // the hydration useEffect from overwriting with stale data
       workingHydratedRef.current = true;
@@ -450,10 +440,6 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       // Immediately update in-memory deal from new payload
       if (normalized.payload) {
         const hydratedDeal = normalizeDealShape(normalized.payload);
-        console.log("[DealSession DEBUG] refreshDeal: Hydrated deal", {
-          debtSeniorPrincipal: (hydratedDeal as any).debt?.senior_principal,
-          propertyEvidenceRoofAge: (hydratedDeal as any).property?.evidence?.roof_age,
-        });
         setDeal(hydratedDeal);
 
         // Update the saved hash to match current state so autosave doesn't
@@ -497,10 +483,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     if (!savedId) return;
 
     const load = async () => {
-      const loaded = await loadDealById(savedId);
-      if (loaded) {
-        setHydratedDealId(loaded.id);
-      }
+      // Just load the dbDeal - hydratedDealId will be set AFTER hydrate() completes
+      await loadDealById(savedId);
     };
 
     void load();
@@ -517,12 +501,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
     }
 
     setIsHydratingActiveDeal(true);
+    // Just load the dbDeal - hydratedDealId will be set AFTER hydrate() completes
     loadDealById(dealIdFromUrl)
-      .then((loaded) => {
-        if (loaded?.id) {
-          setHydratedDealId(loaded.id);
-        }
-      })
       .finally(() => {
         setIsHydratingActiveDeal(false);
       });
@@ -877,6 +857,8 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
       } finally {
         workingHydratedRef.current = true;
         setWorkingHydratedTick((tick) => tick + 1);
+        // Set hydratedDealId AFTER deal state is updated, so sections remount with correct initialData
+        setHydratedDealId(dbDeal.id);
       }
     };
 
@@ -892,7 +874,9 @@ export function DealSessionProvider({ children }: { children: ReactNode }) {
         }
         return;
       }
-      if (!dbDeal?.id || !dbDeal.org_id || !userId) return;
+      if (!dbDeal?.id || !dbDeal.org_id || !userId) {
+        return;
+      }
 
       const outputsAny = (lastAnalyzeResult as any)?.outputs ?? lastAnalyzeResult ?? null;
       const hasOffer =

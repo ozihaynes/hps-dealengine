@@ -58,13 +58,11 @@ const EXIT_CARD_STYLES = {
   // Default glass style for all cards
   default: {
     border: "border-white/10",
-    bg: "bg-blue-500/10",
     text: "text-slate-200",
   },
   // Recommended card gets subtle emerald treatment
   recommended: {
     border: "border-emerald-500/40",
-    bg: "bg-blue-500/10",
     text: "text-slate-200",
   },
 } as const;
@@ -142,10 +140,13 @@ function ExitCard({
         data-available="false"
         className={cn(
           // Matches Decision Hero Zone background
-          "rounded-lg border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-lg border border-white/10 backdrop-blur-xl",
           compact ? "p-3" : "p-4",
           "flex flex-col"
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-sm font-medium text-slate-500">{label}</h4>
@@ -169,10 +170,12 @@ function ExitCard({
         // UNIFIED GLASS STYLE - matches Decision Hero Zone
         "rounded-lg border backdrop-blur-xl",
         styles.border,
-        styles.bg,
         compact ? "p-3" : "p-4",
         "flex flex-col"
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header - UNIFIED text color (no colored headers) */}
       <div className="flex items-center justify-between mb-2">
@@ -260,9 +263,12 @@ export const NetClearancePanel = memo(function NetClearancePanel({
         data-state="empty"
         className={cn(
           // Matches Decision Hero Zone background
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl p-4",
+          "rounded-xl border border-white/10 backdrop-blur-xl p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">
           Net Clearance by Exit
@@ -320,10 +326,13 @@ export const NetClearancePanel = memo(function NetClearancePanel({
       data-recommended={safeRecommendedExit}
       className={cn(
         // Matches Decision Hero Zone background
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">

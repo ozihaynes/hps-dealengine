@@ -39,7 +39,7 @@ function ErrorState({ message, onRetry }: ErrorStateProps) {
     <div
       className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl"
       style={{
-        backgroundColor: "var(--glass-bg)",
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
         backdropFilter: "blur(var(--blur-md))",
         border: "1px solid var(--glass-border)",
       }}
@@ -99,7 +99,7 @@ function EmptyState() {
     <div
       className="flex flex-col items-center justify-center min-h-[400px] p-8 rounded-xl"
       style={{
-        backgroundColor: "var(--glass-bg)",
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
         backdropFilter: "blur(var(--blur-md))",
         border: "1px solid var(--glass-border)",
       }}
@@ -166,7 +166,7 @@ function NoResultsState({ onClearFilters }: NoResultsStateProps) {
     <div
       className="flex flex-col items-center justify-center min-h-[300px] p-8 rounded-xl"
       style={{
-        backgroundColor: "var(--glass-bg)",
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
         backdropFilter: "blur(var(--blur-md))",
         border: "1px solid var(--glass-border)",
       }}
@@ -206,7 +206,7 @@ function NoResultsState({ onClearFilters }: NoResultsStateProps) {
         onClick={onClearFilters}
         className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
         style={{
-          backgroundColor: "var(--surface-2)",
+          backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
           color: "var(--text-primary)",
         }}
       >
@@ -292,7 +292,7 @@ export function PortfolioDashboard() {
       <div
         className="flex flex-wrap items-center gap-3 p-4 rounded-xl"
         style={{
-          backgroundColor: "var(--glass-bg)",
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
           backdropFilter: "blur(var(--blur-md))",
           border: "1px solid var(--glass-border)",
         }}
@@ -310,7 +310,7 @@ export function PortfolioDashboard() {
             onChange={(e) => setFilters({ status: e.target.value as typeof filters.status })}
             className="px-3 py-1.5 rounded-lg text-sm"
             style={{
-              backgroundColor: "var(--surface-2)",
+              backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               color: "var(--text-primary)",
               border: "1px solid var(--glass-border)",
             }}
@@ -336,7 +336,7 @@ export function PortfolioDashboard() {
             onChange={(e) => setFilters({ verdict: e.target.value as typeof filters.verdict })}
             className="px-3 py-1.5 rounded-lg text-sm"
             style={{
-              backgroundColor: "var(--surface-2)",
+              backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               color: "var(--text-primary)",
               border: "1px solid var(--glass-border)",
             }}
@@ -367,7 +367,7 @@ export function PortfolioDashboard() {
             }}
             className="px-3 py-1.5 rounded-lg text-sm"
             style={{
-              backgroundColor: "var(--surface-2)",
+              backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               color: "var(--text-primary)",
               border: "1px solid var(--glass-border)",
             }}
@@ -391,7 +391,7 @@ export function PortfolioDashboard() {
             onChange={(e) => setSort(e.target.value as typeof sort.field)}
             className="px-3 py-1.5 rounded-lg text-sm"
             style={{
-              backgroundColor: "var(--surface-2)",
+              backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               color: "var(--text-primary)",
               border: "1px solid var(--glass-border)",
             }}
@@ -407,7 +407,7 @@ export function PortfolioDashboard() {
             onClick={() => setSort(sort.field, sort.direction === "asc" ? "desc" : "asc")}
             className="p-1.5 rounded-lg transition-colors"
             style={{
-              backgroundColor: "var(--surface-2)",
+              backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               color: "var(--text-primary)",
             }}
             aria-label={`Sort ${sort.direction === "asc" ? "descending" : "ascending"}`}

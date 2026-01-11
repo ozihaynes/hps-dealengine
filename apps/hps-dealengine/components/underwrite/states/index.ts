@@ -24,5 +24,8 @@ export type { InlineErrorProps } from './InlineError';
 export { SkeletonCard } from './SkeletonCard';
 export type { SkeletonCardProps } from './SkeletonCard';
 
+export { SectionSkeleton } from './SectionSkeleton';
+export type { SectionSkeletonProps } from './SectionSkeleton';
+
 export { LoadingSpinner } from './LoadingSpinner';
 export type { LoadingSpinnerProps } from './LoadingSpinner';

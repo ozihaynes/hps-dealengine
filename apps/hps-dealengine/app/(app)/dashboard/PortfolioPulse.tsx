@@ -167,7 +167,7 @@ export function PortfolioPulse({ metrics, className }: PortfolioPulseProps) {
         className
       )}
       style={{
-        backgroundColor: "var(--glass-bg)",
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
         backdropFilter: "blur(var(--blur-md))",
         border: "1px solid var(--glass-border)",
       }}

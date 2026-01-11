@@ -206,10 +206,13 @@ export const PriceGeometryBar = memo(function PriceGeometryBar({
         data-testid="price-geometry-bar"
         data-state="empty"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl p-4",
+          "rounded-xl border border-white/10 backdrop-blur-xl p-4",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <p className="text-sm text-slate-500 italic text-center">
           Price geometry not yet calculated
@@ -289,11 +292,14 @@ export const PriceGeometryBar = memo(function PriceGeometryBar({
       data-state={zopa_exists ? "has-zopa" : "no-zopa"}
       data-dominant-floor={dominant_floor}
       className={cn(
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Title Row */}
       <div className="flex items-center justify-between mb-3">

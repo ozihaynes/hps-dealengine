@@ -164,7 +164,7 @@ function ConfidenceCardInner<T>({
       className={cn(
         // Base styles - matches Decision Hero Zone background
         "relative rounded-xl border overflow-hidden",
-        "bg-blue-500/10 backdrop-blur-xl",
+        "backdrop-blur-xl",
         "transition-all duration-200",
         // Border color
         "border-white/10",
@@ -180,6 +180,9 @@ function ConfidenceCardInner<T>({
         isExpanded && "h-auto min-h-[120px] shadow-xl border-white/20",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
       data-testid={`confidence-card-${cardId}`}
       data-expanded={isExpanded}
       layout={!prefersReducedMotion}

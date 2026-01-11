@@ -222,15 +222,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <AiWindowsProvider>
             <DrawerProvider>
               <AppBackground>
-            <div className="flex min-h-screen flex-col">
-            <header className="command-bar">
-              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] items-center justify-between px-6 lg:px-8 xl:px-10 py-4">
-                <AppTopNav />
-              </div>
-            </header>
+            <div className="flex min-h-screen flex-col lg:h-screen lg:max-h-screen lg:overflow-hidden">
+            {/* Sticky header section - logo, tabs, and property bar stay visible on scroll */}
+            <header className="command-bar flex-shrink-0">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] flex-col gap-4 px-6 lg:px-8 xl:px-10 py-4">
+                <div className="flex items-center justify-between">
+                  <AppTopNav />
+                </div>
 
-            <main className="flex-1">
-              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] flex-col gap-4 px-6 lg:px-8 xl:px-10 py-6">
                 {/* Desktop-only route tabs */}
                 <div className="hidden md:flex items-center justify-between gap-4">
                   <AppTabNav onOpenOffer={() => setShowOffer(true)} />
@@ -238,6 +237,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
 
                 {/* Persistent Deal Context Bar - shows property and client info below tabs */}
                 <DealContextBar />
+              </div>
+            </header>
+
+            <main className="flex-1 lg:min-h-0 lg:overflow-y-auto">
+              <div className="mx-auto flex max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] flex-col gap-4 px-6 lg:px-8 xl:px-10 py-6 lg:h-full">
 
                 {/* ErrorBoundary scoped to route children only.
                     Nav components (AppTabNav, DealContextBar, MobileBottomNav) are intentionally

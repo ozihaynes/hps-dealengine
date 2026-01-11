@@ -183,14 +183,15 @@ export function useSystemsStatusForm(
     ) => {
       setData((prev) => {
         const next = { ...prev, [field]: value };
-        onChange?.(next);
+        // Note: onChange is handled via useEffect in the Section component
+        // to avoid setState during render cascade
         setIsComputing(true);
         // Trigger debounced computation
         computeStatus(next);
         return next;
       });
     },
-    [onChange, computeStatus]
+    [computeStatus]
   );
 
   // ─────────────────────────────────────────────────────────────────────────────

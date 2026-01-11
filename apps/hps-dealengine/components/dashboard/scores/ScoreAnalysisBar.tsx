@@ -226,7 +226,7 @@ function ScoreCard({
       className={cn(
         // Base styles - matches Decision Hero Zone background
         "relative rounded-xl border overflow-hidden",
-        "bg-blue-500/10 backdrop-blur-xl",
+        "backdrop-blur-xl",
         "transition-all duration-200",
         "border-white/10",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
@@ -235,6 +235,9 @@ function ScoreCard({
         !isExpanded && "hover:-translate-y-1 hover:shadow-lg hover:border-white/15",
         isExpanded && "shadow-xl border-white/20"
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
       data-testid={`score-card-${cardId}`}
       data-expanded={isExpanded}
       layout={!prefersReducedMotion}

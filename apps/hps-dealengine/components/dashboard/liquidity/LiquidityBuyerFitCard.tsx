@@ -298,11 +298,14 @@ export const LiquidityBuyerFitCard = memo(function LiquidityBuyerFitCard({
         data-testid="liquidity-buyer-fit-card"
         data-state="empty"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">
           Liquidity & Buyer Fit
@@ -348,11 +351,14 @@ export const LiquidityBuyerFitCard = memo(function LiquidityBuyerFitCard({
       data-band={liquidityBand}
       data-score={safeNumber(liquidity_score) ?? "null"}
       className={cn(
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

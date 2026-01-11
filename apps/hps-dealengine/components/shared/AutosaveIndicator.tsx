@@ -36,7 +36,7 @@ export function AutosaveIndicator({
 
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-text-secondary"
+      className="inline-flex items-center gap-1.5 text-xs text-slate-400"
       title={tooltip}
       data-testid="autosave-status"
     >

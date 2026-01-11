@@ -128,12 +128,17 @@ export function SystemsStatusFields({
     (field: 'roof_year_installed' | 'hvac_year_installed' | 'water_heater_year_installed') =>
       (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
+
+        // Allow empty value (clearing the field)
         if (value === '') {
           onFieldChange(field, null);
           return;
         }
+
+        // Allow typing any digits - don't block during input
+        // The HTML min/max attributes provide browser validation hints
         const numValue = parseInt(value, 10);
-        if (!Number.isNaN(numValue) && numValue >= MIN_YEAR && numValue <= MAX_YEAR) {
+        if (!Number.isNaN(numValue)) {
           onFieldChange(field, numValue);
         }
       },

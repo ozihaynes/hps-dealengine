@@ -268,11 +268,14 @@ export const ArvBandWidget = memo(function ArvBandWidget({
         data-testid="arv-band-widget"
         data-state="empty"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">ARV Estimate</h3>
         <p className="text-sm text-slate-500 italic text-center py-4">
@@ -337,11 +340,14 @@ export const ArvBandWidget = memo(function ArvBandWidget({
         data-testid="arv-band-widget"
         data-state="no-data"
         className={cn(
-          "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+          "rounded-xl border border-white/10 backdrop-blur-xl",
           "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
           compact ? "p-3" : "p-4",
           className
         )}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+        }}
       >
         <h3 className="text-sm font-medium text-slate-300 mb-2">ARV Estimate</h3>
         <p className="text-sm text-slate-500 italic text-center py-4">
@@ -365,13 +371,16 @@ export const ArvBandWidget = memo(function ArvBandWidget({
       data-mid={safeMid ?? "null"}
       data-high={safeHigh ?? "null"}
       className={cn(
-        "rounded-xl border border-white/10 bg-blue-500/10 backdrop-blur-xl",
+        "rounded-xl border border-white/10 backdrop-blur-xl",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         // min-h ensures alignment in 3-column grid with MarketVelocityPanel and CompQualityCard
         "min-h-[280px]",
         compact ? "p-3" : "p-4",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">

@@ -374,7 +374,10 @@ export default function UnderwritePage() {
   // Wire UnderwriteTab's setDealValue helper
   const handleSetDealValue = useCallback(
     (path: string, value: unknown) => {
-      setDeal((prev) => setDealPath(prev, path, value));
+      setDeal((prev) => {
+        const newDeal = setDealPath(prev, path, value);
+        return newDeal;
+      });
       setHasUnsavedDealChanges(true);
     },
     [setDeal, setHasUnsavedDealChanges],

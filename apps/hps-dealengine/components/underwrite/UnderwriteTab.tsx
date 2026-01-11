@@ -14,6 +14,24 @@ import ConfidenceUnlock from "../offers/ConfidenceUnlock";
 import { useDealSession } from "@/lib/dealSessionContext";
 import type { DealContractRow } from "@/lib/dealContracts";
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// NEW SLICE IMPORTS (Slices 12-14, 18 Form Sections)
+// ═══════════════════════════════════════════════════════════════════════════════
+import {
+  SellerSituationSection,
+  ForeclosureDetailsSection,
+  LienRiskSection,
+  SystemsStatusSection,
+  type SellerSituationFormData,
+  type ForeclosureFormData,
+  type LienRiskFormData,
+  type SystemsStatusFormData,
+} from './sections';
+import { useAccordionState } from './accordion';
+import { SectionSkeleton, ErrorBoundary } from './states';
+import { UnderwriteHero } from './hero/UnderwriteHero';
+import { MobileBottomNav, MobileOutputDrawer, useMobileLayout } from './mobile';
+
 const fmtPercent = (value: number | null | undefined, opts?: { decimals?: number }) => {
   if (value == null || !Number.isFinite(Number(value))) return "-";
   const decimals = opts?.decimals ?? 1;
@@ -99,7 +117,35 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   overrideSaving,
   autosaveStatus,
 }) => {
-  const { saveWorkingStateNow } = useDealSession();
+  const { saveWorkingStateNow, dbDeal, hydratedDealId, lastAnalyzeResult } = useDealSession();
+
+  // Use hydratedDealId for component keys to force re-initialization AFTER working state is loaded
+  // This ensures sections get the correct initialData from working_state, not stale dbDeal.payload
+  const dealKey = hydratedDealId ?? dbDeal?.id ?? 'new-deal';
+
+  // HYDRATION GUARD: Only render form sections after working_state has been hydrated
+  // This prevents sections from firing onChange with null values before data loads
+  const sectionsReady = Boolean(hydratedDealId && hydratedDealId === dbDeal?.id);
+
+  // Mobile layout hook - handles drawer state and viewport detection
+  const {
+    isDrawerOpen,
+    openDrawer,
+    closeDrawer,
+    currentSection,
+    setCurrentSection,
+  } = useMobileLayout();
+
+  // Scroll to section handler for mobile nav
+  const scrollToSection = React.useCallback((sectionId: string) => {
+    setCurrentSection(sectionId);
+    // Use the accordion section IDs which match the mobile nav items
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [setCurrentSection]);
+
   const baseDeal = (deal as any) ?? {};
   const sandboxAny = sandbox as any;
 
@@ -161,6 +207,100 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
   const market = (baseDeal.market ?? {}) as any;
   const legal = (baseDeal.legal ?? {}) as any;
   const timeline = (baseDeal.timeline ?? {}) as any;
+
+  // ═══════════════════════════════════════════════════════════════════════════════
+  // NEW SECTION STATE (Slices 12-14, 18)
+  // ═══════════════════════════════════════════════════════════════════════════════
+
+  // Accordion state for collapsible sections (persisted to sessionStorage)
+  const SECTION_IDS = [
+    'seller-situation',
+    'foreclosure-details',
+    'lien-risk',
+    'property-systems',
+  ] as const;
+
+  const accordion = useAccordionState(
+    SECTION_IDS as unknown as string[],
+    ['seller-situation'] // Default expanded
+  );
+
+  // Extract initial data for new sections from deal object
+  const sellerSituationData: Partial<SellerSituationFormData> = React.useMemo(() => ({
+    reason_for_selling: baseDeal.seller?.reason_for_selling ?? null,
+    seller_timeline: baseDeal.seller?.seller_timeline ?? null,
+    decision_maker_status: baseDeal.seller?.decision_maker_status ?? null,
+    lowest_acceptable_price: baseDeal.seller?.lowest_acceptable_price ?? null,
+    mortgage_delinquent: baseDeal.seller?.mortgage_delinquent ?? false,
+    listed_with_agent: baseDeal.seller?.listed_with_agent ?? false,
+    seller_notes: baseDeal.seller?.seller_notes ?? '',
+  }), [baseDeal.seller]);
+
+  const foreclosureData: Partial<ForeclosureFormData> = React.useMemo(() => ({
+    foreclosure_status: baseDeal.foreclosure?.foreclosure_status ?? 'none',
+    days_delinquent: baseDeal.foreclosure?.days_delinquent ?? null,
+    first_missed_payment_date: baseDeal.foreclosure?.first_missed_payment_date ?? null,
+    lis_pendens_date: baseDeal.foreclosure?.lis_pendens_date ?? null,
+    judgment_date: baseDeal.foreclosure?.judgment_date ?? null,
+    auction_date: baseDeal.foreclosure?.auction_date ?? timeline.auction_date ?? null,
+  }), [baseDeal.foreclosure, timeline.auction_date]);
+
+  const lienRiskData: Partial<LienRiskFormData> = React.useMemo(() => ({
+    hoa_status: baseDeal.liens?.hoa_status ?? null,
+    hoa_arrears_amount: baseDeal.liens?.hoa_arrears_amount ?? null,
+    hoa_monthly_assessment: baseDeal.liens?.hoa_monthly_assessment ?? null,
+    cdd_status: baseDeal.liens?.cdd_status ?? null,
+    cdd_arrears_amount: baseDeal.liens?.cdd_arrears_amount ?? null,
+    property_tax_status: baseDeal.liens?.property_tax_status ?? null,
+    property_tax_arrears: baseDeal.liens?.property_tax_arrears ?? null,
+    municipal_liens_present: baseDeal.liens?.municipal_liens_present ?? false,
+    municipal_lien_amount: baseDeal.liens?.municipal_lien_amount ?? null,
+    title_search_completed: baseDeal.liens?.title_search_completed ?? false,
+    title_issues_notes: baseDeal.liens?.title_issues_notes ?? '',
+  }), [baseDeal.liens]);
+
+  const systemsStatusData: Partial<SystemsStatusFormData> = React.useMemo(() => ({
+    overall_condition: baseDeal.systems?.overall_condition ?? null,
+    deferred_maintenance_level: baseDeal.systems?.deferred_maintenance_level ?? null,
+    roof_year_installed: baseDeal.systems?.roof_year_installed ?? property?.evidence?.roof_age != null
+      ? 2026 - property.evidence.roof_age
+      : null,
+    hvac_year_installed: baseDeal.systems?.hvac_year_installed ?? property?.evidence?.hvac_year ?? null,
+    water_heater_year_installed: baseDeal.systems?.water_heater_year_installed ?? null,
+  }), [baseDeal.systems, property?.evidence?.roof_age, property?.evidence?.hvac_year]);
+
+  // Foreclosure boost from timeline (for motivation calculation)
+  const [foreclosureBoost, setForeclosureBoost] = React.useState<number>(0);
+
+  // Change handlers for new sections
+  const handleSellerSituationChange = React.useCallback((data: SellerSituationFormData) => {
+    setDealValue('seller', data);
+  }, [setDealValue]);
+
+  const handleForeclosureChange = React.useCallback((data: ForeclosureFormData) => {
+    setDealValue('foreclosure', data);
+    // Update auction_date in timeline as well for backward compatibility
+    if (data.auction_date) {
+      setDealValue('timeline.auction_date', data.auction_date);
+    }
+  }, [setDealValue]);
+
+  const handleLienRiskChange = React.useCallback((data: LienRiskFormData) => {
+    setDealValue('liens', data);
+  }, [setDealValue]);
+
+  const handleSystemsStatusChange = React.useCallback((data: SystemsStatusFormData) => {
+    setDealValue('systems', data);
+    // Update legacy property.evidence fields for backward compatibility
+    if (data.roof_year_installed != null) {
+      const roofAge = 2026 - data.roof_year_installed;
+      setDealValue('property.evidence.roof_age', roofAge);
+    }
+    if (data.hvac_year_installed != null) {
+      setDealValue('property.evidence.hvac_year', data.hvac_year_installed);
+    }
+  }, [setDealValue]);
+
   const suggestedArv = valuationRun?.output?.suggested_arv ?? null;
   const suggestedArvMethod = valuationRun?.output?.suggested_arv_source_method ?? "comps_median_v1";
   const suggestedArvCompKindUsed = valuationRun?.output?.suggested_arv_comp_kind_used ?? null;
@@ -441,6 +581,9 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Hero - Decision summary from last analyze run */}
+      <UnderwriteHero initialResult={lastAnalyzeResult} />
+
       {/* Market & Valuation */}
       <UnderwritingSection title="Market & Valuation" icon={Icons.barChart}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1008,6 +1151,69 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
         </div>
       </UnderwritingSection>
 
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+          NEW FORM SECTIONS (Slices 12-14, 18)
+          These sections contain the 29 new fields for enhanced underwriting
+          HYDRATION GUARD: Show skeletons until working_state is loaded
+      ═══════════════════════════════════════════════════════════════════════════════ */}
+
+      {sectionsReady ? (
+        <>
+          {/* Systems Status Section (Slice 18) - Property systems condition & RUL */}
+          <ErrorBoundary>
+            <SystemsStatusSection
+              key={`systems-${dealKey}`}
+              initialData={systemsStatusData}
+              isExpanded={accordion.isExpanded('property-systems')}
+              onToggle={() => accordion.toggle('property-systems')}
+              onChange={handleSystemsStatusChange}
+            />
+          </ErrorBoundary>
+
+          {/* Seller Situation Section (Slice 12) - Motivation scoring inputs */}
+          <ErrorBoundary>
+            <SellerSituationSection
+              key={`seller-${dealKey}`}
+              initialData={sellerSituationData}
+              foreclosureBoost={foreclosureBoost}
+              isExpanded={accordion.isExpanded('seller-situation')}
+              onToggle={() => accordion.toggle('seller-situation')}
+              onChange={handleSellerSituationChange}
+            />
+          </ErrorBoundary>
+
+          {/* Foreclosure Details Section (Slice 13) - FL foreclosure timeline */}
+          <ErrorBoundary>
+            <ForeclosureDetailsSection
+              key={`foreclosure-${dealKey}`}
+              initialData={foreclosureData}
+              isExpanded={accordion.isExpanded('foreclosure-details')}
+              onToggle={() => accordion.toggle('foreclosure-details')}
+              onChange={handleForeclosureChange}
+            />
+          </ErrorBoundary>
+
+          {/* Lien Risk Section (Slice 14) - HOA/CDD/Tax arrears with $10k blocking gate */}
+          <ErrorBoundary>
+            <LienRiskSection
+              key={`liens-${dealKey}`}
+              initialData={lienRiskData}
+              isExpanded={accordion.isExpanded('lien-risk')}
+              onToggle={() => accordion.toggle('lien-risk')}
+              onChange={handleLienRiskChange}
+            />
+          </ErrorBoundary>
+        </>
+      ) : (
+        <>
+          {/* Loading skeletons while hydration is in progress */}
+          <SectionSkeleton label="Property Systems" />
+          <SectionSkeleton label="Seller Situation" />
+          <SectionSkeleton label="Foreclosure Details" />
+          <SectionSkeleton label="Lien Risk" />
+        </>
+      )}
+
       {/* Debt & Liens */}
       <UnderwritingSection title="Debt & Liens" icon={Icons.briefcase}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1479,6 +1685,57 @@ const UnderwriteTab: React.FC<UnderwriteTabProps> = ({
           </div>
         </div>
       </Modal>
+
+      {/* ═══════════════════════════════════════════════════════════════════════════════
+          MOBILE NAVIGATION (Slice 21)
+          Bottom nav and output drawer for mobile viewport
+      ═══════════════════════════════════════════════════════════════════════════════ */}
+      <MobileBottomNav
+        activeSection={currentSection}
+        onSectionChange={scrollToSection}
+        onOpenOutputs={openDrawer}
+        isOutputsOpen={isDrawerOpen}
+      />
+
+      <MobileOutputDrawer
+        isOpen={isDrawerOpen}
+        onClose={closeDrawer}
+        title="Analysis Outputs"
+      >
+        {/* Outputs summary content */}
+        <div className="space-y-4">
+          {lastAnalyzeResult ? (
+            <>
+              <div className="rounded-lg bg-slate-800/50 p-3">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Decision</h3>
+                <p className="text-lg font-semibold text-white">
+                  {(lastAnalyzeResult as any)?.outputs?.verdict ?? 'Pending'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-slate-800/50 p-3">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Primary Offer</h3>
+                <p className="text-lg font-semibold text-emerald-400">
+                  {(lastAnalyzeResult as any)?.outputs?.primary_offer != null
+                    ? fmt$((lastAnalyzeResult as any).outputs.primary_offer, 0)
+                    : '—'}
+                </p>
+              </div>
+              <div className="rounded-lg bg-slate-800/50 p-3">
+                <h3 className="text-sm font-medium text-slate-300 mb-2">Spread</h3>
+                <p className="text-lg font-semibold text-white">
+                  {(lastAnalyzeResult as any)?.outputs?.spread != null
+                    ? fmt$((lastAnalyzeResult as any).outputs.spread, 0)
+                    : '—'}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-8 text-slate-400">
+              <p>Run analysis to see outputs</p>
+            </div>
+          )}
+        </div>
+      </MobileOutputDrawer>
     </div>
   );
 };

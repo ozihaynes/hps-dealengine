@@ -152,7 +152,7 @@ export function DealCard({ deal, className }: DealCardProps) {
         className
       )}
       style={{
-        backgroundColor: "var(--glass-bg)",
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
         backdropFilter: "blur(var(--blur-md))",
         border: "1px solid var(--glass-border)",
       }}
@@ -212,7 +212,7 @@ export function DealCard({ deal, className }: DealCardProps) {
               className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full"
               style={{
                 color: "var(--text-muted)",
-                backgroundColor: "var(--surface-2)",
+                backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
               }}
             >
               Pending Analysis
@@ -247,7 +247,7 @@ export function DealCard({ deal, className }: DealCardProps) {
               }}
               className="p-1.5 rounded-lg transition-colors"
               style={{
-                backgroundColor: "var(--surface-2)",
+                backgroundColor: "color-mix(in srgb, var(--surface-2) 92%, var(--bg-primary, #000) 8%)",
                 color: "var(--text-secondary)",
               }}
               title="Run Analysis"

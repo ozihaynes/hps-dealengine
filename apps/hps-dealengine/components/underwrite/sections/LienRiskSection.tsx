@@ -75,8 +75,16 @@ export function LienRiskSection({
   const onChangeRef = React.useRef(onChange);
   onChangeRef.current = onChange;
 
+  // Skip initial mount to prevent setState during render
+  const isInitialMount = React.useRef(true);
+
   // Notify parent of changes
   React.useEffect(() => {
+    // Skip initial mount - parent already has initialData
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     onChangeRef.current?.(state.data);
   }, [state.data]);
 

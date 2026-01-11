@@ -137,11 +137,14 @@ export const DecisionRationale = memo(function DecisionRationale({
     <motion.div
       className={cn(
         "relative rounded-xl border overflow-hidden",
-        "bg-blue-500/10 backdrop-blur-xl",
+        "backdrop-blur-xl",
         "border-white/10",
         "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)]",
         className
       )}
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--bg-primary, #000) 80%, black 20%)",
+      }}
       variants={prefersReducedMotion ? undefined : containerVariants}
       initial={prefersReducedMotion ? false : "hidden"}
       animate="visible"

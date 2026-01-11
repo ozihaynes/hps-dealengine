@@ -73,9 +73,9 @@ export const OfferChecklistPanel: React.FC<OfferChecklistPanelProps> = ({ dealId
     (deal as any)?.address ?? (deal as any)?.address_line_1 ?? (deal as any)?.name ?? "Current deal";
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 px-4 py-6">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 px-4 py-8">
       <div
-        className="max-h-[calc(100vh-2rem)] w-full max-w-5xl overflow-hidden rounded-2xl shadow-2xl flex flex-col border"
+        className="max-h-[calc(100vh-8rem)] w-full max-w-6xl lg:max-w-[96rem] xl:max-w-[104rem] 2xl:max-w-[112rem] overflow-hidden rounded-2xl shadow-2xl flex flex-col border"
         style={{
           background: THEME.surfaceSolid,
           borderColor: THEME.border,
